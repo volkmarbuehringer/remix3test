@@ -4,7 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 
 import type { ResourceOption } from '../data/appointments.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { input } from './mixins/input.ts'
 import { ResourceSearchLive } from './appointments-new-resource-search.browser.tsx'
@@ -170,7 +170,11 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
             let searchText = [res.name, res.description].filter(Boolean).join(' ')
             return (
               <li key={res.id} data-resource-card="" data-search-text={searchText}>
-                <a href={buildResourceUrl(res.id, gridState)} mix={cardLink}>
+                <a
+                  href={buildResourceUrl(res.id, gridState)}
+                  data-rmx-target={frames.appointmentsNewContent}
+                  mix={cardLink}
+                >
                   <span mix={cardName}>{res.name}</span>
                   {res.description ? <span mix={cardDescription}>{res.description}</span> : null}
                 </a>

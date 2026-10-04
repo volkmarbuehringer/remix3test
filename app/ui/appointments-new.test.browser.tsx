@@ -4,6 +4,7 @@ import { render } from 'remix/component/test'
 
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
 import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
+import { AppointmentsNewStep2Live } from './appointments-new-step2.browser.tsx'
 import type { ResourceOption } from '../data/appointments.ts'
 import type { GridState } from '../utils/grid-state.ts'
 
@@ -179,5 +180,58 @@ describe('Appointments new create panel reveal', () => {
     await result.act(() => {})
 
     assert.equal(scrollCalls.length, 0)
+  })
+})
+
+describe('Appointments new step 2 live feedback', () => {
+  let cleanup: (() => void) | undefined
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = undefined
+  })
+
+  function renderForm() {
+    let result = render(
+      <div>
+        <form data-wizard-form="">
+          <input type="radio" name="day_start" value="1000:480" />
+          <input type="radio" name="day_start" value="1000:540" />
+          <div data-wizard-confirm="" aria-live="polite" />
+          <button type="submit" data-wizard-submit="">
+            Termin anlegen
+          </button>
+        </form>
+        <AppointmentsNewStep2Live />
+      </div>,
+    )
+    cleanup = result.cleanup
+    return result
+  }
+
+  it('disables the submit until a slot is selected, then syncs on change', async () => {
+    let result = renderForm()
+    await result.act(() => {})
+
+    let submit = result.container.querySelector<HTMLButtonElement>('[data-wizard-submit]')
+    let confirm = result.container.querySelector<HTMLElement>('[data-wizard-confirm]')
+    if (!submit || !confirm) throw new Error('form controls should render')
+
+    // No radio checked → submit disabled and the neutral prompt, synced on mount.
+    assert.equal(submit.disabled, true)
+    assert.equal(confirm.textContent, 'Bitte wählen Sie eine Uhrzeit.')
+
+    let radio = result.container.querySelector<HTMLInputElement>('input[value="1000:480"]')
+    if (!radio) throw new Error('radio should render')
+    await result.act(() => {
+      radio.checked = true
+      radio.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    assert.equal(submit.disabled, false)
+    assert.ok(
+      (confirm.textContent ?? '').includes('Uhr'),
+      `confirm line should show the chosen time, got ${JSON.stringify(confirm.textContent)}`,
+    )
   })
 })

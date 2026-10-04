@@ -14,7 +14,7 @@ import {
 } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import type { DayWithSlots } from '../data/appointments.ts'
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { AppointmentsNewStep2Live } from './appointments-new-step2.browser.tsx'
 import { WizardSteps } from './appointments-new-steps.tsx'
@@ -271,7 +271,13 @@ export function Step2(handle: Handle<Step2Props>) {
     return (
       <div>
         <AppointmentsNewStep2Live />
-        <RestfulForm method="POST" action={base} novalidate data-wizard-form="true">
+        <RestfulForm
+          method="POST"
+          action={base}
+          novalidate
+          data-wizard-form="true"
+          data-rmx-target={frames.appointmentsNewContent}
+        >
           <input type="hidden" name="_offset" value={gridState.offset} />
           <input type="hidden" name="_sort" value={gridState.sort} />
           <input type="hidden" name="_order" value={gridState.order} />
@@ -328,7 +334,11 @@ export function Step2(handle: Handle<Step2Props>) {
                     ◀ Vorherige
                   </span>
                 ) : (
-                  <a href={buildWeekUrl(prevWeekStart)} mix={css({ textDecoration: 'none' })}>
+                  <a
+                    href={buildWeekUrl(prevWeekStart)}
+                    data-rmx-target={frames.appointmentsNewContent}
+                    mix={css({ textDecoration: 'none' })}
+                  >
                     <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
                       ◀ Vorherige
                     </button>
@@ -347,7 +357,11 @@ export function Step2(handle: Handle<Step2Props>) {
                 >
                   {formatWeekLabel(weekStart)}
                 </span>
-                <a href={buildWeekUrl(nextWeekStart)} mix={css({ textDecoration: 'none' })}>
+                <a
+                  href={buildWeekUrl(nextWeekStart)}
+                  data-rmx-target={frames.appointmentsNewContent}
+                  mix={css({ textDecoration: 'none' })}
+                >
                   <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
                     Nächste ▶
                   </button>
@@ -360,7 +374,11 @@ export function Step2(handle: Handle<Step2Props>) {
                     Für diese Ressource sind derzeit keine freien Termine verfügbar. Wechseln Sie
                     die Woche (◀ / ▶) oder wählen Sie eine andere Ressource.
                   </p>
-                  <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
+                  <a
+                    href={buildBackUrl(weekStart)}
+                    data-rmx-target={frames.appointmentsNewContent}
+                    mix={table.linkPlain}
+                  >
                     <button type="button" mix={button({ tone: 'secondary' })}>
                       Andere Ressource wählen
                     </button>
@@ -443,7 +461,11 @@ export function Step2(handle: Handle<Step2Props>) {
                 >
                   Termin anlegen
                 </button>
-                <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
+                <a
+                  href={buildBackUrl(weekStart)}
+                  data-rmx-target={frames.appointmentsNewContent}
+                  mix={table.linkPlain}
+                >
                   <button
                     type="button"
                     mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
@@ -461,6 +483,7 @@ export function Step2(handle: Handle<Step2Props>) {
                     gridState.period,
                     gridState.status,
                   )}
+                  data-rmx-target={frames.appointmentsNewContent}
                   mix={[table.spacer, table.linkPlain]}
                 >
                   <button

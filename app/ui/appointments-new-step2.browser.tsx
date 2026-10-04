@@ -22,20 +22,34 @@ function syncSelection(form: HTMLFormElement): void {
   }
 }
 
+// A delegated document-level listener registered once per page load. The wizard
+// form is re-rendered in place on frame navigation, which can replace the form
+// node; a listener bound to the old node would be dropped with it.
+let changeBound = false
+
+function registerChangeListener(): void {
+  if (changeBound || typeof document === 'undefined') return
+  changeBound = true
+  document.addEventListener('change', (event) => {
+    let target = event.target
+    if (!(target instanceof HTMLElement)) return
+    let form = target.closest('[data-wizard-form]')
+    if (form instanceof HTMLFormElement) syncSelection(form)
+  })
+}
+
 export const AppointmentsNewStep2Live = clientEntry(
   import.meta.url + '#AppointmentsNewStep2Live',
   function AppointmentsNewStep2LiveEntry(handle: Handle) {
-    let initialized = false
-
     return () => {
-      if (!initialized && typeof document !== 'undefined') {
-        initialized = true
-        let form = document.querySelector('[data-wizard-form]') as HTMLFormElement | null
-        if (form) {
-          form.addEventListener('change', () => syncSelection(form), { signal: handle.signal })
-          syncSelection(form)
-        }
-      }
+      registerChangeListener()
+      // The factory closure survives frame DOM swaps, so re-sync on every render
+      // rather than only on first mount — otherwise a post-swap validation error
+      // leaves the submit button enabled with no time selected.
+      handle.queueTask(() => {
+        let form = document.querySelector('[data-wizard-form]')
+        if (form instanceof HTMLFormElement) syncSelection(form)
+      })
       return null
     }
   },

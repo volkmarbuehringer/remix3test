@@ -666,6 +666,7 @@ describe('Appointments New Controller', () => {
 describe('Appointments new frame navigation', () => {
   let userCookie: string
   let userCsrfToken: string
+  let firstResourceId: number
 
   before(async () => {
     await initializeAppDatabase()
@@ -673,6 +674,10 @@ describe('Appointments new frame navigation', () => {
     if (!auth) throw new Error('user@newapp.com not found in seed')
     userCookie = auth.cookie
     userCsrfToken = auth.csrfToken
+
+    let allResources = await listResources(db)
+    if (allResources.length === 0) throw new Error('No resources found')
+    firstResourceId = allResources[0]!.id
   })
 
   it('full GET renders the document shell plus a blocking appointments-new-content frame', async () => {
@@ -737,6 +742,95 @@ describe('Appointments new frame navigation', () => {
       ),
       'the previous-page link targets the frame',
     )
+  })
+
+  it('targets the frame from the create panel and wizard links', async () => {
+    let step1 = await router.fetch(`${APPT_URL}?creating=true&step=1`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent },
+    })
+    let step1Html = await step1.text()
+    assert.ok(
+      /href="\/appointments\/new\?creating=true[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        step1Html,
+      ),
+      'the create opener targets the frame',
+    )
+    assert.ok(
+      /href="\/appointments\/new\?creating=true&amp;step=2[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        step1Html,
+      ),
+      'a resource card targets the frame',
+    )
+    assert.ok(
+      /href="\/appointments\/new\?offset=0[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        step1Html,
+      ),
+      'the step-1 cancel targets the frame',
+    )
+  })
+
+  it('targets the frame from the step 2 form and navigation', async () => {
+    let step2 = await router.fetch(
+      `${APPT_URL}?creating=true&step=2&resource_id=${firstResourceId}`,
+      { headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent } },
+    )
+    let html = await step2.text()
+    assert.ok(
+      /<form[^>]*action="\/appointments\/new"[^>]*data-rmx-target="appointments-new-content"/.test(
+        html,
+      ),
+      'the step-2 create form targets the frame',
+    )
+    assert.ok(
+      /href="\/appointments\/new\?creating=true&amp;step=2[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        html,
+      ),
+      'the week navigation targets the frame',
+    )
+    assert.ok(
+      /href="\/appointments\/new\?creating=true&amp;step=1[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        html,
+      ),
+      'the back-to-step-1 link targets the frame',
+    )
+  })
+
+  it('targets the frame from the delete panel links', async () => {
+    let day = new Date(Date.now() + 60 * 86_400_000)
+    day.setUTCHours(0, 0, 0, 0)
+    let insert = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Frame Target Delete', $2, '[480,540)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, day.getTime(), Date.now()],
+    )
+    let id = Number(insert.rows[0]!.id)
+    try {
+      let list = await router.fetch(
+        `${APPT_URL}?status=pending&filter=${encodeURIComponent('Frame Target Delete')}`,
+        { headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent } },
+      )
+      let listHtml = await list.text()
+      assert.ok(
+        new RegExp(
+          `href="/appointments/new\\?deleting=${id}[^"]*"[^>]*data-rmx-target="appointments-new-content"`,
+        ).test(listHtml),
+        'the row delete opener targets the frame',
+      )
+
+      let detail = await router.fetch(`${APPT_URL}?deleting=${id}`, {
+        headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent },
+      })
+      let detailHtml = await detail.text()
+      assert.ok(
+        /href="\/appointments\/new\?offset=0[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+          detailHtml,
+        ),
+        'the delete-panel cancel targets the frame',
+      )
+    } finally {
+      await pool.query('DELETE FROM appointments WHERE id = $1', [id])
+    }
   })
 
   it('full-document POST validation error renders the page inline, not as a frame', async () => {

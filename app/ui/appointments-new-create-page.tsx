@@ -4,7 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 
 import button from '../ui/theme/button.ts'
 import type { ResourceOption, DayWithSlots } from '../data/appointments.ts'
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
 import { Step2 } from './appointments-new-step2.tsx'
 import { WizardSteps } from './appointments-new-steps.tsx'
@@ -93,6 +93,7 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
           <div mix={table.actions}>
             <a
               href={buildCancelUrl(base, offset, sort, order, filter, period, status)}
+              data-rmx-target={frames.appointmentsNewContent}
               mix={table.linkPlain}
             >
               <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>

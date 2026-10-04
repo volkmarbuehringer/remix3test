@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { frames } from '../routes.ts'
 
 const listStyle = css({
   display: 'flex',
@@ -160,6 +161,7 @@ export function WizardSteps(handle: Handle<WizardStepsProps>) {
                 {isDone && backHref != null ? (
                   <a
                     href={backHref}
+                    data-rmx-target={frames.appointmentsNewContent}
                     mix={linkStyle}
                     title="Zur Ressourcenauswahl"
                     aria-label={`${step.meta}: ${step.label} ändern`}

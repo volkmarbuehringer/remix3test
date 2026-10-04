@@ -72,4 +72,82 @@ describe('appointments-new frame navigation', () => {
 
     assert.equal(loads, 1, 'the segment must reload the frame, not the whole document')
   })
+
+  it('opens the create panel and wizard in-frame with the body locked', async (t) => {
+    let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    assert.ok(auth?.cookie, 'user session must be created')
+
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page
+      .context()
+      .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
+
+    let loads = 0
+    page.on('load', () => {
+      loads++
+    })
+
+    let hydrated = page.waitForResponse(
+      (response) => response.url().includes('/notifications/unread-count'),
+      { timeout: 15_000 },
+    )
+    await page.goto('/appointments/new')
+    await hydrated
+
+    // Open the create panel: the button is a frame target, so the list stays.
+    await page
+      .locator('a[data-rmx-target="appointments-new-content"][href*="creating=true"]')
+      .first()
+      .click()
+    await page.waitForFunction(
+      () => document.querySelector('[data-create-panel]') != null,
+      undefined,
+      { timeout: 15_000 },
+    )
+    await page.waitForFunction(
+      () => document.documentElement.style.overflow === 'hidden',
+      undefined,
+      { timeout: 15_000 },
+    )
+    assert.equal(loads, 1, 'opening the panel must not reload the document')
+    assert.ok(
+      await page.evaluate(() => location.search.includes('creating=true')),
+      'the panel URL is in the address bar',
+    )
+
+    // Step 1 -> step 2 through a resource card stays in the frame and locked.
+    await page
+      .locator('[data-resource-card] a[data-rmx-target="appointments-new-content"]')
+      .first()
+      .click()
+    await page.waitForFunction(() => location.search.includes('step=2'), undefined, {
+      timeout: 15_000,
+    })
+    await page.waitForFunction(
+      () => document.documentElement.style.overflow === 'hidden',
+      undefined,
+      { timeout: 15_000 },
+    )
+    assert.equal(loads, 1, 'stepping to step 2 must not reload the document')
+
+    // Cancel closes the panel and releases the body scroll lock, in-frame.
+    await page
+      .locator('[data-create-panel] a[data-rmx-target="appointments-new-content"]', {
+        hasText: 'Abbrechen',
+      })
+      .first()
+      .click()
+    await page.waitForFunction(
+      () => document.querySelector('[data-create-panel]') == null,
+      undefined,
+      { timeout: 15_000 },
+    )
+    await page.waitForFunction(
+      () => document.documentElement.style.overflow !== 'hidden',
+      undefined,
+      { timeout: 15_000 },
+    )
+    assert.equal(loads, 1, 'closing the panel must not reload the document')
+  })
 })

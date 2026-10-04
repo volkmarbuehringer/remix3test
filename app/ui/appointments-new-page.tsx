@@ -316,6 +316,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
             <span mix={table.spacer} />
             <a
               href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
+              data-rmx-target={frames.appointmentsNewContent}
               mix={table.linkPlain}
             >
               <button mix={[button({ tone: 'primary' })]}>
@@ -343,6 +344,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       period,
                       status,
                     )}
+                    data-rmx-target={frames.appointmentsNewContent}
                     mix={table.linkPlain}
                   >
                     <button mix={[button({ tone: 'primary' })]}>
@@ -497,6 +499,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       ) : (
                         <a
                           href={`${BASE}?deleting=${row.id}&offset=${offset}&sort=${sortColumn}&order=${sortDirection}${filter ? '&filter=' + encodeURIComponent(filter) : ''}${period ? '&period=' + encodeURIComponent(period) : ''}${status ? '&status=' + encodeURIComponent(status) : ''}`}
+                          data-rmx-target={frames.appointmentsNewContent}
                           mix={delBtnStyle}
                           title="Löschen"
                           aria-label="Termin löschen"
@@ -658,6 +661,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                                 period,
                                 status,
                               )}
+                              data-rmx-target={frames.appointmentsNewContent}
                               mix={table.linkPlain}
                             >
                               <button
