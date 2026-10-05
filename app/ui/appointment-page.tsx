@@ -119,6 +119,9 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
 
     return (
       <Layout title="Termine">
+        {/* Deliberately blocking (no fallback): the server resolves the frame's
+            GET into the initial HTML, so first paint and no-JS show the grid.
+            To keep this true, the frame GET must render HTML on every path. */}
         <Frame name={frames.appointmentContent} src={frameSrc} />
       </Layout>
     )

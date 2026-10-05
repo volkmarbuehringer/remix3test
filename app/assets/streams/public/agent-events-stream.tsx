@@ -1,5 +1,6 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
-import { routes } from '../../../routes.ts'
+import { frames, routes } from '../../../routes.ts'
+import { activeFrameName } from '../../../utils/frame-utils.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 import { MAX_MESSAGE_LENGTH } from '../../../utils/message-limits.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
@@ -69,9 +70,9 @@ export const AgentEventsStream = clientEntry(
     let pipelineRows: PipelineRow[] = []
 
     function getPipelineFrame() {
-      let container = document.getElementById('agent-events-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
-      return handle.frames.get(activeFrame)
+      return handle.frames.get(
+        activeFrameName('agent-events-frame-container', frames.agentEventsPanel),
+      )
     }
 
     function renderPipeline() {
@@ -237,11 +238,14 @@ export const AgentEventsStream = clientEntry(
                 hideConfirmGate()
                 if (parsed.success) {
                   showInfo('Action completed', { kind: 'success' })
-                  let container = document.getElementById('agent-events-frame-container')
-                  let activeFrame =
-                    container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
-                  let theFrame = handle.frames.get(activeFrame)
-                  if (theFrame) theFrame.reload().catch(() => {})
+                  let theFrame = getPipelineFrame()
+                  if (theFrame) {
+                    theFrame.reload().catch((err) => {
+                      showInfo('Panel reload failed: ' + String(err), { kind: 'error' })
+                    })
+                  } else {
+                    showInfo('Panel reload failed: frame not found', { kind: 'error' })
+                  }
                 } else {
                   showInfo('Action failed: ' + String(parsed.error ?? 'unknown'), { kind: 'error' })
                 }
@@ -252,7 +256,7 @@ export const AgentEventsStream = clientEntry(
               } else if (eventType === 'navigate') {
                 didNavigate = true
                 let href = String(parsed.href)
-                let target = (parsed.target as string) || 'agent-events-panel'
+                let target = (parsed.target as string) || frames.agentEventsPanel
                 showInfo('Navigating to ' + href + '...', { kind: 'info' })
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
@@ -344,7 +348,11 @@ export const AgentEventsStream = clientEntry(
       clearStatusBar()
       resetPipeline()
       let frame = getPipelineFrame()
-      if (frame) frame.reload().catch(() => {})
+      if (frame) {
+        frame.reload().catch((err) => {
+          showInfo('Log reset failed: ' + String(err), { kind: 'error' })
+        })
+      }
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {
@@ -374,9 +382,7 @@ export const AgentEventsStream = clientEntry(
         // stale gate now would clobber the new run's state — drop it.
         if (abortController) return
 
-        let container = document.getElementById('agent-events-frame-container')
-        let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
-        let frame = handle.frames.get(activeFrame)
+        let frame = getPipelineFrame()
         if (!frame) return
 
         // Re-attach the stream closures to the suspended run so confirm/cancel

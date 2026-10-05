@@ -1,4 +1,5 @@
 import { clientEntry, css, type Handle } from 'remix/component'
+import { frames } from '../routes.ts'
 
 /**
  * Master–detail behaviour for /admin/chatlog.
@@ -31,7 +32,7 @@ import { clientEntry, css, type Handle } from 'remix/component'
  */
 
 const OPEN_KEY = 'admin-chatlog-detail-open'
-const DETAIL_FRAME = 'admin-chatlog-detail'
+const DETAIL_FRAME = frames.adminChatlogDetail
 const PAGE_SELECTOR = '[data-chatlog-page]'
 const PANE_SELECTOR = '[data-chatlog-detail-panel]'
 const OPEN_SELECTOR = '[data-chatlog-master-detail], ' + PANE_SELECTOR

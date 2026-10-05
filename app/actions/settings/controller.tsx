@@ -9,6 +9,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { frames, routes } from '../../routes.ts'
+import { isFrameTargeted } from '../../utils/frame-target.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { users, type User } from '../../data/schema.ts'
@@ -54,7 +55,7 @@ export default createController(routes.settings, {
     index(context) {
       let user = getCurrentUser()
       let pageSize = getPageSize(context.session, 15)
-      let isFrame = context.request.headers.get('X-Remix-Target') === frames.settingsPanel
+      let isFrame = isFrameTargeted(context.request, frames.settingsPanel)
       return context.render(
         <SettingsView
           isFrame={isFrame}
@@ -68,7 +69,7 @@ export default createController(routes.settings, {
     async action(context) {
       let user = getCurrentUser()
       let pageSize = getPageSize(context.session, 15)
-      let isFrame = context.request.headers.get('X-Remix-Target') === frames.settingsPanel
+      let isFrame = isFrameTargeted(context.request, frames.settingsPanel)
       let _action =
         typeof context.formData.get('_action') === 'string'
           ? (context.formData.get('_action') as string)
@@ -369,6 +370,10 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
           titleHidden
           description="Verwalten Sie Ihre Kontoeinstellungen."
         >
+          {/* Deliberately blocking (no fallback): the server resolves the active
+              tab into the initial HTML, so first paint and no-JS show the active
+              section. Full-document POSTs must render the section inline — the
+              frame's separate GET never sees the POST's validation state. */}
           <Frame
             name={frames.settingsPanel}
             src={`${routes.settings.index.href()}?tab=${activeTab}`}

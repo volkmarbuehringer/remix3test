@@ -1,10 +1,14 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
-import { routes } from '../../../routes.ts'
+import { frames, routes } from '../../../routes.ts'
+import { activeFrameName } from '../../../utils/frame-utils.ts'
 import { renderMarkdownToDom } from './markdown-dom.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
 import { readEventStream } from './read-sse.ts'
+
+/** Host element carrying `data-active-frame`; its value outranks the default panel name. */
+const PANEL_CONTAINER_ID = 'support-agent-frame-container'
 
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
@@ -195,11 +199,24 @@ export const SupportAgentStream = clientEntry(
 
     function handlePreviewClose() {
       setPreviewVisible(false)
-      let frame = handle.frames.get('support-agent-panel')
+      let frame = handle.frames.get(frames.supportAgentPanel)
       if (frame) {
         frame.src = routes.admin.supportAgent.panel.href()
-        frame.reload().catch(() => {})
+        frame.reload().catch((err) => {
+          appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
+        })
       }
+    }
+
+    // ── Active panel frame ─────────────────────────────────────────
+
+    /**
+     * The frame the panel content currently lives in: resolved through the
+     * container's `data-active-frame`, exactly like agent-events-stream's
+     * `getPipelineFrame()`, so the container-id/fallback pair cannot drift.
+     */
+    function getActivePanelFrame() {
+      return handle.frames.get(activeFrameName(PANEL_CONTAINER_ID, frames.supportAgentPanel))
     }
 
     // ── Error + retry ──────────────────────────────────────────────
@@ -713,11 +730,12 @@ export const SupportAgentStream = clientEntry(
                 // remove it once the page itself changes (see resolveThreadId).
                 currentAgentMessageEl = null
                 if (!didNavigate) {
-                  let container = document.getElementById('support-agent-frame-container')
-                  let activeFrame =
-                    container?.getAttribute('data-active-frame') ?? 'support-agent-panel'
-                  let theFrame = handle.frames.get(activeFrame)
-                  if (theFrame) theFrame.reload().catch(() => {})
+                  let theFrame = getActivePanelFrame()
+                  if (theFrame) {
+                    theFrame.reload().catch((err) => {
+                      appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
+                    })
+                  }
                 }
               } else if (eventType === 'agent-error') {
                 hideThinking()
@@ -757,9 +775,7 @@ export const SupportAgentStream = clientEntry(
       submitting = true
       e.preventDefault()
 
-      let container = document.getElementById('support-agent-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'support-agent-panel'
-      let frame = handle.frames.get(activeFrame)
+      let frame = getActivePanelFrame()
 
       appendStatusMessage('Formular wird gesendet...')
 
@@ -795,7 +811,9 @@ export const SupportAgentStream = clientEntry(
       }
 
       if (frame) {
-        await frame.reload().catch(() => {})
+        await frame.reload().catch((err) => {
+          appendStatusMessage('Panel-Reload nach Formular fehlgeschlagen: ' + String(err), true)
+        })
       }
     }
 
@@ -880,7 +898,7 @@ export const SupportAgentStream = clientEntry(
               autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
 
-            let container = document.getElementById('support-agent-frame-container')
+            let container = document.getElementById(PANEL_CONTAINER_ID)
             if (container) {
               container.addEventListener('submit', handleFrameFormSubmit, {
                 signal: handle.signal,

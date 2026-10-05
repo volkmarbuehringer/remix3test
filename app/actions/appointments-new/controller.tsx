@@ -4,6 +4,7 @@ import * as s from 'remix/data-schema'
 import { redirect } from 'remix/response/redirect'
 
 import { frames, routes } from '../../routes.ts'
+import { isFrameTargeted } from '../../utils/frame-target.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentWeekMonday, getTodayUtcMidnight, isWithinHours } from '../../utils/date-utils.ts'
 import {
@@ -346,7 +347,7 @@ async function loadAppointmentsNewPageData(
 
 /** True when the request addresses the appointments-new content frame. */
 function isAppointmentsNewFrameRequest(context: Pick<AppContext, 'request'>): boolean {
-  return context.request.headers.get('X-Remix-Target') === frames.appointmentsNewContent
+  return isFrameTargeted(context.request, frames.appointmentsNewContent)
 }
 
 /**

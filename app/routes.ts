@@ -3,6 +3,9 @@ import { del, get, post, put, route, form, resources } from 'remix/routes'
 export const frames = {
   adminContent: 'admin-content',
   listsContent: 'lists-content',
+  adminStats: 'admin-stats',
+  adminRecentActivity: 'admin-recent-activity',
+  adminChatlogDetail: 'admin-chatlog-detail',
 
   appointmentContent: 'appointment-content',
   appointmentsNewContent: 'appointments-new-content',

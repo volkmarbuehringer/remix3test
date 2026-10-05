@@ -1,6 +1,7 @@
 import type { RemixNode } from 'remix/component'
 import { css } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
+import { currentRequestTargetsFrame } from '../utils/frame-target.ts'
 import { theme } from './theme/theme.ts'
 
 import { Layout } from './layout.tsx'
@@ -8,8 +9,8 @@ import { frames } from '../routes.ts'
 import { VerwaltungNav } from './verwaltung-nav.tsx'
 
 const FRAME_TARGETS = new Set([
-  'admin-content',
-  'lists-content',
+  frames.adminContent,
+  frames.listsContent,
   // Nested agent panel frames load verwaltung pages as content-only fragments —
   // without these, a verwaltung page rendered inside an agent panel would emit a
   // full <Layout> shell, and its own form/link navigations would target the outer
@@ -43,13 +44,7 @@ export function renderVerwaltungPage(
   content: RemixNode,
   init?: ResponseInit,
 ) {
-  let isFrame = false
-  try {
-    let target = getContext().request.headers.get('X-Remix-Target')
-    isFrame = target != null && FRAME_TARGETS.has(target)
-  } catch {
-    /* no request context */
-  }
+  let isFrame = currentRequestTargetsFrame(...FRAME_TARGETS)
 
   if (isFrame) {
     // Read flash for PRG messages. The full-document path shows them via the main

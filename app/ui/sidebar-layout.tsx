@@ -1,10 +1,12 @@
 import type { RemixNode, Handle } from 'remix/component'
-import { css, Frame } from 'remix/component'
+import { css } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
+import { currentFrameTarget, currentRequestTargetsFrame } from '../utils/frame-target.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { Layout } from './layout.tsx'
+import { FrameShell } from './frame-shell.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import type { BaseNavItem } from './nav.ts'
@@ -36,19 +38,6 @@ const flashSuccessStyle = css({
   borderBottom: `1px solid ${_surface.successBorder}`,
   borderRadius: theme.radius.md,
   marginBottom: theme.space.sm,
-})
-
-/**
- * Slot content for the shell's self-relay frame. Without a fallback the frame
- * is blocking: a non-HTML frame response would fail the whole page render.
- */
-const frameFallbackStyle = css({
-  padding: '1.5rem',
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
 })
 
 // ── Types ──────────────────────────────────────────────────────
@@ -110,8 +99,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   let contentOnlyTargetSet = new Set(contentOnlyTargets ?? [])
 
   function isFrameRequest(): boolean {
-    let target = getContext().request.headers.get('X-Remix-Target')
-    return target != null && acceptedTargets.has(target)
+    return currentRequestTargetsFrame(...acceptedTargets)
   }
 
   type PageProps = {
@@ -122,7 +110,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   function ShellOrFragment(handle: Handle<PageProps>) {
     return () => {
       let { activeItem, children } = handle.props
-      let target = getContext().request.headers.get('X-Remix-Target')
+      let target = currentFrameTarget()
       if (target != null && contentOnlyTargetSet.has(target)) {
         return children
       }
@@ -136,15 +124,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
           </Layout>
         )
       }
-      return (
-        <Layout>
-          <Frame
-            name={frameTarget}
-            src={getContext().request.url}
-            fallback={<div mix={frameFallbackStyle}>Inhalt wird geladen…</div>}
-          />
-        </Layout>
-      )
+      return <FrameShell name={frameTarget} />
     }
   }
 

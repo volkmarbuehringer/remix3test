@@ -2,6 +2,7 @@ import { createController } from 'remix/router'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes, frames } from '../../routes.ts'
+import { isFrameTargeted } from '../../utils/frame-target.ts'
 import { mastra } from '../mastra/index.ts'
 import { supportGateStore, resolvePendingGate } from './run-store.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
@@ -242,7 +243,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       // then re-fetches this same URL for the page content. Only that frame
       // request renders SupportAgentPage, so only it needs the transcript
       // recall; loading it on the shell pass would read memory twice.
-      let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
+      let isFrameRequest = isFrameTargeted(context.request, frames.adminContent)
       let resume: SupportThreadResume | null = null
       let recentThreads: SupportRecentThread[] = []
       if (isFrameRequest) {

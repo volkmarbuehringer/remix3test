@@ -14,7 +14,7 @@ import {
 } from '../data/chatlog-sources.ts'
 import { chatlogQuery } from '../utils/chatlog-query.ts'
 
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
@@ -29,7 +29,7 @@ const ADMIN_BASE = routes.admin.chatlog.index.href()
  * Row links target this frame instead of the outer `admin-content` frame, so
  * the list keeps rendering while only the transcript pane swaps.
  */
-const DETAIL_FRAME = 'admin-chatlog-detail'
+const DETAIL_FRAME = frames.adminChatlogDetail
 
 /**
  * Frame source used when no transcript is selected.

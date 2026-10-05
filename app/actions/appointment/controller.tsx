@@ -35,6 +35,7 @@ import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../utils/fragment-response.ts'
 import { frames, routes } from '../../routes.ts'
+import { isFrameTargeted } from '../../utils/frame-target.ts'
 
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
@@ -175,7 +176,7 @@ export const appointment = createController(routes.appointment, {
         selectedResourceId,
       )
 
-      let isFrame = context.request.headers.get('X-Remix-Target') === frames.appointmentContent
+      let isFrame = isFrameTargeted(context.request, frames.appointmentContent)
 
       return context.render(
         <AppointmentPage

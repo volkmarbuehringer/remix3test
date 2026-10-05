@@ -1,6 +1,39 @@
 import { getContext } from 'remix/middleware/async-context'
 import { frames } from '../routes.ts'
 
+/** The `X-Remix-Target` of the given request, or null when it is not a frame subrequest. */
+export function requestFrameTarget(request: Pick<Request, 'headers'>): string | null {
+  return request.headers.get('X-Remix-Target')
+}
+
+/**
+ * True when the given request is a frame subrequest addressed to one of `names`.
+ * Use this in controllers, where the `context.request` is in hand.
+ */
+export function isFrameTargeted(request: Pick<Request, 'headers'>, ...names: string[]): boolean {
+  let target = requestFrameTarget(request)
+  return target != null && names.includes(target)
+}
+
+/** The `X-Remix-Target` of the current request context, or null outside a context. */
+export function currentFrameTarget(): string | null {
+  try {
+    return getContext().request.headers.get('X-Remix-Target')
+  } catch {
+    /* no request context */
+    return null
+  }
+}
+
+/**
+ * True when the current context's request addresses one of `names`.
+ * Use this inside components; outside a request context it is false.
+ */
+export function currentRequestTargetsFrame(...names: string[]): boolean {
+  let target = currentFrameTarget()
+  return target != null && names.includes(target)
+}
+
 /**
  * Frame that the currently-rendered page is embedded in.
  *
@@ -16,13 +49,9 @@ import { frames } from '../routes.ts'
  * otherwise the admin content frame (the existing default).
  */
 export function getSelfFrameTarget(): string {
-  try {
-    let target = getContext().request.headers.get('X-Remix-Target')
-    if (target === frames.agentEventsPanel) {
-      return target
-    }
-  } catch {
-    /* no request context → default to admin content */
+  let target = currentFrameTarget()
+  if (target === frames.agentEventsPanel) {
+    return target
   }
   return frames.adminContent
 }

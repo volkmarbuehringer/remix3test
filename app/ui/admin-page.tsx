@@ -3,7 +3,7 @@ import { css, Frame } from 'remix/component'
 import { Glyph, type GlyphName } from './theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
 
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import type { DashboardStats } from '../data/admin-dashboard.ts'
 
 interface AdminDashboardContentProps {
@@ -292,7 +292,7 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
         <div mix={frameGridStyle}>
           <div>
             <Frame
-              name="admin-stats"
+              name={frames.adminStats}
               src={routes.admin.fragments.stats.href()}
               fallback={<div mix={fallbackStyle}>Server-Statistiken werden geladen…</div>}
             />
@@ -300,7 +300,7 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
 
           <div>
             <Frame
-              name="admin-recent-activity"
+              name={frames.adminRecentActivity}
               src={routes.admin.fragments.recentActivity.href()}
               fallback={<div mix={fallbackStyle}>Letzte Aktivitäten werden geladen…</div>}
             />

@@ -1,8 +1,10 @@
-import { type RemixNode, type Handle, css, Frame } from 'remix/component'
+import { type RemixNode, type Handle, css } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
+import { currentRequestTargetsFrame } from '../utils/frame-target.ts'
 import { theme } from '../ui/theme/theme.ts'
 
 import { Layout } from './layout.tsx'
+import { FrameShell } from './frame-shell.tsx'
 import { NavLink } from './nav-link.tsx'
 import { formatRelativeTimeDE } from '../utils/date-utils.ts'
 import { routes, frames } from '../routes.ts'
@@ -51,19 +53,6 @@ export type PaginationState = {
 }
 
 const frameTarget = frames.listsContent
-
-/**
- * Slot content for the shell's self-relay frame. Without a fallback the frame
- * is blocking: a non-HTML frame response would fail the whole page render.
- */
-const frameFallbackStyle = css({
-  padding: '1.5rem',
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-})
 
 /**
  * The shared shell grid top-aligns its columns (align-items: start), which
@@ -159,7 +148,7 @@ const searchButtonStyle = css({
 })
 
 function isFrameRequest(): boolean {
-  return getContext().request.headers.get('X-Remix-Target') === frameTarget
+  return currentRequestTargetsFrame(frameTarget)
 }
 
 export function renderListsPage(
@@ -216,15 +205,7 @@ function ShellOrFragment(
         </Layout>
       )
     }
-    return (
-      <Layout>
-        <Frame
-          name={frameTarget}
-          src={getContext().request.url}
-          fallback={<div mix={frameFallbackStyle}>Inhalt wird geladen…</div>}
-        />
-      </Layout>
-    )
+    return <FrameShell name={frameTarget} />
   }
 }
 
