@@ -34,7 +34,7 @@ export const IntervalBounds = clientEntry(
                 let startMin = Number(start.value)
                 let selectedEnd = Number(end.value)
                 let foundSelected = false
-                let firstValidEnd = startMin + 60
+                let firstValidEnd: number | null = null
 
                 for (let opt of Array.from(end.options)) {
                   let val = Number(opt.value)
@@ -42,12 +42,12 @@ export const IntervalBounds = clientEntry(
                   opt.disabled = disabled
                   if (!disabled) {
                     if (opt.selected) foundSelected = true
-                    if (firstValidEnd === startMin + 60) firstValidEnd = val
+                    if (firstValidEnd === null) firstValidEnd = val
                   }
                 }
 
                 if (!foundSelected || selectedEnd <= startMin) {
-                  end.value = String(firstValidEnd)
+                  end.value = String(firstValidEnd ?? startMin + 60)
                 }
               }
 

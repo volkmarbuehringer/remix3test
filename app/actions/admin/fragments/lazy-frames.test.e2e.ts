@@ -18,6 +18,13 @@ import { initializeAppDatabase } from '../../../db.ts'
 // Before the lazy conversion this fragment resolved six nested frames during
 // the parent render — content hidden behind a collapsed disclosure that the
 // user never asked for.
+//
+// The pure client-entry half (mount-on-first-intersection, unobserve-after-
+// mount, reopen retention) is gated deterministically in the browser suite by
+// app/ui/lazy-frame.test.browser.tsx; what stays here is the wiring that only
+// a server proves: the real dashboard fragment ships LazyFrame hosts and the
+// real /admin/fragments/user-detail route is fetched through the frame
+// runtime.
 // ---------------------------------------------------------------------------
 
 const USER_DETAIL_PREFIX = '/admin/fragments/user-detail/'
@@ -57,22 +64,8 @@ describe('admin dashboard: lazy user-detail frames', () => {
     await page.getByText('Alice Johnson').first().waitFor({ timeout: 15_000 })
 
     assert.equal(userDetailRequests, 1, 'opening a disclosure loads exactly one frame')
-
-    // Retention: a mounted frame survives the disclosure closing, so reopening
-    // it must neither re-request it nor lose the loaded content.
-    await disclosure.locator('summary').click()
-    await page.waitForFunction(() => document.querySelector('details')?.open === false, undefined, {
-      timeout: 15_000,
-    })
-    assert.equal(
-      await page.getByText('Alice Johnson').count(),
-      1,
-      'content stays mounted collapsed',
-    )
-
-    await disclosure.locator('summary').click()
-    await page.getByText('Alice Johnson').first().waitFor({ timeout: 15_000 })
-
-    assert.equal(userDetailRequests, 1, 'reopening a disclosure must not refetch the frame')
+    // The reopen-retention half (no refetch, content survives collapse) is the
+    // entry's own gating, now proven without timing dependence in
+    // app/ui/lazy-frame.test.browser.tsx.
   })
 })
