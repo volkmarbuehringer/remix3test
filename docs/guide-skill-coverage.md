@@ -32,6 +32,7 @@
   - `mastra-agent` — agent construction and inline model config, single-POST SSE `pipeStream` (including the suspension/terminal-hook durable-write race), HITL suspension and durable run ownership, and the typed `Classifier` / `EvaluationModelV4` + `ClassifierProcessor` path.
   - `mastra-tools` — tool design, approval gating, suspension detection, and the actor `RequestContext`.
   - `mastra-workflow` — Workflow resume/abort race and strict step typing.
+- `format-fix-diff-triage` — classifying repo-wide formatter contamination (`format:fix` rewriting files outside the session's edit set) via whitespace-stripped hash vs HEAD, reverting only provably format-only files. Tooling hygiene, not a guide chapter.
 
 ## Unfinished chapters — re-audit on authoring
 
