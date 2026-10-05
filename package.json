@@ -29,7 +29,7 @@
     "@mastra/pg": "^1.29.0",
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "date-holidays": "^3.37.0",
-    "nodemailer": "^10.0.13",
+    "nodemailer": "^10.0.14",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
