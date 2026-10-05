@@ -40,9 +40,8 @@ describe('lists deferred client entries load across browsers', () => {
     assert.ok(auth?.cookie, 'admin session must be created')
     adminCookie = auth!.cookie
 
-    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', [
-      'admin@newapp.com',
-    ])).rows as { id: number }[]
+    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows as { id: number }[]
     assert.ok(userRows.length > 0, 'admin user must exist')
     adminUserId = Number(userRows[0]!.id)
 

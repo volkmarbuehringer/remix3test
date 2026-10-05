@@ -224,8 +224,14 @@ describe('createChannel', () => {
       let channel = createChannel<{ new: { id: number } }>({ heartbeatMs: null })
       let acA = new AbortController()
       let acB = new AbortController()
-      let resA = channel.subscribe(new Request('http://localhost/1', { signal: acA.signal }), 'user-5')
-      let resB = channel.subscribe(new Request('http://localhost/2', { signal: acB.signal }), 'user-9')
+      let resA = channel.subscribe(
+        new Request('http://localhost/1', { signal: acA.signal }),
+        'user-5',
+      )
+      let resB = channel.subscribe(
+        new Request('http://localhost/2', { signal: acB.signal }),
+        'user-9',
+      )
 
       channel.broadcast('new', { id: 1 }, 'user-5')
 
@@ -241,7 +247,10 @@ describe('createChannel', () => {
     it('a keyed subscriber does not receive an event broadcast to another key', async () => {
       let channel = createChannel<{ new: { id: number } }>({ heartbeatMs: null })
       let acA = new AbortController()
-      let resA = channel.subscribe(new Request('http://localhost/1', { signal: acA.signal }), 'user-5')
+      let resA = channel.subscribe(
+        new Request('http://localhost/1', { signal: acA.signal }),
+        'user-5',
+      )
 
       channel.broadcast('new', { id: 42 }, 'user-9')
 
@@ -253,12 +262,17 @@ describe('createChannel', () => {
     it('an unscoped broadcast still reaches unscoped (global) subscribers', async () => {
       let channel = createChannel<{ invalidate: void }>({ heartbeatMs: null })
       let acAdmin = new AbortController()
-      let resAdmin = channel.subscribe(new Request('http://localhost/1', { signal: acAdmin.signal }))
+      let resAdmin = channel.subscribe(
+        new Request('http://localhost/1', { signal: acAdmin.signal }),
+      )
 
       channel.broadcast('invalidate')
 
       let text = await readAllFromStream(resAdmin.body!, acAdmin)
-      assert.ok(text.includes('event: invalidate'), 'global subscribers receive the global broadcast')
+      assert.ok(
+        text.includes('event: invalidate'),
+        'global subscribers receive the global broadcast',
+      )
     })
   })
 })

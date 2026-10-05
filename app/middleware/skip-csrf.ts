@@ -46,11 +46,7 @@ const csrfMiddleware = csrf({ origin: isAllowedCsrfOrigin })
 // cross-site form cannot set (see the `security-gotchas` `references/security-middleware.md` learned skill).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
-const AGENT_PATHS = [
-  '/admin/support-agent',
-  '/admin/agent-events',
-  '/chat',
-]
+const AGENT_PATHS = ['/admin/support-agent', '/admin/agent-events', '/chat']
 
 function isAgentPath(pathname: string): boolean {
   return AGENT_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))

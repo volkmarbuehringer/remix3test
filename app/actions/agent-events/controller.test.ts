@@ -965,7 +965,11 @@ describe('AgentEvents route (POST validation)', () => {
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    assert.ok(text.includes('"href":"/verwaltung/appointments?filter=admin%40test.com&period=next-week&status=pending"'))
+    assert.ok(
+      text.includes(
+        '"href":"/verwaltung/appointments?filter=admin%40test.com&period=next-week&status=pending"',
+      ),
+    )
   })
 
   it('resume rejects missing runId with 400', async () => {
@@ -1115,7 +1119,11 @@ describe('AgentEvents route (POST validation)', () => {
       resourceQuery: resourceRow.name,
     }
 
-    let calls: Array<{ workflowId: string; runId?: string | undefined; confirmed?: boolean | undefined }> = []
+    let calls: Array<{
+      workflowId: string
+      runId?: string | undefined
+      confirmed?: boolean | undefined
+    }> = []
     __setRunFactory(async (workflowId, opts) => {
       calls.push({
         workflowId,

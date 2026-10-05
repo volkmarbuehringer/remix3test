@@ -38,7 +38,12 @@ export const NAV_SECTIONS: NavSection[] = [
 ]
 
 export const MOBILE_ITEMS: MobileNavItem[] = [
-  { label: 'Neuer Termin', href: routes.appointmentsNew.index.href(), requireAuth: true, cta: true },
+  {
+    label: 'Neuer Termin',
+    href: routes.appointmentsNew.index.href(),
+    requireAuth: true,
+    cta: true,
+  },
   { label: 'Benachrichtigungen', href: routes.notifications.index.href(), requireAuth: true },
   { label: 'Einstellungen', href: routes.settings.index.href(), requireAuth: true },
 ]

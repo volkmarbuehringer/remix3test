@@ -30,7 +30,10 @@ function loadOrCreateSessionId(): string {
       writeFileSync(OPENCODE_SESSION_FILE, id, { encoding: 'utf8' })
       return id
     } catch (err) {
-      console.warn('[ai-provider] Could not persist OpenCode session id, using in-memory value:', err)
+      console.warn(
+        '[ai-provider] Could not persist OpenCode session id, using in-memory value:',
+        err,
+      )
     }
   }
   return randomUUID()

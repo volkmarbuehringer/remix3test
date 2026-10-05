@@ -196,7 +196,11 @@ async function loadOfferingPageData(
   }
 }
 
-function renderOfferingsPage(context: { render: AppContext['render'] }, data: OfferingPageData, init?: ResponseInit): Response {
+function renderOfferingsPage(
+  context: { render: AppContext['render'] },
+  data: OfferingPageData,
+  init?: ResponseInit,
+): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminOfferingsPage

@@ -35,10 +35,14 @@ describe('generateWorkflowIntent (hybrid merge)', () => {
   })
 
   it('maps a delete-appointments choice with a resource', async () => {
-    let parsed = await classify('delete appointments for user@newapp.com on raum 1', 'delete-appointments', {
-      targetQuery: 'user@newapp.com',
-      resourceQuery: 'raum 1',
-    })
+    let parsed = await classify(
+      'delete appointments for user@newapp.com on raum 1',
+      'delete-appointments',
+      {
+        targetQuery: 'user@newapp.com',
+        resourceQuery: 'raum 1',
+      },
+    )
     assert.equal(parsed.type, 'appointment')
     assert.equal(parsed.action, 'delete-resource')
     assert.equal(parsed.targetQuery, 'user@newapp.com')

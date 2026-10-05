@@ -18,7 +18,9 @@ function runErrorMessage(error: unknown): string {
 
 export async function executeUserPreflightWorkflow(input: { targetUserId: number }): Promise<{
   found: boolean
-  user?: { id: number; name: string; email: string; role: string; disabledAt: number | null } | undefined
+  user?:
+    | { id: number; name: string; email: string; role: string; disabledAt: number | null }
+    | undefined
   pendingCount: number
   lockedUsers: { id: number; name: string; email: string; pendingCount: number }[]
   lockedTotal: number

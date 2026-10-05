@@ -45,14 +45,14 @@ Sources of truth: the embedded docs in `node_modules/@mastra/core/dist/docs/refe
 
 **Registered primitives** (`app/actions/mastra/index.ts`)
 
-| Primitive             | Detail                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `supportAgent`        | Read-only admin agent, 7 direct tools + 10 behind `search_tools` + `navigate` + `classify_intent`, `completeness` scorer. Guardrail, tool-search, batch processors and a typed `ClassifierProcessor` mutation gate. |
+| Primitive             | Detail                                                                                                                                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supportAgent`        | Read-only admin agent, 7 direct tools + 10 behind `search_tools` + `navigate` + `classify_intent`, `completeness` scorer. Guardrail, tool-search, batch processors and a typed `ClassifierProcessor` mutation gate.                                |
 | `customerAgent`       | German booking agent, 6 tools, `UnicodeNormalizer` + `RegexFilterProcessor` (input block, output secrets redact) + `PromptInjectionDetector` + `TokenLimiterProcessor` + `TokenCostControl` + `BatchPartsProcessor` + `StreamErrorRetryProcessor`. |
-| `workflow-classifier` | Hybrid: registered `Classifier` (`adminIntent`, typed intent) + a headless extraction `Agent` (`structuredOutput`, free-text entities). |
-| 11 workflows          | Mostly `.then()` chains; two use `suspend()` confirm gates; one uses `.parallel()`.                                            |
-| 2 scorers             | Prebuilt `completeness` + custom `appointment-created`.                                                                        |
-| Storage/observability | `PostgresStoreVNext` + `MastraStorageExporter` + `SensitiveDataFilter` + Pino.                                                 |
+| `workflow-classifier` | Hybrid: registered `Classifier` (`adminIntent`, typed intent) + a headless extraction `Agent` (`structuredOutput`, free-text entities).                                                                                                            |
+| 11 workflows          | Mostly `.then()` chains; two use `suspend()` confirm gates; one uses `.parallel()`.                                                                                                                                                                |
+| 2 scorers             | Prebuilt `completeness` + custom `appointment-created`.                                                                                                                                                                                            |
+| Storage/observability | `PostgresStoreVNext` + `MastraStorageExporter` + `SensitiveDataFilter` + Pino.                                                                                                                                                                     |
 
 **Custom runtime** (the big one)
 
@@ -80,7 +80,7 @@ its `mastra-packages.json` still records an older 1.50.1 tree.)
 | 1   | Durable agents (`createDurableAgent`, `observe`, `resume`, crash recovery)                                                                      | `agent-chat.ts` resumable-stream/gate plumbing, reconnect       | P0                       |
 | 2   | Native tool approval — `requireApproval: true` is already on both cancel tools; remaining: `declineToolCall({ reason })`, `listSuspendedRuns()` | `ask_user`-driven confirmations + `tool_decision` gate handling | P0 (partly done)         |
 | 3   | `RequestContext`                                                                                                                                | `AsyncLocalStorage` actor scoping                               | P0                       |
-| 4   | `structuredOutput`; eval-model adapter + typed `Classifier` intent, extraction agent for free text (**all done 2026-10-03**) | `workflow-classifier.ts` + `parseIntentJson` brace slicing | P1 ✅                    |
+| 4   | `structuredOutput`; eval-model adapter + typed `Classifier` intent, extraction agent for free text (**all done 2026-10-03**)                    | `workflow-classifier.ts` + `parseIntentJson` brace slicing      | P1 ✅                    |
 | 5   | Observational memory + semantic recall                                                                                                          | unbounded raw history, bespoke recall helpers                   | P1                       |
 | 6   | Processor catalog (guardrails, tool search, retry, cache)                                                                                       | thin processor coverage; 22-tool prompt bloat                   | P1 ✅ (cache pending)    |
 | 7   | Skills (`createSkill`, filesystem skills)                                                                                                       | 40-line instruction monoliths                                   | P1                       |
@@ -312,8 +312,12 @@ const classifier = new Classifier({
       type: 'choice',
       instructions: 'Welche Aktion will der Admin?',
       criteria: {
-        'cancel-user': '...', 'lock-user': '...', 'unlock-user': '...',
-        'lookup-user': '...', 'show-appointments': '...', 'delete-appointments': '...',
+        'cancel-user': '...',
+        'lock-user': '...',
+        'unlock-user': '...',
+        'lookup-user': '...',
+        'show-appointments': '...',
+        'delete-appointments': '...',
       },
     },
   },
@@ -338,12 +342,12 @@ pipeline and the `classify_intent` tool keep their contract unchanged.
 Wall-clock latency matches the single call it replaced; token usage is roughly
 doubled. Live results:
 
-| Request | Result |
-| --- | --- |
-| "Bitte sperre den Benutzer admin@newapp.com" | `lock-user` / `admin@newapp.com` |
+| Request                                              | Result                                               |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| "Bitte sperre den Benutzer admin@newapp.com"         | `lock-user` / `admin@newapp.com`                     |
 | "Lösche alle Termine von max@example.com für Raum 1" | `delete-appointments` / `max@example.com` / `Raum 1` |
-| "Zeig mir die Termine von john doe heute" | `show-appointments` / `john doe` / `today` |
-| "Wie wird das Wetter?" | `unclear` + a clarifying question |
+| "Zeig mir die Termine von john doe heute"            | `show-appointments` / `john doe` / `today`           |
+| "Wie wird das Wetter?"                               | `unclear` + a clarifying question                    |
 
 The extraction half still uses the same primitive:
 
@@ -391,7 +395,7 @@ on input, redact on output), `PromptInjectionDetector`
 (`errorStrategy: 'warn'`, `structuredOutputOptions.jsonPromptInjection: true`),
 `TokenLimiterProcessor`, `TokenCostControl`, and `StreamErrorRetryProcessor`
 in `errorProcessors`. The `pii`/`urls` presets are deliberately omitted on
-input — an admin's primary handle *is* a user's email address, so PII blocking
+input — an admin's primary handle _is_ a user's email address, so PII blocking
 would break `lookup_user`.
 
 _Extended (2026-10-03)._ Both agents now batch stream parts with

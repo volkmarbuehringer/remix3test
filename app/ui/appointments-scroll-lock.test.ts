@@ -62,7 +62,11 @@ describe('AppointmentsScrollLock', () => {
       documentElement: { style: documentElementStyle, clientWidth: 1000 },
     } as unknown as typeof globalThis.document
 
-    globalThis.addEventListener = ((event: string, handler: Function, options?: { signal?: AbortSignal }) => {
+    globalThis.addEventListener = ((
+      event: string,
+      handler: Function,
+      options?: { signal?: AbortSignal },
+    ) => {
       capturedEvents.push({ event, handler, options })
     }) as typeof globalThis.addEventListener
   }

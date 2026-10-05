@@ -103,12 +103,15 @@ describe('Notifications controller', () => {
     let notifId = await createNotificationFor(id, 'reminder')
     let session = await getSessionFor(email)
 
-    let response = await router.fetch(`${BASE}${routes.notifications.markRead.href({ id: notifId })}`, {
-      method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'mark-read' }),
-      redirect: 'manual',
-    })
+    let response = await router.fetch(
+      `${BASE}${routes.notifications.markRead.href({ id: notifId })}`,
+      {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'mark-read' }),
+        redirect: 'manual',
+      },
+    )
 
     assert.equal(response.status, 302)
     let rows = await pool.query('SELECT read_at FROM notifications WHERE id = $1', [notifId])
@@ -123,12 +126,15 @@ describe('Notifications controller', () => {
     let notifId = await createNotificationFor(owner.id, 'confirmation')
     let session = await getSessionFor(attacker.email)
 
-    let response = await router.fetch(`${BASE}${routes.notifications.markRead.href({ id: notifId })}`, {
-      method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'mark-read' }),
-      redirect: 'manual',
-    })
+    let response = await router.fetch(
+      `${BASE}${routes.notifications.markRead.href({ id: notifId })}`,
+      {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'mark-read' }),
+        redirect: 'manual',
+      },
+    )
 
     assert.equal(response.status, 302)
     let rows = await pool.query('SELECT read_at FROM notifications WHERE id = $1', [notifId])

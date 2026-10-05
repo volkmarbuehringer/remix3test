@@ -268,7 +268,9 @@ interface CreateValidationFailure {
   formValues: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
-  issues?: readonly { message: string; path?: readonly unknown[] | undefined; code?: string }[] | undefined
+  issues?:
+    | readonly { message: string; path?: readonly unknown[] | undefined; code?: string }[]
+    | undefined
 }
 
 type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure

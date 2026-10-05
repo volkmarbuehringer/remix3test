@@ -18,7 +18,9 @@ for (let result of results) {
 
 const failed = failedJourneys(results)
 if (failed.length > 0) {
-  console.error(`\n${failed.length} journey gate(s) failed: ${failed.map((f) => f.journey.id).join(', ')}`)
+  console.error(
+    `\n${failed.length} journey gate(s) failed: ${failed.map((f) => f.journey.id).join(', ')}`,
+  )
   process.exit(1)
 }
 console.log(`\nAll ${results.length} journey gates passed.`)

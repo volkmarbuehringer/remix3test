@@ -25,7 +25,10 @@ describe('Verwaltung Users Export Controller', () => {
     userId = env.userId
 
     let adminAuth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
-    assert.ok(adminAuth?.cookie && adminAuth.csrfToken, 'failed to create csrf-enabled admin session')
+    assert.ok(
+      adminAuth?.cookie && adminAuth.csrfToken,
+      'failed to create csrf-enabled admin session',
+    )
     csrfSessionCookie = adminAuth.cookie
     adminCsrfToken = adminAuth.csrfToken
   })

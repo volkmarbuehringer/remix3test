@@ -22,14 +22,10 @@ interface BuildUserSummaryPdfOptions {
  * /verwaltung/users-export: title, optional period subheader, count line
  * (with truncation note), and the per-user summary table.
  */
-export async function buildUserSummaryPdf(
-  options: BuildUserSummaryPdfOptions,
-): Promise<Buffer> {
+export async function buildUserSummaryPdf(options: BuildUserSummaryPdfOptions): Promise<Buffer> {
   let { title, periodLabel, countLabel, rows, truncated = false } = options
 
-  let content: TDocumentDefinitions['content'] = [
-    { text: title, style: 'header' },
-  ]
+  let content: TDocumentDefinitions['content'] = [{ text: title, style: 'header' }]
   if (periodLabel) {
     content.push({ text: periodLabel, style: 'subheader' })
   }
