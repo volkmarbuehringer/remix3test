@@ -33,6 +33,7 @@
   - `mastra-tools` — tool design, approval gating, suspension detection, and the actor `RequestContext`.
   - `mastra-workflow` — Workflow resume/abort race and strict step typing.
 - `format-fix-diff-triage` — classifying repo-wide formatter contamination (`format:fix` rewriting files outside the session's edit set) via whitespace-stripped hash vs HEAD, reverting only provably format-only files. Tooling hygiene, not a guide chapter.
+- `session-checkpoint-handoff` — ending a working session at a verified checkpoint: finish in-flight work only (typecheck + tests green, committed), start no new work at high context, carry a hard bug as an executable artifact, and emit a self-contained follow-up prompt for the next session. Session hygiene, not a guide chapter.
 
 ## Unfinished chapters — re-audit on authoring
 

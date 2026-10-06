@@ -18,6 +18,10 @@ This App uses Remix 3, no REACT
 
 at .opencode/skills/ are skills for Remix 3 development
 
+## Working Sessions
+
+Load the `session-checkpoint-handoff` skill before winding down a session, when context is already high, or when an unrelated request arrives mid-task — it defines this workspace's checkpoint, artifact-isolation, and follow-up-prompt rules.
+
 ## Remix Source References
 
 When you need API docs or usage examples for a `remix/*` subpath:
