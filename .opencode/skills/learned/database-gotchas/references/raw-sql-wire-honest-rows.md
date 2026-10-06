@@ -38,9 +38,9 @@ export async function queryRow<Schema extends z.ZodType>(
 
 Pass either the `sql` tag or `rawSql(text, values)` (for dynamically built SQL) as the statement. On a mismatch, throw an error naming the statement + row index so drift surfaces loudly in dev/test instead of shipping wrong data.
 
-**Wire-honest schema rules** (mirror pg, don't normalize):
+**Wire schema rules** (validate the pg shape; decode where the domain needs it):
 - `int4` columns (id, `*_id`, `start_min`) → `z.number()`
-- `int8` columns (timestamps, `date`) → `z.string()`
+- `int8` columns (timestamps, `date`) → `int8` (`z.coerce.number()`, `app/data/rows.ts`) — tolerates the pg string and yields a number for the domain layer
 - Aggregates (`count(*)`, `min`/`max`/`sum`/`avg` over int8, `::numeric` results) → `int8Aggregate`
 - **Check `db/schema.sql` first** — not every `id` is int4: `webhook_requests.id` is `UUID` → `z.string()`
 - JSONB columns → `z.record(...)` / `z.array(...)` / `z.unknown()`; opaque bytea → `z.custom<Buffer>()`
@@ -55,4 +55,4 @@ let rows = (await queryRows(db, sql`...`, wireSchema)).map(toDomainRow)
 
 - Adding a new raw-SQL join/aggregate query and about to write `as unknown as SomeRow[]`
 - A hand-written row interface has drifted from its SQL (typed `string`/`number` mismatch with the actual column type)
-- The Mastra tool boundary: `db.exec(...).map((r: any) => ...)` — decode wire rows first, then map to the tool's output shape (int8 fields must stay string-tolerant there; see `postgres-gotchas`)
+- The Mastra tool boundary: `db.exec(...).map((r: any) => ...)` — decode wire rows first, then map to the tool's output shape (int8 fields decode with the shared `int8` schema; see `postgres-gotchas`)

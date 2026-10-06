@@ -20,14 +20,19 @@ When Mastra's `validateToolOutput` enforces the `outputSchema`, the tool throws 
 
 ## Solution
 
-For fields sourced from `int8` columns (bigints, unix-ms timestamps), accept either a number or a string, or use a permissive type when the exact type isn't load-bearing:
+Decode the `int8` value to a number once, at the boundary, with a coercion schema:
 
 ```ts
-// ✅ Accept both (pg may return string or number depending on column width)
-createdAt: z.union([z.number(), z.string()]).describe('Creation unix ms'),
-// Or, when the type isn't used for logic:
-createdAt: z.any().describe('Creation unix ms'),
+// Decode at the boundary; the field is a number everywhere downstream
+createdAt: z.coerce.number().describe('Creation unix ms'),
 ```
+
+In this repo the shared decoder is `int8 = z.coerce.number()` (`app/data/rows.ts`). Use it in raw-SQL wire schemas, and let the table adapter's `decodeInt8Fields` do the same for typed-API reads, so raw and table reads agree.
+
+Do **not** paper over the split with a permissive schema:
+
+- `z.any()` erases the contract. A `createTool`'s generic infers the `execute` return from `outputSchema`, so `z.any()` lets a string/number split ship unnoticed.
+- `z.union([z.number(), z.string()])` passes validation but leaves every consumer to guess which branch it received.
 
 Also confirm the schema **matches the runtime shape** (required fields present; optional for conditionally-absent ones). A `createTool`'s generic infers the `execute` return from `outputSchema`, so a mismatch — e.g. `z.discriminatedUnion('found', ...)` against `execute` returns with untyped DB-row fields — fails at **typecheck** with TS2322. Prefer a lenient `z.object` with `.optional()` entity fields over a strict discriminated union when the return includes untyped DB rows.
 
@@ -39,4 +44,4 @@ Two related Zod 4 details that surface in the same code:
 
 - A Zod schema / Mastra `outputSchema` uses `z.number()` for a field sourced from a Postgres `int8`/`BIGINT` column and fails at runtime with `expected number, received string`.
 - A tool validates at typecheck but fails at runtime only on the DB-backed path.
-- You're building a schema that must tolerate both `number` and `string` for bigint/timestamp fields.
+- You are building a schema for a bigint/timestamp field where pg hands back a string but the domain needs a number.
