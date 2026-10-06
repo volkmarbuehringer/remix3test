@@ -1,46 +1,11 @@
-import { createElement, css, ref } from 'remix/component'
+import { css } from 'remix/component'
 import type { CSSMixinDescriptor, Handle, Props, RemixNode } from 'remix/component'
 
-import button from '../upstream-button.ts'
 import * as menu from '@remix-run/ui/menu'
 import type { SearchValue } from './typeahead.ts'
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon } from './icons.tsx'
+import { CheckIcon } from './icons.tsx'
 import { popoverSurfaceStyle } from './popover-styles.ts'
 import { componentStyleValues as styles } from './style-values.ts'
-
-const menuButtonCss: CSSMixinDescriptor = css({
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) auto',
-  alignItems: 'center',
-  borderRadius: styles.radius.md,
-  paddingInlineEnd: styles.space.sm,
-  textAlign: 'left',
-  '&[aria-expanded="true"], &[aria-expanded="true"]:hover, &[aria-expanded="true"]:focus-visible': {
-    backgroundColor: styles.surface.lvl3,
-    color: styles.colors.text.primary,
-  },
-})
-
-const menuButtonLabelCss: CSSMixinDescriptor = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  minWidth: 0,
-})
-
-const menuButtonIconCss: CSSMixinDescriptor = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: styles.fontSize.md,
-  height: styles.fontSize.md,
-  color: 'currentColor',
-  flexShrink: 0,
-  '& > svg': {
-    display: 'block',
-    width: '100%',
-    height: '100%',
-  },
-})
 
 const menuPopoverCss: CSSMixinDescriptor = css({
   '&[data-menu-submenu="true"][data-anchor-placement^="right"]': {
@@ -180,40 +145,14 @@ const menuItemIndicatorCss: CSSMixinDescriptor = css({
   opacity: 'var(--rmx-menu-item-indicator-opacity)',
 })
 
-const menuTriggerIndicatorCss: CSSMixinDescriptor = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: styles.fontSize.md,
-  height: styles.fontSize.md,
-  color: 'currentColor',
-  flexShrink: 0,
-  marginInlineStart: 'auto',
-  '& > svg': {
-    display: 'block',
-    width: '100%',
-    height: '100%',
-  },
-})
-
-export const buttonStyle = menuButtonCss
 export const popoverStyle = menuPopoverCss
 export const listStyle = menuListCss
 export const itemStyle = menuItemCss
 export const itemSlotStyle = menuItemSlotCss
 export const itemLabelStyle = menuItemLabelCss
 export const itemIndicatorStyle = menuItemIndicatorCss
-export const triggerIndicatorStyle = menuTriggerIndicatorCss
 
 export interface MenuListProps extends Props<'div'> {}
-
-type MenuListChildProps = Omit<MenuListProps, 'children'>
-
-export interface MenuProps extends Omit<Props<'button'>, 'children'> {
-  children?: RemixNode
-  label: RemixNode
-  menuLabel?: string
-}
 
 export interface MenuItemProps extends Omit<Props<'div'>, 'children' | 'name' | 'type' | 'value'> {
   checked?: boolean
@@ -224,62 +163,6 @@ export interface MenuItemProps extends Omit<Props<'div'>, 'children' | 'name' | 
   searchValue?: SearchValue
   type?: 'checkbox' | 'radio'
   value?: string
-}
-
-export interface SubmenuProps extends Omit<Props<'div'>, 'children' | 'name' | 'type' | 'value'> {
-  children?: RemixNode
-  disabled?: boolean
-  label: RemixNode
-  listProps?: MenuListChildProps
-  menuLabel?: string
-  searchValue?: SearchValue
-  value?: string
-}
-
-export function Menu(handle: Handle<MenuProps>): () => RemixNode {
-  let buttonRef: HTMLButtonElement | undefined
-
-  return () => {
-    let { children, label, menuLabel, mix, type, ...buttonProps } = handle.props
-
-    return (
-      <menu.Context {...(menuLabel !== undefined ? { label: menuLabel } : {})}>
-        <button
-          {...buttonProps}
-          type={type ?? 'button'}
-          mix={[
-            button(),
-            buttonStyle,
-            menu.trigger(),
-            ref((node: HTMLButtonElement, signal) => {
-              buttonRef = node
-              signal.addEventListener('abort', () => {
-                if (buttonRef === node) {
-                  buttonRef = undefined
-                }
-              })
-            }),
-            mix,
-          ]}
-        >
-          <span mix={menuButtonLabelCss}>{label}</span>
-          <ChevronDownIcon mix={menuButtonIconCss} />
-        </button>
-        <MenuList
-          mix={menu.onMenuSelect((event) => {
-            if (!buttonRef) {
-              return
-            }
-
-            event.stopPropagation()
-            buttonRef.dispatchEvent(new menu.MenuSelectEvent(event.item))
-          })}
-        >
-          {children}
-        </MenuList>
-      </menu.Context>
-    )
-  }
 }
 
 export function MenuList(handle: Handle<MenuListProps>): () => RemixNode {
@@ -323,37 +206,6 @@ export function MenuItem(handle: Handle<MenuItemProps>): () => RemixNode {
         </span>
         <span mix={itemLabelStyle}>{children ?? label}</span>
       </div>
-    )
-  }
-}
-
-export function Submenu(handle: Handle<SubmenuProps>): () => RemixNode {
-  return () => {
-    let { children, disabled, label, listProps, menuLabel, mix, searchValue, value, ...divProps } =
-      handle.props
-
-    return (
-      <menu.Context {...(menuLabel !== undefined ? { label: menuLabel } : {})}>
-        <div
-          {...divProps}
-          mix={[
-            itemStyle,
-            menu.submenuTrigger({
-              ...(disabled !== undefined ? { disabled } : {}),
-              ...(searchValue !== undefined ? { searchValue } : {}),
-              ...(value !== undefined ? { value } : {}),
-            }),
-            mix,
-          ]}
-        >
-          <span mix={itemSlotStyle}>
-            <CheckIcon mix={itemIndicatorStyle} />
-          </span>
-          <span mix={itemLabelStyle}>{label}</span>
-          <ChevronRightIcon mix={triggerIndicatorStyle} />
-        </div>
-        <MenuList {...listProps}>{children}</MenuList>
-      </menu.Context>
     )
   }
 }

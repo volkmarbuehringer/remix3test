@@ -45,8 +45,6 @@ export const intentClassificationSchema = z.object({
   question: z.string().nullable().optional(),
 })
 
-export type IntentClassification = z.infer<typeof intentClassificationSchema>
-
 /** The free-text subset the extraction agent fills. */
 const entityExtractionSchema = z.object({
   targetQuery: queryField.optional(),

@@ -36,27 +36,6 @@ function strokedPath(d: string): RemixElement {
   })
 }
 
-export function AddIcon(handle: Handle<IconProps>): () => RemixElement {
-  return () => icon(handle, strokedPath('M8 3.25v9.5M3.25 8h9.5'))
-}
-
 export function CheckIcon(handle: Handle<IconProps>): () => RemixElement {
   return () => icon(handle, strokedPath('m3.5 8.25 2.75 2.75L12.5 4.75'))
-}
-
-export function ChevronDownIcon(handle: Handle<IconProps>): () => RemixElement {
-  return () => icon(handle, strokedPath('m3.75 6.25 4.25 4 4.25-4'))
-}
-
-export function ChevronRightIcon(handle: Handle<IconProps>): () => RemixElement {
-  return () => icon(handle, strokedPath('m6 4 4 4-4 4'))
-}
-
-export function ChevronVerticalIcon(handle: Handle<IconProps>): () => RemixElement {
-  return () =>
-    icon(handle, [strokedPath('m3.75 6.5 4.25-4 4.25 4'), strokedPath('m3.75 9.5 4.25 4 4.25-4')])
-}
-
-export function SearchIcon(handle: Handle<IconProps>): () => RemixElement {
-  return () => icon(handle, strokedPath('M7.25 12.25a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm3.54-1.46 3 3'))
 }
