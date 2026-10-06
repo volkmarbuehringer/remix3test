@@ -2,17 +2,17 @@ import { rawSql, sql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { queryRows, queryRow } from './rows.ts'
+import { int8, queryRows, queryRow } from './rows.ts'
 
 const webhookRequestRowSchema = z.object({
   id: z.string(),
   payload: z.record(z.string(), z.unknown()),
   headers: z.record(z.string(), z.string()),
   source_ip: z.string(),
-  created_at: z.string(),
+  created_at: int8,
   hermes_status: z.string().nullable(),
   callback_response: z.union([z.record(z.string(), z.unknown()), z.string()]).nullable(),
-  callback_received_at: z.string().nullable(),
+  callback_received_at: int8.nullable(),
 })
 
 export type WebhookRequestRow = z.output<typeof webhookRequestRowSchema>

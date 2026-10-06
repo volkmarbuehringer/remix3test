@@ -4,24 +4,21 @@ import type { Database } from 'remix/data-table'
 import { appointofferings, clients, messages, offeringConfigs, resources, users } from './schema.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 import { isUniqueViolation } from '../utils/db-errors.ts'
+import { requireEnv } from '../config.ts'
 
 export async function seed(db: Database): Promise<void> {
   let usersCount = Number(await db.count(users))
   if (usersCount === 0) {
-    let adminPassword = process.env.SEED_ADMIN_PASSWORD
-    if (!adminPassword) {
-      throw new Error(
-        'SEED_ADMIN_PASSWORD environment variable is required for seeding. ' +
-          'Set it in .env to a strong password (min 12 chars).',
-      )
-    }
-    let userPassword = process.env.SEED_USER_PASSWORD
-    if (!userPassword) {
-      throw new Error(
-        'SEED_USER_PASSWORD environment variable is required for seeding. ' +
-          'Set it in .env to a strong password (min 12 chars).',
-      )
-    }
+    let adminPassword = requireEnv(
+      'SEED_ADMIN_PASSWORD',
+      'SEED_ADMIN_PASSWORD environment variable is required for seeding. ' +
+        'Set it in .env to a strong password (min 12 chars).',
+    )
+    let userPassword = requireEnv(
+      'SEED_USER_PASSWORD',
+      'SEED_USER_PASSWORD environment variable is required for seeding. ' +
+        'Set it in .env to a strong password (min 12 chars).',
+    )
     try {
       await db.createMany(users, [
         {

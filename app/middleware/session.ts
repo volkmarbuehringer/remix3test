@@ -6,6 +6,8 @@ import { Session } from 'remix/session'
 import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
+import { isProduction, isTest, requireEnv } from '../config.ts'
+
 const appRootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
 
@@ -15,20 +17,15 @@ const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
 // session — observed as a logged-out uploads grid under parallel load. Test
 // workers are separate processes that share module state with their in-process
 // test server, so an in-memory store is both per-worker-isolated and race-free.
-const isTest = process.env.NODE_ENV === 'test'
-
 if (!isTest) {
   fs.mkdirSync(sessionDirectoryPath, { recursive: true })
 }
 
-const sessionSecret = process.env.SESSION_SECRET
-if (!sessionSecret) {
-  throw new Error('SESSION_SECRET environment variable is required. Set it in .env')
-}
+const sessionSecret = requireEnv('SESSION_SECRET')
 
 export const sessionCookie = createCookie('session', {
   secrets: [sessionSecret],
-  secure: process.env.NODE_ENV === 'production',
+  secure: isProduction,
   httpOnly: true,
   sameSite: 'Strict',
   maxAge: 2592000,

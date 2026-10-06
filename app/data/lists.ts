@@ -2,7 +2,7 @@ import { rawSql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { lists } from './schema.ts'
-import { queryRows } from './rows.ts'
+import { int8, queryRows } from './rows.ts'
 
 type ItemPriority = 'low' | 'medium' | 'high'
 
@@ -32,8 +32,8 @@ const listWireSchema = z.object({
   list: z.array(listItemWireSchema),
   title: z.string(),
   description: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: int8,
+  updated_at: int8,
 })
 
 export interface ListRow {
@@ -68,7 +68,7 @@ const listSummaryWireSchema = z.object({
   id: z.number(),
   title: z.string(),
   description: z.string(),
-  updated_at: z.string(),
+  updated_at: int8,
   item_count: z.coerce.number(),
   done_count: z.coerce.number(),
 })

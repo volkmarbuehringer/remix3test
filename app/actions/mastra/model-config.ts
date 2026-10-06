@@ -1,4 +1,5 @@
 import { getOpenCodeSessionId } from '../../utils/ai-provider.ts'
+import { requireEnv } from '../../config.ts'
 
 // ── Shared OpenCode Go provider config ─────────────────────────────
 //
@@ -21,13 +22,10 @@ export const OPENCODE_MODEL_ID = 'deepseek-v4.1-flash'
  * would take the whole app down when the variable is unset.
  */
 export function requireOpenCodeApiKey(): string {
-  let key = process.env.OPENCODE_API_KEY
-  if (!key) {
-    throw new Error(
-      'OPENCODE_API_KEY environment variable is required. Set it before starting the server.',
-    )
-  }
-  return key
+  return requireEnv(
+    'OPENCODE_API_KEY',
+    'OPENCODE_API_KEY environment variable is required. Set it before starting the server.',
+  )
 }
 
 /** Per-request provider headers, including the OpenCode session id. */

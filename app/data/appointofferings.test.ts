@@ -3,12 +3,12 @@ import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from './test-pool.ts'
 import {
-  parseDuring,
   isSlotBookable,
   computeFullHourSlots,
   listDaysWithOfferings,
   filterAvailableSlots,
 } from './appointofferings.ts'
+import { parseDuring } from '../utils/during.ts'
 
 // ---------------------------------------------------------------------------
 // parseDuring — pure function tests

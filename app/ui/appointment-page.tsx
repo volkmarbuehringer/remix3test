@@ -6,15 +6,16 @@ import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { frames, routes } from '../routes.ts'
-import type { AppointOffering, Appointment, Resource } from '../data/schema.ts'
-import { parseDuring } from '../data/appointofferings.ts'
+import type { AppointOffering, Resource } from '../data/schema.ts'
+import type { WeekAppointment } from '../data/appointments.ts'
+import { parseDuring } from '../utils/during.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
 interface AppointmentPageProps {
   year: number
   week: number
   days: Array<{ dayName: string; date: number; dateStr: string }>
-  appointments: Appointment[]
+  appointments: WeekAppointment[]
   offerings: AppointOffering[]
   resources: Resource[]
   selectedResourceId: number

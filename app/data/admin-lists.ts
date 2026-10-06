@@ -3,7 +3,7 @@ import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import type { lists } from './schema.ts'
-import { queryRows } from './rows.ts'
+import { int8, queryRows } from './rows.ts'
 
 const listWireSchema = z.object({
   id: z.number(),
@@ -11,8 +11,8 @@ const listWireSchema = z.object({
   list: z.array(z.object({ id: z.string(), label: z.string(), done: z.boolean().optional() })),
   title: z.string(),
   description: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: int8,
+  updated_at: int8,
 })
 
 export interface ListRow {

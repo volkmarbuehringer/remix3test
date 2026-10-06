@@ -2,8 +2,9 @@ import { createAssetServer } from 'remix/assets'
 import { loadConfig } from 'remix/cli'
 import { componentHmr } from 'remix/component-hmr/assets'
 
-const isDevelopment = process.env.NODE_ENV === 'development'
-const isHmr = Boolean(isDevelopment && process.env.REMIX_NODE_HMR)
+import { envBool, isDevelopment, nodeEnv } from './config.ts'
+
+const isHmr = isDevelopment && envBool('REMIX_NODE_HMR')
 
 const config = await loadConfig(import.meta.dirname)
 if (config.assets === undefined) {
@@ -13,13 +14,15 @@ if (config.assets === undefined) {
 export const assetServer = createAssetServer({
   ...config.assets,
   watch: isDevelopment,
-  ...(isHmr ? { hmr: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel() } : {}),
+  ...(isHmr
+    ? { hmr: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel() }
+    : {}),
   ...(isDevelopment ? {} : { fingerprint: true }),
   target: { es: '2022', chrome: '109', safari: '16.4' },
   ...(isDevelopment ? { sourceMaps: 'external' } : {}),
   scripts: {
     define: {
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
+      'process.env.NODE_ENV': JSON.stringify(nodeEnv),
     },
     ...(isHmr ? { loaders: [componentHmr()] } : {}),
   },

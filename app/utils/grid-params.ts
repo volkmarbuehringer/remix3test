@@ -1,3 +1,6 @@
+import * as s from 'remix/data-schema'
+import * as f from 'remix/data-schema/form-data'
+
 /**
  * Shared parsers for the hidden `_offset` / `_sort` / `_order` / `_filter`
  * grid-state fields that data-grid pages round-trip through their forms.
@@ -42,4 +45,21 @@ export function gridSortDirection(
   direction: 'asc' | 'desc' = 'asc',
 ): 'asc' | 'desc' {
   return raw._order === 'asc' || raw._order === 'desc' ? raw._order : direction
+}
+
+/**
+ * The hidden grid-state fields every data-grid form round-trips so paging,
+ * sorting and filtering survive a submit. Spread into a form-data object.
+ */
+export const gridQueryFields = {
+  _offset: f.field(s.defaulted(s.string(), '')),
+  _sort: f.field(s.defaulted(s.string(), '')),
+  _order: f.field(s.defaulted(s.string(), '')),
+  _filter: f.field(s.defaulted(s.string(), '')),
+  _period: f.field(s.defaulted(s.string(), '')),
+}
+
+/** The optional `_status` filter, used only by grids that have a status column. */
+export const gridStatusField = {
+  _status: f.field(s.defaulted(s.string(), '')),
 }

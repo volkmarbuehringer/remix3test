@@ -1,13 +1,15 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
+import { sql } from 'remix/data-table'
 import { db } from '../../../db.ts'
+import { queryRows } from '../../../data/rows.ts'
 
-type UserWithPending = {
-  id: number
-  name: string
-  email: string
-  pendingCount: number
-}
+const userWithPendingSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string(),
+  pendingCount: z.number(),
+})
 
 const checkLockedUsersPendingAppointments = createStep({
   id: 'check-locked-users-pending-appts',
@@ -27,16 +29,16 @@ const checkLockedUsersPendingAppointments = createStep({
     let now = new Date()
     now.setUTCHours(0, 0, 0, 0)
     let todayMidnight = now.getTime()
-    let result = await db.exec(
-      `SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
+    let users = await queryRows(
+      db,
+      sql`SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
        FROM users u
-       LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= $1
+       LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= ${todayMidnight}
        WHERE u.disabled_at IS NOT NULL
        GROUP BY u.id, u.name, u.email
        ORDER BY u.name`,
-      [todayMidnight],
+      userWithPendingSchema,
     )
-    let users = (result.rows ?? []) as UserWithPending[]
     let total = users.reduce((sum, u) => sum + u.pendingCount, 0)
     return { lockedUsers: users, lockedTotal: total }
   },
@@ -60,16 +62,16 @@ const checkActiveUsersPendingAppointments = createStep({
     let now = new Date()
     now.setUTCHours(0, 0, 0, 0)
     let todayMidnight = now.getTime()
-    let result = await db.exec(
-      `SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
+    let users = await queryRows(
+      db,
+      sql`SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
        FROM users u
-       LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= $1
+       LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= ${todayMidnight}
        WHERE u.disabled_at IS NULL
        GROUP BY u.id, u.name, u.email
        ORDER BY u.name`,
-      [todayMidnight],
+      userWithPendingSchema,
     )
-    let users = (result.rows ?? []) as UserWithPending[]
     let total = users.reduce((sum, u) => sum + u.pendingCount, 0)
     return { activeUsers: users, activeTotal: total }
   },

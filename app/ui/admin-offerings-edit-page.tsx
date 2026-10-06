@@ -14,7 +14,7 @@ import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
-import { parseDuring as parseDuringRange } from '../data/appointofferings.ts'
+import { parseDuring as parseDuringRange } from '../utils/during.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
 
 interface AdminOfferingsEditPageProps {
@@ -33,7 +33,7 @@ interface AdminOfferingsEditPageProps {
 
 // ── Helpers ──
 
-function dayToInputDate(day: string): string {
+function dayToInputDate(day: number): string {
   return new Date(Number(day)).toISOString().split('T')[0]!
 }
 

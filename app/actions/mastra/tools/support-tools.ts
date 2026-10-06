@@ -14,6 +14,90 @@ import {
 } from '../../../data/schema.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
+import { int8, queryRow, queryRows } from '../../../data/rows.ts'
+
+// ── Raw-read wire schemas ────────────────────────────────────────────
+// node-postgres returns BIGINT (int8) columns as strings, so every epoch
+// field decodes with the shared int8 schema at the query boundary. int4range
+// columns are cast to text in SQL (during::text) so during always arrives
+// as a string, never a driver range object.
+
+const userWire = z.object({
+  id: z.number(),
+  email: z.string(),
+  name: z.string(),
+  role: z.string(),
+  email_verified: z.number(),
+  disabled_at: int8.nullable(),
+  created_at: int8,
+})
+
+const appointmentCoreWire = {
+  id: z.number(),
+  title: z.string(),
+  date: int8,
+  during: z.string(),
+}
+
+const appointmentWithUserWire = z.object({
+  ...appointmentCoreWire,
+  user_name: z.string().nullable(),
+})
+
+const appointmentWithUserAndResourceWire = z.object({
+  ...appointmentCoreWire,
+  user_name: z.string().nullable(),
+  resource_name: z.string().nullable(),
+})
+
+const appointmentWithResourceWire = z.object({
+  ...appointmentCoreWire,
+  resource_name: z.string().nullable(),
+})
+
+const appointmentDetailWire = z.object({
+  ...appointmentCoreWire,
+  created_at: int8,
+  updated_at: int8,
+  user_name: z.string().nullable(),
+  user_email: z.string().nullable(),
+  resource_name: z.string().nullable(),
+})
+
+const resourceWire = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string(),
+  created_at: int8,
+  updated_at: int8,
+})
+
+const offeringWire = z.object({
+  id: z.number(),
+  resource_id: z.number(),
+  resource_name: z.string().nullable(),
+  during: z.string(),
+})
+
+const messageWire = z.object({
+  id: z.number(),
+  sender_id: z.number(),
+  sender_name: z.string().nullable(),
+  content: z.string(),
+  created_at: int8,
+})
+
+const roleCountWire = z.object({ role: z.string(), count: z.number() })
+const countWire = z.object({ count: z.number() })
+
+const reportAppointmentWire = z.object({
+  title: z.string(),
+  date: int8,
+  during: z.string(),
+  user_name: z.string().nullable(),
+  resource_name: z.string().nullable(),
+})
+
 export const supportTools = {
   lookupUser: createTool({
     id: 'lookup_user',
@@ -34,10 +118,10 @@ export const supportTools = {
             role: z.string().describe('User role (admin or customer)'),
             emailVerified: z.string().describe('Whether the email is verified ("yes"/"no")'),
             disabledAt: z
-              .any()
+              .number()
               .nullable()
               .describe('Lock timestamp, or null if the account is active'),
-            createdAt: z.any().describe('Account creation unix ms'),
+            createdAt: z.number().describe('Account creation unix ms'),
           })
           .optional()
           .describe('The matched user'),
@@ -45,22 +129,13 @@ export const supportTools = {
       .describe('Lookup user result'),
     execute: async ({ query }) => {
       let isNumeric = /^\d+$/.test(query)
-      let rows = await db.exec(
+      let user = await queryRow(
+        db,
         isNumeric
           ? sql`SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE id = ${Number(query)} OR email = ${query} LIMIT 1`
           : sql`SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE email = ${query} LIMIT 1`,
+        userWire,
       )
-      let user = (rows.rows ?? [])[0] as
-        | {
-            id: number
-            email: string
-            name: string
-            role: string
-            email_verified: number
-            disabled_at: number | null
-            created_at: number
-          }
-        | undefined
       if (!user) return { found: false, message: 'No user found matching that query' }
       return {
         found: true,
@@ -98,26 +173,21 @@ export const supportTools = {
         z.object({
           id: z.number().describe('Appointment ID'),
           title: z.string().describe('Appointment title'),
-          date: z.any().describe('Appointment date as unix ms'),
-          timeRange: z.any().describe('Appointment time range'),
+          date: z.number().describe('Appointment date as unix ms'),
+          timeRange: z.string().describe('Appointment time range'),
           userName: z.string().describe('Name of the involved user'),
         }),
       ),
     }),
     execute: async ({ limit, userId }) => {
-      let result = await db.exec(
-        sql`SELECT a.id, a.title, a.date, a.during, a.user_id, u.name as user_name
+      let rows = await queryRows(
+        db,
+        sql`SELECT a.id, a.title, a.date, a.during::text AS during, a.user_id, u.name as user_name
           FROM appointments a LEFT JOIN users u ON a.user_id = u.id
           ${userId !== undefined ? sql`WHERE a.user_id = ${userId}` : sql``}
           ORDER BY a.created_at DESC LIMIT ${limit}`,
+        appointmentWithUserWire,
       )
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        title: string
-        date: number
-        during: string
-        user_name: string | null
-      }>
       return {
         count: rows.length,
         appointments: rows.map((r) => ({
@@ -143,13 +213,15 @@ export const supportTools = {
       byRole: z.record(z.string(), z.number()).describe('User counts grouped by role'),
     }),
     execute: async ({ role }) => {
-      let result = await db.exec(
+      let roleCounts = await queryRows(
+        db,
         role
           ? sql`SELECT role, count(*)::int as count FROM users WHERE role = ${role} GROUP BY role ORDER BY role`
           : sql`SELECT role, count(*)::int as count FROM users GROUP BY role ORDER BY role`,
+        roleCountWire,
       )
       let byRole: Record<string, number> = {}
-      for (let r of (result.rows ?? []) as { role: string; count: number }[]) {
+      for (let r of roleCounts) {
         byRole[r.role] = r.count
       }
       let total = Object.values(byRole).reduce((a, b) => a + b, 0)
@@ -280,8 +352,8 @@ export const supportTools = {
             id: z.number().describe('Resource ID'),
             name: z.string().describe('Resource name'),
             description: z.string().describe('Resource description'),
-            createdAt: z.any().describe('Creation unix ms'),
-            updatedAt: z.any().describe('Last update unix ms'),
+            createdAt: z.number().describe('Creation unix ms'),
+            updatedAt: z.number().describe('Last update unix ms'),
           })
           .optional()
           .describe('The matched resource'),
@@ -289,14 +361,13 @@ export const supportTools = {
       .describe('Look up resource result'),
     execute: async ({ query }) => {
       let isNumeric = /^\d+$/.test(query)
-      let rows = await db.exec(
+      let r = await queryRow(
+        db,
         isNumeric
           ? sql`SELECT id, name, description, created_at, updated_at FROM resources WHERE id = ${Number(query)} OR name = ${query} LIMIT 1`
           : sql`SELECT id, name, description, created_at, updated_at FROM resources WHERE name = ${query} LIMIT 1`,
+        resourceWire,
       )
-      let r = (rows.rows ?? [])[0] as
-        | { id: number; name: string; description: string; created_at: number; updated_at: number }
-        | undefined
       if (!r) return { found: false, message: 'No resource found matching that query' }
       return {
         found: true,
@@ -331,7 +402,7 @@ export const supportTools = {
             id: z.number().describe('Offering ID'),
             resourceId: z.number().describe('Resource ID'),
             resourceName: z.string().describe('Resource name'),
-            timeRange: z.any().describe('Offering time range'),
+            timeRange: z.string().describe('Offering time range'),
           }),
         ),
       }),
@@ -346,20 +417,16 @@ export const supportTools = {
       }
       if (Number.isNaN(timestamp)) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
 
-      let result = await db.exec(sql`
-        SELECT ao.id, ao.day, ao.resource_id, ao.during, ao.created_at, ao.updated_at,
+      let rows = await queryRows(
+        db,
+        sql`SELECT ao.id, ao.day, ao.resource_id, ao.during::text AS during, ao.created_at, ao.updated_at,
                r.name AS resource_name, r.description AS resource_description
         FROM appointoffering ao
         LEFT JOIN resources r ON r.id = ao.resource_id
         WHERE ao.day = ${timestamp}
-        ORDER BY ao.during ASC
-      `)
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        resource_id: number
-        resource_name: string | null
-        during: string
-      }>
+        ORDER BY ao.during ASC`,
+        offeringWire,
+      )
       return {
         date,
         count: rows.length,
@@ -390,8 +457,8 @@ export const supportTools = {
           z.object({
             id: z.number().describe('Appointment ID'),
             title: z.string().describe('Appointment title'),
-            date: z.any().describe('Appointment date as unix ms'),
-            timeRange: z.any().describe('Appointment time range'),
+            date: z.number().describe('Appointment date as unix ms'),
+            timeRange: z.string().describe('Appointment time range'),
             userName: z.string().describe('Involved user name'),
             resourceName: z.string().describe('Resource name'),
           }),
@@ -409,24 +476,18 @@ export const supportTools = {
       if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
       if (rangeDays < 0) return { error: 'startDate must be before endDate' }
 
-      let result = await db.exec(sql`
-        SELECT a.id, a.title, a.date, a.during, a.user_id, u.name AS user_name,
+      let rows = await queryRows(
+        db,
+        sql`SELECT a.id, a.title, a.date, a.during::text AS during, a.user_id, u.name AS user_name,
                r.name AS resource_name
         FROM appointments a
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN resources r ON r.id = a.resource_id
         WHERE a.date >= ${startTs} AND a.date <= ${endTs}
         ORDER BY a.date ASC
-        LIMIT 50
-      `)
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        title: string
-        date: number
-        during: string
-        user_name: string | null
-        resource_name: string | null
-      }>
+        LIMIT 50`,
+        appointmentWithUserAndResourceWire,
+      )
       return {
         count: rows.length,
         startDate,
@@ -456,28 +517,23 @@ export const supportTools = {
         z.object({
           id: z.number().describe('Appointment ID'),
           title: z.string().describe('Appointment title'),
-          date: z.any().describe('Appointment date as unix ms'),
-          timeRange: z.any().describe('Appointment time range'),
+          date: z.number().describe('Appointment date as unix ms'),
+          timeRange: z.string().describe('Appointment time range'),
           resourceName: z.string().describe('Resource name'),
         }),
       ),
     }),
     execute: async ({ userId }) => {
-      let result = await db.exec(sql`
-        SELECT a.id, a.title, a.date, a.during, r.name AS resource_name
+      let rows = await queryRows(
+        db,
+        sql`SELECT a.id, a.title, a.date, a.during::text AS during, r.name AS resource_name
         FROM appointments a
         LEFT JOIN resources r ON r.id = a.resource_id
         WHERE a.user_id = ${userId}
         ORDER BY a.date DESC
-        LIMIT 50
-      `)
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        title: string
-        date: number
-        during: string
-        resource_name: string | null
-      }>
+        LIMIT 50`,
+        appointmentWithResourceWire,
+      )
       return {
         count: rows.length,
         appointments: rows.map((r) => ({
@@ -504,34 +560,34 @@ export const supportTools = {
         message: z.string().optional().describe('Why the lookup failed'),
         appointment: z
           .object({
-            id: z.any().describe('Appointment ID'),
-            title: z.any().describe('Appointment title'),
-            date: z.any().describe('Appointment date as unix ms'),
-            timeRange: z.any().describe('Appointment time range'),
-            userName: z.any().describe('Involved user name'),
-            userEmail: z.any().describe('Involved user email'),
-            resourceName: z.any().describe('Resource name'),
-            createdAt: z.any().describe('Creation unix ms'),
-            updatedAt: z.any().describe('Last update unix ms'),
+            id: z.number().describe('Appointment ID'),
+            title: z.string().describe('Appointment title'),
+            date: z.number().describe('Appointment date as unix ms'),
+            timeRange: z.string().describe('Appointment time range'),
+            userName: z.string().describe('Involved user name'),
+            userEmail: z.string().describe('Involved user email'),
+            resourceName: z.string().describe('Resource name'),
+            createdAt: z.number().describe('Creation unix ms'),
+            updatedAt: z.number().describe('Last update unix ms'),
           })
           .optional()
           .describe('The matched appointment'),
       })
       .describe('Get appointment details result'),
     execute: async ({ id }) => {
-      let result = await db.exec(sql`
-        SELECT a.id, a.title, a.date, a.during, a.created_at, a.updated_at,
+      let r = await queryRow(
+        db,
+        sql`SELECT a.id, a.title, a.date, a.during::text AS during, a.created_at, a.updated_at,
                u.name AS user_name, u.email AS user_email,
                r.name AS resource_name
         FROM appointments a
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN resources r ON r.id = a.resource_id
         WHERE a.id = ${id}
-        LIMIT 1
-      `)
-      let rows = result.rows ?? []
-      if (rows.length === 0) return { found: false, message: 'No appointment found with that ID' }
-      let r = rows[0]!
+        LIMIT 1`,
+        appointmentDetailWire,
+      )
+      if (!r) return { found: false, message: 'No appointment found with that ID' }
       return {
         found: true,
         appointment: {
@@ -564,9 +620,9 @@ export const supportTools = {
           .object({
             id: z.number().describe('Offering config ID'),
             resourceId: z.number().describe('Resource ID'),
-            rules: z.any().describe('Offering configuration rules'),
-            createdAt: z.any().describe('Creation unix ms'),
-            updatedAt: z.any().describe('Last update unix ms'),
+            rules: z.record(z.string(), z.unknown()).describe('Offering configuration rules'),
+            createdAt: z.number().describe('Creation unix ms'),
+            updatedAt: z.number().describe('Last update unix ms'),
           })
           .optional()
           .describe('The matched config'),
@@ -580,7 +636,7 @@ export const supportTools = {
         config: {
           id: r.id,
           resourceId: r.resource_id,
-          rules: r.rules,
+          rules: z.record(z.string(), z.unknown()).parse(r.rules ?? {}),
           createdAt: r.created_at,
           updatedAt: r.updated_at,
         },
@@ -629,13 +685,14 @@ export const supportTools = {
           senderId: z.number().describe('Sender user ID'),
           senderName: z.string().describe('Sender display name'),
           content: z.string().describe('Message content'),
-          createdAt: z.any().describe('Message creation unix ms'),
+          createdAt: z.number().describe('Message creation unix ms'),
         }),
       ),
     }),
     execute: async ({ query, senderId }) => {
       let pattern = `%${query.replace(/[%_\\]/g, '\\$&')}%`
-      let result = await db.exec(
+      let rows = await queryRows(
+        db,
         senderId !== undefined
           ? sql`SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
                FROM messages m LEFT JOIN users u ON m.sender_id = u.id
@@ -645,14 +702,8 @@ export const supportTools = {
                FROM messages m LEFT JOIN users u ON m.sender_id = u.id
                WHERE m.content ILIKE ${pattern}
                ORDER BY m.created_at DESC LIMIT 50`,
+        messageWire,
       )
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        sender_id: number
-        sender_name: string | null
-        content: string
-        created_at: number
-      }>
       return {
         count: rows.length,
         messages: rows.map((r) => ({
@@ -693,11 +744,13 @@ export const supportTools = {
       z.object({ error: z.string().describe('Why the stats request failed') }),
     ]),
     execute: async ({ startDate, endDate }) => {
-      let userResult = await db.exec(
+      let roleCounts = await queryRows(
+        db,
         sql`SELECT role, count(*)::int AS count FROM users GROUP BY role ORDER BY role`,
+        roleCountWire,
       )
       let byRole: Record<string, number> = {}
-      for (let r of (userResult.rows ?? []) as { role: string; count: number }[]) {
+      for (let r of roleCounts) {
         byRole[r.role] = r.count
       }
       let totalUsers = Object.values(byRole).reduce((a, b) => a + b, 0)
@@ -714,10 +767,12 @@ export const supportTools = {
         if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
           return { error: 'Invalid date format. Use YYYY-MM-DD.' }
         }
-        let apptResult = await db.exec(
+        let apptResult = await queryRow(
+          db,
           sql`SELECT count(*)::int AS count FROM appointments WHERE date >= ${startTs} AND date <= ${endTs}`,
+          countWire,
         )
-        apptCount = Number((apptResult.rows ?? [])[0]?.count ?? 0)
+        apptCount = apptResult?.count ?? 0
       } else {
         apptCount = await db.count(appointments)
       }
@@ -788,22 +843,17 @@ export const supportTools = {
         let rangeDays = (endTs - startTs) / 86400000
         if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
         if (rangeDays < 0) return { error: 'startDate must be before endDate' }
-        let result = await db.exec(sql`
-          SELECT a.title, a.date, a.during, u.name AS user_name, r.name AS resource_name
+        let rows = await queryRows(
+          db,
+          sql`SELECT a.title, a.date, a.during::text AS during, u.name AS user_name, r.name AS resource_name
           FROM appointments a
           LEFT JOIN users u ON a.user_id = u.id
           LEFT JOIN resources r ON r.id = a.resource_id
           WHERE a.date >= ${startTs} AND a.date <= ${endTs}
           ORDER BY a.date ASC
-          LIMIT 500
-        `)
-        let rows = (result.rows ?? []) as Array<{
-          title: string
-          date: number
-          during: string
-          user_name: string | null
-          resource_name: string | null
-        }>
+          LIMIT 500`,
+          reportAppointmentWire,
+        )
         let docDef: TDocumentDefinitions = {
           content: [
             { text: `Appointment Report: ${startDate} to ${endDate}`, style: 'header' },

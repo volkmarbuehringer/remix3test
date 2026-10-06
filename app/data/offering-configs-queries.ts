@@ -2,7 +2,7 @@ import { rawSql, sql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { queryRows, queryRow, int8Aggregate } from './rows.ts'
+import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -26,8 +26,8 @@ const offeringConfigWireSchema = z.object({
   resource_name: z.string().nullable(),
   resource_description: z.string().nullable(),
   rules: z.record(z.string(), z.unknown()),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: int8,
+  updated_at: int8,
 })
 
 function parseRules(raw: unknown): Record<string, [number, number]> {
@@ -64,10 +64,8 @@ export function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfi
     resource_name: (row.resource_name as string) ?? null,
     resource_description: (row.resource_description as string) ?? null,
     rules: parseRules(row.rules),
-    created_at:
-      typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-    updated_at:
-      typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
+    created_at: Number(row.created_at),
+    updated_at: Number(row.updated_at),
   }
 }
 

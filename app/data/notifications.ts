@@ -2,7 +2,7 @@ import { sql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { notifications, type Notification } from './schema.ts'
-import { queryRows, queryRow, int8Aggregate } from './rows.ts'
+import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -22,8 +22,8 @@ const notificationWireSchema = z.object({
   title: z.string(),
   body: z.string(),
   appointment_id: z.number().nullable(),
-  read_at: z.string().nullable(),
-  created_at: z.string(),
+  read_at: int8.nullable(),
+  created_at: int8,
 })
 
 function toNotification(row: z.output<typeof notificationWireSchema>): Notification {

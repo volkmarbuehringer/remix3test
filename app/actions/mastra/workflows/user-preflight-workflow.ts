@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
+import { sql } from 'remix/data-table'
+import { int8, queryRow } from '../../../data/rows.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 
 const lookupUserAndCountStep = createStep({
@@ -23,33 +25,38 @@ const lookupUserAndCountStep = createStep({
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    let result = await db.exec(
-      'SELECT id, email, name, role, disabled_at FROM users WHERE id = $1',
-      [inputData.targetUserId],
+    let row = await queryRow(
+      db,
+      sql`SELECT id, email, name, role, disabled_at FROM users WHERE id = ${inputData.targetUserId}`,
+      z.object({
+        id: z.number(),
+        email: z.string(),
+        name: z.string(),
+        role: z.string(),
+        disabled_at: int8.nullable(),
+      }),
     )
-    let rows = result.rows as Array<Record<string, unknown>> | undefined
-    let row = rows?.[0]
     if (!row) {
       return { found: false, pendingCount: 0, error: 'User not found' }
     }
 
     let todayMidnight = getTodayUtcMidnight()
-    let apptResult = await db.exec(
-      'SELECT count(*)::int AS count FROM appointments WHERE user_id = $1 AND date >= $2',
-      [inputData.targetUserId, todayMidnight],
+    let countRow = await queryRow(
+      db,
+      sql`SELECT count(*)::int AS count FROM appointments WHERE user_id = ${inputData.targetUserId} AND date >= ${todayMidnight}`,
+      z.object({ count: z.number() }),
     )
-    let count = Number((apptResult.rows ?? [])[0]?.count ?? 0)
 
     return {
       found: true,
       user: {
-        id: Number(row.id),
-        name: String(row.name ?? ''),
-        email: String(row.email ?? ''),
-        role: String(row.role ?? ''),
-        disabledAt: row.disabled_at != null ? Number(row.disabled_at) : null,
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        disabledAt: row.disabled_at,
       },
-      pendingCount: count,
+      pendingCount: countRow?.count ?? 0,
     }
   },
 })

@@ -30,6 +30,7 @@ import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
+import { formatDuring } from '../utils/during.ts'
 
 interface AdminOfferingsPageProps {
   rows: OfferingRow[]
@@ -169,12 +170,12 @@ const WEEKDAY_LABELS: Record<number, string> = {
   7: 'So',
 }
 
-function formatWeekday(day: string): string {
+function formatWeekday(day: number): string {
   let d = new Date(Number(day))
   return WEEKDAY_LABELS[d.getUTCDay() || 7] ?? ''
 }
 
-function formatWeekNumber(day: string): number {
+function formatWeekNumber(day: number): number {
   let d = new Date(Number(day))
   let target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
   let dayOfWeek = target.getUTCDay() || 7
@@ -183,7 +184,7 @@ function formatWeekNumber(day: string): number {
   return Math.ceil(((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
-function formatDate(value: string): string {
+function formatDate(value: number): string {
   return new Date(Number(value)).toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -191,23 +192,11 @@ function formatDate(value: string): string {
   })
 }
 
-function formatTime(value: string): string {
+function formatTime(value: number): string {
   return new Date(Number(value)).toLocaleTimeString('de-DE', {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function formatDuring(during: string): string {
-  let match = during.match(/^\[(\d+),(\d+)\)$/)
-  if (!match) return during
-  let startMin = parseInt(match[1]!, 10)
-  let endMin = parseInt(match[2]!, 10)
-  let startH = String(Math.floor(startMin / 60)).padStart(2, '0')
-  let startM = String(startMin % 60).padStart(2, '0')
-  let endH = String(Math.floor(endMin / 60)).padStart(2, '0')
-  let endM = String(endMin % 60).padStart(2, '0')
-  return `${startH}:${startM}\u2013${endH}:${endM}`
 }
 
 // errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)

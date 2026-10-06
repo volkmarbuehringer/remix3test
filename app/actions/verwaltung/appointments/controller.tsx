@@ -8,11 +8,8 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { isDateInPast, getPeriodRange, getTodayUtcMidnight } from '../../../utils/date-utils.ts'
-import {
-  isSlotBookable,
-  listOfferingsByDayRange,
-  parseDuring,
-} from '../../../data/appointofferings.ts'
+import { isSlotBookable, listOfferingsByDayRange } from '../../../data/appointofferings.ts'
+import { parseDuring } from '../../../utils/during.ts'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import Holidays from 'date-holidays'

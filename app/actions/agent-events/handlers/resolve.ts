@@ -1,6 +1,8 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
 import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
+import { z } from 'zod/v4'
+import { queryRow, queryRows } from '../../../data/rows.ts'
 import { INTENTS } from '../intents.ts'
 
 async function resolveTargetUser(
@@ -14,10 +16,11 @@ async function resolveTargetUser(
       return { error: `User with ID ${targetId} not found` }
     }
     let pattern = `%${query}%`
-    let result = await db.exec(
+    let rows = await queryRows(
+      db,
       sql`SELECT id, name, email FROM users WHERE name ILIKE ${pattern} OR email ILIKE ${pattern} ORDER BY name`,
+      z.object({ id: z.number(), name: z.string(), email: z.string() }),
     )
-    let rows = (result.rows ?? []) as Array<{ id: number; name: string; email: string }>
     if (rows.length === 0) return { error: `No user found matching "${query}"` }
     let names = rows.map((r) => `${r.name} (${r.email})`).join(', ')
     if (rows.length > 1)
@@ -38,10 +41,11 @@ async function resolveResource(query: string): Promise<{ resourceId: number } | 
       return { error: `Resource with ID ${targetId} not found` }
     }
     let pattern = `%${query}%`
-    let result = await db.exec(
+    let rows = await queryRows(
+      db,
       sql`SELECT id, name FROM resources WHERE name ILIKE ${pattern} ORDER BY name`,
+      z.object({ id: z.number(), name: z.string() }),
     )
-    let rows = (result.rows ?? []) as Array<{ id: number; name: string }>
     if (rows.length === 0) return { error: `No resource found matching "${query}"` }
     let names = rows.map((r) => r.name).join(', ')
     if (rows.length > 1)
@@ -55,8 +59,11 @@ async function resolveResource(query: string): Promise<{ resourceId: number } | 
 
 async function resolveUserEmail(userId: number): Promise<string> {
   try {
-    let result = await db.exec(sql`SELECT email FROM users WHERE id = ${userId}`)
-    let row = (result.rows ?? [])[0] as { email: string } | undefined
+    let row = await queryRow(
+      db,
+      sql`SELECT email FROM users WHERE id = ${userId}`,
+      z.object({ email: z.string() }),
+    )
     return row?.email ?? ''
   } catch {
     return ''

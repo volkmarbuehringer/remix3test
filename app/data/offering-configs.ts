@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 
 import { offeringConfigs, type OfferingConfig as SchemaOfferingConfig } from './schema.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
-import { queryRows, queryRow } from './rows.ts'
+import { int8, queryRows, queryRow } from './rows.ts'
 export type OfferingConfig = SchemaOfferingConfig
 
 function isValidRule(v: unknown): v is [number, number] {
@@ -86,7 +86,7 @@ async function listExistingOfferingKeys(
     sql`SELECT day, lower(during) AS start_min, upper(during) AS end_min
      FROM appointoffering
      WHERE resource_id = ${resourceId} AND day >= ${mondayMs} AND day < ${sundayMs}`,
-    z.object({ day: z.string(), start_min: z.number(), end_min: z.number() }),
+    z.object({ day: int8, start_min: z.number(), end_min: z.number() }),
   )
   let keys = new Set<string>()
   for (let row of rows) {

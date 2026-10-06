@@ -33,7 +33,7 @@ import type {
   AppointmentResourceOption,
   AppointmentUserOption,
 } from '../data/appointments.ts'
-import { parseDuring } from '../data/appointofferings.ts'
+import { formatDuring } from '../utils/during.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()
 
@@ -93,34 +93,12 @@ interface AdminAppointmentsPageProps {
   formError?: string | undefined
 }
 
-function formatDate(day: string): string {
+function formatDate(day: number): string {
   return new Date(Number(day)).toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   })
-}
-
-function formatMinRange(startMin: number, endMin: number): string {
-  let startH = String(Math.floor(startMin / 60)).padStart(2, '0')
-  let startM = String(startMin % 60).padStart(2, '0')
-  let endH = String(Math.floor(endMin / 60)).padStart(2, '0')
-  let endM = String(endMin % 60).padStart(2, '0')
-  return `${startH}:${startM}\u2013${endH}:${endM}`
-}
-
-function formatDuring(during: unknown): string {
-  // Handle pg int4range object format: { lower: 480, upper: 1020 }
-  if (typeof during === 'object' && during !== null) {
-    let r = during as { lower: number; upper: number }
-    return formatMinRange(Number(r.lower), Number(r.upper))
-  }
-  // Handle string format using shared parser from appointofferings
-  if (typeof during === 'string') {
-    let parsed = parseDuring(during)
-    if (parsed) return formatMinRange(parsed.startMin, parsed.endMin)
-  }
-  return String(during)
 }
 
 // ── Styles ──

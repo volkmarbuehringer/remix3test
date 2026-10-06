@@ -2,17 +2,17 @@ import { rawSql, sql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 import { getPeriodRange, getTodayUtcMidnight } from '../utils/date-utils.ts'
-import { queryRows, queryRow, int8Aggregate } from './rows.ts'
+import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 const offeringRowSchema = z.object({
   id: z.number(),
-  day: z.string(),
+  day: int8,
   resource_id: z.number(),
   resource_name: z.string().nullable(),
   resource_description: z.string().nullable(),
   during: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: int8,
+  updated_at: int8,
 })
 
 export type OfferingRow = z.output<typeof offeringRowSchema>

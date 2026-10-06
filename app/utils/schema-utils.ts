@@ -1,14 +1,19 @@
 /**
- * Parse BIGINT columns (returned as strings by the PostgreSQL driver) back to numbers.
- * Schema.ts now uses bigint() column type to match the DB's BIGINT, but pg still
- * returns BIGINT values as strings. This normalizes them to numbers.
+ * Decode BIGINT (int8) columns, which node-postgres returns as strings, to
+ * numbers. Returns a new record so the row handed to `afterRead` is never
+ * mutated in place.
  */
-export function parseIntFields(value: Record<string, unknown>, ...fields: string[]): void {
+export function decodeInt8Fields(
+  value: Record<string, unknown>,
+  ...fields: string[]
+): Record<string, unknown> {
+  let next = { ...value }
   for (let field of fields) {
-    if (typeof value[field] === 'string') {
-      value[field] = parseInt(value[field] as string, 10)
+    if (typeof next[field] === 'string') {
+      next[field] = Number(next[field])
     }
   }
+  return next
 }
 
 export function issuesToFieldErrors(

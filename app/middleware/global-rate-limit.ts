@@ -4,6 +4,7 @@ import { html } from 'remix/html-template'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { connectionIp } from '../utils/request-ip.ts'
+import { isTest } from '../config.ts'
 
 export function globalRateLimit(options?: {
   maxPerWindow?: number | undefined
@@ -12,7 +13,7 @@ export function globalRateLimit(options?: {
 }): Middleware {
   let maxPerWindow = options?.maxPerWindow ?? 500
   let windowMs = options?.windowMs ?? 60_000
-  let skip = options?.skip ?? process.env.NODE_ENV === 'test'
+  let skip = options?.skip ?? isTest
   let limiter = createRateLimiter({ windowMs, perKey: true, maxAttempts: maxPerWindow })
 
   return async (context, next) => {

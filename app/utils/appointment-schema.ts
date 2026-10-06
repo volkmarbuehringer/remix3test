@@ -1,6 +1,7 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import * as coerce from 'remix/data-schema/coerce'
+import { gridQueryFields, gridStatusField } from './grid-params.ts'
 
 export const APPOINTMENT_FORM_KEYS = [
   'resource_id',
@@ -43,12 +44,8 @@ export const appointmentSaveSchema = f.object({
   end_min: f.field(
     coerce.number().refine((n) => n >= 60 && n <= 1440 && n % 15 === 0, 'ist ungültig.'),
   ),
-  _offset: f.field(s.defaulted(s.string(), '')),
-  _sort: f.field(s.defaulted(s.string(), '')),
-  _order: f.field(s.defaulted(s.string(), '')),
-  _filter: f.field(s.defaulted(s.string(), '')),
-  _period: f.field(s.defaulted(s.string(), '')),
-  _status: f.field(s.defaulted(s.string(), '')),
+  ...gridQueryFields,
+  ...gridStatusField,
 })
 
 export const appointmentsNewSaveSchema = f.object({
@@ -69,10 +66,6 @@ export const appointmentsNewSaveSchema = f.object({
   start_min: f.field(
     coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 15 === 0, 'ist ungültig.'),
   ),
-  _offset: f.field(s.defaulted(s.string(), '')),
-  _sort: f.field(s.defaulted(s.string(), '')),
-  _order: f.field(s.defaulted(s.string(), '')),
-  _filter: f.field(s.defaulted(s.string(), '')),
-  _period: f.field(s.defaulted(s.string(), '')),
-  _status: f.field(s.defaulted(s.string(), '')),
+  ...gridQueryFields,
+  ...gridStatusField,
 })

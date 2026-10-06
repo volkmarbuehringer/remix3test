@@ -2,18 +2,20 @@ import { sql, rawSql, type SqlStatement, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { queryRows, queryRow, int8Aggregate } from './rows.ts'
-
-function envBytes(name: string, fallback: number): number {
-  let value = Number(process.env[name])
-  return Number.isFinite(value) && value > 0 ? value : fallback
-}
+import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
+import { envPositiveNumber } from '../config.ts'
 
 /** Hard cap on total BYTEA storage across all users (uploads live in the primary database). */
-export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 * 1024 * 1024)
+export const uploadsTotalQuotaBytes = envPositiveNumber(
+  'UPLOADS_TOTAL_QUOTA_BYTES',
+  500 * 1024 * 1024,
+)
 
 /** Hard cap on total BYTEA storage a single user may claim. */
-const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
+const uploadsPerUserQuotaBytes = envPositiveNumber(
+  'UPLOADS_PER_USER_QUOTA_BYTES',
+  100 * 1024 * 1024,
+)
 
 /** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
 export const uploadErrorMessages: Record<string, string> = {
@@ -118,8 +120,8 @@ const uploadRowSchema = z.object({
   id: z.number(),
   filename: z.string(),
   mime_type: z.string(),
-  size: z.string(),
-  created_at: z.string(),
+  size: int8,
+  created_at: int8,
 })
 
 export async function listUploads(
@@ -262,7 +264,7 @@ export async function claimUpload(
     let sizeRow = await queryRow(
       tx,
       sql`SELECT size FROM uploads WHERE id = ${uploadId}`,
-      z.object({ size: z.string() }),
+      z.object({ size: int8 }),
     )
     if (!sizeRow) return false
     let newBytes = Number(sizeRow.size)
@@ -316,7 +318,7 @@ export async function claimUploads(
     let sizeRows = await queryRows(
       tx,
       sql`SELECT id, size FROM uploads WHERE id = ANY(${uploadIds}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
-      z.object({ id: z.number(), size: z.string() }),
+      z.object({ id: z.number(), size: int8 }),
     )
     if (sizeRows.length === 0) return false
 

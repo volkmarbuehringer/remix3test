@@ -2,7 +2,8 @@ import { gte, lt, sql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { appointofferings, type AppointOffering } from './schema.ts'
-import { queryRows } from './rows.ts'
+import { int8, queryRows } from './rows.ts'
+import { parseDuring } from '../utils/during.ts'
 
 export async function listOfferingsByWeek(
   db: Database,
@@ -40,35 +41,6 @@ export async function listOfferingsByDayRange(
 }
 
 /**
- * Parse an offering's `during` range string into [startMin, endMin).
- * Handles various formats the PostgreSQL driver might return.
- */
-export function parseDuring(during: unknown): { startMin: number; endMin: number } | null {
-  // Guard against null/undefined values the PostgreSQL driver might return
-  if (during == null) return null
-
-  // Handle Postgres range object format { lower, upper }
-  if (typeof during === 'object' && during !== null) {
-    let r = during as { lower: unknown; upper: unknown }
-    return { startMin: Number(r.lower) || 0, endMin: Number(r.upper) || 60 }
-  }
-
-  let str = String(during)
-
-  // Standard format: "[start,end)"
-  let match = str.match(/^\[(\d+),(\d+)\)$/)
-  if (match) {
-    return { startMin: parseInt(match[1]!, 10), endMin: parseInt(match[2]!, 10) }
-  }
-  // Fallback: try to extract two numbers separated by comma within brackets
-  let fallback = str.match(/\[(\d+)\s*,\s*(\d+)/)
-  if (fallback) {
-    return { startMin: parseInt(fallback[1]!, 10), endMin: parseInt(fallback[2]!, 10) }
-  }
-  return null
-}
-
-/**
  * Returns distinct days that have at least one offering for a resource in a date window,
  * along with the offering time ranges for each day.
  */
@@ -88,7 +60,7 @@ export async function listDaysWithOfferings(
       AND day < ${endDate}
     ORDER BY day ASC, during ASC
   `,
-    z.object({ day: z.string(), during: z.string() }),
+    z.object({ day: int8, during: z.string() }),
   )
 
   let dayMap = new Map<number, { startMin: number; endMin: number }[]>()
@@ -144,7 +116,7 @@ export async function getBookedRangesForWeek(
       AND date < ${weekEnd}
     ORDER BY date ASC, start_min ASC
   `,
-    z.object({ date: z.string(), start_min: z.number(), end_min: z.number() }),
+    z.object({ date: int8, start_min: z.number(), end_min: z.number() }),
   )
   let map = new Map<number, { startMin: number; endMin: number }[]>()
   for (let row of rows) {

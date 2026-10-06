@@ -1,4 +1,7 @@
 import { db } from '../../db.ts'
+import { sql } from 'remix/data-table'
+import { z } from 'zod/v4'
+import { queryRow } from '../../data/rows.ts'
 
 type ActiveRunStatus = 'running' | 'suspended'
 
@@ -19,6 +22,15 @@ type DbRow = {
   step_id: string | null
   suspend_payload: Record<string, unknown> | null
 }
+
+const activeRunDbSchema = z.object({
+  admin_user_id: z.number(),
+  run_id: z.string(),
+  workflow_id: z.string(),
+  status: z.enum(['running', 'suspended']),
+  step_id: z.string().nullable(),
+  suspend_payload: z.record(z.string(), z.unknown()).nullable(),
+})
 
 function toRow(row: DbRow): ActiveRunRow {
   return {
@@ -83,30 +95,31 @@ export async function clearActiveRun(adminUserId: number, runId: string): Promis
 }
 
 export async function findActiveRun(adminUserId: number): Promise<ActiveRunRow | null> {
-  let result = await db.exec(
-    `SELECT admin_user_id, run_id, workflow_id, status, step_id, suspend_payload
-     FROM admin_active_runs WHERE admin_user_id = $1`,
-    [adminUserId],
+  let row = await queryRow(
+    db,
+    sql`SELECT admin_user_id, run_id, workflow_id, status, step_id, suspend_payload
+     FROM admin_active_runs WHERE admin_user_id = ${adminUserId}`,
+    activeRunDbSchema,
   )
-  let row = (result.rows ?? [])[0] as DbRow | undefined
   return row ? toRow(row) : null
 }
 
 export async function findRunOwner(runId: string): Promise<number | null> {
-  let result = await db.exec('SELECT admin_user_id FROM admin_active_runs WHERE run_id = $1', [
-    runId,
-  ])
-  let row = (result.rows ?? [])[0] as { admin_user_id: number } | undefined
+  let row = await queryRow(
+    db,
+    sql`SELECT admin_user_id FROM admin_active_runs WHERE run_id = ${runId}`,
+    z.object({ admin_user_id: z.number() }),
+  )
   return row ? row.admin_user_id : null
 }
 
 /** Resolves a run id to its full active-run row (for resume ownership checks). */
 export async function findRunById(runId: string): Promise<ActiveRunRow | null> {
-  let result = await db.exec(
-    `SELECT admin_user_id, run_id, workflow_id, status, step_id, suspend_payload
-     FROM admin_active_runs WHERE run_id = $1`,
-    [runId],
+  let row = await queryRow(
+    db,
+    sql`SELECT admin_user_id, run_id, workflow_id, status, step_id, suspend_payload
+     FROM admin_active_runs WHERE run_id = ${runId}`,
+    activeRunDbSchema,
   )
-  let row = (result.rows ?? [])[0] as DbRow | undefined
   return row ? toRow(row) : null
 }

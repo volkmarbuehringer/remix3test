@@ -1,9 +1,9 @@
 import { sql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
-import { queryRows } from './rows.ts'
+import { int8, queryRows } from './rows.ts'
 
-export interface AppointmentRow {
+export interface PdfAppointmentRow {
   id: number
   user_name: string | null
   user_email: string
@@ -22,7 +22,7 @@ const appointmentRowSchema = z.object({
   resource_name: z.string().nullable(),
   resource_description: z.string().nullable(),
   title: z.string(),
-  date: z.string(),
+  date: int8,
   start_min: z.number(),
   end_min: z.number(),
 })
@@ -30,7 +30,7 @@ const appointmentRowSchema = z.object({
 export async function listAllAppointments(
   db: Database,
   limit: number = 10000,
-): Promise<{ rows: AppointmentRow[]; truncated: boolean }> {
+): Promise<{ rows: PdfAppointmentRow[]; truncated: boolean }> {
   let rows = (
     await queryRows(
       db,
@@ -51,7 +51,7 @@ export async function listAllAppointments(
     resource_name: row.resource_name,
     resource_description: row.resource_description,
     title: row.title,
-    date: Number(row.date),
+    date: row.date,
     start_min: row.start_min,
     end_min: row.end_min,
   }))

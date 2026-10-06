@@ -9,11 +9,11 @@ import type { AppContext } from '../../types/context.ts'
 import { getCurrentWeekMonday, getTodayUtcMidnight, isWithinHours } from '../../utils/date-utils.ts'
 import {
   listOfferingsByDayRange,
-  parseDuring,
   computeFullHourSlots,
   getBookedRangesForWeek,
   filterAvailableSlots,
 } from '../../data/appointofferings.ts'
+import { parseDuring } from '../../utils/during.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'

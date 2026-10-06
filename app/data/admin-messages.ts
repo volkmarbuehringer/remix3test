@@ -2,7 +2,7 @@ import { rawSql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { queryRows } from './rows.ts'
+import { int8, queryRows } from './rows.ts'
 
 export interface AdminMessageRow {
   id: number
@@ -29,7 +29,7 @@ const adminMessageWireSchema = z.object({
   sender_id: z.number().nullable(),
   sender_name: z.string().nullable(),
   content: z.string(),
-  created_at: z.string(),
+  created_at: int8,
 })
 
 export async function listMessages(

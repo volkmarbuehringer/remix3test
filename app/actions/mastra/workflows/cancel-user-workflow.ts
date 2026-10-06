@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
+import { sql } from 'remix/data-table'
+import { int8, queryRow } from '../../../data/rows.ts'
 import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
@@ -35,12 +37,17 @@ const validateTargetStep = createStep({
         error: 'Cannot cancel your own account',
       }
     }
-    let result = await db.exec(
-      'SELECT id, email, name, role, disabled_at FROM users WHERE id = $1',
-      [inputData.targetUserId],
+    let row = await queryRow(
+      db,
+      sql`SELECT id, email, name, role, disabled_at FROM users WHERE id = ${inputData.targetUserId}`,
+      z.object({
+        id: z.number(),
+        email: z.string(),
+        name: z.string(),
+        role: z.string(),
+        disabled_at: int8.nullable(),
+      }),
     )
-    let rows = result.rows as Array<Record<string, unknown>> | undefined
-    let row = rows?.[0]
     if (!row) {
       return {
         valid: false,
@@ -77,8 +84,8 @@ const validateTargetStep = createStep({
       adminUserId: inputData.adminUserId,
       adminEmail: inputData.adminEmail,
       deleteAppointments,
-      userEmail: String(row.email ?? ''),
-      userName: String(row.name ?? ''),
+      userEmail: row.email,
+      userName: row.name,
     }
   },
 })

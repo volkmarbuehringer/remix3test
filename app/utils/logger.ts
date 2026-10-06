@@ -1,3 +1,5 @@
+import { isTest } from '../config.ts'
+
 /**
  * Shared logger utility.
  *
@@ -18,8 +20,6 @@ export interface Logger {
 }
 
 export function createLogger(prefix: string): Logger {
-  let isTest = process.env.NODE_ENV === 'test'
-
   let logFn: Logger = Object.assign(
     (...args: unknown[]) => {
       if (isTest) return

@@ -2,6 +2,8 @@ import { createContextKey, type Middleware } from 'remix/router'
 import { getContext } from 'remix/middleware/async-context'
 import { SuperHeaders } from 'remix/headers'
 
+import { isProduction } from '../config.ts'
+
 const cspNonceKey = createContextKey<string>()
 
 export function getCspNonce(): string | undefined {
@@ -49,7 +51,7 @@ export function securityHeaders(): Middleware {
         'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()'
     }
 
-    if (process.env.NODE_ENV === 'production' && !headers.has('Strict-Transport-Security')) {
+    if (isProduction && !headers.has('Strict-Transport-Security')) {
       headers.strictTransportSecurity = 'max-age=31536000; includeSubDomains'
     }
 

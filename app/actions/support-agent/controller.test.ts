@@ -748,12 +748,24 @@ describe('Mastra Chat controller', () => {
   })
 })
 
-function execTool(tool: Record<string, unknown>, input: Record<string, unknown>) {
-  let fn = tool.execute as (
-    input: Record<string, unknown>,
-    opts: Record<string, unknown>,
-  ) => Promise<Record<string, unknown>>
-  return fn(input, {})
+/**
+ * Invoke a tool's `execute` with typed input. The tool parameter preserves the
+ * tool's real input type, so the input object is checked against its schema; the
+ * result is normalized to a plain record for property assertions.
+ */
+/**
+ * Invoke a tool's `execute` with plain-object input. Mastra types `execute` with
+ * a rich, tool-specific context; this helper localizes the one structural cast
+ * so call sites can pass a typed tool and its input without casting each time.
+ */
+async function execTool(
+  tool: object,
+  input: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  let execute = (tool as { execute: (input: unknown, context: unknown) => Promise<unknown> })
+    .execute
+  let result = await execute(input, {})
+  return result as Record<string, unknown>
 }
 
 describe('Mastra Chat tools', () => {
@@ -762,10 +774,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('getCurrentDateTime returns shape with all fields', async () => {
-    let result = (await execTool(
-      supportTools.getCurrentDateTime as unknown as Record<string, unknown>,
-      {},
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getCurrentDateTime, {})) as Record<string, unknown>
     assert.ok(result, 'should return a result')
     assert.ok(typeof result.iso === 'string', 'iso should be a string')
     assert.ok(typeof result.formatted === 'string', 'formatted should be a string')
@@ -779,7 +788,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupUser finds existing user by email', async () => {
-    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.lookupUser, {
       query: 'admin@newapp.com',
     })) as Record<string, unknown>
     assert.ok(result.found, 'should find the user')
@@ -792,7 +801,7 @@ describe('Mastra Chat tools', () => {
     let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]
     assert.ok(idRow, 'admin user should exist')
-    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.lookupUser, {
       query: String(idRow.id),
     })) as Record<string, unknown>
     assert.ok(result.found, 'should find the user')
@@ -800,7 +809,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupUser returns not found for unknown email', async () => {
-    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.lookupUser, {
       query: 'nonexistent@example.com',
     })) as Record<string, unknown>
     assert.ok(!result.found, 'should not find the user')
@@ -808,10 +817,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('countUsers returns totals grouped by role', async () => {
-    let result = (await execTool(
-      supportTools.countUsers as unknown as Record<string, unknown>,
-      {},
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.countUsers, {})) as Record<string, unknown>
     assert.ok((result.total as number) > 1, 'should have at least 2 users')
     assert.ok(result.byRole, 'should have byRole breakdown')
     assert.ok(
@@ -825,7 +831,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('countUsers filters by role', async () => {
-    let result = (await execTool(supportTools.countUsers as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.countUsers, {
       role: 'admin',
     })) as Record<string, unknown>
     assert.equal(
@@ -841,10 +847,10 @@ describe('Mastra Chat tools', () => {
   })
 
   it('listRecentAppointments returns appointments', async () => {
-    let result = (await execTool(
-      supportTools.listRecentAppointments as unknown as Record<string, unknown>,
-      { limit: 5 },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.listRecentAppointments, { limit: 5 })) as Record<
+      string,
+      unknown
+    >
     assert.ok(Array.isArray(result.appointments), 'appointments should be an array')
     assert.ok((result.count as number) >= 0, 'count should be non-negative')
     if ((result.count as number) > 0) {
@@ -858,10 +864,10 @@ describe('Mastra Chat tools', () => {
     let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com']))
       .rows[0]
     assert.ok(idRow, 'user should exist')
-    let result = (await execTool(
-      supportTools.listRecentAppointments as unknown as Record<string, unknown>,
-      { limit: 5, userId: idRow.id },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.listRecentAppointments, {
+      limit: 5,
+      userId: idRow.id,
+    })) as Record<string, unknown>
     assert.ok(Array.isArray(result.appointments), 'appointments should be an array')
     if ((result.count as number) > 0) {
       for (let appt of result.appointments as Record<string, unknown>[]) {
@@ -888,7 +894,7 @@ describe('Mastra Chat tools', () => {
             },
           }),
       )
-      let result = (await execTool(supportTools.getWeather as unknown as Record<string, unknown>, {
+      let result = (await execTool(supportTools.getWeather, {
         location: 'Berlin',
       })) as Record<string, unknown>
       assert.ok(result, 'should return a result')
@@ -908,7 +914,7 @@ describe('Mastra Chat tools', () => {
       globalThis.fetch = mockFetchSequence(() => jsonResponse({ results: undefined }))
       let threw = false
       try {
-        await execTool(supportTools.getWeather as unknown as Record<string, unknown>, {
+        await execTool(supportTools.getWeather, {
           location: 'Atlantis',
         })
       } catch {
@@ -921,7 +927,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('getWeather has correct tool metadata', () => {
-    let tool = supportTools.getWeather as unknown as Record<string, unknown>
+    let tool = supportTools.getWeather
     assert.equal(tool.id, 'get_weather')
     assert.ok(
       typeof tool.description === 'string' && tool.description.length > 0,
@@ -932,10 +938,10 @@ describe('Mastra Chat tools', () => {
   })
 
   it('getResourceDetails finds resource by name', async () => {
-    let result = (await execTool(
-      supportTools.getResourceDetails as unknown as Record<string, unknown>,
-      { query: 'Room' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getResourceDetails, { query: 'Room' })) as Record<
+      string,
+      unknown
+    >
     if (result.found) {
       assert.ok(result.resource, 'should return resource data')
       assert.ok(typeof (result.resource as Record<string, unknown>).name === 'string')
@@ -945,38 +951,37 @@ describe('Mastra Chat tools', () => {
   })
 
   it('getResourceDetails returns not found for unknown resource', async () => {
-    let result = (await execTool(
-      supportTools.getResourceDetails as unknown as Record<string, unknown>,
-      { query: 'nonexistent-resource-xyz' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getResourceDetails, {
+      query: 'nonexistent-resource-xyz',
+    })) as Record<string, unknown>
     assert.ok(!result.found, 'should not find the resource')
     assert.ok(result.message, 'should include a message')
   })
 
   it('getOfferingsForDate returns offering slots for a date', async () => {
     let dateStr = new Date().toISOString().slice(0, 10)
-    let result = (await execTool(
-      supportTools.getOfferingsForDate as unknown as Record<string, unknown>,
-      { date: dateStr },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getOfferingsForDate, { date: dateStr })) as Record<
+      string,
+      unknown
+    >
     assert.ok(typeof result.count === 'number', 'count should be a number')
     assert.ok(Array.isArray(result.offerings), 'offerings should be an array')
   })
 
   it('searchAppointmentsByDateRange returns appointments', async () => {
-    let result = (await execTool(
-      supportTools.searchAppointmentsByDateRange as unknown as Record<string, unknown>,
-      { startDate: '2026-06-01', endDate: '2026-06-30' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.searchAppointmentsByDateRange, {
+      startDate: '2026-06-01',
+      endDate: '2026-06-30',
+    })) as Record<string, unknown>
     assert.ok(typeof result.count === 'number')
     assert.ok(Array.isArray(result.appointments))
   })
 
   it('searchAppointmentsByDateRange rejects range over 90 days', async () => {
-    let result = (await execTool(
-      supportTools.searchAppointmentsByDateRange as unknown as Record<string, unknown>,
-      { startDate: '2020-01-01', endDate: '2025-01-01' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.searchAppointmentsByDateRange, {
+      startDate: '2020-01-01',
+      endDate: '2025-01-01',
+    })) as Record<string, unknown>
     assert.ok(result.error, 'should return an error for >90 day range')
   })
 
@@ -984,55 +989,48 @@ describe('Mastra Chat tools', () => {
     let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com']))
       .rows[0]
     assert.ok(idRow, 'user should exist')
-    let result = (await execTool(
-      supportTools.getUserAppointments as unknown as Record<string, unknown>,
-      { userId: idRow.id },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getUserAppointments, { userId: idRow.id })) as Record<
+      string,
+      unknown
+    >
     assert.ok(typeof result.count === 'number')
     assert.ok(Array.isArray(result.appointments))
   })
 
   it('getAppointmentDetails returns found false for non-existent appointment', async () => {
-    let result = (await execTool(
-      supportTools.getAppointmentDetails as unknown as Record<string, unknown>,
-      { id: 999999 },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getAppointmentDetails, { id: 999999 })) as Record<
+      string,
+      unknown
+    >
     assert.ok(!result.found, 'should not find a non-existent appointment')
   })
 
   it('getOfferingConfigForResource returns shape for existing resource', async () => {
     let resourceRow = (await pool.query('SELECT id FROM resources LIMIT 1')).rows[0]
     if (!resourceRow) return // skip if no resources
-    let result = (await execTool(
-      supportTools.getOfferingConfigForResource as unknown as Record<string, unknown>,
-      { resourceId: resourceRow.id },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getOfferingConfigForResource, {
+      resourceId: resourceRow.id,
+    })) as Record<string, unknown>
     assert.ok('found' in result, 'should have found field')
   })
 
   it('getAppointTypes returns list of types', async () => {
-    let result = (await execTool(
-      supportTools.getAppointTypes as unknown as Record<string, unknown>,
-      {},
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getAppointTypes, {})) as Record<string, unknown>
     assert.ok(typeof result.count === 'number')
     assert.ok(Array.isArray(result.types))
   })
 
   it('searchMessages returns messages', async () => {
-    let result = (await execTool(
-      supportTools.searchMessages as unknown as Record<string, unknown>,
-      { query: 'test' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.searchMessages, { query: 'test' })) as Record<
+      string,
+      unknown
+    >
     assert.ok(typeof result.count === 'number')
     assert.ok(Array.isArray(result.messages))
   })
 
   it('getAdminStats returns aggregate counts', async () => {
-    let result = (await execTool(
-      supportTools.getAdminStats as unknown as Record<string, unknown>,
-      {},
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getAdminStats, {})) as Record<string, unknown>
     assert.ok(result.users, 'should have users stats')
     assert.ok(result.appointments, 'should have appointments stats')
     assert.ok(result.resources, 'should have resources stats')
@@ -1041,7 +1039,7 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupHoliday returns known holiday for Christmas', async () => {
-    let result = (await execTool(supportTools.lookupHoliday as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.lookupHoliday, {
       date: '2026-12-25',
     })) as Record<string, unknown>
     assert.ok(result.isHoliday, 'Christmas should be a holiday')
@@ -1049,17 +1047,14 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupHoliday returns false for non-holiday', async () => {
-    let result = (await execTool(supportTools.lookupHoliday as unknown as Record<string, unknown>, {
+    let result = (await execTool(supportTools.lookupHoliday, {
       date: '2026-07-15',
     })) as Record<string, unknown>
     assert.ok(!result.isHoliday, 'July 15 should not be a holiday')
   })
 
   it('getLocationContext returns Ransbach-Baumbach location data', async () => {
-    let result = (await execTool(
-      supportTools.getLocationContext as unknown as Record<string, unknown>,
-      {},
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.getLocationContext, {})) as Record<string, unknown>
     assert.equal(result.city, 'Ransbach-Baumbach')
     assert.equal(result.country, 'Germany')
     assert.equal(result.timezone, 'Europe/Berlin')
@@ -1067,11 +1062,66 @@ describe('Mastra Chat tools', () => {
   })
 
   it('generatePdfReport has correct metadata', () => {
-    let tool = supportTools.generatePdfReport as unknown as Record<string, unknown>
+    let tool = supportTools.generatePdfReport
     assert.equal(tool.id, 'generate_pdf_report')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
     assert.ok(tool.inputSchema, 'should have an inputSchema')
+  })
+
+  it('decodes raw epoch and range columns to their declared output types', async () => {
+    let userRow = await pool.query("SELECT id FROM users WHERE email = 'user@newapp.com'")
+    let resourceRow = await pool.query('SELECT id FROM resources ORDER BY id LIMIT 1')
+    assert.ok(userRow.rows[0], 'seeded user should exist')
+    assert.ok(resourceRow.rows[0], 'seeded resource should exist')
+    let userId = userRow.rows[0].id as number
+    let resourceId = resourceRow.rows[0].id as number
+
+    let date = Date.UTC(2027, 0, 15, 12, 0, 0)
+    let dateStr = '2027-01-15'
+    let title = '[TEST TOOL] decode ' + Date.now()
+    let inserted = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, '[600,660)'::int4range, $5, $5)
+       RETURNING id`,
+      [userId, resourceId, title, date, Date.now()],
+    )
+    let appointmentId = inserted.rows[0].id as number
+
+    try {
+      let listResult = (await execTool(supportTools.listRecentAppointments, {
+        limit: 5,
+      })) as Record<string, unknown>
+      let listed = (listResult.appointments as Array<Record<string, unknown>>).find(
+        (a) => a.id === appointmentId,
+      )
+      assert.ok(listed, 'recent list should include the seeded appointment')
+      assert.equal(typeof listed.date, 'number', 'date must decode to a number')
+      assert.equal(typeof listed.timeRange, 'string', 'during must decode to a text range')
+
+      let detailResult = (await execTool(supportTools.getAppointmentDetails, {
+        id: appointmentId,
+      })) as Record<string, unknown>
+      assert.ok(detailResult.found, 'appointment should be found by id')
+      let detail = detailResult.appointment as Record<string, unknown>
+      assert.equal(typeof detail.date, 'number')
+      assert.equal(typeof detail.timeRange, 'string')
+      assert.equal(typeof detail.createdAt, 'number')
+      assert.equal(typeof detail.updatedAt, 'number')
+
+      let pdfResult = (await execTool(supportTools.generatePdfReport, {
+        reportType: 'appointment-list',
+        startDate: dateStr,
+        endDate: dateStr,
+      })) as Record<string, unknown>
+      let data = pdfResult.data
+      let size = pdfResult.size
+      assert.equal(pdfResult.error, undefined, 'report generation must not error')
+      assert.ok(typeof data === 'string' && data.length > 0, 'pdf data should be non-empty')
+      assert.ok(typeof size === 'number' && size > 0, 'pdf size should be positive')
+    } finally {
+      await pool.query('DELETE FROM appointments WHERE id = $1', [appointmentId])
+    }
   })
 })
 

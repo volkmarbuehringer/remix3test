@@ -2,11 +2,13 @@ import type { Database, SqlStatement } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 /**
- * Decodes an int8 aggregate column (`count`, `sum`, `min`, `max`, `avg`) to a
- * number. node-postgres returns int8 values as strings; aggregates are always
- * coerced at the decoding boundary because a string count is never useful.
+ * Decodes an int8 (BIGINT) column to a number. node-postgres returns int8
+ * values as strings, so every raw-SQL read of one decodes at this boundary.
  */
-export const int8Aggregate = z.coerce.number()
+export const int8 = z.coerce.number()
+
+/** Decodes an int8 aggregate column (`count`, `sum`, `min`, `max`, `avg`). */
+export const int8Aggregate = int8
 
 /**
  * Thrown when a raw query row fails its schema. Names the failing statement and

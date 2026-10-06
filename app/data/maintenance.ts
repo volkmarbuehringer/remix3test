@@ -1,13 +1,10 @@
 import type { Database } from 'remix/data-table'
 
+import { envPositiveNumber } from '../config.ts'
+
 const MINUTE_MS = 60 * 1000
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
-
-function envMs(name: string, fallback: number): number {
-  let value = Number(process.env[name])
-  return Number.isFinite(value) && value > 0 ? value : fallback
-}
 
 /**
  * TTL for chat_runs ownership rows abandoned while suspended (browser closed,
@@ -15,13 +12,13 @@ function envMs(name: string, fallback: number): number {
  * this TTL bounds growth for everything else, as documented on the table in
  * db/schema.sql.
  */
-const chatRunsTtlMs = envMs('CHAT_RUNS_TTL_MS', DAY_MS)
+const chatRunsTtlMs = envPositiveNumber('CHAT_RUNS_TTL_MS', DAY_MS)
 
-const webhookRequestsRetentionMs = envMs('WEBHOOK_REQUESTS_RETENTION_MS', 30 * DAY_MS)
-const auditLogsRetentionMs = envMs('AUDIT_LOGS_RETENTION_MS', 90 * DAY_MS)
-const uploadsRetentionMs = envMs('UPLOADS_RETENTION_MS', 90 * DAY_MS)
+const webhookRequestsRetentionMs = envPositiveNumber('WEBHOOK_REQUESTS_RETENTION_MS', 30 * DAY_MS)
+const auditLogsRetentionMs = envPositiveNumber('AUDIT_LOGS_RETENTION_MS', 90 * DAY_MS)
+const uploadsRetentionMs = envPositiveNumber('UPLOADS_RETENTION_MS', 90 * DAY_MS)
 
-const maintenanceIntervalMs = envMs('DATABASE_MAINTENANCE_INTERVAL_MS', HOUR_MS)
+const maintenanceIntervalMs = envPositiveNumber('DATABASE_MAINTENANCE_INTERVAL_MS', HOUR_MS)
 
 export async function deleteExpiredChatRuns(db: Database, ttlMs: number): Promise<number> {
   let result = await db.exec('DELETE FROM chat_runs WHERE created_at < $1', [Date.now() - ttlMs])

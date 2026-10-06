@@ -32,7 +32,7 @@ describe('createAppointmentsIcs', () => {
         row({
           id: 7,
           title: 'Beratung',
-          date: String(day),
+          date: day,
           start_min: 9 * 60 + 5,
           end_min: 10 * 60 + 15,
         }),
@@ -143,12 +143,12 @@ function row(overrides: Partial<AppointmentRow> = {}): AppointmentRow {
     resource_id: 2,
     resource_name: 'Büro 1',
     resource_description: null,
-    date: String(Date.UTC(2026, 8, 22)),
+    date: Date.UTC(2026, 8, 22),
     during: '480-600',
     start_min: 480,
     end_min: 600,
-    created_at: '2026-09-22T10:00:00Z',
-    updated_at: '2026-09-22T10:00:00Z',
+    created_at: Date.UTC(2026, 8, 22, 10),
+    updated_at: Date.UTC(2026, 8, 22, 10),
     ...overrides,
   }
 }

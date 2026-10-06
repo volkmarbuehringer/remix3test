@@ -1,10 +1,14 @@
 import { column as c, table, type ColumnBuilder, DataTableConstraintError } from 'remix/data-table'
 import type { TableRow } from 'remix/data-table'
-import { parseIntFields } from '../utils/schema-utils.ts'
+import { decodeInt8Fields } from '../utils/schema-utils.ts'
+import { createLogger } from '../utils/logger.ts'
+import { formatDuringRange } from '../utils/during.ts'
+
+const log = createLogger('[schema]')
 
 /**
  * BIGINT column that TypeScript treats as `number`.
- * pg returns BIGINT as string; parseIntFields in afterRead converts it back.
+ * pg returns BIGINT as string; decodeInt8Fields in afterRead converts it back.
  */
 function bigint(): ColumnBuilder<number> {
   return c.bigint() as unknown as ColumnBuilder<number>
@@ -138,8 +142,7 @@ export const users = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at', 'disabled_at')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at', 'updated_at', 'disabled_at') }
   },
 })
 
@@ -160,8 +163,7 @@ export const messages = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at') }
   },
 })
 
@@ -200,8 +202,15 @@ export const clients = table({
     }
 
     if (typeof next.registered === 'string') {
-      let ts = new Date(next.registered).getTime()
-      if (!Number.isNaN(ts)) next.registered = ts
+      let parsed = /^\d+$/.test(next.registered)
+        ? Number(next.registered)
+        : Date.parse(next.registered)
+      if (Number.isNaN(parsed)) {
+        throw new DataTableConstraintError(
+          'registered must be an epoch-millisecond value or a parseable date.',
+        )
+      }
+      next.registered = parsed
     }
 
     return { value: next }
@@ -221,8 +230,7 @@ export const clients = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'registered')
-    return { value }
+    return { value: decodeInt8Fields(value, 'registered') }
   },
 })
 
@@ -266,15 +274,16 @@ export const lists = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at', 'user_id')
-    if (typeof value.list === 'string') {
+    let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'user_id')
+    if (typeof next.list === 'string') {
       try {
-        value.list = JSON.parse(value.list)
-      } catch {
-        value.list = []
+        next.list = JSON.parse(next.list)
+      } catch (error) {
+        log.error('lists.list contained invalid JSON; returning [] for list', next.id, error)
+        next.list = []
       }
     }
-    return { value }
+    return { value: next }
   },
 })
 
@@ -332,12 +341,10 @@ export const appointments = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at', 'date', 'resource_id')
-    if (typeof value.during === 'object' && value.during !== null) {
-      let r = value.during as { lower: unknown; upper: unknown }
-      value.during = `[${r.lower},${r.upper})`
-    }
-    return { value }
+    let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'date', 'resource_id')
+    let during = formatDuringRange(next.during)
+    if (during !== undefined) next.during = during
+    return { value: next }
   },
 })
 
@@ -367,8 +374,7 @@ export const appointtypes = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at', 'updated_at') }
   },
 })
 
@@ -407,8 +413,7 @@ export const resources = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at', 'updated_at') }
   },
 })
 
@@ -456,12 +461,10 @@ export const appointofferings = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at', 'day', 'resource_id')
-    if (typeof value.during === 'object' && value.during !== null) {
-      let r = value.during as { lower: unknown; upper: unknown }
-      value.during = `[${r.lower},${r.upper})`
-    }
-    return { value }
+    let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'day', 'resource_id')
+    let during = formatDuringRange(next.during)
+    if (during !== undefined) next.during = during
+    return { value: next }
   },
 })
 
@@ -491,15 +494,20 @@ export const offeringConfigs = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at', 'resource_id')
-    if (typeof value.rules === 'string') {
+    let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'resource_id')
+    if (typeof next.rules === 'string') {
       try {
-        value.rules = JSON.parse(value.rules)
-      } catch {
-        value.rules = {}
+        next.rules = JSON.parse(next.rules)
+      } catch (error) {
+        log.error(
+          'offering_configs.rules contained invalid JSON; returning {} for config',
+          next.id,
+          error,
+        )
+        next.rules = {}
       }
     }
-    return { value }
+    return { value: next }
   },
 })
 
@@ -526,8 +534,7 @@ export const apiTokens = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'expires_at', 'revoked_at')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at', 'expires_at', 'revoked_at') }
   },
 })
 
@@ -557,8 +564,7 @@ export const notifications = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'read_at', 'user_id', 'appointment_id')
-    return { value }
+    return { value: decodeInt8Fields(value, 'created_at', 'read_at', 'user_id', 'appointment_id') }
   },
 })
 

@@ -2,9 +2,11 @@ import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
+import { int8, queryRows } from '../../../data/rows.ts'
+import { envPositiveNumber } from '../../../config.ts'
 import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
 
-const REMINDER_WINDOW_HOURS = Number(process.env.REMINDER_WINDOW_HOURS) || 24
+const REMINDER_WINDOW_HOURS = envPositiveNumber('REMINDER_WINDOW_HOURS', 24)
 
 const queryUpcomingAppointmentsStep = createStep({
   id: 'query-upcoming-appointments',
@@ -26,26 +28,26 @@ const queryUpcomingAppointmentsStep = createStep({
     let windowMs = REMINDER_WINDOW_HOURS * 3_600_000
     let end = now + windowMs
 
-    let result = await db.exec(sql`
-      SELECT a.id, a.user_id, COALESCE(r.name, 'Unknown') AS resource_name, a.date, a.title
-      FROM appointments a
-      LEFT JOIN resources r ON r.id = a.resource_id
-      WHERE a.date >= ${now} AND a.date <= ${end}
-      ORDER BY a.date ASC
-    `)
-    let appointments = (
-      (result.rows ?? []) as Array<{
-        id: number
-        user_id: number
-        resource_name: string
-        date: number
-        title: string
-      }>
-    ).map((r) => ({
+    let rows = await queryRows(
+      db,
+      sql`SELECT a.id, a.user_id, COALESCE(r.name, 'Unknown') AS resource_name, a.date, a.title
+        FROM appointments a
+        LEFT JOIN resources r ON r.id = a.resource_id
+        WHERE a.date >= ${now} AND a.date <= ${end}
+        ORDER BY a.date ASC`,
+      z.object({
+        id: z.number(),
+        user_id: z.number(),
+        resource_name: z.string(),
+        date: int8,
+        title: z.string(),
+      }),
+    )
+    let appointments = rows.map((r) => ({
       id: r.id,
       userId: r.user_id,
       resourceName: r.resource_name,
-      date: Number(r.date),
+      date: r.date,
       title: r.title,
     }))
     return { appointments, count: appointments.length }

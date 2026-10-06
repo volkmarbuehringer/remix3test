@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
+import { sql } from 'remix/data-table'
+import { queryRows } from '../../../data/rows.ts'
 import { deleteAppointmentRecord } from '../../../data/appointments.ts'
 import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
 
@@ -17,12 +19,13 @@ const verifyOwnershipStep = createStep({
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    let result = await db.exec('SELECT id, user_id FROM appointments WHERE id = $1', [
-      inputData.appointmentId,
-    ])
-    let rows = result.rows as Array<{ id: number; user_id: number }> | undefined
+    let rows = await queryRows(
+      db,
+      sql`SELECT id, user_id FROM appointments WHERE id = ${inputData.appointmentId}`,
+      z.object({ id: z.number(), user_id: z.number() }),
+    )
 
-    if (!rows || rows.length === 0) {
+    if (rows.length === 0) {
       return {
         valid: false,
         appointmentId: inputData.appointmentId,

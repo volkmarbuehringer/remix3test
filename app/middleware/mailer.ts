@@ -3,23 +3,24 @@ import { createContextKey, type Middleware } from 'remix/router'
 
 import { createSendEmail } from '../utils/send-email.ts'
 import type { SendEmailFn } from '../utils/send-email.ts'
+import { envPositiveNumber, envString } from '../config.ts'
 
 const MailerContext = createContextKey<SendEmailFn>()
 
-const port = Number(process.env.SMTP_PORT) || 1025
-const user = process.env.SMTP_USER
-const pass = process.env.SMTP_PASSWORD
+const port = envPositiveNumber('SMTP_PORT', 1025)
+const user = envString('SMTP_USER')
+const pass = envString('SMTP_PASSWORD')
 
 const transport =
   user && pass
     ? createTransport({
-        host: process.env.SMTP_HOST || 'localhost',
+        host: envString('SMTP_HOST') ?? 'localhost',
         port,
         secure: port === 465,
         auth: { user, pass },
       })
     : createTransport({
-        host: process.env.SMTP_HOST || 'localhost',
+        host: envString('SMTP_HOST') ?? 'localhost',
         port,
         secure: port === 465,
         ignoreTLS: true,

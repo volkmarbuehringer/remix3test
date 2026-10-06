@@ -1,13 +1,11 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
-import { sql } from 'remix/data-table'
+import { rawSql, sql } from 'remix/data-table'
+import { int8, queryRows } from '../../../data/rows.ts'
 import { resources } from '../../../data/schema.ts'
-import {
-  computeFullHourSlots,
-  filterAvailableSlots,
-  parseDuring,
-} from '../../../data/appointofferings.ts'
+import { computeFullHourSlots, filterAvailableSlots } from '../../../data/appointofferings.ts'
+import { parseDuring } from '../../../utils/during.ts'
 import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils/date-utils.ts'
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
 import { requireActorId } from '../actor-context.ts'
@@ -188,41 +186,39 @@ export const customerTools = {
       let startDate = todayMidnight + offsetDays * MS_PER_DAY
       let endDate = startDate + daysAhead * MS_PER_DAY
 
-      let offeringResult = await db.exec(sql`
-        SELECT day, during::text AS during
+      let offeringRows = await queryRows(
+        db,
+        sql`SELECT day, during::text AS during
         FROM appointoffering
         WHERE resource_id = ${resourceId} AND day >= ${startDate} AND day < ${endDate}
-        ORDER BY day ASC, during ASC
-      `)
+        ORDER BY day ASC, during ASC`,
+        z.object({ day: int8, during: z.string() }),
+      )
 
       let dayRanges = new Map<number, { startMin: number; endMin: number }[]>()
-      for (let row of (offeringResult.rows ?? []) as { day: number; during: string }[]) {
-        let day = Number(row.day)
-        if (!dayRanges.has(day)) dayRanges.set(day, [])
+      for (let row of offeringRows) {
+        if (!dayRanges.has(row.day)) dayRanges.set(row.day, [])
         let parsed = parseDuring(row.during)
-        if (parsed) dayRanges.get(day)!.push(parsed)
+        if (parsed) dayRanges.get(row.day)!.push(parsed)
       }
 
       if (dayRanges.size === 0) {
         return { slots: [] }
       }
 
-      let bookingResult = await db.exec(sql`
-        SELECT date, start_min, end_min
+      let bookingRows = await queryRows(
+        db,
+        sql`SELECT date, start_min, end_min
         FROM appointments
         WHERE resource_id = ${resourceId} AND date >= ${startDate} AND date < ${endDate}
-        ORDER BY date ASC, start_min ASC
-      `)
+        ORDER BY date ASC, start_min ASC`,
+        z.object({ date: int8, start_min: z.number(), end_min: z.number() }),
+      )
 
       let bookedByDay = new Map<number, { startMin: number; endMin: number }[]>()
-      for (let row of (bookingResult.rows ?? []) as {
-        date: number
-        start_min: number
-        end_min: number
-      }[]) {
-        let d = Number(row.date)
-        if (!bookedByDay.has(d)) bookedByDay.set(d, [])
-        bookedByDay.get(d)!.push({ startMin: Number(row.start_min), endMin: Number(row.end_min) })
+      for (let row of bookingRows) {
+        if (!bookedByDay.has(row.date)) bookedByDay.set(row.date, [])
+        bookedByDay.get(row.date)!.push({ startMin: row.start_min, endMin: row.end_min })
       }
 
       let now = Date.now()
@@ -305,23 +301,33 @@ export const customerTools = {
         .join(' + ')
       let params = terms.map((t) => t)
 
-      let result = await db.exec(
-        `SELECT id, name, description, capabilities, (${rankExpr})::int AS rank
-         FROM resources
-         WHERE capabilities IS NOT NULL AND capabilities != ''
-           AND (${conditions.join(' OR ')})
-         ORDER BY rank DESC, name ASC
-         LIMIT 20`,
-        params,
+      let rows = await queryRows(
+        db,
+        rawSql(
+          `SELECT id, name, description, capabilities, (${rankExpr})::int AS rank
+           FROM resources
+           WHERE capabilities IS NOT NULL AND capabilities != ''
+             AND (${conditions.join(' OR ')})
+           ORDER BY rank DESC, name ASC
+           LIMIT 20`,
+          params,
+        ),
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          description: z.string(),
+          capabilities: z.string(),
+          rank: z.number(),
+        }),
       )
 
       return {
-        count: (result.rows ?? []).length,
-        resources: (result.rows ?? []).map((r) => ({
-          id: r.id as number,
-          name: r.name as string,
-          description: r.description as string,
-          capabilities: r.capabilities as string,
+        count: rows.length,
+        resources: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          capabilities: r.capabilities,
         })),
       }
     },
@@ -381,26 +387,27 @@ export const customerTools = {
     execute: async (_input, { requestContext }) => {
       let userId = requireActorId(requestContext)
       let todayMidnight = getTodayUtcMidnight()
-      let result = await db.exec(sql`
-        SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
+      let rows = await queryRows(
+        db,
+        sql`SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
         FROM appointments a
         JOIN resources r ON r.id = a.resource_id
         WHERE a.user_id = ${userId} AND a.date >= ${todayMidnight}
-        ORDER BY a.date ASC
-      `)
-      let rows = (result.rows ?? []) as Array<{
-        id: number
-        date: number
-        during: string
-        title: string
-        resource_name: string
-      }>
+        ORDER BY a.date ASC`,
+        z.object({
+          id: z.number(),
+          date: int8,
+          during: z.string(),
+          title: z.string(),
+          resource_name: z.string(),
+        }),
+      )
       return {
         appointments: rows.map((r) => {
           let parsed = parseDuring(r.during)
           return {
             id: r.id,
-            date_epoch_ms: Number(r.date),
+            date_epoch_ms: r.date,
             start_min: parsed?.startMin ?? 0,
             end_min: parsed?.endMin ?? 60,
             time_display: parsed
@@ -437,22 +444,22 @@ export const customerTools = {
     execute: async (_input, { requestContext }) => {
       let userId = requireActorId(requestContext)
       let todayMidnight = getTodayUtcMidnight()
-      let result = await db.exec(sql`
-        SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
+      let rows = await queryRows(
+        db,
+        sql`SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
         FROM appointments a
         JOIN resources r ON r.id = a.resource_id
         WHERE a.user_id = ${userId} AND a.date >= ${todayMidnight}
-        ORDER BY a.date ASC
-      `)
-      let appointmentIds = (
-        (result.rows ?? []) as Array<{
-          id: number
-          date: number
-          during: string
-          title: string
-          resource_name: string
-        }>
-      ).map((r) => r.id as number)
+        ORDER BY a.date ASC`,
+        z.object({
+          id: z.number(),
+          date: int8,
+          during: z.string(),
+          title: z.string(),
+          resource_name: z.string(),
+        }),
+      )
+      let appointmentIds = rows.map((r) => r.id)
       if (appointmentIds.length === 0) {
         return { cancelled: 0, failed: 0, skipped: 0, details: [] }
       }

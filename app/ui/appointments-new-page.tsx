@@ -20,7 +20,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
 import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../data/appointments.ts'
-import { parseDuring } from '../data/appointofferings.ts'
+import { formatDuring } from '../utils/during.ts'
 import { AppointmentsScrollLock } from '../ui/appointments-scroll-lock.browser.tsx'
 import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
 
@@ -69,26 +69,6 @@ interface AppointmentsNewPageProps {
   wizardResourceDescription?: string | undefined
   weekStart?: number | undefined
   daysWithSlots?: DayWithSlots[] | undefined
-}
-
-function formatMinRange(startMin: number, endMin: number): string {
-  let startH = String(Math.floor(startMin / 60)).padStart(2, '0')
-  let startM = String(startMin % 60).padStart(2, '0')
-  let endH = String(Math.floor(endMin / 60)).padStart(2, '0')
-  let endM = String(endMin % 60).padStart(2, '0')
-  return `${startH}:${startM}\u2013${endH}:${endM}`
-}
-
-function formatDuring(during: unknown): string {
-  if (typeof during === 'object' && during !== null) {
-    let r = during as { lower: number; upper: number }
-    return formatMinRange(Number(r.lower), Number(r.upper))
-  }
-  if (typeof during === 'string') {
-    let parsed = parseDuring(during)
-    if (parsed) return formatMinRange(parsed.startMin, parsed.endMin)
-  }
-  return String(during)
 }
 
 const headerBarStyle = css({

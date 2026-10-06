@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../types/chatlog.ts'
 import { messageContentToText } from './message-content.ts'
+import { isTest } from '../config.ts'
 
 interface ChatThreadRow {
   id: string
@@ -308,7 +309,7 @@ export async function fetchChatThreadPreviews(
         let messageCount = typeof total === 'number' ? total : rawMessages.length
         previews.set(threadId, buildChatThreadPreview(rawMessages, messageCount))
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test')
+        if (!isTest)
           console.error(`[mastra-memory] preview failed for ${threadId}: ${String(error)}`)
         previews.set(threadId, { preview: '', previewFull: '', messageCount: 0 })
       }

@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 
 import { appointments, type Appointment } from './schema.ts'
 import { isExclusionConstraintError } from '../utils/db-errors.ts'
-import { queryRows, queryRow } from './rows.ts'
+import { int8, queryRows, queryRow } from './rows.ts'
 import {
   isDateInPast,
   isWithinHours,
@@ -103,6 +103,19 @@ interface ListAppointmentsByWeekOptions {
   userId?: number
 }
 
+/**
+ * A foreign tenant's weekly appointment with booking metadata withheld: `title`
+ * is blanked and `user_id` is undefined, so a consumer cannot read the owning
+ * tenant's title or id off an occupancy row.
+ */
+export type OccupancyAppointment = Omit<Appointment, 'title' | 'user_id'> & {
+  title: ''
+  user_id: undefined
+}
+
+/** A weekly row: either a full appointment or an occupancy projection. */
+export type WeekAppointment = Appointment | OccupancyAppointment
+
 const APPOINTMENTS_WEEK_COLUMNS: (keyof Appointment & string)[] = [
   'id',
   'user_id',
@@ -122,7 +135,7 @@ export async function listAppointmentsByWeek(
   weekEnd: number,
   resourceId?: number,
   options?: ListAppointmentsByWeekOptions,
-): Promise<Appointment[]> {
+): Promise<WeekAppointment[]> {
   let query = db
     .query(appointments)
     .select(...APPOINTMENTS_WEEK_COLUMNS)
@@ -133,17 +146,19 @@ export async function listAppointmentsByWeek(
     query = query.where({ resource_id: resourceId })
   }
 
-  let appts = await query.orderBy('date', 'asc').orderBy('start_min', 'asc').all()
+  let appts: WeekAppointment[] = await query
+    .orderBy('date', 'asc')
+    .orderBy('start_min', 'asc')
+    .all()
 
   if (options?.userId !== undefined) {
-    appts = appts.map((a) =>
-      a.user_id === options.userId
-        ? a
-        : ({ ...a, title: '', user_id: undefined } as unknown as Appointment),
+    let ownerId = options.userId
+    appts = appts.map((a): WeekAppointment =>
+      a.user_id === ownerId ? a : { ...a, title: '', user_id: undefined },
     )
   }
 
-  return appts as Appointment[]
+  return appts
 }
 
 export async function createAppointment(
@@ -269,12 +284,12 @@ const appointmentRowSchema = z.object({
   resource_id: z.number(),
   resource_name: z.string().nullable(),
   resource_description: z.string().nullable(),
-  date: z.string(),
+  date: int8,
   during: z.string(),
   start_min: z.number(),
   end_min: z.number(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: int8,
+  updated_at: int8,
 })
 
 export type AppointmentRow = z.output<typeof appointmentRowSchema>
@@ -494,11 +509,11 @@ const appointmentsNewRowSchema = z.object({
   resource_id: z.number(),
   resource_name: z.string().nullable(),
   resource_description: z.string().nullable(),
-  date: z.string(),
+  date: int8,
   during: z.string(),
   start_min: z.number(),
   end_min: z.number(),
-  created_at: z.string().optional(),
+  created_at: int8.optional(),
   blocked: z.boolean().optional(),
 })
 
@@ -649,9 +664,9 @@ export async function createAppointmentRecord(
 }
 
 const appointmentStartRowSchema = z.object({
-  date: z.string(),
+  date: int8,
   start_min: z.number(),
-  created_at: z.string(),
+  created_at: int8,
 })
 
 export async function getAppointmentRow(

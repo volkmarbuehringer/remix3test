@@ -1,4 +1,7 @@
 import { db } from '../../db.ts'
+import { sql } from 'remix/data-table'
+import { z } from 'zod/v4'
+import { queryRow } from '../../data/rows.ts'
 
 type ChatRunRow = {
   runId: string
@@ -11,6 +14,12 @@ type DbRow = {
   user_id: number
   thread_id: string
 }
+
+const chatRunDbSchema = z.object({
+  run_id: z.string(),
+  user_id: z.number(),
+  thread_id: z.string(),
+})
 
 function toRow(row: DbRow): ChatRunRow {
   return { runId: row.run_id, userId: row.user_id, threadId: row.thread_id }
@@ -47,10 +56,11 @@ export async function recordChatRun(run: {
 
 /** Resolves the owning user (and thread) for a run id, or null if unknown. */
 export async function findChatRunOwner(runId: string): Promise<ChatRunRow | null> {
-  let result = await db.exec(`SELECT run_id, user_id, thread_id FROM chat_runs WHERE run_id = $1`, [
-    runId,
-  ])
-  let row = (result.rows ?? [])[0] as DbRow | undefined
+  let row = await queryRow(
+    db,
+    sql`SELECT run_id, user_id, thread_id FROM chat_runs WHERE run_id = ${runId}`,
+    chatRunDbSchema,
+  )
   return row ? toRow(row) : null
 }
 
@@ -62,14 +72,14 @@ export async function findChatRunOwner(runId: string): Promise<ChatRunRow | null
  * newest row for the actor is the pending run to re-attach to.
  */
 export async function findLatestChatRun(userId: number): Promise<ChatRunRow | null> {
-  let result = await db.exec(
-    `SELECT run_id, user_id, thread_id FROM chat_runs
-     WHERE user_id = $1
+  let row = await queryRow(
+    db,
+    sql`SELECT run_id, user_id, thread_id FROM chat_runs
+     WHERE user_id = ${userId}
      ORDER BY created_at DESC
      LIMIT 1`,
-    [userId],
+    chatRunDbSchema,
   )
-  let row = (result.rows ?? [])[0] as DbRow | undefined
   return row ? toRow(row) : null
 }
 

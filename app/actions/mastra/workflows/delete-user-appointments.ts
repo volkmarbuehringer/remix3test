@@ -1,6 +1,8 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
+import { sql } from 'remix/data-table'
+import { int8, queryRow, queryRows } from '../../../data/rows.ts'
 import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 
@@ -24,8 +26,11 @@ const preflightStep = createStep({
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    let userResult = await db.exec('SELECT name FROM users WHERE id = $1', [inputData.targetUserId])
-    let userRow = (userResult.rows ?? [])[0] as { name: string } | undefined
+    let userRow = await queryRow(
+      db,
+      sql`SELECT name FROM users WHERE id = ${inputData.targetUserId}`,
+      z.object({ name: z.string() }),
+    )
     if (!userRow)
       return {
         ...inputData,
@@ -36,10 +41,11 @@ const preflightStep = createStep({
         error: 'User not found',
       }
 
-    let resourceResult = await db.exec('SELECT name FROM resources WHERE id = $1', [
-      inputData.resourceId,
-    ])
-    let resourceRow = (resourceResult.rows ?? [])[0] as { name: string } | undefined
+    let resourceRow = await queryRow(
+      db,
+      sql`SELECT name FROM resources WHERE id = ${inputData.resourceId}`,
+      z.object({ name: z.string() }),
+    )
     if (!resourceRow)
       return {
         ...inputData,
@@ -51,16 +57,16 @@ const preflightStep = createStep({
       }
 
     let todayMidnight = getTodayUtcMidnight()
-    let aptResult = await db.exec(
-      `SELECT a.date, a.start_min, a.end_min
-       FROM appointments a
-       WHERE a.user_id = $1 AND a.resource_id = $2 AND a.date >= $3
-       ORDER BY a.date ASC`,
-      [inputData.targetUserId, inputData.resourceId, todayMidnight],
+    let rows = await queryRows(
+      db,
+      sql`SELECT a.date, a.start_min, a.end_min
+        FROM appointments a
+        WHERE a.user_id = ${inputData.targetUserId} AND a.resource_id = ${inputData.resourceId} AND a.date >= ${todayMidnight}
+        ORDER BY a.date ASC`,
+      z.object({ date: int8, start_min: z.number(), end_min: z.number() }),
     )
-    let rows = (aptResult.rows ?? []) as Array<{ date: number; start_min: number; end_min: number }>
     let dates = rows.map((r) => {
-      let d = new Date(Number(r.date))
+      let d = new Date(r.date)
       return Number.isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10)
     })
 

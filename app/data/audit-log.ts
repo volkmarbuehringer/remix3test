@@ -1,5 +1,7 @@
 import type { Database } from 'remix/data-table'
 
+import { isDevelopment, isTest } from '../config.ts'
+
 interface AuditLogEntry {
   admin_user_id: number
   admin_email: string
@@ -37,8 +39,8 @@ export async function logAdminAction(db: Database, entry: AuditLogEntry): Promis
   try {
     await insertAuditLog(db, entry)
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') throw error
-    if (process.env.NODE_ENV !== 'test') {
+    if (isDevelopment) throw error
+    if (!isTest) {
       console.error('audit log write failed', error)
     }
   }

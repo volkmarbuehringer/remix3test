@@ -1,5 +1,7 @@
 import * as fs from 'node:fs'
 
+import { envString, isProductionEnv } from '../config.ts'
+
 /**
  * Origin used to build absolute, user-facing links (email verification and
  * password reset).
@@ -33,7 +35,7 @@ function cleanOrigin(value: string): string {
 }
 
 function readOriginFile(): string | undefined {
-  let filePath = process.env.PUBLIC_ORIGIN_FILE?.trim() || DEFAULT_ORIGIN_FILE
+  let filePath = envString('PUBLIC_ORIGIN_FILE') ?? DEFAULT_ORIGIN_FILE
   try {
     let stat = fs.statSync(filePath)
     if (fileCache?.path === filePath && fileCache.mtimeMs === stat.mtimeMs) {
@@ -58,7 +60,7 @@ function readOriginFile(): string | undefined {
  * origin file). Returns `undefined` when neither is present.
  */
 export function configuredPublicOrigin(): string | undefined {
-  let configured = process.env.PUBLIC_ORIGIN?.trim()
+  let configured = envString('PUBLIC_ORIGIN')
   if (configured) return cleanOrigin(configured)
   return readOriginFile()
 }
@@ -67,11 +69,11 @@ export function getPublicOrigin(requestOrigin: string): string {
   let origin = configuredPublicOrigin()
   if (origin) return origin
 
-  if (process.env.NODE_ENV !== 'production') return requestOrigin
+  if (!isProductionEnv()) return requestOrigin
 
   throw new Error(
     'No trusted public origin configured; refusing to build absolute links from the ' +
       'attacker-controllable Host header. Set PUBLIC_ORIGIN or write the current URL to ' +
-      `${process.env.PUBLIC_ORIGIN_FILE?.trim() || DEFAULT_ORIGIN_FILE}.`,
+      `${envString('PUBLIC_ORIGIN_FILE') ?? DEFAULT_ORIGIN_FILE}.`,
   )
 }

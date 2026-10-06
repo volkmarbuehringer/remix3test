@@ -1,4 +1,5 @@
 import { email as de } from '../locale/de.ts'
+import { envString } from '../config.ts'
 
 export interface SendEmailOptions {
   to: string
@@ -14,7 +15,7 @@ export type SendEmailFn = (options: SendEmailOptions) => Promise<unknown>
 export function createSendEmail(transport: {
   sendMail: (opts: Record<string, unknown>) => Promise<unknown>
 }): SendEmailFn {
-  let from = process.env.SMTP_FROM || 'noreply@localhost'
+  let from = envString('SMTP_FROM') ?? 'noreply@localhost'
 
   return async (options) =>
     transport.sendMail({

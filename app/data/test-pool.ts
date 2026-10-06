@@ -1,6 +1,8 @@
 import { Pool } from 'pg'
 
-const url = process.env.DATABASE_URL ?? ''
+import { envString } from '../config.ts'
+
+const url = envString('DATABASE_URL') ?? ''
 const localeUrl = url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
 export const pool = new Pool({

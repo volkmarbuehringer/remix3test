@@ -4,13 +4,11 @@ import { readFile } from 'node:fs/promises'
 import { Pool } from 'pg'
 import { createPostgresDatabase } from 'remix/data-table/postgres'
 
+import { isTest, requireEnv } from './config.ts'
 import { seed } from './data/seed.ts'
 import { startDatabaseMaintenance, stopDatabaseMaintenance } from './data/maintenance.ts'
 
-const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL environment variable is required. Set it in .env')
-}
+const databaseUrl = requireEnv('DATABASE_URL')
 
 const localeUrl =
   databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
@@ -65,7 +63,7 @@ export async function initializeAppDatabase(): Promise<void> {
   // immediate sweep races suites that deliberately seed rows past a retention
   // window (e.g. app/data/maintenance.test.ts) and deletes them before the test
   // can. The sweep functions are unit-tested directly against explicit windows.
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTest) {
     startDatabaseMaintenance(db)
   }
 }

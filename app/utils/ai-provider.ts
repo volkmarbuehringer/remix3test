@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const OPENCODE_API_URL = process.env.OPENCODE_API_URL || 'https://opencode.ai/zen/go/v1'
+import { envString, isTest } from '../config.ts'
+
+export const OPENCODE_API_URL = envString('OPENCODE_API_URL') ?? 'https://opencode.ai/zen/go/v1'
 
 const OPENCODE_SESSION_FILE = join(import.meta.dirname, '../../.opencode-session-id')
 
@@ -10,7 +12,7 @@ let _sessionId: string | null = null
 
 export function getOpenCodeSessionId(): string {
   if (_sessionId) return _sessionId
-  let envId = process.env.OPENCODE_SESSION_ID?.trim()
+  let envId = envString('OPENCODE_SESSION_ID')
   if (envId) {
     _sessionId = envId
     return _sessionId
@@ -20,7 +22,7 @@ export function getOpenCodeSessionId(): string {
 }
 
 function loadOrCreateSessionId(): string {
-  if (process.env.NODE_ENV !== 'test') {
+  if (!isTest) {
     try {
       if (existsSync(OPENCODE_SESSION_FILE)) {
         let existing = readFileSync(OPENCODE_SESSION_FILE, 'utf8').trim()

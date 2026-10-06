@@ -161,7 +161,10 @@ export const appointment = createController(routes.appointment, {
       )
 
       if (isAdmin && appts.length > 0) {
-        let userIds = [...new Set(appts.map((a) => a.user_id))]
+        let adminUserIds = appts
+          .map((a) => a.user_id)
+          .filter((id): id is number => id !== undefined)
+        let userIds = [...new Set(adminUserIds)]
         let rows = await listUserEmails(context.db, userIds)
         let emailMap = new Map(rows.map((r) => [r.id, r.email]))
         for (let appt of appts as Array<Record<string, unknown>>) {

@@ -4,6 +4,7 @@ import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
 
 import { uploadFormData } from './uploads.ts'
+import { envPositiveNumberOrUndefined } from '../config.ts'
 import { uploadClaimScope } from './upload-claim.ts'
 import { logger, Logger, type LoggerFunction } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
@@ -63,7 +64,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     }),
     compression(),
     globalRateLimit({
-      maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined,
+      maxPerWindow: envPositiveNumberOrUndefined('GLOBAL_RATE_LIMIT_MAX'),
     }),
     uploadClaimScope(),
     uploadFormData(),

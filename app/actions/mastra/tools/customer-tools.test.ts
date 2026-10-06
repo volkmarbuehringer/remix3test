@@ -8,13 +8,26 @@ import { createActorRequestContext } from '../actor-context.ts'
 // Side-effect: registers the Mastra instance (setMastra) so cancellation workflows can execute
 import '../index.ts'
 
-function execTool(tool: Record<string, unknown>, input: Record<string, unknown>, actorId?: number) {
-  let fn = tool.execute as (
-    input: Record<string, unknown>,
-    opts: Record<string, unknown>,
-  ) => Promise<Record<string, unknown>>
-  let opts = actorId === undefined ? {} : { requestContext: createActorRequestContext(actorId) }
-  return fn(input, opts)
+/**
+ * Invoke a tool's `execute` with typed input. The tool parameter preserves the
+ * tool's real input type, so the input object is checked against its schema; the
+ * result is normalized to a plain record for property assertions.
+ */
+/**
+ * Invoke a tool's `execute` with plain-object input. Mastra types `execute` with
+ * a rich, tool-specific context; this helper localizes the one structural cast
+ * so call sites can pass a typed tool and its input without casting each time.
+ */
+async function execTool(
+  tool: object,
+  input: Record<string, unknown>,
+  actorId?: number,
+): Promise<Record<string, unknown>> {
+  let execute = (tool as { execute: (input: unknown, context: unknown) => Promise<unknown> })
+    .execute
+  let context = actorId === undefined ? {} : { requestContext: createActorRequestContext(actorId) }
+  let result = await execute(input, context)
+  return result as Record<string, unknown>
 }
 
 function getFirstResourceId(): Promise<number> {
@@ -30,10 +43,9 @@ describe('Customer tools', () => {
 
   it('searchResourcesByCapability returns matching resources', async () => {
     // Seed data includes Raum 1 with capabilities mentioning "Einzeltherapie, Paarberatung, Gruppensitzungen"
-    let result = (await execTool(
-      customerTools.searchResourcesByCapability as unknown as Record<string, unknown>,
-      { query: 'Therapie' },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.searchResourcesByCapability, {
+      query: 'Therapie',
+    })) as Record<string, unknown>
     assert.ok((result.count as number) >= 1, 'should find at least one resource')
     let resources = result.resources as Array<Record<string, unknown>>
     assert.ok(
@@ -43,10 +55,9 @@ describe('Customer tools', () => {
   })
 
   it('searchResourcesByCapability returns empty for no match', async () => {
-    let result = (await execTool(
-      customerTools.searchResourcesByCapability as unknown as Record<string, unknown>,
-      { query: 'Schwimmbad' },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.searchResourcesByCapability, {
+      query: 'Schwimmbad',
+    })) as Record<string, unknown>
     assert.equal(result.count, 0)
     assert.ok(Array.isArray(result.resources))
     assert.equal((result.resources as unknown[]).length, 0)
@@ -54,10 +65,9 @@ describe('Customer tools', () => {
 
   it('searchResourcesByCapability returns all results when query matches multiple', async () => {
     // Seed data uses German; 'Raum' matches the name but capabilities have 'Behandlungsraum'
-    let result = (await execTool(
-      customerTools.searchResourcesByCapability as unknown as Record<string, unknown>,
-      { query: 'Behandlungsraum' },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.searchResourcesByCapability, {
+      query: 'Behandlungsraum',
+    })) as Record<string, unknown>
     assert.ok((result.count as number) >= 1)
     for (let r of result.resources as Array<Record<string, unknown>>) {
       assert.ok(typeof r.id === 'number')
@@ -68,15 +78,14 @@ describe('Customer tools', () => {
   })
 
   it('searchResourcesByCapability handles special characters', async () => {
-    let result = (await execTool(
-      customerTools.searchResourcesByCapability as unknown as Record<string, unknown>,
-      { query: '%_\\' },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.searchResourcesByCapability, {
+      query: '%_\\',
+    })) as Record<string, unknown>
     assert.equal(result.count, 0)
   })
 
   it('searchResourcesByCapability has correct metadata', () => {
-    let tool = customerTools.searchResourcesByCapability as unknown as Record<string, unknown>
+    let tool = customerTools.searchResourcesByCapability
     assert.equal(tool.id, 'search_resources_by_capability')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
@@ -85,10 +94,11 @@ describe('Customer tools', () => {
 
   it('findNextAvailableSlots returns slots for a resource with offerings', async () => {
     let resourceId = await getFirstResourceId()
-    let result = (await execTool(
-      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 14, title: 'Test Termin' },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.findNextAvailableSlots, {
+      resourceId,
+      daysAhead: 14,
+      title: 'Test Termin',
+    })) as Record<string, unknown>
     assert.ok(Array.isArray(result.slots), 'should return slots array')
     assert.ok((result.slots as unknown[]).length > 0, 'should have at least one slot')
     assert.equal(result.resource_id, resourceId)
@@ -103,10 +113,10 @@ describe('Customer tools', () => {
 
   it('findNextAvailableSlots returns all slots per day (no 3-slot cap)', async () => {
     let resourceId = await getFirstResourceId()
-    let result = (await execTool(
-      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 30 },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.findNextAvailableSlots, {
+      resourceId,
+      daysAhead: 30,
+    })) as Record<string, unknown>
     let slots = result.slots as Array<Record<string, unknown>>
     let byDay = new Map<number, number>()
     for (let s of slots) {
@@ -120,10 +130,10 @@ describe('Customer tools', () => {
 
   it('findNextAvailableSlots returns slots sorted chronologically', async () => {
     let resourceId = await getFirstResourceId()
-    let result = (await execTool(
-      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 14 },
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.findNextAvailableSlots, {
+      resourceId,
+      daysAhead: 14,
+    })) as Record<string, unknown>
     let slots = result.slots as Array<Record<string, unknown>>
     for (let i = 1; i < slots.length; i++) {
       let prev = slots[i - 1]!
@@ -136,14 +146,15 @@ describe('Customer tools', () => {
 
   it('findNextAvailableSlots with offsetDays skips to later date range', async () => {
     let resourceId = await getFirstResourceId()
-    let defaultResult = (await execTool(
-      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 30 },
-    )) as Record<string, unknown>
-    let offsetResult = (await execTool(
-      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 30, offsetDays: 30 },
-    )) as Record<string, unknown>
+    let defaultResult = (await execTool(customerTools.findNextAvailableSlots, {
+      resourceId,
+      daysAhead: 30,
+    })) as Record<string, unknown>
+    let offsetResult = (await execTool(customerTools.findNextAvailableSlots, {
+      resourceId,
+      daysAhead: 30,
+      offsetDays: 30,
+    })) as Record<string, unknown>
 
     let defaultSlots = defaultResult.slots as Array<Record<string, unknown>>
     let offsetSlots = offsetResult.slots as Array<Record<string, unknown>>
@@ -156,7 +167,7 @@ describe('Customer tools', () => {
   })
 
   it('findNextAvailableSlots has correct metadata', () => {
-    let tool = customerTools.findNextAvailableSlots as unknown as Record<string, unknown>
+    let tool = customerTools.findNextAvailableSlots
     assert.equal(tool.id, 'find_next_available_slots')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
@@ -187,11 +198,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] list 1', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE, Date.now()],
     )
-    let result = (await execTool(
-      customerTools.listMyAppointments as unknown as Record<string, unknown>,
-      {},
-      customerId,
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.listMyAppointments, {}, customerId)) as Record<
+      string,
+      unknown
+    >
     assert.ok(Array.isArray(result.appointments))
     assert.ok((result.appointments as unknown[]).length >= 1)
     assert.equal(result.count, (result.appointments as unknown[]).length)
@@ -214,11 +224,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] today', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, todayMs, Date.now()],
     )
-    let result = (await execTool(
-      customerTools.listMyAppointments as unknown as Record<string, unknown>,
-      {},
-      customerId,
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.listMyAppointments, {}, customerId)) as Record<
+      string,
+      unknown
+    >
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
     )
@@ -234,11 +243,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = (await execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-        tempUserId,
-      )) as Record<string, unknown>
+      let result = (await execTool(customerTools.listMyAppointments, {}, tempUserId)) as Record<
+        string,
+        unknown
+      >
       assert.ok(Array.isArray(result.appointments))
       assert.equal((result.appointments as unknown[]).length, 0)
       assert.equal(result.count, 0)
@@ -254,11 +262,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] past', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, pastDate, Date.now()],
     )
-    let result = (await execTool(
-      customerTools.listMyAppointments as unknown as Record<string, unknown>,
-      {},
-      customerId,
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.listMyAppointments, {}, customerId)) as Record<
+      string,
+      unknown
+    >
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
     )
@@ -268,7 +275,7 @@ describe('Customer tools — self-service appointments', () => {
   // MED-3: auth-bypass throws
   it('listMyAppointments throws without authenticated user context', async () => {
     try {
-      await execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {})
+      await execTool(customerTools.listMyAppointments, {})
       assert.fail('should have thrown')
     } catch (e) {
       assert.ok(String(e).includes('Not authenticated'))
@@ -290,11 +297,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let otherUserId = r2.rows[0].id
     try {
-      let result = (await execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-        otherUserId,
-      )) as Record<string, unknown>
+      let result = (await execTool(customerTools.listMyAppointments, {}, otherUserId)) as Record<
+        string,
+        unknown
+      >
       let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
         (a: Record<string, unknown>) => a.title,
       )
@@ -308,7 +314,7 @@ describe('Customer tools — self-service appointments', () => {
   })
 
   it('listMyAppointments has correct metadata', () => {
-    let tool = customerTools.listMyAppointments as unknown as Record<string, unknown>
+    let tool = customerTools.listMyAppointments
     assert.equal(tool.id, 'list_my_appointments')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
@@ -326,11 +332,10 @@ describe('Customer tools — self-service appointments', () => {
        VALUES ($1, $2, '[TEST SELF] cancel-2', $3, '[720,780)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE + 86_400_000, Date.now()],
     )
-    let result = (await execTool(
-      customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-      {},
-      customerId,
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.cancelAllAppointments, {}, customerId)) as Record<
+      string,
+      unknown
+    >
     // MED-6: use >= instead of === to tolerate any pre-existing appointments for this user
     assert.ok((result.cancelled as number) >= 2)
     assert.equal(result.failed, 0)
@@ -353,11 +358,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = (await execTool(
-        customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-        {},
-        tempUserId,
-      )) as Record<string, unknown>
+      let result = (await execTool(customerTools.cancelAllAppointments, {}, tempUserId)) as Record<
+        string,
+        unknown
+      >
       assert.equal(result.cancelled, 0)
       assert.equal(result.failed, 0)
       assert.equal(result.skipped, 0)
@@ -371,7 +375,7 @@ describe('Customer tools — self-service appointments', () => {
   // MED-3: auth-bypass throws
   it('cancelAllAppointments throws without authenticated user context', async () => {
     try {
-      await execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {})
+      await execTool(customerTools.cancelAllAppointments, {})
       assert.fail('should have thrown')
     } catch (e) {
       assert.ok(String(e).includes('Not authenticated'))
@@ -396,11 +400,10 @@ describe('Customer tools — self-service appointments', () => {
     // Delete one appointment directly (simulates concurrent cancellation)
     await pool.query('DELETE FROM appointments WHERE id = $1', [race2Id])
     // Run cancelAll — should cancel race-1 (1 remaining) and handle race-2 gracefully
-    let result = (await execTool(
-      customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-      {},
-      customerId,
-    )) as Record<string, unknown>
+    let result = (await execTool(customerTools.cancelAllAppointments, {}, customerId)) as Record<
+      string,
+      unknown
+    >
     assert.ok((result.cancelled as number) >= 1)
     assert.ok((result.failed as number) === 0)
     // Verify both test appointments are gone
@@ -411,7 +414,7 @@ describe('Customer tools — self-service appointments', () => {
   })
 
   it('cancelAllAppointments has correct metadata', () => {
-    let tool = customerTools.cancelAllAppointments as unknown as Record<string, unknown>
+    let tool = customerTools.cancelAllAppointments
     assert.equal(tool.id, 'cancel_all_appointments')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
