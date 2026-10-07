@@ -76,7 +76,7 @@ export async function listDaysWithOfferings(
   }
 
   return Array.from(dayMap.entries())
-    .sort(([a], [b]) => a - b)
+    .toSorted(([a], [b]) => a - b)
     .map(([day, ranges]) => ({ day, ranges }))
 }
 
@@ -93,7 +93,7 @@ export function computeFullHourSlots(ranges: { startMin: number; endMin: number 
       slots.add(m)
     }
   }
-  return Array.from(slots).sort((a, b) => a - b)
+  return Array.from(slots).toSorted((a, b) => a - b)
 }
 
 /**

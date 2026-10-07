@@ -114,7 +114,7 @@ export async function recallChatMessages(
         typeof m.createdAt === 'string' ? new Date(m.createdAt).getTime() : Number(m.createdAt),
     }))
     .filter((m) => m.content.length > 0)
-  return limit !== undefined ? chatMessages.reverse() : chatMessages
+  return limit !== undefined ? chatMessages.toReversed() : chatMessages
 }
 
 export async function listChatThreads(

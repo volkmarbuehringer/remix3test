@@ -55,7 +55,7 @@ export function toggleDoneAt(items: ListItem[], index: number, now: number): Lis
 }
 
 export function reverseItems(items: ListItem[]): ListItem[] {
-  return [...items].reverse()
+  return items.toReversed()
 }
 
 export function shuffleItems(items: ListItem[], rand: () => number = Math.random): ListItem[] {

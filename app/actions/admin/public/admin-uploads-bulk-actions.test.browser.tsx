@@ -192,7 +192,7 @@ describe('uploads bulk actions', () => {
     assert.equal(notCancelled, true, 'an accepted confirmation must let the submit through')
     assert.equal(asked, '2 Dateien wirklich löschen?')
     let hidden = deleteFormOf(host).querySelectorAll('input[data-bulk-delete-id]')
-    assert.deepEqual([...hidden].map((el) => (el as HTMLInputElement).value).sort(), ['1', '2'])
+    assert.deepEqual([...hidden].map((el) => (el as HTMLInputElement).value).toSorted(), ['1', '2'])
     assert.equal(selectedCount(), 0, 'submitted rows leave the selection store')
   })
 

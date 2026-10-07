@@ -24,7 +24,7 @@ describe('upload-selection', () => {
     assert.equal(selectedCount(), 3)
     assert.ok(isSelected(2))
     assert.deepEqual(
-      [...selectedIds()].sort((a, b) => a - b),
+      [...selectedIds()].toSorted((a, b) => a - b),
       [1, 2, 3],
     )
   })

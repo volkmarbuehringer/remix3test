@@ -207,7 +207,7 @@ for (let name of INCLUDE_COMMANDS) {
 console.log(`agents: ${agentsOk} converted`)
 console.log(`commands: ${commandsOk} converted`)
 console.log(`skipped pilots: ${[...SKIP].join(', ')}`)
-console.log(`skipped infra commands: ${[...SKIP_COMMANDS].sort().join(', ')}`)
+console.log(`skipped infra commands: ${[...SKIP_COMMANDS].toSorted().join(', ')}`)
 if (problems.length) {
   console.log('problems:')
   for (let p of problems) console.log(`  - ${p}`)

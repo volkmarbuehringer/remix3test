@@ -146,7 +146,7 @@ async function loadWeekSlots(
   }
 
   let days = Array.from(dayMap.entries())
-    .sort(([a], [b]) => a - b)
+    .toSorted(([a], [b]) => a - b)
     .map(([day, data]) => ({
       day,
       dateStr: new Date(day).toISOString().split('T')[0]!,

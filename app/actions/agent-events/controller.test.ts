@@ -1275,7 +1275,7 @@ describe('active-run-store', () => {
     let row = await findActiveRun(adminUserId)
     assert.equal(row?.status, 'suspended')
     assert.equal(row?.stepId, 'confirm-gate')
-    assert.equal((row?.suspendPayload as { question: string }).question, 'Cancel Jane?')
+    assert.equal((row?.suspendPayload as { question: string } | undefined)?.question, 'Cancel Jane?')
   })
 
   it('upsert clears a prior suspended run step and payload', async () => {

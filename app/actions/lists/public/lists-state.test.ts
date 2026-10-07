@@ -129,7 +129,7 @@ describe('lists-state', () => {
   it('toggleSelected adds then removes, without mutating the input set', () => {
     let start = new Set(['a'])
     let added = toggleSelected(start, 'b')
-    assert.deepEqual([...added].sort(), ['a', 'b'])
+    assert.deepEqual([...added].toSorted(), ['a', 'b'])
     assert.deepEqual([...start], ['a'])
     assert.deepEqual([...toggleSelected(added, 'a')], ['b'])
   })
@@ -138,7 +138,7 @@ describe('lists-state', () => {
     let cleared = toggleAllVisible(new Set(['a', 'b']), ['a', 'b'])
     assert.equal(cleared.size, 0)
     let selected = toggleAllVisible(new Set(['a']), ['a', 'b'])
-    assert.deepEqual([...selected].sort(), ['a', 'b'])
+    assert.deepEqual([...selected].toSorted(), ['a', 'b'])
     // Empty visible list must not "select all" (guards the all-visible predicate).
     assert.equal(toggleAllVisible(new Set(['a']), []).size, 1)
   })

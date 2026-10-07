@@ -136,7 +136,7 @@ export function computeBookableSlots(
   }
 
   return {
-    allBookableMinutes: [...globalSet].sort((a, b) => a - b),
+    allBookableMinutes: [...globalSet].toSorted((a, b) => a - b),
     bookableByDay: byDay,
   }
 }

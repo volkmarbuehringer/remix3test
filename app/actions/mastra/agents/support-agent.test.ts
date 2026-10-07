@@ -26,13 +26,13 @@ describe('support agent mutation gate policy', () => {
 
   it('keeps the blocked set to exactly the state-changing intents', () => {
     assert.deepEqual(
-      [...MUTATING_INTENTS].sort(),
+      [...MUTATING_INTENTS].toSorted(),
       [
         INTENTS.CANCEL_USER,
         INTENTS.LOCK_USER,
         INTENTS.UNLOCK_USER,
         INTENTS.DELETE_APPOINTMENTS,
-      ].sort(),
+      ].toSorted(),
     )
   })
 })

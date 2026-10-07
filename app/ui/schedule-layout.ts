@@ -133,7 +133,7 @@ function insertBlock(
 
   let targetDayBlocks = blocks
     .filter((block) => block.date === inserted.date)
-    .sort((left, right) => left.start_min - right.start_min)
+    .toSorted((left, right) => left.start_min - right.start_min)
   let otherBlocks = blocks.filter((block) => block.date !== inserted.date)
   let naturalIndex = insertionIndex(targetDayBlocks, inserted, originalBlock)
   let candidates: Array<{
@@ -169,7 +169,7 @@ function insertBlock(
   }
 
   return (
-    candidates.sort(
+    candidates.toSorted(
       (left, right) =>
         left.movedCount - right.movedCount ||
         left.totalDistance - right.totalDistance ||
@@ -233,7 +233,7 @@ function layoutBeforeAnchor(
   let placed: AppointmentLayoutBlock[] = []
   let cursor = anchorStartMinute
 
-  for (let block of [...blocks].reverse()) {
+  for (let block of [...blocks].toReversed()) {
     let nextBlock = copyBlock(block)
     let latestStart = cursor - durationOf(nextBlock)
     let startMinute = Math.min(nextBlock.start_min, latestStart)
@@ -315,7 +315,7 @@ function resolvePush(
 function placeBlocksDown(anchorBlock: AppointmentLayoutBlock, dayBlocks: AppointmentLayoutBlock[]) {
   let cursor = anchorBlock.end_min
 
-  for (let block of dayBlocks.sort((left, right) => left.start_min - right.start_min)) {
+  for (let block of dayBlocks.toSorted((left, right) => left.start_min - right.start_min)) {
     if (block.end_min <= anchorBlock.start_min) continue
     if (block.start_min < cursor) {
       moveBlockTo(block, cursor)
@@ -327,7 +327,7 @@ function placeBlocksDown(anchorBlock: AppointmentLayoutBlock, dayBlocks: Appoint
 function placeBlocksUp(anchorBlock: AppointmentLayoutBlock, dayBlocks: AppointmentLayoutBlock[]) {
   let cursor = anchorBlock.start_min
 
-  for (let block of dayBlocks.sort((left, right) => right.start_min - left.start_min)) {
+  for (let block of dayBlocks.toSorted((left, right) => right.start_min - left.start_min)) {
     if (block.start_min >= anchorBlock.end_min) continue
     if (block.end_min > cursor) {
       moveBlockTo(block, cursor - durationOf(block))
@@ -414,7 +414,7 @@ function isNonOverlapping(blocks: AppointmentLayoutBlock[]) {
   }
 
   for (let dayBlocks of byDate.values()) {
-    let sorted = dayBlocks.sort((left, right) => left.start_min - right.start_min)
+    let sorted = dayBlocks.toSorted((left, right) => left.start_min - right.start_min)
     for (let index = 0; index < sorted.length - 1; index++) {
       if (blocksOverlap(sorted[index]!, sorted[index + 1]!)) return false
     }
@@ -459,7 +459,7 @@ function requireBlock(blocks: AppointmentLayoutBlock[], blockId: number) {
 function sortBlocks(blocks: AppointmentLayoutBlock[]) {
   return blocks
     .map(copyBlock)
-    .sort(
+    .toSorted(
       (left, right) =>
         left.date - right.date || left.start_min - right.start_min || left.id - right.id,
     )

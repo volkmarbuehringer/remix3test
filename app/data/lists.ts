@@ -477,7 +477,7 @@ export async function mergeListIntoList(
     return await db.transaction(async (tx) => {
       // Lock both rows up front (in id order to avoid deadlocks) so a concurrent
       // delete or merge cannot corrupt data. FOR UPDATE requires a transaction.
-      for (let lockId of [sourceId, targetId].sort((a, b) => a - b)) {
+      for (let lockId of [sourceId, targetId].toSorted((a, b) => a - b)) {
         let args: unknown[] = [lockId]
         let ownerClause = ''
         if (userId != null) {
@@ -593,7 +593,7 @@ export async function copyItemsToList(
     return await db.transaction(async (tx) => {
       // Lock both rows up front (in id order to avoid deadlocks) so a concurrent
       // delete or write cannot corrupt data. FOR UPDATE requires a transaction.
-      for (let lockId of [sourceId, targetId].sort((a, b) => a - b)) {
+      for (let lockId of [sourceId, targetId].toSorted((a, b) => a - b)) {
         let args: unknown[] = [lockId]
         let ownerClause = ''
         if (userId != null) {
@@ -706,7 +706,7 @@ export async function moveItemBetweenLists(
       // delete of the target between the existence check and the write, or a
       // concurrent move into the same target, cannot corrupt data. FOR UPDATE
       // requires being inside a transaction, which db.transaction provides.
-      for (let lockId of [sourceId, targetId].sort((a, b) => a - b)) {
+      for (let lockId of [sourceId, targetId].toSorted((a, b) => a - b)) {
         let args: unknown[] = [lockId]
         let ownerClause = ''
         if (userId != null) {

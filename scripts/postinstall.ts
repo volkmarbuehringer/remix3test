@@ -51,6 +51,7 @@ async function main() {
           'Playwright browser installation failed after one retry.',
           'Run `npx playwright install` to retry manually.',
         ].join('\n'),
+        { cause: retryError },
       )
     }
   }
