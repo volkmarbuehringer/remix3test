@@ -363,10 +363,10 @@ export const AgentEventsStream = clientEntry(
       }
     }
 
-    async function checkReconnect(handle: Handle) {
+    async function checkReconnect(componentHandle: Handle) {
       try {
         let res = await fetch(routes.admin.agentEvents.reconnect.href(), {
-          signal: handle.signal,
+          signal: componentHandle.signal,
         })
         if (!res.ok) return
         let body = (await res.json()) as {

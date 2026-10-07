@@ -154,10 +154,10 @@ export async function seed(db: Database): Promise<void> {
 
       for (let i = 0; i < 5; i++) {
         let dayMs = mondayMs + i * 86_400_000
-        let now = Date.now()
+        let timestamp = Date.now()
         await db.exec(sql`
           INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-          VALUES (${dayMs}::bigint, ${firstResource.id}, int4range(480, 1080, '[)'), ${now}, ${now})
+          VALUES (${dayMs}::bigint, ${firstResource.id}, int4range(480, 1080, '[)'), ${timestamp}, ${timestamp})
         `)
       }
       console.log('✅ Seeded 5 demo offerings (Mon–Fri 8:00–18:00)')

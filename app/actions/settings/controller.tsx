@@ -172,9 +172,9 @@ export default createController(routes.settings, {
         let session = context.session
         if (session) {
           let raw = context.formData.get('pageSize')
-          let pageSize = typeof raw === 'string' ? Number(raw) : NaN
-          if (!isNaN(pageSize) && (VALID_PAGE_SIZES as readonly number[]).includes(pageSize)) {
-            session.set('pageSize', pageSize)
+          let nextPageSize = typeof raw === 'string' ? Number(raw) : NaN
+          if (!isNaN(nextPageSize) && (VALID_PAGE_SIZES as readonly number[]).includes(nextPageSize)) {
+            session.set('pageSize', nextPageSize)
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }
@@ -644,7 +644,7 @@ type PasswordFieldProps = {
 
 function PasswordField(handle: Handle<PasswordFieldProps>) {
   return () => {
-    let { autoComplete, error, errorId, fieldId, label, minLength, name, children } = handle.props
+    let { autoComplete, error, errorId, fieldId, label, minLength: minLengthProp, name, children } = handle.props
 
     return (
       <div mix={fieldGroupCss}>
@@ -658,14 +658,14 @@ function PasswordField(handle: Handle<PasswordFieldProps>) {
             name={name}
             required
             autoComplete={autoComplete}
-            minLength={minLength ? PASSWORD_MIN_LENGTH : undefined}
+            minLength={minLengthProp ? PASSWORD_MIN_LENGTH : undefined}
             aria-invalid={error ? true : undefined}
             aria-describedby={
               error
-                ? minLength
+                ? minLengthProp
                   ? `${errorId} password-rules`
                   : errorId
-                : minLength
+                : minLengthProp
                   ? 'password-rules'
                   : undefined
             }

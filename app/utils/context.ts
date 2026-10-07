@@ -32,7 +32,7 @@ export function getAdminIdentity(
 }
 
 interface AuthContextReader {
-  get(key: typeof Auth): AuthState<unknown> | undefined
+  get(key: typeof Auth): AuthState | undefined
 }
 
 /**

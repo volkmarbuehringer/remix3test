@@ -20,7 +20,7 @@ interface ButtonOptions {
  * This is a type-level-only adjustment: the descriptor objects are already
  * accepted at runtime on any host.
  */
-type ButtonStyle = MixinDescriptor<HTMLButtonElement, unknown[], ElementProps>
+type ButtonStyle = MixinDescriptor<HTMLButtonElement, unknown[]>
 
 type ButtonMixin =
   | readonly [ButtonStyle, ButtonStyle, ButtonStyle, ButtonStyle]
@@ -54,7 +54,7 @@ function button(options: ButtonOptions = {}): ButtonMixin {
  * can be styled as a button instead of nesting a `<button>` inside an `<a>`
  * (invalid HTML that also drops the link role for assistive tech).
  */
-type AnchorButtonStyle = MixinDescriptor<HTMLAnchorElement, unknown[], ElementProps>
+type AnchorButtonStyle = MixinDescriptor<HTMLAnchorElement, unknown[]>
 
 type AnchorButtonMixin =
   | readonly [AnchorButtonStyle, AnchorButtonStyle, AnchorButtonStyle, AnchorButtonStyle]

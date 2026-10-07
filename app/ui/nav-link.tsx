@@ -7,7 +7,7 @@ type NavLinkProps = {
   target?: string
   active?: boolean
   document?: boolean
-  mix?: MixValue<HTMLAnchorElement, ElementProps>
+  mix?: MixValue<HTMLAnchorElement>
   style?: Record<string, string>
   title?: string
   'aria-label'?: string | undefined

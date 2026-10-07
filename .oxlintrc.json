@@ -92,7 +92,9 @@
         "unicorn/no-array-sort": "error",
         "unicorn/no-array-reverse": "error",
         "preserve-caught-error": "error",
-        "no-unsafe-optional-chaining": "error"
+        "no-unsafe-optional-chaining": "error",
+        "no-shadow": "error",
+        "typescript/no-unnecessary-type-arguments": "error"
       }
     },
     {

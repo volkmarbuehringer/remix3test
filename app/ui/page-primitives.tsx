@@ -12,7 +12,7 @@ interface PageSectionProps {
   titleHidden?: boolean
   /** Optional extra styles merged with `sectionCss` (e.g. `flex: 1` so a
    *  viewport-bounded page's content can fill the remaining height). */
-  mix?: MixValue<HTMLElement, ElementProps>
+  mix?: MixValue<HTMLElement>
 }
 
 export function PageSection(handle: Handle<PageSectionProps>) {

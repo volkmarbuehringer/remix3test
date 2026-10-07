@@ -1,6 +1,6 @@
 import { verifyCredentials, completeAuth } from 'remix/auth'
 import * as s from 'remix/data-schema'
-import { email, minLength } from 'remix/data-schema/checks'
+import { email as emailCheck, minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { getContext } from 'remix/middleware/async-context'
 import { createAction, createController } from 'remix/router'
@@ -35,7 +35,7 @@ import {
 // ── Login ──
 
 const loginSchema = f.object({
-  email: f.field(s.defaulted(s.string(), '').pipe(email())),
+  email: f.field(s.defaulted(s.string(), '').pipe(emailCheck())),
   password: f.field(s.defaulted(s.string(), '')),
 })
 
@@ -166,7 +166,7 @@ const REGISTER_FORM_KEYS = ['name', 'email'] as const
 
 const registerSchema = f.object({
   name: f.field(s.string().pipe(minLength(8))),
-  email: f.field(s.string().pipe(email())),
+  email: f.field(s.string().pipe(emailCheck())),
   password: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
@@ -310,7 +310,7 @@ const forgotLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, m
 const resetLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
 
 const emailSchema = f.object({
-  email: f.field(s.string().pipe(email())),
+  email: f.field(s.string().pipe(emailCheck())),
 })
 
 const passwordSchema = f.object({

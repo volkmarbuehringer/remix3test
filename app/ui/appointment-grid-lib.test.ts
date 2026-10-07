@@ -11,16 +11,16 @@ import {
 } from './appointment-grid-lib.ts'
 import type { AppointmentLayoutBlock } from './appointment-grid-types.ts'
 
-function utcDate(year: number, month: number, day: number): number {
-  return Date.UTC(year, month - 1, day)
+function utcDate(year: number, month: number, dayNumber: number): number {
+  return Date.UTC(year, month - 1, dayNumber)
 }
 
 function day(date: number, dayName?: string) {
   return { dayName: dayName ?? 'Mo', date, dateStr: new Date(date).toISOString().split('T')[0]! }
 }
 
-function offering(day: number, start_min: number, end_min: number) {
-  return { day, start_min, end_min }
+function offering(dayNumber: number, start_min: number, end_min: number) {
+  return { day: dayNumber, start_min, end_min }
 }
 
 const MON = utcDate(2026, 6, 8)

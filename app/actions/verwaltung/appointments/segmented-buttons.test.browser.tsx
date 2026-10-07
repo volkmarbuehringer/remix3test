@@ -97,7 +97,7 @@ function readSegments() {
 
   return {
     token,
-    labels: segments.map((button) => (button.textContent || '').trim()),
+    labels: segments.map((segment) => (segment.textContent || '').trim()),
     first: read(segments[0]!),
     middle: read(segments[1]!),
     last: read(segments[segments.length - 1]!),

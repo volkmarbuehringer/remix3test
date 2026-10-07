@@ -451,7 +451,7 @@ function durationOf(block: AppointmentLayoutBlock) {
 }
 
 function requireBlock(blocks: AppointmentLayoutBlock[], blockId: number) {
-  let block = blocks.find((block) => block.id === blockId)
+  let block = blocks.find((candidate) => candidate.id === blockId)
   if (!block) throw new Error(`Unknown appointment block: ${blockId}`)
   return block
 }

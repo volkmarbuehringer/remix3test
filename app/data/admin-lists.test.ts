@@ -48,12 +48,12 @@ describe('admin-lists', () => {
   })
 
   it('searchLists filters by item-count status', async () => {
-    let now = Date.now()
+    let timestamp = Date.now()
     await pool.query(
       `INSERT INTO lists (description, list, created_at, updated_at)
        VALUES ('test-admin-empty-status', '[]'::jsonb, $1, $1),
               ('test-admin-items-status', $2::jsonb, $1, $1)`,
-      [now, JSON.stringify([{ id: '1', label: 'Buy milk' }])],
+      [timestamp, JSON.stringify([{ id: '1', label: 'Buy milk' }])],
     )
 
     let empty = await searchLists(db, '%%', 50, 0, undefined, undefined, 'empty')
@@ -78,12 +78,12 @@ describe('admin-lists', () => {
   })
 
   it('searchLists combines a text search with the item-count status', async () => {
-    let now = Date.now()
+    let timestamp = Date.now()
     await pool.query(
       `INSERT INTO lists (description, list, created_at, updated_at)
        VALUES ('test-admin-combo-empty', '[]'::jsonb, $1, $1),
               ('test-admin-combo-items', $2::jsonb, $1, $1)`,
-      [now, JSON.stringify([{ id: '1', label: 'Combo Widget' }])],
+      [timestamp, JSON.stringify([{ id: '1', label: 'Combo Widget' }])],
     )
 
     let rows = await searchLists(db, '%combo%', 50, 0, undefined, undefined, 'items')

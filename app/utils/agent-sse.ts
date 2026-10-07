@@ -164,23 +164,23 @@ async function filterAndForward(
   let p = chunk.payload
   let type = chunk.type
 
-  function fwd(type: string, data: unknown) {
+  function fwd(eventType: string, data: unknown) {
     let payload: string
     try {
       payload = JSON.stringify(data)
     } catch {
-      payload = JSON.stringify({ _serializeError: true, type })
+      payload = JSON.stringify({ _serializeError: true, type: eventType })
     }
     if (payload.length > 65536) {
-      if (type === 'message') {
+      if (eventType === 'message') {
         let msg = JSON.parse(payload) as { text?: string | undefined }
         msg.text = msg.text?.slice(0, 65536 - 50)
         payload = JSON.stringify(msg)
       } else {
-        payload = JSON.stringify({ _truncated: true, type })
+        payload = JSON.stringify({ _truncated: true, type: eventType })
       }
     }
-    controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${payload}\n\n`))
+    controller.enqueue(sseEncoder.encode(`event: ${eventType}\ndata: ${payload}\n\n`))
   }
 
   if (type === 'text-delta') {

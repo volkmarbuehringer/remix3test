@@ -84,8 +84,8 @@ export const AGENT_FIRST_CHUNK_TIMEOUT_MS = 30_000
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-export function sanitizeLog(s: string): string {
-  return s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\r\n]/g, ' ').slice(0, 128)
+export function sanitizeLog(value: string): string {
+  return value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\r\n]/g, ' ').slice(0, 128)
 }
 
 // ── Message validation ───────────────────────────────────────────────

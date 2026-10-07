@@ -90,8 +90,8 @@ function clampYear(year: number): number {
 
 function clampWeek(week: number, year?: number): number {
   if (week < 1) return 1
-  let max = year !== undefined ? isoWeeksInYear(year) : 53
-  if (week > max) return max
+  let maxWeek = year !== undefined ? isoWeeksInYear(year) : 53
+  if (week > maxWeek) return maxWeek
   return week
 }
 

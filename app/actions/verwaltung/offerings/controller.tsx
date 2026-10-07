@@ -560,10 +560,10 @@ export default createController(routes.verwaltung.offerings, {
       let allErrors: string[] = []
 
       for (let resourceId of resourceIds) {
-        let result = await generateWeek(context.db, resourceId, year, week)
-        totalCreated += result.created
-        totalSkipped += result.skipped
-        allErrors.push(...result.errors)
+        let weekResult = await generateWeek(context.db, resourceId, year, week)
+        totalCreated += weekResult.created
+        totalSkipped += weekResult.skipped
+        allErrors.push(...weekResult.errors)
       }
 
       if (allErrors.length > 0) {

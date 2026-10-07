@@ -1192,10 +1192,10 @@ export const AppointmentGrid = clientEntry(
       let state = getTypeDragState()
       if (!state?.active) return
 
-      let preview = typeDragPreview
+      let typePreview = typeDragPreview
       clearTypeDragPreview()
 
-      if (preview) {
+      if (typePreview) {
         let data = readData()
         let csrfToken = data.csrfToken
         fetch(apptHref, {
@@ -1207,8 +1207,8 @@ export const AppointmentGrid = clientEntry(
           },
           body: JSON.stringify({
             typeId: state.typeId,
-            date: preview.date,
-            start_min: preview.startMinute,
+            date: typePreview.date,
+            start_min: typePreview.startMinute,
             resource_id: data.selectedResourceId,
           }),
           signal: handle.signal,
