@@ -398,7 +398,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(context.db, {
+          void logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'create',
@@ -462,7 +462,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'create',
@@ -586,7 +586,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'update',
@@ -639,7 +639,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

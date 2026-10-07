@@ -71,23 +71,23 @@ export const WebhookComposer = clientEntry(
 
     function addRow() {
       rows = [...rows, newRow()]
-      handle.update()
+      void handle.update()
     }
 
     function removeRow(id: number) {
       rows = rows.filter((r) => r.id !== id)
       if (rows.length === 0) rows = [newRow()]
-      handle.update()
+      void handle.update()
     }
 
     function updateKey(id: number, key: string) {
       rows = rows.map((r) => (r.id === id ? { ...r, key } : r))
-      handle.update()
+      void handle.update()
     }
 
     function updateValue(id: number, value: string) {
       rows = rows.map((r) => (r.id === id ? { ...r, value } : r))
-      handle.update()
+      void handle.update()
     }
 
     return () => {

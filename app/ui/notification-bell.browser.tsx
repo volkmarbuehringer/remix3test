@@ -32,7 +32,7 @@ export const NotificationBell = clientEntry(
         .then((r) => r.json())
         .then((data) => {
           count = typeof data?.count === 'number' ? data.count : 0
-          handle.update()
+          void handle.update()
         })
         .catch(() => {})
     }
@@ -48,7 +48,7 @@ export const NotificationBell = clientEntry(
       eventSource = new EventSource(eventsUrl)
       eventSource.addEventListener('new', () => {
         count++
-        handle.update()
+        void handle.update()
       })
       handle.signal.addEventListener('abort', () => {
         eventSource?.close()

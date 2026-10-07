@@ -24,7 +24,7 @@ async function readAllFromStream(
       parts.push(new TextDecoder().decode(value))
     }
   } finally {
-    reader.cancel()
+    void reader.cancel()
   }
   return parts.join('')
 }
@@ -40,7 +40,7 @@ async function readOneChunk(stream: ReadableStream): Promise<string> {
     let { value, done } = await reader.read()
     return done ? '' : new TextDecoder().decode(value)
   } finally {
-    reader.cancel()
+    void reader.cancel()
   }
 }
 

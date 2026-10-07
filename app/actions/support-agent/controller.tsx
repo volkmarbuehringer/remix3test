@@ -311,7 +311,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
         onSettled: () => {
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(context.db, {
+            void logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'support_message',
@@ -349,7 +349,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
         onDecision: (runId) => {
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(context.db, {
+            void logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'support_tool_approval',

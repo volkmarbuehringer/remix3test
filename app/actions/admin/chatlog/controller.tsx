@@ -235,7 +235,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

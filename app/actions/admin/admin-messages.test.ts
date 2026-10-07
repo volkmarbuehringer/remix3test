@@ -251,7 +251,7 @@ describe('Admin Messages controller', () => {
     let reader = response.body!.getReader()
     let { value, done } = await reader.read()
     controller.abort()
-    reader.cancel()
+    void reader.cancel()
 
     assert.equal(done, false)
     let text = new TextDecoder().decode(value)

@@ -187,7 +187,7 @@ export const AgentEventsStream = clientEntry(
       body.set('runId', currentRunId)
       body.set('confirmed', String(confirmed))
       if (currentWorkflowId) body.set('workflowId', currentWorkflowId)
-      startStream(routes.admin.agentEvents.resume.href(), { method: 'POST', body })
+      void startStream(routes.admin.agentEvents.resume.href(), { method: 'POST', body })
     }
 
     function restoreFilterValue(url: string) {
@@ -324,7 +324,7 @@ export const AgentEventsStream = clientEntry(
       updateCharCount()
       pushRow('Processing…', 'active')
 
-      startStream(routes.admin.agentEvents.index.href(), { method: 'POST', body: formData })
+      void startStream(routes.admin.agentEvents.index.href(), { method: 'POST', body: formData })
     }
 
     function prefillFromChip(command: string) {
@@ -441,7 +441,7 @@ export const AgentEventsStream = clientEntry(
             // Reconnect after a reload / browser change / server restart: if a
             // workflow run is still suspended at the confirm gate, re-render it
             // so the admin can confirm or cancel the pending action.
-            checkReconnect(handle)
+            void checkReconnect(handle)
           }),
         ]}
       />

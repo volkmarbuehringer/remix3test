@@ -111,19 +111,19 @@ export const ListsClient = clientEntry(
       undoTimer = null
       undoSnapshot = null
       undoKind = null
-      handle.update()
+      void handle.update()
     }
 
     let showUndo = (kind: UndoKind, snapshot: ListItem[]) => {
       if (undoTimer) clearTimeout(undoTimer)
       undoSnapshot = snapshot
       undoKind = kind
-      handle.update()
+      void handle.update()
       undoTimer = setTimeout(() => {
         undoSnapshot = null
         undoKind = null
         undoTimer = null
-        handle.update()
+        void handle.update()
       }, 6000)
     }
 
@@ -133,7 +133,7 @@ export const ListsClient = clientEntry(
       clearUndo()
       setDirty()
       announce('Rückgängig gemacht')
-      handle.update()
+      void handle.update()
       scheduleAutosave(true)
     }
 
@@ -142,7 +142,7 @@ export const ListsClient = clientEntry(
       clearArmTimer = null
       if (clearArmed) {
         clearArmed = false
-        handle.update()
+        void handle.update()
       }
     }
 
@@ -252,7 +252,7 @@ export const ListsClient = clientEntry(
       if (!isDirty()) return
       if (saveStatus === 'saved' || saveStatus === 'error') {
         saveStatus = 'dirty'
-        handle.update()
+        void handle.update()
       }
       scheduleAutosave()
     }
@@ -273,7 +273,7 @@ export const ListsClient = clientEntry(
       snapshotClean()
       clearFilter()
       syncFieldInputs()
-      handle.update()
+      void handle.update()
     }
 
     let scrollToBottom = () => {
@@ -312,7 +312,7 @@ export const ListsClient = clientEntry(
         // Create new list
         saving = true
         saveStatus = 'saving'
-        handle.update()
+        void handle.update()
         let ok = false
         let newId: number | null = null
         try {
@@ -335,19 +335,19 @@ export const ListsClient = clientEntry(
           snapshotClean()
           clearDraft()
           saveStatus = 'saved'
-          handle.update()
+          void handle.update()
           navigateFrame(`/lists?load=${newId}`)
           return true
         } else {
           saveStatus = 'error'
-          handle.update()
+          void handle.update()
           return false
         }
       } else {
         // Patch existing list
         saving = true
         saveStatus = 'saving'
-        handle.update()
+        void handle.update()
         // Capture snapshot at send time to detect drift during the await
         let sentTitle = title
         let sentDesc = description
@@ -377,7 +377,7 @@ export const ListsClient = clientEntry(
               scheduleAutosave()
               ok = true
               saving = false
-              handle.update()
+              void handle.update()
               return true
             }
             // Apply server echo only if nothing drifted
@@ -401,11 +401,11 @@ export const ListsClient = clientEntry(
           snapshotClean()
           saveStatus = 'saved'
           syncEditorSidebar()
-          handle.update()
+          void handle.update()
           return true
         } else {
           saveStatus = 'error'
-          handle.update()
+          void handle.update()
           return false
         }
       }
@@ -477,7 +477,7 @@ export const ListsClient = clientEntry(
     let toggleSelected = (id: string) => {
       selectedItemIds = toggleSelectedIn(selectedItemIds, id)
       copyError = ''
-      handle.update()
+      void handle.update()
     }
 
     let toggleSelectAllVisible = () => {
@@ -486,7 +486,7 @@ export const ListsClient = clientEntry(
         visibleItems().map((item) => item.id),
       )
       copyError = ''
-      handle.update()
+      void handle.update()
     }
 
     // Candidate targets are the sidebar list rows — the same set the
@@ -510,13 +510,13 @@ export const ListsClient = clientEntry(
       let targetId = Number(copyTargetId)
       if (!Number.isFinite(targetId) || targetId < 1) {
         copyError = 'Bitte eine Ziel-Liste wählen'
-        handle.update()
+        void handle.update()
         return
       }
       let itemIds = items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id)
       if (itemIds.length === 0) {
         copyError = 'Keine Elemente ausgewählt'
-        handle.update()
+        void handle.update()
         return
       }
 
@@ -525,7 +525,7 @@ export const ListsClient = clientEntry(
       // pass the `copyBusy` guard and copy the same selection twice.
       copyBusy = true
       copyError = ''
-      handle.update()
+      void handle.update()
       try {
         // Persist pending edits first: the server checks If-Match against the
         // source's `updated_at`, which a pending autosave is about to bump.
@@ -541,12 +541,12 @@ export const ListsClient = clientEntry(
           copyNoticeTimer = setTimeout(() => {
             copyNotice = ''
             copyNoticeTimer = null
-            handle.update()
+            void handle.update()
           }, 5000)
           announce(
             `${copied} ${copied === 1 ? 'Element' : 'Elemente'} in die gewählte Liste kopiert`,
           )
-          handle.update()
+          void handle.update()
           // Refresh the sidebar so the target row's count reflects the copies.
           handle.frame.reload().catch(() => {})
         } else if (outcome.status === 'conflict') {
@@ -564,7 +564,7 @@ export const ListsClient = clientEntry(
         copyError = 'Kopieren fehlgeschlagen (Netzwerkfehler)'
       } finally {
         copyBusy = false
-        handle.update()
+        void handle.update()
       }
     }
 
@@ -589,7 +589,7 @@ export const ListsClient = clientEntry(
       conflictState = { show: false, serverState: null }
       clearDraft()
       syncFieldInputs()
-      handle.update()
+      void handle.update()
     }
 
     // Hydrate from server-injected initial state
@@ -629,7 +629,7 @@ export const ListsClient = clientEntry(
             let data = JSON.parse(raw)
             if (data && typeof data.id === 'number') {
               hydrateFromInitialState(data)
-              handle.update()
+              void handle.update()
               return
             }
           } catch {
@@ -656,7 +656,7 @@ export const ListsClient = clientEntry(
         draftRestored = true
         clearFilter()
         syncFieldInputs()
-        handle.update()
+        void handle.update()
         return
       }
       items = []
@@ -673,7 +673,7 @@ export const ListsClient = clientEntry(
       snapshotClean()
       clearFilter()
       syncFieldInputs()
-      handle.update()
+      void handle.update()
     }
 
     // Frame reload events only fire in the browser. Registering them during SSR
@@ -721,7 +721,7 @@ export const ListsClient = clientEntry(
       commitReorder: (next) => {
         items = next
         setDirty()
-        handle.update()
+        void handle.update()
       },
       setLoadError: (message) => {
         loadError = message
@@ -739,7 +739,7 @@ export const ListsClient = clientEntry(
         clearArmed = true
         if (clearArmTimer) clearTimeout(clearArmTimer)
         clearArmTimer = setTimeout(() => disarmClear(), 4000)
-        handle.update()
+        void handle.update()
         return
       }
       disarmClear()
@@ -747,7 +747,7 @@ export const ListsClient = clientEntry(
       items = []
       selectedItemIds = new Set()
       setDirty()
-      handle.update()
+      void handle.update()
     }
 
     // "Nur Erledigte löschen": remove every completed item in one action, with
@@ -765,7 +765,7 @@ export const ListsClient = clientEntry(
       selectedItemIds = nextSelected
       setDirty()
       announce('Erledigte Elemente gelöscht')
-      handle.update()
+      void handle.update()
     }
 
     // "Auswahl löschen": remove every checked element in one action, with the
@@ -787,7 +787,7 @@ export const ListsClient = clientEntry(
           ? 'Ausgewähltes Element gelöscht'
           : `${result.removed.length} ausgewählte Elemente gelöscht`,
       )
-      handle.update()
+      void handle.update()
     }
 
     // One-shot sort control. Choosing an order reorders the real `items` array
@@ -806,7 +806,7 @@ export const ListsClient = clientEntry(
             : 'Nach Änderung sortiert',
       )
       setDirty()
-      handle.update()
+      void handle.update()
     }
 
     // Duplicate the currently open list by submitting the hidden copy form. The
@@ -836,7 +836,7 @@ export const ListsClient = clientEntry(
       newItemLabel = ''
       if (newItemRef) newItemRef.value = ''
       setDirty()
-      handle.update()
+      void handle.update()
       setTimeout(scrollToBottom, 0)
       scheduleAutosave(true)
     }
@@ -853,14 +853,14 @@ export const ListsClient = clientEntry(
         selectedItemIds = toggleSelectedIn(selectedItemIds, removedId)
       }
       setDirty()
-      handle.update()
+      void handle.update()
     }
 
     let toggleDone = (index: number) => {
       disarmClear()
       items = toggleDoneAt(items, index, Date.now())
       setDirty()
-      handle.update()
+      void handle.update()
       scheduleAutosave(true)
     }
 
@@ -873,7 +873,7 @@ export const ListsClient = clientEntry(
       if (newItems === items) return
       items = newItems
       setDirty()
-      handle.update()
+      void handle.update()
       scheduleAutosave(true)
     }
 
@@ -886,7 +886,7 @@ export const ListsClient = clientEntry(
       items = reverseItems(items)
       setDirty()
       announce('Reihenfolge umgekehrt')
-      handle.update()
+      void handle.update()
     }
 
     let shuffle = () => {
@@ -895,7 +895,7 @@ export const ListsClient = clientEntry(
       items = shuffleItems(items)
       setDirty()
       announce('Reihenfolge gemischt')
-      handle.update()
+      void handle.update()
     }
 
     let startEditing = (index: number) => {
@@ -905,7 +905,7 @@ export const ListsClient = clientEntry(
       editPriority = item.priority ?? ''
       editDue = item.due ?? ''
       editTags = (item.tags ?? []).join(', ')
-      handle.update()
+      void handle.update()
     }
 
     let saveEdit = () => {
@@ -922,7 +922,7 @@ export const ListsClient = clientEntry(
       editPriority = ''
       editDue = ''
       editTags = ''
-      handle.update()
+      void handle.update()
     }
 
     let cancelEdit = () => {
@@ -931,7 +931,7 @@ export const ListsClient = clientEntry(
       editPriority = ''
       editDue = ''
       editTags = ''
-      handle.update()
+      void handle.update()
     }
 
     // Conflict resolution handlers
@@ -940,7 +940,7 @@ export const ListsClient = clientEntry(
         hydrateFromInitialState(conflictState.serverState)
       }
       conflictState = { show: false, serverState: null }
-      handle.update()
+      void handle.update()
     }
 
     let forceOverwrite = () => {
@@ -948,7 +948,7 @@ export const ListsClient = clientEntry(
         loadedUpdatedAt = conflictState.serverState.updated_at
       }
       conflictState = { show: false, serverState: null }
-      handle.update()
+      void handle.update()
       // Re-trigger save immediately
       setTimeout(() => saveNow(), 0)
     }
@@ -1074,7 +1074,7 @@ export const ListsClient = clientEntry(
       let vis = visibleItems()
       if (targetIndex < 0 || targetIndex >= vis.length) return
       focusedId = vis[targetIndex]!.id
-      handle.update()
+      void handle.update()
       focusItem(vis[targetIndex]!.id)
     }
 
@@ -1184,7 +1184,7 @@ export const ListsClient = clientEntry(
             e.preventDefault()
             grabbedId = id
             announce(`Element aufgenommen, Position ${index + 1} von ${items.length}`)
-            handle.update()
+            void handle.update()
             return
           default:
             if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
@@ -1213,13 +1213,13 @@ export const ListsClient = clientEntry(
           e.preventDefault()
           grabbedId = null
           announce(`Abgelegt an Position ${index + 1} von ${items.length}`)
-          handle.update()
+          void handle.update()
           return
         case 'Escape':
           e.preventDefault()
           grabbedId = null
           announce('Verschieben abgebrochen')
-          handle.update()
+          void handle.update()
           return
       }
     }
@@ -1281,7 +1281,7 @@ export const ListsClient = clientEntry(
       clearSelectionAndError: () => {
         clearSelection()
         copyError = ''
-        handle.update()
+        void handle.update()
       },
       toggleSelected,
       toggleDone,
@@ -1295,42 +1295,42 @@ export const ListsClient = clientEntry(
       setTitle: (value) => {
         title = value
         setDirty()
-        handle.update()
+        void handle.update()
       },
       setDescription: (value) => {
         description = value
         setDirty()
-        handle.update()
+        void handle.update()
       },
       setDescriptionMode: (mode) => {
         descriptionMode = mode
-        handle.update()
+        void handle.update()
       },
       setNewItemLabel: (value) => {
         newItemLabel = value
-        handle.update()
+        void handle.update()
       },
       setListFilter: (value) => {
         listFilter = value
-        handle.update()
+        void handle.update()
       },
       clearListFilter: () => {
         listFilter = ''
         if (filterInputRef) filterInputRef.value = ''
-        handle.update()
+        void handle.update()
       },
       setCopyTargetId: (value) => {
         copyTargetId = value
         copyError = ''
-        handle.update()
+        void handle.update()
       },
       setFocusedId: (id) => {
         focusedId = id
-        handle.update()
+        void handle.update()
       },
       setEditText: (value) => {
         editText = value
-        handle.update()
+        void handle.update()
       },
       setEditPriority: (value) => {
         editPriority = value

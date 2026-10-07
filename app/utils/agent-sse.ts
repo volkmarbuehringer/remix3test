@@ -350,7 +350,7 @@ export function pipeStream(
       { once: true },
     )
 
-    ;(async () => {
+    ;void (async () => {
       try {
         while (true) {
           let { done, value } = await reader!.read()

@@ -23,7 +23,7 @@ async function drainAll(stream: ReadableStream): Promise<string> {
       parts.push(new TextDecoder().decode(value))
     }
   } finally {
-    reader.cancel()
+    void reader.cancel()
   }
   return parts.join('')
 }

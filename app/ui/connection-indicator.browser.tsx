@@ -46,12 +46,12 @@ export const ConnectionIndicator = clientEntry(
 
       eventSource.addEventListener('open', () => {
         state = 'connected'
-        handle.update()
+        void handle.update()
       })
 
       eventSource.addEventListener('connected', () => {
         state = 'connected'
-        handle.update()
+        void handle.update()
       })
 
       eventSource.addEventListener('invalidate', () => {
@@ -80,7 +80,7 @@ export const ConnectionIndicator = clientEntry(
         } else {
           state = 'reconnecting'
         }
-        handle.update()
+        void handle.update()
       })
 
       // Clean up the EventSource when this entry is removed from the DOM

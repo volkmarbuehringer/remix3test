@@ -91,7 +91,7 @@ describe('admin uploads: multirow delete banner', () => {
     let confirmMessage = ''
     page.once('dialog', (dialog) => {
       confirmMessage = dialog.message()
-      dialog.accept()
+      void dialog.accept()
     })
 
     let bulkButton = page.locator('[data-bulk-delete-form] button[type="submit"]')
@@ -136,7 +136,7 @@ describe('admin uploads: multirow delete banner', () => {
     // button disabled and nothing can be deleted. The replaced form starts
     // without the hydration marker, so wait for the new one.
     page.once('dialog', (dialog) => {
-      dialog.accept()
+      void dialog.accept()
     })
     await bulkReady.waitFor({ timeout: 15_000 })
     await page.locator('[data-upload-filename="test-e2e-3.txt"] input[name="ids"]').check()

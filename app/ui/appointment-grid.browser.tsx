@@ -345,12 +345,12 @@ export const AppointmentGrid = clientEntry(
                             if (activeGesture) return
                             if (isRestrictedBlock) return
                             hoveredBlockId = appt.id
-                            handle.update()
+                            void handle.update()
                           }),
                           on('mouseleave', () => {
                             if (isRestrictedBlock) return
                             hoveredBlockId = null
-                            handle.update()
+                            void handle.update()
                           }),
                         ]}
                         style={`top: ${topPx}px; height: ${heightPx}px; transform: ${isBlockDragging ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)` : 'none'};`}
@@ -526,7 +526,7 @@ export const AppointmentGrid = clientEntry(
                             }
                             if (e.key === 'Enter' && e.shiftKey) {
                               e.preventDefault()
-                              commitDraft(csrfToken)
+                              void commitDraft(csrfToken)
                             }
                           }),
                           on('blur', () => cancelDraft()),
@@ -540,7 +540,7 @@ export const AppointmentGrid = clientEntry(
                             draftSaveButtonStyle,
                             on('pointerdown', (e) => {
                               e.preventDefault()
-                              commitDraft(csrfToken)
+                              void commitDraft(csrfToken)
                             }),
                           ]}
                         >
@@ -579,14 +579,14 @@ export const AppointmentGrid = clientEntry(
       draftState.dayIdx = dayIdx
       draftState.start = startMin
       draftState.end = startMin + 15
-      handle.update()
+      void handle.update()
       handle.queueTask(() => draftInput?.focus())
     }
 
     function cancelDraft() {
       draftState.active = false
       syncInteractionState()
-      handle.update()
+      void handle.update()
     }
 
     async function commitDraft(csrfToken: string) {
@@ -604,7 +604,7 @@ export const AppointmentGrid = clientEntry(
 
       draftState.active = false
       syncInteractionState()
-      handle.update()
+      void handle.update()
 
       try {
         let response = await fetch(apptHref, {
@@ -637,7 +637,7 @@ export const AppointmentGrid = clientEntry(
       if (editingId !== null || activeGesture) return
       editingId = appt.id
       syncInteractionState()
-      handle.update()
+      void handle.update()
       handle.queueTask(() => {
         let input = renameInputs.get(appt.id)
         if (input) {
@@ -651,7 +651,7 @@ export const AppointmentGrid = clientEntry(
     function cancelEdit() {
       editingId = null
       syncInteractionState()
-      handle.update()
+      void handle.update()
     }
 
     function getEditValue(apptId: number): string {
@@ -666,14 +666,14 @@ export const AppointmentGrid = clientEntry(
       if (!newTitle || newTitle === appt.title) {
         editingId = null
         syncInteractionState()
-        handle.update()
+        void handle.update()
         return
       }
 
       let id = appt.id
       editingId = null
       syncInteractionState()
-      handle.update()
+      void handle.update()
 
       fetch(`${apptHref}/${id}`, {
         method: 'PUT',
@@ -750,7 +750,7 @@ export const AppointmentGrid = clientEntry(
       activeGesture = 'drag'
       syncInteractionState()
       bindWindowEvents()
-      handle.update()
+      void handle.update()
     }
 
     function moveDrag(event: PointerEvent) {
@@ -773,7 +773,7 @@ export const AppointmentGrid = clientEntry(
         if (overTrashcan !== isOverTrashcan) {
           isOverTrashcan = overTrashcan
           if (preview) preview = null
-          handle.update()
+          void handle.update()
         }
       }
 
@@ -796,7 +796,7 @@ export const AppointmentGrid = clientEntry(
           isOverTypesPanel = overPanel
           setPanelDropActive(overPanel)
           if (preview) preview = null
-          handle.update()
+          void handle.update()
         }
       }
 
@@ -811,7 +811,7 @@ export const AppointmentGrid = clientEntry(
           let snappedBlockTop = gs.grid.top + (gs.placement.startMinute / 60) * gs.grid.rowHeight
           draggedBlockOffset.x = event.clientX - gs.offsetX - snappedBlockLeft
           draggedBlockOffset.y = event.clientY - gs.offsetY - snappedBlockTop
-          handle.update()
+          void handle.update()
         }
         return
       }
@@ -834,7 +834,7 @@ export const AppointmentGrid = clientEntry(
         nextPlacement.date === dragState.placement.date &&
         nextPlacement.startMinute === dragState.placement.startMinute
       ) {
-        handle.update()
+        void handle.update()
         return
       }
 
@@ -847,13 +847,13 @@ export const AppointmentGrid = clientEntry(
         )
 
         if (nextPreview.unresolved) {
-          handle.update()
+          void handle.update()
           return
         }
 
         dragState.placement = nextPlacement
         preview = nextPreview
-        handle.update()
+        void handle.update()
       } catch {
         cancelDrag()
       }
@@ -871,7 +871,7 @@ export const AppointmentGrid = clientEntry(
       setPanelDropActive(false)
       sidebarColElement = null
       sidebarElement = null
-      handle.update()
+      void handle.update()
     }
 
     async function endDrag(event: PointerEvent) {
@@ -899,7 +899,7 @@ export const AppointmentGrid = clientEntry(
         syncInteractionState()
         let csrfToken = readData().csrfToken
         preview = null
-        handle.update()
+        void handle.update()
         fetch(`${apptHref}/${blockId}`, {
           method: 'DELETE',
           headers: {
@@ -918,7 +918,7 @@ export const AppointmentGrid = clientEntry(
       if (wasOverTypesPanel && blockId && draggedTitle) {
         let csrfToken = readData().csrfToken
         preview = null
-        handle.update()
+        void handle.update()
         fetch(apptTypesHref, {
           method: 'POST',
           headers: {
@@ -953,7 +953,7 @@ export const AppointmentGrid = clientEntry(
           }
         }
         preview = null
-        handle.update()
+        void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
           activeGesture = null
@@ -970,13 +970,13 @@ export const AppointmentGrid = clientEntry(
         activeGesture = null
         syncInteractionState()
         preview = null
-        handle.update()
+        void handle.update()
         return
       }
 
       activeGesture = null
       syncInteractionState()
-      handle.update()
+      void handle.update()
     }
 
     // ── Resize handlers ──
@@ -1011,7 +1011,7 @@ export const AppointmentGrid = clientEntry(
         cancelResize()
         return
       }
-      handle.update()
+      void handle.update()
     }
 
     function moveResize(event: PointerEvent) {
@@ -1035,7 +1035,7 @@ export const AppointmentGrid = clientEntry(
         if (nextPreview.unresolved) return
 
         preview = nextPreview
-        handle.update()
+        void handle.update()
       } catch {
         cancelResize()
       }
@@ -1047,7 +1047,7 @@ export const AppointmentGrid = clientEntry(
       resizeState = null
       activeGesture = null
       syncInteractionState()
-      handle.update()
+      void handle.update()
     }
 
     async function endResize(event: PointerEvent) {
@@ -1067,7 +1067,7 @@ export const AppointmentGrid = clientEntry(
           }
         }
         preview = null
-        handle.update()
+        void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
           activeGesture = null
@@ -1084,11 +1084,11 @@ export const AppointmentGrid = clientEntry(
         activeGesture = null
         syncInteractionState()
         preview = null
-        handle.update()
+        void handle.update()
         return
       }
 
-      handle.update()
+      void handle.update()
     }
 
     // ── Window event binding ──
@@ -1115,9 +1115,9 @@ export const AppointmentGrid = clientEntry(
 
     function onWindowPointerEnd(event: PointerEvent) {
       if (activeGesture === 'drag') {
-        endDrag(event)
+        void endDrag(event)
       } else if (activeGesture === 'resize') {
-        endResize(event)
+        void endResize(event)
       }
     }
 
@@ -1185,7 +1185,7 @@ export const AppointmentGrid = clientEntry(
         return
 
       typeDragPreview = { date, startMinute, dayIdx }
-      handle.update()
+      void handle.update()
     }
 
     function onTypeDragEnd(_event: PointerEvent) {
@@ -1234,7 +1234,7 @@ export const AppointmentGrid = clientEntry(
     function clearTypeDragPreview() {
       if (typeDragPreview) {
         typeDragPreview = null
-        handle.update()
+        void handle.update()
       }
     }
 

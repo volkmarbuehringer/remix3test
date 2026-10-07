@@ -72,7 +72,7 @@ export const StoreScrollReproduction = clientEntry(
               css({ marginLeft: 12, cursor: 'pointer' }),
               on('click', () => {
                 interactions++
-                handle.update()
+                void handle.update()
               }),
             ]}
           >

@@ -66,7 +66,7 @@ export const LazyFrame = clientEntry(
 
           stopLoading()
           requested = true
-          handle.update()
+          void handle.update()
         },
         handle.props.rootMargin ?? defaultRootMargin,
       )

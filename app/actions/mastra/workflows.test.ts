@@ -45,7 +45,7 @@ async function readAllStream(stream: ReadableStream, controller: AbortController
       parts.push(new TextDecoder().decode(value))
     }
   } finally {
-    reader.cancel()
+    void reader.cancel()
   }
   return parts.join('')
 }

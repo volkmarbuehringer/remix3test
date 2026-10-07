@@ -20,7 +20,7 @@ app = run({
   },
   async processClientEntryPreloads(preloads) {
     if (await detectMultipleImportMapSupport()) return preloads
-    preloadShim(preloads)
+    void preloadShim(preloads)
     return []
   },
   async resolveFrame(src, options) {

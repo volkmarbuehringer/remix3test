@@ -1535,7 +1535,7 @@ describe('Customer Chat controller — durable path', () => {
         }),
         observe: async (rid, opts) => {
           observedRunId = rid
-          opts?.onSuspended?.({
+          void opts?.onSuspended?.({
             toolCallId: 'call-q',
             toolName: 'ask_user',
             suspendPayload: {

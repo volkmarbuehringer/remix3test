@@ -140,7 +140,7 @@ export const AppointTypePanel = clientEntry(
                           return
                         }
                         if (e.key === 'Enter') {
-                          commitAdd(csrfToken)
+                          void commitAdd(csrfToken)
                           return
                         }
                       }),
@@ -157,7 +157,7 @@ export const AppointTypePanel = clientEntry(
                   addButtonStyle,
                   on('click', () => {
                     adding = true
-                    handle.update()
+                    void handle.update()
                   }),
                 ]}
               >
@@ -189,7 +189,7 @@ export const AppointTypePanel = clientEntry(
 
     function cancelAdd() {
       adding = false
-      handle.update()
+      void handle.update()
     }
 
     async function commitAdd(csrfToken: string) {
@@ -201,7 +201,7 @@ export const AppointTypePanel = clientEntry(
       }
 
       adding = false
-      handle.update()
+      void handle.update()
 
       try {
         let response = await fetch(typesBaseHref, {
@@ -229,12 +229,12 @@ export const AppointTypePanel = clientEntry(
     function startRename(type: AppointType) {
       if (editingId !== null || adding) return
       editingId = type.id
-      handle.update()
+      void handle.update()
     }
 
     function cancelRename() {
       editingId = null
-      handle.update()
+      void handle.update()
     }
 
     function getEditValue(typeId: number): string {
@@ -248,13 +248,13 @@ export const AppointTypePanel = clientEntry(
       let newTitle = getEditValue(type.id)
       if (!newTitle || newTitle === type.title) {
         editingId = null
-        handle.update()
+        void handle.update()
         return
       }
 
       let id = type.id
       editingId = null
-      handle.update()
+      void handle.update()
 
       fetch(`${typesBaseHref}/${id}`, {
         method: 'PUT',
@@ -267,7 +267,7 @@ export const AppointTypePanel = clientEntry(
         signal: handle.signal,
       })
         .then((r) => {
-          if (r.ok) handle.frame?.reload()
+          if (r.ok) void handle.frame?.reload()
           else showToast('Fehler beim Speichern.')
         })
         .catch(() => showToast('Fehler beim Speichern.'))
@@ -283,7 +283,7 @@ export const AppointTypePanel = clientEntry(
       switch (event.item.name) {
         case 'edit': {
           editingId = type.id
-          handle.update()
+          void handle.update()
           break
         }
         case 'delete': {
@@ -296,7 +296,7 @@ export const AppointTypePanel = clientEntry(
             },
           })
             .then((r) => {
-              if (r.ok) handle.frame?.reload()
+              if (r.ok) void handle.frame?.reload()
               else showToast('Fehler beim Löschen.')
             })
             .catch(() => showToast('Fehler beim Löschen.'))

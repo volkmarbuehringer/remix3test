@@ -43,7 +43,7 @@ export const AdminUsersContextMenu = clientEntry(
 
                   rightClickedRowId = row.dataset.rowId ?? null
                   rightClickedRowDisabledAt = row.getAttribute('data-disabled-at')
-                  handle.update()
+                  void handle.update()
 
                   el.style.left = mouseEvent.clientX + 'px'
                   el.style.top = mouseEvent.clientY + 'px'

@@ -29,7 +29,7 @@ export const PendingSubmitButton = clientEntry(
         'reloadStart',
         () => {
           pending = true
-          handle.update()
+          void handle.update()
         },
         { signal: handle.signal },
       )
@@ -38,7 +38,7 @@ export const PendingSubmitButton = clientEntry(
         'reloadComplete',
         () => {
           pending = false
-          handle.update()
+          void handle.update()
         },
         { signal: handle.signal },
       )

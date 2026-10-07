@@ -276,7 +276,7 @@ export const SupportAgentStream = clientEntry(
         row.remove()
         if (lastSubmission) {
           setFormEnabled(false)
-          startStream(lastSubmission.url, lastSubmission.init)
+          void startStream(lastSubmission.url, lastSubmission.init)
         }
       }
     }
@@ -582,7 +582,7 @@ export const SupportAgentStream = clientEntry(
       if (currentThreadId) body.set('threadId', currentThreadId)
 
       currentAgentMessageEl = null
-      startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
+      void startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
     }
 
     async function handleAnswer(answer: string) {
@@ -600,7 +600,7 @@ export const SupportAgentStream = clientEntry(
       if (currentThreadId) body.set('threadId', currentThreadId)
 
       currentAgentMessageEl = null
-      startStream('/admin/support-agent/answer', { method: 'POST', body })
+      void startStream('/admin/support-agent/answer', { method: 'POST', body })
     }
 
     // ── Reconnect: re-surface a pending gate after a reload ───────────
@@ -802,7 +802,7 @@ export const SupportAgentStream = clientEntry(
           body.set('selectionMode', 'single_select')
           if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
           if (currentThreadId) body.set('threadId', currentThreadId)
-          startStream('/admin/support-agent/answer', { method: 'POST', body })
+          void startStream('/admin/support-agent/answer', { method: 'POST', body })
           return
         }
       } catch (err) {
@@ -841,7 +841,7 @@ export const SupportAgentStream = clientEntry(
       setFormEnabled(false)
       currentAgentMessageEl = null
 
-      startStream('/admin/support-agent', { method: 'POST', body: formData })
+      void startStream('/admin/support-agent', { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {
@@ -925,7 +925,7 @@ export const SupportAgentStream = clientEntry(
 
             // Surface any pending gate (tool decision or question) that survived
             // a reload / tab switch / server restart.
-            checkReconnect()
+            void checkReconnect()
           }),
         ]}
       />

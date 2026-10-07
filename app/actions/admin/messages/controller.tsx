@@ -298,7 +298,7 @@ export default createController(routes.admin.messages, {
         { returnRow: true },
       )
 
-      logAdminAction(context.db, {
+      void logAdminAction(context.db, {
         admin_user_id: user.id,
         admin_email: user.email,
         action_type: 'create',
@@ -325,7 +325,7 @@ export default createController(routes.admin.messages, {
       await db.delete(messages, { id: messageId })
 
       let user = getCurrentUser()
-      logAdminAction(context.db, {
+      void logAdminAction(context.db, {
         admin_user_id: user.id,
         admin_email: user.email,
         action_type: 'destroy',

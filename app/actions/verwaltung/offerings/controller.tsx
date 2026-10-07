@@ -307,7 +307,7 @@ export default createController(routes.verwaltung.offerings, {
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(context.db, {
+          void logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'create',
@@ -414,7 +414,7 @@ export default createController(routes.verwaltung.offerings, {
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(context.db, {
+          void logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'update',
@@ -460,7 +460,7 @@ export default createController(routes.verwaltung.offerings, {
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(context.db, {
+          void logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'destroy',
@@ -522,7 +522,7 @@ export default createController(routes.verwaltung.offerings, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'config_save',
@@ -580,7 +580,7 @@ export default createController(routes.verwaltung.offerings, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'week_generate',
@@ -599,7 +599,7 @@ export default createController(routes.verwaltung.offerings, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(context.db, {
+        void logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'delete_past',

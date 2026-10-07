@@ -91,7 +91,7 @@ let shuttingDown = false
 function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
-  closeAppDatabase()
+  void closeAppDatabase()
   server.close(() => process.exit(0))
   server.closeAllConnections()
 }

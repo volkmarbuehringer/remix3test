@@ -978,15 +978,15 @@ export const CustomerChatStream = clientEntry(
                   if (target.id === 'chat-cancel') {
                     handleCancel()
                   } else if (target.classList.contains('slot-btn')) {
-                    handleSlotClick(e)
+                    void handleSlotClick(e)
                   } else if (target.classList.contains('approve-btn')) {
-                    handleApproval('approve', e)
+                    void handleApproval('approve', e)
                   } else if (target.classList.contains('decline-btn')) {
-                    handleApproval('decline', e)
+                    void handleApproval('decline', e)
                   } else if (target.classList.contains('q-answer-btn')) {
-                    handleAnswer()
+                    void handleAnswer()
                   } else if (target.classList.contains('slot-other-resource-btn')) {
-                    handleOtherResource()
+                    void handleOtherResource()
                   } else if (target.classList.contains('slot-close-btn')) {
                     handleSlotCancel()
                   }

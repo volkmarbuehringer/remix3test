@@ -43,7 +43,7 @@ export const ClientsContextMenu = clientEntry(
 
                   rightClickedRowId = row.dataset.rowId ?? null
                   rightClickedRowStatus = row.getAttribute('data-status')
-                  handle.update()
+                  void handle.update()
 
                   el.style.left = mouseEvent.clientX + 'px'
                   el.style.top = mouseEvent.clientY + 'px'
