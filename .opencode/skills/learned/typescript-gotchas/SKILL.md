@@ -1,13 +1,13 @@
 ---
 name: typescript-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, the same multi-line object block is copy-pasted across many call sites, or `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object passes `T | undefined` into an `x?: T`, or a central config snapshots `process.env` at module load so a test that overrides it at runtime silently stops taking effect."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, the same multi-line object block is copy-pasted across many call sites, or `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object passes `T | undefined` into an `x?: T`, or a central config snapshots `process.env` at module load so a test that overrides it at runtime silently stops taking effect, or a guard's narrowing is lost inside a nested function so `x!` becomes necessary."
 user-invocable: false
 origin: consolidated
 ---
 
 # TypeScript Gotchas
 
-**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`, `exact-optional-property-types-migration`
+**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`, `exact-optional-property-types-migration`, `let-narrowing-and-any-opts`
 
 This skill is the **index** for TypeScript/JavaScript deltas that bite at runtime or at the lint/type boundary. For the language and compiler APIs themselves, use the official TypeScript docs; for Remix-specific type wiring, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -26,6 +26,7 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 | Building a typed in-process event pipeline consumed as an async iterable (SSE/log stream) with breadth-first traversal and cycle protection | `references/eventbus-bfs-async-generator.md` |
 | `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object literal passes `T | undefined` into `x?: T` | `references/exact-optional-property-types.md` |
 | A central-config `const` does not observe a test's runtime `process.env` override | `references/env-snapshot-vs-call-time.md` |
+| A guarded `let` is still `T | undefined` inside a nested function (forcing `x!`), or a structural interface's `opts?: any` breaks when changed to `unknown` | `references/let-narrowing-and-any-opts.md` |
 
 ## Core Rules
 
@@ -79,6 +80,11 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 
 - A `config.ts` constant (`isProduction = nodeEnv === 'production'`) is frozen at import time; a test that sets `process.env.NODE_ENV = 'production'` then calls a request-time check sees the old value and the assertion silently no-ops. Keep fixed flags as constants, but expose a **call-time** accessor (`isProductionEnv()`) for anything overridable, and have `requireEnv` / `envString` / `envPositiveNumber` read on each call.
 
+**Captured `let` narrowing and `any`-opts contravariance (`references/let-narrowing-and-any-opts.md`)**
+
+- Narrowing of a captured `let`/`var` is **not** preserved inside a hoisted `function` declaration (so `x!` is forced), but **is** preserved inside an arrow/function expression when the `let` is never reassigned. This repo's `remix-style/prefer-let-locals` bans local `const`, so bind a fresh never-reassigned `let` after the guard for inline closures; for hoisted declarations keep `!`, pass the value as a parameter, or convert to an arrow.
+- Replacing a load-bearing `opts?: any` with `unknown` in a structural interface fails because parameters are checked contravariantly — neither the vendor class's concrete options type nor narrower test doubles are assignable to `unknown`. Keep `any` with its documented disable, or move the cast to one app-owned adapter; do not "fix" it to `unknown`.
+
 ## When to Use
 
 - A TypeScript/JavaScript behavior is surprising: an await returns too early, a recursive type check flips with ordering, a type-import lint rule fights the annotation you need, a test cannot control an imported dependency, or a vendor helper now throws where a coercion used to default.
@@ -90,6 +96,7 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - You are building an in-process typed event pipeline consumed as a stream.
 - You enable `exactOptionalPropertyTypes` (or a dependency bump starts passing `T | undefined` into an `x?: T`) and see TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 — see `references/exact-optional-property-types.md`.
 - A central config's `const` does not observe a test's runtime `process.env` override, or a request-time decision reads a stale snapshot.
+- A guard narrows a value but a nested helper still requires `!`, or replacing `any` with `unknown` in a structural interface stops the vendor class / test doubles from typechecking.
 
 ## Related Skills
 
