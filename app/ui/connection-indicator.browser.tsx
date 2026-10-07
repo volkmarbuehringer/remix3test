@@ -128,7 +128,7 @@ function getStateStyles(state: ConnectionState): {
       return { stateText: 'Connecting...', dotColor: '#f59e0b', pulse: true }
     case 'reconnecting':
       return { stateText: 'Reconnecting...', dotColor: '#f59e0b', pulse: true }
-    case 'disconnected':
+    default:
       return { stateText: 'Disconnected', dotColor: '#ef4444', pulse: false }
   }
 }

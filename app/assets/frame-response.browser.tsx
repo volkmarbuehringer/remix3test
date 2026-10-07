@@ -102,7 +102,7 @@ function getRequestBody(
   method?: string,
   encType?: string,
 ): BodyInit | undefined {
-  if (!formData || method?.toLowerCase() === 'get') return
+  if (!formData || method?.toLowerCase() === 'get') return undefined
 
   if (encType === 'text/plain') {
     let body = ''

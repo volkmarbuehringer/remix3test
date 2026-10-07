@@ -132,7 +132,7 @@ export const priorityBadge = (p: ItemPriority) => {
         borderColor: theme.colors.warning.border,
         backgroundColor: theme.colors.warning.background,
       })
-    case 'low':
+    default:
       return css({
         color: theme.colors.text.secondary,
         borderColor: theme.colors.border.strong,

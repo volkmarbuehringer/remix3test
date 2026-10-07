@@ -41,7 +41,7 @@ function loadTls() {
     console.error(
       '  openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -certout cert.pem -addext "subjectAltName = IP:<VPS_IP_ADDRESS>"',
     )
-    process.exit(1)
+    return process.exit(1)
   }
 }
 

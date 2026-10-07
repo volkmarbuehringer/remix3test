@@ -62,7 +62,7 @@ function notificationTitle(type: NotificationData['type'], data: NotificationDat
       return 'Termin bestätigt'
     case 'reminder':
       return 'Terminerinnerung'
-    case 'cancellation':
+    default:
       return 'Termin storniert'
   }
 }
@@ -86,7 +86,7 @@ function notificationBody(type: NotificationData['type'], data: NotificationData
       return `Termin bestätigt: ${detail}`
     case 'reminder':
       return `Erinnerung: ${detail}`
-    case 'cancellation':
+    default:
       return `Termin storniert: ${detail}`
   }
 }

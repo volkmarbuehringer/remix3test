@@ -79,7 +79,7 @@ function navIcon(id: AdminNavItem): RemixNode {
       return uploadSvg()
     case 'webhooks':
       return webhookSvg()
-    case 'agentevents':
+    default:
       return agentEventsSvg()
   }
 }

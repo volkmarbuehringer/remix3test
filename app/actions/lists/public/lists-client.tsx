@@ -1040,7 +1040,7 @@ export const ListsClient = clientEntry(
           return 'Speichern…'
         case 'dirty':
           return 'Ungespeichert'
-        case 'error':
+        default:
           return 'Fehler'
       }
     }
@@ -1053,7 +1053,7 @@ export const ListsClient = clientEntry(
           return theme.colors.text.secondary
         case 'dirty':
           return theme.colors.warning.foreground
-        case 'error':
+        default:
           return theme.colors.action.danger.background
       }
     }

@@ -48,6 +48,8 @@ function InlineView(handle: Handle<{ tokens: InlineToken[] }>) {
                 {token.text}
               </a>
             )
+          default:
+            return null
         }
       })}
     </Fragment>
@@ -109,6 +111,8 @@ function BlockView(handle: Handle<{ block: MarkdownBlock }>) {
             }}
           />
         )
+      default:
+        return null
     }
   }
 }

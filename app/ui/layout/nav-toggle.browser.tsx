@@ -14,7 +14,7 @@ export const NavToggle = clientEntry(
 
         let drawer = document.getElementById('nav-drawer')
         let btn = document.getElementById('nav-toggle')
-        if (!drawer || !btn) return
+        if (!drawer || !btn) return null
 
         btn.addEventListener('click', () => toggle())
 

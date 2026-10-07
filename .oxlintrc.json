@@ -94,7 +94,8 @@
         "preserve-caught-error": "error",
         "no-unsafe-optional-chaining": "error",
         "no-shadow": "error",
-        "typescript/no-unnecessary-type-arguments": "error"
+        "typescript/no-unnecessary-type-arguments": "error",
+        "typescript/consistent-return": "error"
       }
     },
     {
