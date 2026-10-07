@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createTestServer } from 'remix/node-fetch-server/test'
 
@@ -10,13 +10,13 @@ import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 // ---------------------------------------------------------------------------
 // /lists list-level operations (client entry e2e).
 //
-// The drag-based, server-dependent list operations: merging via sidebar drag,
+// The drag-based, server-dependent operations: merging via sidebar drag,
 // copying selected items into another list, and cross-list item moves — each
-// asserting the DB round trip after the gesture. The static toolbar/label
-// layout guards (sort control, clear-completed + duplicate rendering, the
-// collapsed-label regression, the two-line clamp, the two checkbox columns’
-// size/colour distinction, and their tooltips) need no server or frame and
-// moved to lists-editor-layout.test.browser.tsx.
+// asserting the real server + DB round trip after the gesture. The client half
+// (confirmation gating, request shape/order, the delete-selected mutation) is
+// asserted without a server in public/lists-drag.test.browser.tsx and
+// public/lists-autosave.test.browser.tsx; the static toolbar/label layout
+// guards live in lists-editor-layout.test.browser.tsx.
 //
 // Note: we deliberately avoid clicking the hover-reveal action-cluster buttons
 // here — Firefox + Playwright synthetic pointer events are unreliable for them
@@ -159,9 +159,7 @@ describe('lists merge via sidebar drag', () => {
   // Retry the gesture until the drop handler runs, which is observable as the
   // confirmation prompt. Pre-hydration attempts are no-ops, so the loop exits on
   // its first live dispatch; the merge tests stop there, so a merge is issued
-  // exactly once and can never be double-applied by a retry. The declined test
-  // relies on the returned count to prove the handler ran rather than passing
-  // vacuously.
+  // exactly once and can never be double-applied by a retry.
   async function dragUntilPrompted(
     page: { evaluate: Function; waitForTimeout: Function },
     fromId: number,
@@ -248,36 +246,6 @@ describe('lists merge via sidebar drag', () => {
         targetItems = await targetItemCount(targetId)
       }
       assert.equal(targetItems, 3, 'a merge from a dirty open list must still append its items')
-    } finally {
-      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
-      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
-    }
-  })
-
-  it('does not merge when the confirmation is declined', async (t) => {
-    let { sourceId, targetId } = await seedLists()
-    try {
-      let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-
-      await page.goto(`/lists?load=${targetId}`)
-      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
-      await page.locator(`[data-list-id="${sourceId}"]`).waitFor({ timeout: 15_000 })
-      await installConfirm(page, false)
-
-      // The returned count proves the drop handler actually ran — a drag sent
-      // before the client entry hydrates would otherwise be a no-op and the
-      // "nothing changed" assertions below would pass vacuously.
-      let calls = await dragUntilPrompted(page, sourceId, targetId)
-      assert.equal(calls, 1, 'the confirmation must be asked exactly once')
-
-      // Nothing may have been written, in the rendered editor or in the database.
-      await page.waitForTimeout(500)
-      assert.equal(await page.locator('[data-item-id]').count(), 1)
-      assert.equal(await targetItemCount(targetId), 1, 'a declined confirmation must not merge')
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
       await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
@@ -423,62 +391,6 @@ describe('lists copy selected items into another list', () => {
         sourceItems.map((item) => item.id),
         ['copy-src-1', 'copy-src-2', 'copy-src-3'],
         'source item ids must be unchanged',
-      )
-    } finally {
-      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
-      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
-    }
-  })
-
-  it('deletes only the selected items from the open list via the overflow menu', async (t) => {
-    let { sourceId, targetId } = await seedLists()
-    try {
-      let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-
-      await page.goto(`/lists?load=${sourceId}`)
-      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
-
-      // Select the first and third source items (skip the middle one).
-      await selectItems(page, ['copy-src-1', 'copy-src-3'])
-
-      // The destructive bulk action lives in the "⋯ Weitere Aktionen" overflow
-      // menu and is only enabled while at least one row is selected.
-      await page.locator('summary[aria-label="Weitere Aktionen"]').click()
-      let deleteSelectedBtn = page.locator('button:has-text("Auswahl löschen")')
-      assert.equal(await deleteSelectedBtn.count(), 1)
-      assert.ok(
-        await deleteSelectedBtn.isEnabled(),
-        'delete-selected must be enabled once rows are selected',
-      )
-      await deleteSelectedBtn.click()
-      assert.equal(
-        await page.locator('details[data-lists-more][open]').count(),
-        0,
-        'choosing an action must dismiss the menu',
-      )
-
-      // The editor drops the two selected rows and keeps the unselected one.
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 1,
-        undefined,
-        { timeout: 15_000 },
-      )
-      assert.equal(await page.locator('[data-item-id="copy-src-2"]').count(), 1)
-
-      // The debounced autosave persists the deletion.
-      let sourceItems = await listItems(sourceId)
-      for (let attempt = 0; attempt < 40 && sourceItems.length !== 1; attempt++) {
-        await page.waitForTimeout(250)
-        sourceItems = await listItems(sourceId)
-      }
-      assert.deepEqual(
-        sourceItems.map((item) => item.id),
-        ['copy-src-2'],
-        'only the unselected item must survive',
       )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])

@@ -156,6 +156,71 @@ describe('ListsClient autosave', () => {
     await settle(1800)
     assert.equal(calls.length, 0)
   })
+
+  it('adds an item via Enter and autosaves it', async () => {
+    let result = renderEditor({
+      id: 7,
+      title: 'Alt',
+      description: 'D',
+      items: [],
+      updated_at: 111,
+    })
+
+    let newItem = result.container.querySelector(
+      'textarea[placeholder="Neues Element eingeben…"]',
+    ) as HTMLTextAreaElement
+    assert.ok(newItem, 'the new-item textarea should render')
+
+    newItem.value = 'Neues Element'
+    newItem.dispatchEvent(new Event('input', { bubbles: true }))
+    await result.act(() => {
+      newItem.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      )
+    })
+
+    assert.equal(itemIdsOf(result.container).length, 1, 'Enter must add the item to the list')
+    assert.ok(await waitFor(() => calls.length === 1), 'the added item should autosave')
+    let payload = JSON.parse(String(calls[0]!.init.body)) as {
+      items: Array<{ id: string; label: string }>
+    }
+    assert.equal(payload.items.length, 1)
+    assert.equal(payload.items[0]!.label, 'Neues Element')
+  })
+
+  it('deletes exactly the selected items and autosaves the survivors', async () => {
+    let result = renderEditor({
+      id: 7,
+      title: 'L',
+      description: '',
+      items: [
+        { id: 'keep', label: 'Behalten' },
+        { id: 'drop-a', label: 'Weg A' },
+        { id: 'drop-b', label: 'Weg B' },
+      ],
+      updated_at: 111,
+    })
+
+    for (let id of ['drop-a', 'drop-b']) {
+      let box = result.container.querySelector<HTMLInputElement>(`[data-select-item="${id}"]`)!
+      await result.act(() => {
+        box.checked = true
+        box.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+    }
+
+    let deleteSelected = buttonByText(result.container, 'Auswahl löschen')
+    assert.ok(deleteSelected, 'the delete-selected control should render')
+    await result.act(() => deleteSelected!.click())
+
+    assert.deepEqual(itemIdsOf(result.container), ['keep'])
+    assert.ok(await waitFor(() => calls.length === 1), 'the deletion should autosave')
+    let payload = JSON.parse(String(calls[0]!.init.body)) as { items: Array<{ id: string }> }
+    assert.deepEqual(
+      payload.items.map((item) => item.id),
+      ['keep'],
+    )
+  })
 })
 
 describe('ListsClient undo', () => {

@@ -10,12 +10,19 @@ import { createAuthCookieWithCsrfForUser, isFirefox } from '../../test-utils.ts'
 // ---------------------------------------------------------------------------
 // /lists editor behavior (client entry e2e).
 //
-// Covers the client-driven editing flows the data + controller tests cannot
-// reach: creating a list through the "+ Liste hinzufügen" button (including the
-// unsaved-draft lifecycle), autosave persistence after the debounce, the
-// one-shot sort control, and the "Nur Erledigte löschen" action with its undo
-// chip. All four mutate through the client entry, so they need a real browser
-// to prove the hydration->save round trip.
+// Keeps only the flows that a browser component test cannot prove:
+//  - creating a list through "+ Liste hinzufügen" (real Frame reload + row),
+//  - the unsaved-draft lifecycle across a real Frame navigation,
+//  - one representative autosave round trip (hydrated client -> debounced PUT
+//    -> real server -> database row),
+//  - the one-shot sort control, whose native <select> change event does not
+//    reach the remix handler from a synthetic dispatch, so it needs
+//    Playwright's trusted selectOption in a real page.
+//
+// The remaining DOM behavior lives in the browser suite:
+// public/lists-autosave.test.browser.tsx (title/item autosave payloads,
+// clear-completed + undo) and public/lists-draft.test.browser.tsx (draft
+// restore/discard). The pure transitions are in public/lists-state.test.ts.
 //
 // Like the sibling e2e files, `fill()` does not fire the remix `on('input')`
 // handler, so text is typed with real keystrokes; mutations are driven through
@@ -228,7 +235,12 @@ describe('lists autosave persistence', () => {
     adminUserId = Number(userRows[0]!.id)
   })
 
-  it('persists a typed title after the autosave debounce', async (t) => {
+  // The single representative round trip: two different client mutations (a
+  // title edit and an item added through Enter) ride the same debounced PUT and
+  // must both reach the real server and database. The per-mutation DOM behavior
+  // and request payloads are asserted in the browser suite; repeating the
+  // server half for every mutation lives here once.
+  it('persists client edits to the server after the autosave debounce', async (t) => {
     let now = Date.now()
     let seeded = await pool.query(
       'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
@@ -253,48 +265,26 @@ describe('lists autosave persistence', () => {
       let marker = `Autosave ${Date.now()}`
       await typeInto(page.locator('#lists-title'), marker)
 
-      let persisted: string | null = null
-      for (let attempt = 0; attempt < 40 && persisted !== marker; attempt++) {
-        await page.waitForTimeout(250)
-        persisted = await readListTitle(listId)
-      }
-      assert.equal(persisted, marker, 'the typed title must autosave after the debounce')
-    } finally {
-      await pool.query('DELETE FROM lists WHERE id = $1', [listId])
-    }
-  })
-
-  it('persists an item added via Enter after the autosave debounce', async (t) => {
-    let now = Date.now()
-    let seeded = await pool.query(
-      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
-      [adminUserId, `Autosave item ${now}`, '', '[]', now],
-    )
-    let listId = Number(seeded.rows[0]!.id as number)
-    try {
-      let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-
-      await page.goto(`/lists?load=${listId}`)
-      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
-
       let label = `autosave item ${Date.now()}`
       let newItem = page.locator('textarea[placeholder="Neues Element eingeben…"]')
       await newItem.waitFor({ timeout: 15_000 })
       await newItem.click()
       await newItem.pressSequentially(label, { delay: 10 })
       await newItem.press('Enter')
-
-      // The item must appear in the rendered list and then survive autosave.
       await page.locator('[data-item-id]', { hasText: label }).waitFor({ timeout: 15_000 })
+
+      let persistedTitle: string | null = null
       let items = await listItems(listId)
-      for (let attempt = 0; attempt < 40 && items.length !== 1; attempt++) {
+      for (
+        let attempt = 0;
+        attempt < 40 && (persistedTitle !== marker || items.length !== 1);
+        attempt++
+      ) {
         await page.waitForTimeout(250)
+        persistedTitle = await readListTitle(listId)
         items = await listItems(listId)
       }
+      assert.equal(persistedTitle, marker, 'the typed title must autosave after the debounce')
       assert.equal(items.length, 1, 'the added item must autosave into the database')
       assert.equal(items[0]!.label, label)
     } finally {
@@ -324,7 +314,7 @@ describe('lists sort control', () => {
     adminUserId = Number(userRows[0]!.id)
   })
 
-  it('reorders items A–Z, offers undo, and persists the new order', async (t) => {
+  it('reorders items A–Z and offers undo', async (t) => {
     let now = Date.now()
     let seeded = await pool.query(
       'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
@@ -391,112 +381,9 @@ describe('lists sort control', () => {
       assert.deepEqual(domIds, ['sort-a', 'sort-b', 'sort-c'], 'A–Z must reorder the rows by label')
       assert.ok((await page.locator('button:has-text("Rückgängig")').count()) === 1)
       assert.ok((await page.getByText('Reihenfolge geändert.').count()) >= 1)
-
-      // The reorder is a real mutation: it autosaves into the database.
-      let items = await listItems(listId)
-      for (
-        let attempt = 0;
-        attempt < 40 && items.map((i) => i.id).join(',') !== 'sort-a,sort-b,sort-c';
-        attempt++
-      ) {
-        await page.waitForTimeout(250)
-        items = await listItems(listId)
-      }
-      assert.deepEqual(
-        items.map((i) => i.id),
-        ['sort-a', 'sort-b', 'sort-c'],
-        'the sorted order must autosave into the database',
-      )
-    } finally {
-      await pool.query('DELETE FROM lists WHERE id = $1', [listId])
-    }
-  })
-})
-
-// ---------------------------------------------------------------------------
-// "Nur Erledigte löschen" with its undo chip.
-// ---------------------------------------------------------------------------
-
-describe('lists clear-completed with undo', () => {
-  let adminCookie: string
-  let adminUserId: number
-
-  before(async () => {
-    await initializeAppDatabase()
-
-    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
-    assert.ok(auth?.cookie, 'admin session must be created')
-    adminCookie = auth!.cookie
-
-    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
-      .rows as { id: number }[]
-    assert.ok(userRows.length > 0, 'admin user must exist')
-    adminUserId = Number(userRows[0]!.id)
-  })
-
-  it('removes completed items and restores them via the undo chip', async (t) => {
-    let now = Date.now()
-    let seeded = await pool.query(
-      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
-      [
-        adminUserId,
-        `Clear done ${now}`,
-        '',
-        itemsJson([
-          { id: 'cd-done', label: 'Erledigter Eintrag', done: true },
-          { id: 'cd-open', label: 'Offener Eintrag' },
-        ]),
-        now,
-      ],
-    )
-    let listId = Number(seeded.rows[0]!.id as number)
-    try {
-      let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-
-      await page.goto(`/lists?load=${listId}`)
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 2,
-        undefined,
-        { timeout: 15_000 },
-      )
-
-      await page.locator('summary[aria-label="Weitere Aktionen"]').click()
-      await page.locator('button:has-text("Nur Erledigte löschen")').click()
-
-      // The done row is removed; the open row survives.
-      assert.deepEqual(await readItemIds(page), ['cd-open'])
-      assert.ok((await page.locator('button:has-text("Rückgängig")').count()) === 1)
-      assert.ok((await page.getByText('Erledigte Elemente gelöscht.').count()) >= 1)
-
-      // Undo restores both rows in the original order.
-      await page.locator('button:has-text("Rückgängig")').click()
-      assert.deepEqual(
-        await readItemIds(page),
-        ['cd-done', 'cd-open'],
-        'undo must restore the completed row at its original position',
-      )
-      assert.equal(
-        await page.locator('button:has-text("Rückgängig")').count(),
-        0,
-        'the undo chip must dismiss after undoing',
-      )
-
-      // Undo is itself a mutation: the restored rows autosave back to the DB.
-      let items = await listItems(listId)
-      for (let attempt = 0; attempt < 40 && items.length !== 2; attempt++) {
-        await page.waitForTimeout(250)
-        items = await listItems(listId)
-      }
-      assert.deepEqual(
-        items.map((i) => i.id),
-        ['cd-done', 'cd-open'],
-        'the undone rows must autosave back into the database',
-      )
-      assert.equal(items[0]!.done, true, 'the restored row must keep its done flag')
+      // Persistence of the reordered rows rides the representative autosave
+      // round trip above (the same debounced PUT) plus the unit-tested
+      // `sortItems` transition; it is not asserted a second time here.
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
     }
