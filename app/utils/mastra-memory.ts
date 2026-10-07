@@ -42,6 +42,23 @@ interface MemoryHandle {
 // Accept any agent that has a getMemory() method returning something with the right shape
 export type AgentHandle = { getMemory: () => Promise<unknown> }
 
+/**
+ * Narrows an agent value to the structural {@link AgentHandle}, verifying the
+ * one method this module calls. The vendor `Agent` and this module's test
+ * doubles are not assignable to each other, so this is the single guarded
+ * boundary callers cross instead of repeating `as unknown as`.
+ */
+export function toAgentHandle(agent: unknown): AgentHandle {
+  if (
+    typeof agent === 'object' &&
+    agent !== null &&
+    typeof (agent as { getMemory?: unknown }).getMemory === 'function'
+  ) {
+    return agent as AgentHandle
+  }
+  throw new Error('Agent does not expose getMemory(); cannot read chat memory.')
+}
+
 async function getMemory(agent: AgentHandle): Promise<MemoryHandle> {
   let memory = await agent.getMemory()
   if (!memory) throw new Error('Memory not available')

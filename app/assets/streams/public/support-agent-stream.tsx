@@ -747,6 +747,7 @@ export const SupportAgentStream = clientEntry(
                 updateLastAgentMessage(streamingText)
               }
             }
+            return undefined
           },
           { signal },
         )

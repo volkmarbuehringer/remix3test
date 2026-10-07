@@ -1,4 +1,5 @@
 import { getContext } from 'remix/middleware/async-context'
+import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 
 import type { User } from '../data/schema.ts'
@@ -30,8 +31,22 @@ export function getAdminIdentity(
   return auth?.ok ? auth.identity : undefined
 }
 
+interface AuthContextReader {
+  get(key: typeof Auth): AuthState<unknown> | undefined
+}
+
+/**
+ * Reads the request's auth state with this app's `User` identity type.
+ *
+ * The vendor `Auth` context key carries an `unknown` identity, so this is the
+ * single place the app narrows it to `User`.
+ */
+export function getAuthState(context: AuthContextReader): AuthState<User> | undefined {
+  return context.get(Auth) as AuthState<User> | undefined
+}
+
 function getCurrentAuth(): AuthState<User> {
-  let auth = getContext().auth as AuthState<User> | undefined
+  let auth = getAuthState(getContext())
   if (auth == null) {
     throw new Error('Auth not found in request context. Make sure auth() middleware runs first.')
   }

@@ -544,7 +544,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                       marginTop: theme.space.xs,
                     })}
                   >
-                    {fieldErrors!.description}
+                    {descError}
                   </div>
                 ) : null}
               </div>
@@ -685,7 +685,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                       marginTop: theme.space.xs,
                     })}
                   >
-                    {fieldErrors!.description}
+                    {descError}
                   </div>
                 ) : null}
               </div>

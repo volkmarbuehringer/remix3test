@@ -552,7 +552,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
     let selectedResourceId = formValues?.resource_id
       ? Number(formValues.resource_id)
       : Number(row.resource_id)
-    let hasResourceError = !!fieldErrors?.resource_id
+    let resourceError = fieldErrors?.resource_id
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -580,7 +580,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                     input.base,
                     input.focus,
                     selectStyle,
-                    ...(hasResourceError ? [input.error] : []),
+                    ...(resourceError ? [input.error] : []),
                   ]}
                 >
                   {resources.map((r) => (
@@ -589,7 +589,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                     </option>
                   ))}
                 </select>
-                {hasResourceError ? (
+                {resourceError ? (
                   <div
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -597,7 +597,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                       marginTop: theme.space.xs,
                     })}
                   >
-                    {fieldErrors!.resource_id}
+                    {resourceError}
                   </div>
                 ) : null}
               </div>
@@ -677,7 +677,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
       fieldErrors,
     } = handle.props
     let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : undefined
-    let hasResourceError = !!fieldErrors?.resource_id
+    let resourceError = fieldErrors?.resource_id
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -703,7 +703,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                     input.base,
                     input.focus,
                     selectStyle,
-                    ...(hasResourceError ? [input.error] : []),
+                    ...(resourceError ? [input.error] : []),
                   ]}
                 >
                   <option value="" disabled selected={!selectedResourceId}>
@@ -715,7 +715,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                     </option>
                   ))}
                 </select>
-                {hasResourceError ? (
+                {resourceError ? (
                   <div
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -723,7 +723,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                       marginTop: theme.space.xs,
                     })}
                   >
-                    {fieldErrors!.resource_id}
+                    {resourceError}
                   </div>
                 ) : null}
               </div>

@@ -345,6 +345,7 @@ export default createController(routes.admin.agentEvents, {
                       ) {
                         return clearActiveRun(user.id, runId)
                       }
+                      return undefined
                     },
                   })
                 } catch (err) {
@@ -436,6 +437,7 @@ export default createController(routes.admin.agentEvents, {
                 ) {
                   return clearActiveRun(adminId, runId)
                 }
+                return undefined
               },
             })
           } catch (err) {

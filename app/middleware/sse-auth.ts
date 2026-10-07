@@ -1,8 +1,6 @@
 import type { Middleware } from 'remix/router'
-import { Auth } from 'remix/middleware/auth'
-import type { AuthState } from 'remix/middleware/auth'
 
-import type { User } from '../data/schema.ts'
+import { getAuthState } from '../utils/context.ts'
 
 /**
  * Admin-only SSE auth. EventSource clients cannot act on the redirect/HTML
@@ -11,7 +9,7 @@ import type { User } from '../data/schema.ts'
  */
 export function requireAdminSseAuth(): Middleware {
   return async (context, next) => {
-    let auth = context.get(Auth) as AuthState<User> | undefined
+    let auth = getAuthState(context)
     if (!auth || !auth.ok || !auth.identity) {
       return new Response('Unauthorized', { status: 401 })
     }

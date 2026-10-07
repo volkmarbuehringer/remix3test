@@ -26,9 +26,9 @@ import {
   getChatThread,
   deleteChatThread,
   fetchChatThreadPreviews,
+  toAgentHandle,
   type ChatThreadPreview,
   type ChatThreadSummary,
-  type AgentHandle,
 } from '../../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../../utils/thread-id.ts'
 import { chatlogQuery } from '../../../utils/chatlog-query.ts'
@@ -84,13 +84,13 @@ export function __setTestChatlogFixtures(fixtures: ChatlogTestFixtures | undefin
 
 async function loadAllThreads(): Promise<ChatThreadSummary[]> {
   if (process.env.NODE_ENV === 'test' && _testFixtures?.threads) return _testFixtures.threads
-  let agent = mastra.getAgent('supportAgent') as unknown as AgentHandle
+  let agent = toAgentHandle(mastra.getAgent('supportAgent'))
   return listAllChatThreads(agent)
 }
 
 async function loadPreviews(threadIds: string[]): Promise<Map<string, ChatThreadPreview>> {
   if (process.env.NODE_ENV === 'test' && _testFixtures?.previews) return _testFixtures.previews
-  let agent = mastra.getAgent('supportAgent') as unknown as AgentHandle
+  let agent = toAgentHandle(mastra.getAgent('supportAgent'))
   return fetchChatThreadPreviews(agent, threadIds)
 }
 
@@ -100,7 +100,7 @@ async function loadThreadForFragment(
   if (process.env.NODE_ENV === 'test' && _testFixtures?.threadLookup) {
     return _testFixtures.threadLookup(threadId)
   }
-  let agent = mastra.getAgent('supportAgent') as unknown as AgentHandle
+  let agent = toAgentHandle(mastra.getAgent('supportAgent'))
   let thread = await getChatThread(agent, threadId)
   if (!thread) return null
   let messages = await recallChatMessages(agent, threadId)

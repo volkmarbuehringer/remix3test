@@ -1,4 +1,5 @@
 import { SuperHeaders } from 'remix/headers'
+import { z } from 'zod/v4'
 
 export const sseEncoder = new TextEncoder()
 
@@ -104,8 +105,54 @@ type PipeHooks = {
   onEnd?: (reason: 'complete' | 'suspended' | 'error' | 'aborted') => void
 }
 
+/**
+ * Shapes of the Mastra stream chunks this module forwards over SSE.
+ *
+ * The envelope is validated once at the `pipeStream` boundary; individual
+ * fields fall back to `undefined` (`.catch`) instead of rejecting the whole
+ * chunk, so a vendor adding a field or changing a scalar type can never drop an
+ * event like `finish`/suspension and silently end a turn.
+ */
+const chatOptionSchema = z.object({
+  label: z.string().catch(''),
+  description: z.string().nullish().catch(undefined),
+})
+
+// Mastra sends `null` (not just `undefined`) for absent fields such as `options`,
+// so the nullable variants are required to keep a suspension chunk from being
+// coerced away as a whole.
+const suspensionPayloadSchema = z.object({
+  question: z.string().nullish().catch(undefined),
+  options: z.array(chatOptionSchema).nullish().catch(undefined),
+  selectionMode: z.string().nullish().catch(undefined),
+})
+
+const agentChunkPayloadSchema = z.object({
+  text: z.string().optional().catch(undefined),
+  toolCallId: z.string().optional().catch(undefined),
+  toolName: z.string().optional().catch(undefined),
+  argsTextDelta: z.string().optional().catch(undefined),
+  args: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  suspendPayload: suspensionPayloadSchema.optional().catch(undefined),
+  output: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  stepResult: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  result: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  isError: z.boolean().optional().catch(undefined),
+  id: z.unknown().optional(),
+  error: z.unknown().optional(),
+  reason: z.unknown().optional(),
+})
+
+const agentChunkSchema = z.object({
+  type: z.string(),
+  payload: agentChunkPayloadSchema.nullish().catch(undefined),
+  textDelta: z.string().optional().catch(undefined),
+})
+
+type AgentChunk = z.infer<typeof agentChunkSchema>
+
 async function filterAndForward(
-  chunk: Record<string, unknown>,
+  chunk: AgentChunk,
   controller: ReadableStreamDefaultController,
   options?: {
     runId?: string | undefined
@@ -114,8 +161,8 @@ async function filterAndForward(
   },
 ): Promise<'suspended' | undefined> {
   let { runId, getTarget, hooks } = options ?? {}
-  let p = chunk.payload as Record<string, unknown> | undefined
-  let type = chunk.type as string
+  let p = chunk.payload
+  let type = chunk.type
 
   function fwd(type: string, data: unknown) {
     let payload: string
@@ -147,9 +194,9 @@ async function filterAndForward(
     if (hasHook) {
       await hooks?.onSuspension?.({
         runId,
-        toolCallId: p?.toolCallId as string | undefined,
-        toolName: p?.toolName as string | undefined,
-        args: p?.args as Record<string, unknown> | undefined,
+        toolCallId: p?.toolCallId,
+        toolName: p?.toolName,
+        args: p?.args,
         gateType: 'tool_decision',
       })
     }
@@ -162,13 +209,7 @@ async function filterAndForward(
     })
     return hasHook ? 'suspended' : undefined
   } else if (type === 'tool-call-suspended') {
-    let sp = p?.suspendPayload as
-      | {
-          question?: string
-          options?: { label: string; description?: string }[]
-          selectionMode?: string
-        }
-      | undefined
+    let sp = p?.suspendPayload
     if (sp?.question) {
       fwd('question', {
         runId,
@@ -180,8 +221,8 @@ async function filterAndForward(
       })
       await hooks?.onSuspension?.({
         runId,
-        toolCallId: p?.toolCallId as string | undefined,
-        toolName: p?.toolName as string | undefined,
+        toolCallId: p?.toolCallId,
+        toolName: p?.toolName,
         gateType: 'question',
         suspendPayload: {
           question: sp.question,
@@ -209,9 +250,9 @@ async function filterAndForward(
       args: p?.args,
     })
   } else if (type === 'step-finish') {
-    let output = p?.output as Record<string, unknown> | undefined
+    let output = p?.output
     fwd('step-finish', {
-      reason: (p?.stepResult as Record<string, unknown> | undefined)?.reason,
+      reason: p?.stepResult?.reason,
       usage: output?.usage,
     })
   } else if (type === 'reasoning-start') {
@@ -223,7 +264,7 @@ async function filterAndForward(
   } else if (type === 'finish') {
     fwd('complete', {})
   } else if (type === 'tool-result') {
-    let result = p?.result as Record<string, unknown> | undefined
+    let result = p?.result
     if (result?.type === 'route' && typeof result.path === 'string') {
       fwd('navigate', {
         href: result.path,
@@ -259,6 +300,7 @@ async function filterAndForward(
     })
     fwd('complete', {})
   }
+  return undefined
 }
 
 export function pipeStream(
@@ -318,10 +360,10 @@ export function pipeStream(
             settle('aborted')
             return
           }
-          if (!value || typeof value !== 'object') continue
+          let parsed = agentChunkSchema.safeParse(value)
+          if (!parsed.success) continue
 
-          let chunk = value as Record<string, unknown>
-          let result = await filterAndForward(chunk, controller, { runId, getTarget, hooks })
+          let result = await filterAndForward(parsed.data, controller, { runId, getTarget, hooks })
           if (result === 'suspended') {
             reader?.cancel().catch(() => {})
             closeOnce()

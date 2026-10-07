@@ -112,6 +112,24 @@ export interface DurableChatAgent {
   }) => Promise<DurableSuspendedRunsResult>
 }
 
+/**
+ * Narrows an agent value to the structural {@link DurableChatAgent}, verifying
+ * the methods this engine calls. The vendor durable agent type is not
+ * assignable to this structural interface, so this is the guarded boundary.
+ */
+export function toDurableChatAgent(agent: unknown): DurableChatAgent {
+  if (
+    typeof agent === 'object' &&
+    agent !== null &&
+    typeof (agent as { stream?: unknown }).stream === 'function' &&
+    typeof (agent as { resume?: unknown }).resume === 'function' &&
+    typeof (agent as { observe?: unknown }).observe === 'function'
+  ) {
+    return agent as DurableChatAgent
+  }
+  throw new Error('Agent does not expose the durable chat surface (stream/resume/observe).')
+}
+
 /** The request surface the durable chat engine needs from a route context. */
 interface DurableChatRequestContext {
   formData: FormData

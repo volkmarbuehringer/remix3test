@@ -6,7 +6,7 @@ import { createActorRequestContext } from '../actor-context.ts'
 import { EVAL_JOURNEYS, type EvalJourney } from './journeys.ts'
 
 function agentFor(journey: EvalJourney): Agent {
-  return mastra.getAgent(journey.agent) as unknown as Agent
+  return mastra.getAgent(journey.agent)
 }
 
 /**

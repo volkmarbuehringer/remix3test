@@ -49,14 +49,12 @@ async function uploadHandler(file: FileUpload): Promise<string | void> {
 
   let chunks: Buffer[] = []
   let totalBytes = 0
-  let reader = file.stream().getReader()
-  while (true) {
-    let { done, value } = await reader.read()
-    if (done) break
-    let chunk = Buffer.from(value!)
+  // `for await` yields `Uint8Array` chunks and cancels the stream on early
+  // return, so no non-null assertion on a possibly-done read is needed.
+  for await (let value of file.stream()) {
+    let chunk = Buffer.from(value)
     totalBytes += chunk.length
     if (totalBytes > MAX_UPLOAD_BYTES) {
-      await reader.cancel()
       setUploadError('Datei zu groß (maximale Größe 50 MB).')
       return
     }

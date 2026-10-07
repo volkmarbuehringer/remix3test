@@ -7,7 +7,7 @@ import { mastra } from '../mastra/index.ts'
 import { supportGateStore, resolvePendingGate } from './run-store.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
-import { recallChatMessages, getChatThread, type AgentHandle } from '../../utils/mastra-memory.ts'
+import { recallChatMessages, getChatThread, toAgentHandle } from '../../utils/mastra-memory.ts'
 import { classifyThreadSourceFor } from '../../data/chatlog-sources.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
@@ -107,7 +107,7 @@ async function resolveSupportThread(
     if (process.env.NODE_ENV === 'test' && _testThreadResolver) {
       lookup = await _testThreadResolver(requested)
     } else {
-      let agent = resolveAgent() as unknown as AgentHandle
+      let agent = toAgentHandle(resolveAgent())
       let thread = await getChatThread(agent, requested)
       lookup = thread
         ? {
@@ -153,7 +153,7 @@ async function isOwnedSupportThread(
       let lookup = await _testThreadResolver(threadId)
       resourceId = lookup?.resourceId ?? null
     } else {
-      let agent = resolveAgent() as unknown as AgentHandle
+      let agent = toAgentHandle(resolveAgent())
       let thread = await getChatThread(agent, threadId)
       resourceId = thread?.resourceId ?? null
     }
@@ -184,7 +184,7 @@ async function resolveRecentSupportThreads(
     return _testRecentThreadsResolver ? _testRecentThreadsResolver() : []
   }
   try {
-    let agent = resolveAgent() as unknown as AgentHandle
+    let agent = toAgentHandle(resolveAgent())
     let threads = await listChatThreadsForResource(agent, String(userId), { perPage: 8 })
     if (threads.length === 0) return []
     let previews = await fetchChatThreadPreviews(

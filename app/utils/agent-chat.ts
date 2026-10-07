@@ -346,34 +346,38 @@ export function createAgentChat(config: AgentChatConfig) {
       if (!runId) return sseErrorResponse('Fehlende runId', 400)
     }
 
+    // `runId` is reassigned above, so TypeScript drops the guard's narrowing
+    // inside the stream closure. A fresh, never-reassigned binding keeps it.
+    let confirmedRunId = runId
+
     let gateThreadId = threadId ?? ''
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        let contRunId = runId!
+        let contRunId = confirmedRunId
         try {
-          controller.enqueue(sseEvent('start', { runId, threadId }))
+          controller.enqueue(sseEvent('start', { runId: confirmedRunId, threadId }))
 
           let agent = config.resolveAgent()
           let requestContext = createActorRequestContext(actorId)
           let result = (await (decision === 'approve'
             ? agent.approveToolCallGenerate!({
-                runId: runId!,
+                runId: confirmedRunId,
                 abortSignal: run.signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
                 requestContext,
               })
             : agent.declineToolCallGenerate!({
-                runId: runId!,
+                runId: confirmedRunId,
                 abortSignal: run.signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
                 requestContext,
               }))) as DecisionResult
 
-          options.onDecision?.(runId!)
+          options.onDecision?.(confirmedRunId)
 
-          contRunId = result.runId || runId!
-          if (contRunId !== runId) {
+          contRunId = result.runId || confirmedRunId
+          if (contRunId !== confirmedRunId) {
             await config.recordRun?.({
               ownerId: actorId,
               runId: contRunId,
@@ -406,8 +410,8 @@ export function createAgentChat(config: AgentChatConfig) {
           // Clear before closing so the durable record is gone when the body
           // ends (avoids a reconnect racing the terminal clear).
           await clearGate(actorId, contRunId)
-          await clearRun(runId!)
-          if (contRunId !== runId) await clearRun(contRunId)
+          await clearRun(confirmedRunId)
+          if (contRunId !== confirmedRunId) await clearRun(contRunId)
           controller.close()
         } catch (err) {
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
@@ -468,6 +472,10 @@ export function createAgentChat(config: AgentChatConfig) {
       }
     }
 
+    // `runId` is reassigned above, so TypeScript drops the guard's narrowing
+    // inside the stream closure. A fresh, never-reassigned binding keeps it.
+    let confirmedRunId = runId
+
     let resumeData: unknown = answerRaw
     if (options.selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
       try {
@@ -481,11 +489,11 @@ export function createAgentChat(config: AgentChatConfig) {
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        let contRunId = runId!
+        let contRunId = confirmedRunId
         try {
           let agent = config.resolveAgent()
           let output = await agent.resumeStream(resumeData, {
-            runId: runId!,
+            runId: confirmedRunId,
             toolCallId,
             abortSignal: run.signal,
             requestContext: createActorRequestContext(actorId),
@@ -493,14 +501,14 @@ export function createAgentChat(config: AgentChatConfig) {
 
           controller.enqueue(sseEvent('start', { runId: output.runId, threadId: gateThreadId }))
 
-          contRunId = output.runId || runId!
-          if (contRunId !== runId) {
+          contRunId = output.runId || confirmedRunId
+          if (contRunId !== confirmedRunId) {
             await config.recordRun?.({
               ownerId: actorId,
               runId: contRunId,
               threadId: gateThreadId,
             })
-            await clearRun(runId!)
+            await clearRun(confirmedRunId)
           }
           await store.upsert(actorId, { runId: contRunId, threadId: gateThreadId })
 

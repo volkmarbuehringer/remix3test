@@ -1,11 +1,9 @@
 import type { Middleware } from 'remix/router'
-import { Auth } from 'remix/middleware/auth'
-import type { AuthState } from 'remix/middleware/auth'
 import { Renderer } from 'remix/middleware/render'
 import type { RemixNode } from 'remix/component'
 import { SuperHeaders } from 'remix/headers'
 
-import type { User } from '../data/schema.ts'
+import { getAuthState } from '../utils/context.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
 import { renderForbiddenPage } from '../ui/forbidden-page.tsx'
 import { routes } from '../routes.ts'
@@ -22,7 +20,7 @@ export function requireAdmin(options?: RequireAdminOptions): Middleware {
   let customForbidden = options?.forbiddenPage
 
   return async (context, next) => {
-    let auth = context.get(Auth) as AuthState<User> | undefined
+    let auth = getAuthState(context)
     if (auth == null) {
       throw new Error('Expected auth() middleware before requireAdmin()')
     }

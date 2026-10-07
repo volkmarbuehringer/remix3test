@@ -6,7 +6,11 @@ import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
-import { createDurableAgentChat, type DurableChatAgent } from '../../utils/agent-chat-durable.ts'
+import {
+  createDurableAgentChat,
+  toDurableChatAgent,
+  type DurableChatAgent,
+} from '../../utils/agent-chat-durable.ts'
 import { recordChatRun, findChatRunOwner, clearChatRun, findLatestChatRun } from './run-store.ts'
 import { chatGateStore } from './gate-store.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -18,9 +22,9 @@ import {
   recallChatMessages,
   listLatestCustomerThread,
   getChatThread,
+  toAgentHandle,
 } from '../../utils/mastra-memory.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
-import type { AgentHandle } from '../../utils/mastra-memory.ts'
 
 // Anti-spam throttle: allow a normal multi-turn conversation (a couple of
 // messages plus approve/decline/answer steps) per minute, while capping abuse.
@@ -80,7 +84,7 @@ export function __setTestDurableAgent(agent: typeof _testDurableAgent) {
 function resolveDurableCustomerAgent(): DurableChatAgent {
   return process.env.NODE_ENV === 'test' && _testDurableAgent
     ? _testDurableAgent
-    : (getDurableCustomerAgent() as unknown as DurableChatAgent)
+    : toDurableChatAgent(getDurableCustomerAgent())
 }
 
 // ── Conversation resume ────────────────────────────────────────
@@ -105,7 +109,7 @@ async function resolveCustomerResume(userId: number): Promise<CustomerResume> {
     return _testResume(userId)
   }
   try {
-    let agent = resolveCustomerAgent() as unknown as AgentHandle
+    let agent = toAgentHandle(resolveCustomerAgent())
     let threadId = await listLatestCustomerThread(agent, String(userId))
     if (!threadId) return { messages: [] }
     let messages = await recallChatMessages(agent, threadId, String(userId), {
@@ -144,7 +148,7 @@ async function isOwnedCustomerThread(userId: number, threadId: string): Promise<
     if (process.env.NODE_ENV === 'test' && _testThreadLookup) {
       resourceId = (await _testThreadLookup(threadId))?.resourceId ?? null
     } else {
-      let agent = resolveCustomerAgent() as unknown as AgentHandle
+      let agent = toAgentHandle(resolveCustomerAgent())
       resourceId = (await getChatThread(agent, threadId))?.resourceId ?? null
     }
     return resourceId === String(userId)

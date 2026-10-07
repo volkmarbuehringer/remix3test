@@ -3,7 +3,7 @@ import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 
 import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
-import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
+import { requireApiAuth, requireApiUser } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { routes } from '../../../routes.ts'
 import { getAllLists, getListById, createList, patchList, deleteList } from '../../../data/lists.ts'
@@ -40,13 +40,13 @@ export default createController(routes.apiLists, {
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
       let filter = context.url.searchParams.get('filter') || undefined
 
-      let apiUser = context.apiUser!
+      let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let result = await getAllLists(context.db, { offset, limit, filter }, listUserId)
       return context.json(result)
     },
     async show(context) {
-      let apiUser = context.apiUser!
+      let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
@@ -74,7 +74,7 @@ export default createController(routes.apiLists, {
       })
     },
     async create(context) {
-      let userId = context.apiUser!.id
+      let userId = requireApiUser(context).id
       let body = context.jsonBody
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
@@ -106,7 +106,7 @@ export default createController(routes.apiLists, {
       return context.json({ id: row.id, title: row.title, description: row.description })
     },
     async update(context) {
-      let apiUser = context.apiUser!
+      let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
@@ -172,7 +172,7 @@ export default createController(routes.apiLists, {
       })
     },
     async destroy(context) {
-      let apiUser = context.apiUser!
+      let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
