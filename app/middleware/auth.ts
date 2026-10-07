@@ -7,6 +7,7 @@ import {
 } from 'remix/middleware/auth'
 import { html } from 'remix/html-template'
 import { SuperHeaders } from 'remix/headers'
+import { z } from 'zod/v4'
 import { databaseContext } from './database.ts'
 import { routes } from '../routes.ts'
 
@@ -124,16 +125,19 @@ export function requireAuth(options?: { redirectTo?: string }) {
   })
 }
 
-function parseAppAuthSession(value: unknown): AppAuthSession | null {
-  if (typeof value !== 'object' || value == null) return null
+const appAuthSessionSchema = z.object({
+  userId: z.unknown(),
+  tv: z.number().int(),
+})
 
-  let userId = parseId((value as { userId?: unknown }).userId)
+function parseAppAuthSession(value: unknown): AppAuthSession | null {
+  let parsed = appAuthSessionSchema.safeParse(value)
+  if (!parsed.success) return null
+
+  let userId = parseId(parsed.data.userId)
   if (userId == null) return null
 
-  let tv = (value as { tv?: unknown }).tv
-  if (typeof tv !== 'number' || !Number.isInteger(tv)) return null
-
-  return { userId, tv }
+  return { userId, tv: parsed.data.tv }
 }
 
 function normalizeEmail(email: string): string {
