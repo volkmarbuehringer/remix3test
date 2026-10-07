@@ -1,13 +1,13 @@
 ---
 name: typescript-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, the same multi-line object block is copy-pasted across many call sites, or `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object passes `T | undefined` into an `x?: T`, or a central config snapshots `process.env` at module load so a test that overrides it at runtime silently stops taking effect, or a guard's narrowing is lost inside a nested function so `x!` becomes necessary."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, the same multi-line object block is copy-pasted across many call sites, or `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object passes `T | undefined` into an `x?: T`, or a central config snapshots `process.env` at module load so a test that overrides it at runtime silently stops taking effect, or a guard's narrowing is lost inside a nested function so `x!` becomes necessary, or repeated `as unknown as` casts bridge a vendor class to a minimal structural interface."
 user-invocable: false
 origin: consolidated
 ---
 
 # TypeScript Gotchas
 
-**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`, `exact-optional-property-types-migration`, `let-narrowing-and-any-opts`
+**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`, `exact-optional-property-types-migration`, `let-narrowing-and-any-opts`, `zod-vendor-boundary-leniency`, `guarded-structural-adapter`
 
 This skill is the **index** for TypeScript/JavaScript deltas that bite at runtime or at the lint/type boundary. For the language and compiler APIs themselves, use the official TypeScript docs; for Remix-specific type wiring, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -27,6 +27,8 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 | `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object literal passes `T | undefined` into `x?: T` | `references/exact-optional-property-types.md` |
 | A central-config `const` does not observe a test's runtime `process.env` override | `references/env-snapshot-vs-call-time.md` |
 | A guarded `let` is still `T | undefined` inside a nested function (forcing `x!`), or a structural interface's `opts?: any` breaks when changed to `unknown` | `references/let-narrowing-and-any-opts.md` |
+| A vendor payload validated with zod loses events: `.optional()` rejects the vendor's `null`, or one unexpected nested field fails the whole `safeParse` and the caller skips it | `references/zod-vendor-boundary-leniency.md` |
+| The same `x as unknown as VendorInterface` appears at 3+ call sites, or a vendor class is not assignable to a minimal structural interface | `references/guarded-structural-adapter.md` |
 
 ## Core Rules
 
@@ -85,6 +87,15 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - Narrowing of a captured `let`/`var` is **not** preserved inside a hoisted `function` declaration (so `x!` is forced), but **is** preserved inside an arrow/function expression when the `let` is never reassigned. This repo's `remix-style/prefer-let-locals` bans local `const`, so bind a fresh never-reassigned `let` after the guard for inline closures; for hoisted declarations keep `!`, pass the value as a parameter, or convert to an arrow.
 - Replacing a load-bearing `opts?: any` with `unknown` in a structural interface fails because parameters are checked contravariantly — neither the vendor class's concrete options type nor narrower test doubles are assignable to `unknown`. Keep `any` with its documented disable, or move the cast to one app-owned adapter; do not "fix" it to `unknown`.
 
+**Lenient zod schemas at vendor boundaries (`references/zod-vendor-boundary-leniency.md`)**
+
+- `.optional()` rejects `null`, but vendors often serialize "absent" as `null` — use `.nullish()` for those fields (and their nested fields). If the value is additionally wrapped in `.catch(undefined)`, a top-level null silently becomes `undefined` and the consumer never sees the event.
+- Add `.catch(undefined)` to each field so one unexpected nested type degrades instead of failing the whole `safeParse`; let only the envelope discriminator be able to fail. When failure is handled by skipping, prove the skip cannot drop a terminal event.
+
+**Guarded structural adapter (`references/guarded-structural-adapter.md`)**
+
+- When a vendor class is not assignable to a minimal app-owned interface (contravariant method params) and `x as unknown as Interface` repeats at 3+ call sites, export one `toInterface(value: unknown): Interface` that `typeof`-checks the members the app calls and throws otherwise; keep the single cast inside, after the guard.
+
 ## When to Use
 
 - A TypeScript/JavaScript behavior is surprising: an await returns too early, a recursive type check flips with ordering, a type-import lint rule fights the annotation you need, a test cannot control an imported dependency, or a vendor helper now throws where a coercion used to default.
@@ -97,6 +108,8 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - You enable `exactOptionalPropertyTypes` (or a dependency bump starts passing `T | undefined` into an `x?: T`) and see TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 — see `references/exact-optional-property-types.md`.
 - A central config's `const` does not observe a test's runtime `process.env` override, or a request-time decision reads a stale snapshot.
 - A guard narrows a value but a nested helper still requires `!`, or replacing `any` with `unknown` in a structural interface stops the vendor class / test doubles from typechecking.
+- A zod schema at a vendor/stream boundary silently loses events — suspect `.optional()` rejecting the vendor's `null`, or a single bad field failing the whole parse.
+- The same `as unknown as VendorInterface` cast is repeated across call sites and should collapse into one runtime-checked adapter.
 
 ## Related Skills
 
