@@ -29,15 +29,15 @@
     "@mastra/pg": "^1.29.0",
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "date-holidays": "^3.37.0",
-    "nodemailer": "^10.0.14",
+    "nodemailer": "^10.0.15",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.14.0",
-    "@oxlint/plugins": "^1.86.0",
+    "@fission-ai/openspec": "^1.14.1",
+    "@oxlint/plugins": "^1.87.0",
     "@types/bun": "^1.4.2",
     "@types/node": "26.6.4",
     "@types/nodemailer": "^8.0.2",
@@ -45,8 +45,8 @@
     "@types/pg": "^8.23.1",
     "mastra": "^1.32.1",
     "openspec": "latest",
-    "oxfmt": "^0.71.0",
-    "oxlint": "^1.86.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
     "oxlint-tsgolint": "^7.0.2003",
     "playwright": "^1.63.0",
     "typescript": "7.0.2"
@@ -56,3 +56,4 @@
   },
   "packageManager": "pnpm@11.25.0"
 }
+
