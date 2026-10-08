@@ -201,8 +201,7 @@ export const SupportAgentStream = clientEntry(
       setPreviewVisible(false)
       let frame = handle.frames.get(frames.supportAgentPanel)
       if (frame) {
-        frame.src = routes.admin.supportAgent.panel.href()
-        frame.reload().catch((err) => {
+        frame.reload({ src: routes.admin.supportAgent.panel.href() }).catch((err) => {
           appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
         })
       }
@@ -549,8 +548,7 @@ export const SupportAgentStream = clientEntry(
 
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
-        frame.src = href
-        frame.reload().catch((err) => {
+        frame.reload({ src: href }).catch((err) => {
           appendStatusMessage('Navigation fehlgeschlagen: ' + String(err), true)
         })
         setPreviewVisible(true, href)

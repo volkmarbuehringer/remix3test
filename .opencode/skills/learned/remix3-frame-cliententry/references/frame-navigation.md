@@ -128,9 +128,9 @@ Use `frame.reload()` (re-fetches the frame's `src` through the `resolveFrame` pi
 
 ## Client resolveFrame Signature (ResolveFrameOptions)
 
-**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
+**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails. Because the app **shadows the runtime's `defaultResolveFrame`**, upstream changes to the default's request encoding do not reach `app/assets/frame-response.browser.tsx`; re-sync it after every pin bump (see `remix3-build-and-tooling` → `references/upstream-dependency-analysis.md`).
 
-Use the options-object signature and build the request body from `options.formData` yourself:
+Use the options-object signature and build the request body from `options.formData` yourself. As of #11938 (installable build `044d8372`) the runtime default is: GET/HEAD send no body, POST defaults to `application/x-www-form-urlencoded`, `multipart/form-data` stays raw `FormData`, `text/plain` becomes a text blob, field names are normalized, and the matching `Content-Type` is set explicitly:
 
 ```tsx
 import type { FrameContent, ResolveFrameOptions } from 'remix/component'
@@ -143,30 +143,41 @@ async function resolveFrameResponse(
   url: URL,
   options?: ResolveFrameOptions,
 ): Promise<FrameContent | Response> {
-  let init: RequestInit = {
-    headers: { 'X-Remix-Frame': 'true' },
-    signal: options?.signal,
-  }
-  if (options?.target) init.headers['X-Remix-Target'] = options.target
-  if (options?.method && options.method.toLowerCase() !== 'get') {
-    init.method = options.method
-    init.body = getRequestBody(options.formData, options.method, options.encType)
-  }
-  // fetch(url, init) → return content fragment or Response (e.g. stream)
+  let headers: Record<string, string> = { 'X-Remix-Frame': 'true' }
+  if (options?.target) headers['X-Remix-Target'] = options.target
+  let { body, encType } = getRequestBody(options)
+  if (encType) headers['Content-Type'] = encType
+  // fetch(url, { headers, method: options?.method, body, signal: options?.signal })
+  //   → return content fragment or Response (e.g. stream)
 }
 
-function getRequestBody(
-  formData?: FormData,
-  method?: string,
-  encType?: string,
-): BodyInit | undefined {
-  if (!formData || method?.toLowerCase() === 'get') return
-  if (encType !== 'application/x-www-form-urlencoded') return formData
+function getRequestBody(options?: ResolveFrameOptions): { body?: BodyInit; encType?: string } {
+  let formData = options?.formData
+  if (!formData) return {}
+  if (['get', 'head'].includes((options?.method ?? 'get').toLowerCase())) return {}
+
+  let encType = options?.encType?.toLowerCase()
+
+  if (encType === 'multipart/form-data') return { body: formData }
+
+  if (encType === 'text/plain') {
+    let body = ''
+    for (let [name, value] of formData) {
+      name = normalizeLineBreaks(name)
+      value = normalizeLineBreaks(typeof value === 'string' ? value : value.name)
+      body += `${name}=${value}\r\n`
+    }
+    return { body: new Blob([body], { type: 'text/plain' }), encType: 'text/plain' }
+  }
+
   let body = new URLSearchParams()
   for (let [name, value] of formData) {
-    body.append(name, typeof value === 'string' ? value : value.name)
+    body.append(
+      normalizeLineBreaks(name),
+      normalizeLineBreaks(typeof value === 'string' ? value : value.name),
+    )
   }
-  return body
+  return { body, encType: 'application/x-www-form-urlencoded' }
 }
 ```
 
@@ -174,11 +185,11 @@ Key facts:
 
 - `ResolveFrameOptions` exposes `target`, `formData`, `method`, `encType`, and `signal` — no positional args.
 - The runtime does **not** decode `_method`; the `methodOverride()` middleware in `app/middleware/root.ts` stays responsible for that. (Since upstream #11607 the app's hand-rolled `app/middleware/render.tsx` was replaced by the conventional `render({ assets })` from `remix/middleware/render`.)
-- Multipart forms pass the raw `FormData`; `application/x-www-form-urlencoded` must be flattened to `URLSearchParams` (the `getRequestBody` pattern above) or the server receives no parsable body.
+- `multipart/form-data` passes the raw `FormData` with **no** explicit `Content-Type` (the browser adds the boundary); every other POST is flattened to `URLSearchParams` and carries `application/x-www-form-urlencoded`. An omitted/unknown `encType` now defaults to urlencoded — the pre-#11938 copy sent raw multipart here, so a stale resolver silently changes which body the server parses.
 - Returning a `Response` directly (instead of a `FrameContent` fragment) is the supported path for streaming SSE/agent frames.
 - Since #11607 the server `resolveFrame` lives in the conventional render middleware (`@remix-run/render-middleware/dist/lib/render-ui.js`): it forwards `X-Remix-Frame`/`X-Remix-Target`/`X-Remix-Top-Frame-Src`, strips hop-by-hop and `sec-fetch-*` headers, and always re-fetches the frame src with **GET** — `formData`/`method`/`encType` remain client-side `ResolveFrameOptions` concerns only.
 
-Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build, writing a custom client `resolveFrame`, or debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data).
+Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build, writing a custom client `resolveFrame`, debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data), or when the resolver's encoding drifts from the runtime default after a pin bump.
 
 ## data-rmx-document: Binary Downloads & Cross-Section Links
 

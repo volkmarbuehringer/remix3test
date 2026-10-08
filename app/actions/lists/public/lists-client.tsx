@@ -283,8 +283,7 @@ export const ListsClient = clientEntry(
     }
 
     function navigateFrame(href: string) {
-      handle.frame.src = href
-      handle.frame.reload().catch(() => {})
+      handle.frame.reload({ src: href }).catch(() => {})
     }
 
     let getCsrfHeaders = (): Record<string, string> => {

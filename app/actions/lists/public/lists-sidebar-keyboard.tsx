@@ -60,8 +60,7 @@ export const ListsSidebarKeyboard = clientEntry(
                 e.preventDefault()
                 let href = link.getAttribute('href')
                 if (href && handle.frame) {
-                  handle.frame.src = href
-                  handle.frame.reload().catch(() => {})
+                  handle.frame.reload({ src: href }).catch(() => {})
                 }
                 break
               default:

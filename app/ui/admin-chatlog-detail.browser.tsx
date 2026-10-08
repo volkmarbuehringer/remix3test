@@ -151,9 +151,8 @@ async function restoreSelection(handle: Handle): Promise<void> {
     return
   }
 
-  frame.src = href
   try {
-    await frame.reload()
+    await frame.reload({ src: href })
   } catch {
     /* the pane keeps its previous content on failure */
   }
@@ -253,8 +252,7 @@ export const AdminChatlogDetail = clientEntry(
           // Load the transcript into the pane instead of the outer frame.
           event.preventDefault()
           event.stopPropagation()
-          current.src = href
-          current.reload().catch(() => {
+          current.reload({ src: href }).catch(() => {
             /* the pane keeps its previous content on failure */
           })
           setOpenState(id)

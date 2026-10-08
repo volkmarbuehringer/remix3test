@@ -59,6 +59,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - `handle.update()` only from an event handler or `handle.queueTask()` — never from setup, render, or a `dragover`/resize/scroll handler.
 - The factory closure of a `clientEntry` persists across frame DOM replacement; only the render function re-runs. State a "did I mount?" fact in the closure only if the render function cannot observe the new DOM.
 - For cross-boundary transitions the frame runtime must not intercept (binary downloads, cross-section links, login), use `data-rmx-document` — do not disable the runtime.
+- Programmatic frame navigation is `frame.reload({ src: href })` (build `044d8372`, remix #11938); `frame.src = href; frame.reload()` is the pre-#11938 equivalent. `reload({ method, body })` submits form data without changing history (GET encodes into the query; POST defaults to URL encoding).
 
 > Version-pinned facts here reference the pinned `remix` preview build (see `package.json`). Re-check against the installed vendor source before relying on them.
 

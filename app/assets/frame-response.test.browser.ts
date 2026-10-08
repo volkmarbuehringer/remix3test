@@ -24,10 +24,15 @@ import { resolveFrameResponse, isSameOriginFrameSource } from './frame-response.
 // ---------------------------------------------------------------------------
 
 let originalFetch: typeof window.fetch | undefined
+let lastFetchInit: RequestInit | undefined
 
 function stubFetch(response: Partial<Response>) {
   originalFetch = window.fetch
-  window.fetch = (async () => response) as typeof window.fetch
+  lastFetchInit = undefined
+  window.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    lastFetchInit = init
+    return response
+  }) as typeof window.fetch
 }
 
 afterEach(() => {
@@ -35,6 +40,7 @@ afterEach(() => {
     window.fetch = originalFetch
     originalFetch = undefined
   }
+  lastFetchInit = undefined
 })
 
 async function assertNeverSettles(promise: Promise<unknown>): Promise<void> {
@@ -155,5 +161,85 @@ describe('resolveFrameResponse redirect handling', () => {
     // the runner (see the playbook on unforgeable window.location).
     assert.ok(isSameOriginFrameSource(new URL('/admin/client', window.location.origin)))
     assert.equal(isSameOriginFrameSource(new URL('https://evil.example/admin/client')), false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resolveFrameResponse — request body encoding (remix #11938)
+//
+// The custom resolver replaces the runtime's default, so its encoding must match:
+// GET/HEAD carry no body, POST defaults to URL encoding, and the matching
+// Content-Type is set explicitly (multipart stays a FormData body so the browser
+// adds the boundary).
+// ---------------------------------------------------------------------------
+
+describe('resolveFrameResponse request encoding', () => {
+  it('defaults POST form data to URL encoding and sets the Content-Type', async () => {
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    let formData = new FormData()
+    formData.append('name', 'a b')
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      method: 'POST',
+      formData,
+      target: 'admin-content',
+    })
+
+    assert.equal(
+      new Headers(lastFetchInit?.headers).get('Content-Type'),
+      'application/x-www-form-urlencoded',
+    )
+    let body = lastFetchInit?.body
+    assert.ok(body instanceof URLSearchParams, 'body should be URL-encoded')
+    assert.equal(body.get('name'), 'a b')
+  })
+
+  it('sends no body for a GET reload carrying form data', async () => {
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    let formData = new FormData()
+    formData.append('name', 'a b')
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      method: 'GET',
+      formData,
+      target: 'admin-content',
+    })
+
+    assert.equal(lastFetchInit?.body, undefined)
+    assert.equal(new Headers(lastFetchInit?.headers).get('Content-Type'), null)
+  })
+
+  it('forwards multipart form data untouched with no explicit Content-Type', async () => {
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    let formData = new FormData()
+    formData.append('file', 'contents')
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      method: 'POST',
+      formData,
+      encType: 'multipart/form-data',
+      target: 'admin-content',
+    })
+
+    assert.equal(lastFetchInit?.body, formData)
+    assert.equal(new Headers(lastFetchInit?.headers).get('Content-Type'), null)
+  })
+
+  it('encodes text/plain bodies and sets the matching Content-Type', async () => {
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    let formData = new FormData()
+    formData.append('name', 'a b')
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      method: 'POST',
+      formData,
+      encType: 'text/plain',
+      target: 'admin-content',
+    })
+
+    assert.equal(new Headers(lastFetchInit?.headers).get('Content-Type'), 'text/plain')
+    let body = lastFetchInit?.body
+    assert.ok(body instanceof Blob, 'body should be a text blob')
+    assert.equal(body.type, 'text/plain')
   })
 })

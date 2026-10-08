@@ -240,14 +240,15 @@ The `reloadComplete` event fires in the `finally` block after the frame's new co
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
-When you need to programmatically navigate the frame (e.g., after saving data), use the `handle.frame.src` + `handle.frame.reload()` pattern instead of `window.location.href`:
+When you need to programmatically navigate the frame (e.g., after saving data), call `handle.frame.reload({ src: href })` instead of `window.location.href` (since installable build `044d8372`, remix #11938). It sets and retains the frame source atomically; assigning `handle.frame.src` first and then calling `reload()` is the pre-#11938 equivalent and still works.
 
 ```typescript
 function navigateFrame(href: string) {
-  handle.frame.src = href
-  handle.frame.reload().catch(() => {}) // returns Promise — suppress unhandled rejection
+  handle.frame.reload({ src: href }).catch(() => {}) // returns Promise — suppress unhandled rejection
 }
 ```
+
+`reload()` also accepts `{ method, encType, body }` for imperative frame submissions without a history change: GET encodes the `FormData` into the source query, POST defaults to URL encoding, and `multipart/form-data`/`text/plain` are selectable via `encType`.
 
 The `.catch(() => {})` is required because `handle.frame.reload()` returns a `Promise<AbortSignal>` and may reject on network errors.
 

@@ -195,3 +195,10 @@ submit()
 Test the imperative path by mounting `<ConfirmDelete />`, calling `requestConfirm(...)`,
 flushing with `result.act(() => undefined)`, then clicking `[data-confirm-accept]` or
 `[data-confirm-cancel]` and asserting the callback ran (or did not).
+
+To test the **fallback** path headlessly, a fake `globalThis.document` must implement
+`dispatchEvent(event)`. Returning `true` and leaving `defaultPrevented` false is what a real
+`EventTarget` does with no listener mounted, so `requestConfirm` returns false and the caller
+reaches the stubbed `window.confirm`. A stub with only `getElementById`/`querySelector` throws
+`document.dispatchEvent is not a function` (seen in `app/ui/row-context-menu.test.ts`, where the
+styled-dialog commit added the `requestConfirm` call without updating the stub).

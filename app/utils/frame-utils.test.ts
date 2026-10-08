@@ -7,7 +7,7 @@ import { activeFrameName, activeFrameNameOrNull, safeNavigate } from './frame-ut
 type FakeFrame = {
   src?: string
   reloadCalled: number
-  reload: () => Promise<void>
+  reload: (options?: { src?: string }) => Promise<void>
 }
 
 /**
@@ -76,23 +76,22 @@ describe('activeFrameName / activeFrameNameOrNull', () => {
 })
 
 describe('safeNavigate', () => {
-  it('reloads the addressable frame and leaves window.location untouched', async () => {
+  it('reloads the addressable frame with the new source and leaves window.location untouched', async () => {
     let env = withPanelContainer(frames.supportAgentPanel)
-    let reloaded: string[] = []
+    let reloadOptions: Array<{ src?: string } | undefined> = []
     let frame: FakeFrame = {
       reloadCalled: 0,
-      reload() {
+      reload(options) {
         frame.reloadCalled++
-        reloaded.push(this.src ?? '')
+        reloadOptions.push(options)
         return Promise.resolve()
       },
     }
     try {
       safeNavigate('/x?editing=1', fakeHandle(frame))
       assert.equal(frame.reloadCalled, 1)
-      assert.equal(frame.src, '/x?editing=1')
+      assert.deepEqual(reloadOptions, [{ src: '/x?editing=1' }])
       await flush()
-      assert.deepEqual(reloaded, ['/x?editing=1'])
       assert.equal(env.location.href, '')
     } finally {
       env.restore()

@@ -36,11 +36,17 @@ Trace the chain from upstream changes to project impact:
    grep -r "affectedApi|changedFunction" app/
    ```
 
+4b. **Audit code that shadows a changed vendor default.** If the app replaces a default the changed package exports (`run({ resolveFrame })` shadows `defaultResolveFrame`), the upstream fix never reaches it — diff the override against the new default and port the change. #11938 changed `getRequestBody` in `packages/component/src/runtime/run.ts` and `packages/spa/src/lib/spa.ts`; `app/assets/frame-response.browser.tsx` had to be re-synced by hand.
+
 5. **Verify with typecheck + tests:**
    ```bash
    npm run typecheck
    npm test
    ```
+
+**Blame triage:** before blaming a bump for a failing test, diff the *runner* between pins
+(`git diff --stat <old> <new> -- packages/test packages/cli`). If that subsystem is unchanged,
+the regression is app-side — the `document.dispatchEvent` failure here predated the bump.
 
 Key focus areas when reviewing diffs:
 - **New opaque types** — classes hiding previously public internals (e.g. `RoutePattern` making `.pathname` opaque)
@@ -58,7 +64,7 @@ Key focus areas when reviewing diffs:
 
 ## Version Lines After the Component/UI Split (#11948)
 
-As of 2026-10-08 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `a36d36caa` (built from `ef2c594`, the merge of #11942/#11939/#11930/#11953), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
+As of 2026-10-08 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `044d83772` (built from `abe67bc`, i.e. `ef2c594` plus #11938/#11975), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
 
 | package | version | notes |
 | --- | --- | --- |

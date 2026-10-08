@@ -260,8 +260,7 @@ export const AgentEventsStream = clientEntry(
                 showInfo('Navigating to ' + href + '...', { kind: 'info' })
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
-                  frame.src = href
-                  frame.reload().then(
+                  frame.reload({ src: href }).then(
                     () => restoreFilterValue(href),
                     (err) => showInfo('Navigation failed: ' + String(err), { kind: 'error' }),
                   )

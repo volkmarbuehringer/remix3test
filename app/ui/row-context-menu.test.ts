@@ -52,6 +52,13 @@ function setup(fixture: Fixture) {
     querySelector(selector: string) {
       return forms[selector] ?? null
     },
+    // No ConfirmDelete dialog is mounted in these unit tests, so dispatching the
+    // cancelable confirm event reaches no listener: `defaultPrevented` stays
+    // false and `requestConfirm` returns false, exercising the window.confirm
+    // fallback. A real EventTarget with no listener also returns true.
+    dispatchEvent() {
+      return true
+    },
   } as unknown as typeof globalThis.document
   globalThis.window = { location } as unknown as typeof globalThis.window
   globalThis.confirm = ((message?: string) => {

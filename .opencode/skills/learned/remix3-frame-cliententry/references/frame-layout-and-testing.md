@@ -108,7 +108,7 @@ Use when embedding a nested `<Frame>` (panel) inside a page that already renders
 />
 ```
 
-Then drive that frame directly from the entry — `frame.src = href; frame.reload()` on click — rather than through `data-rmx-target` on the row links, and keep the `href` on the link for the no-JS fallback.
+Then drive that frame directly from the entry — `frame.reload({ src: href })` on click (since build `044d8372`; equivalent to the pre-#11938 `frame.src = href; frame.reload()`) — rather than through `data-rmx-target` on the row links, and keep the `href` on the link for the no-JS fallback.
 
 **Two follow-on traps this exposes:**
 
@@ -136,8 +136,7 @@ function restoreFilterValue(url: string) {
 }
 
 // In handleNavigate:
-frame.src = href
-frame.reload().then(
+frame.reload({ src: href }).then(
   () => restoreFilterValue(href),
   (err) => handleError(err),
 )

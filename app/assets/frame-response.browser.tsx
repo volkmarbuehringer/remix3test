@@ -45,12 +45,13 @@ export async function resolveFrameResponse(
     headers.set('X-Agent-Prefill', btoa(binary))
   }
 
-  let bodyInit = getRequestBody(options?.formData, options?.method, options?.encType)
+  let { body, encType } = getRequestBody(options)
+  if (encType) headers.set('Content-Type', encType)
   let response = await fetch(url, {
     cache: 'no-store',
     headers,
     ...(options?.method !== undefined ? { method: options.method } : {}),
-    ...(bodyInit !== undefined ? { body: bodyInit } : {}),
+    ...(body !== undefined ? { body } : {}),
     ...(options?.signal !== undefined ? { signal: options.signal } : {}),
   })
 
@@ -97,12 +98,23 @@ export async function resolveFrameResponse(
   return response
 }
 
-function getRequestBody(
-  formData?: FormData,
-  method?: string,
-  encType?: string,
-): BodyInit | undefined {
-  if (!formData || method?.toLowerCase() === 'get') return undefined
+/**
+ * Encode a frame request body the same way the runtime's default `resolveFrame`
+ * does (remix #11938): GET/HEAD carry no body, POST defaults to URL encoding,
+ * and the matching `Content-Type` is returned so it can be set explicitly.
+ * This resolver replaces the runtime default, so it must mirror it.
+ */
+function getRequestBody(options?: ResolveFrameOptions): {
+  body?: BodyInit
+  encType?: string
+} {
+  let formData = options?.formData
+  if (!formData) return {}
+  if (['get', 'head'].includes((options?.method ?? 'get').toLowerCase())) return {}
+
+  let encType = options?.encType?.toLowerCase()
+
+  if (encType === 'multipart/form-data') return { body: formData }
 
   if (encType === 'text/plain') {
     let body = ''
@@ -111,16 +123,17 @@ function getRequestBody(
       value = normalizeLineBreaks(typeof value === 'string' ? value : value.name)
       body += `${name}=${value}\r\n`
     }
-    return new Blob([body], { type: 'text/plain' })
+    return { body: new Blob([body], { type: 'text/plain' }), encType: 'text/plain' }
   }
-
-  if (encType !== 'application/x-www-form-urlencoded') return formData
 
   let body = new URLSearchParams()
   for (let [name, value] of formData) {
-    body.append(name, typeof value === 'string' ? value : value.name)
+    body.append(
+      normalizeLineBreaks(name),
+      normalizeLineBreaks(typeof value === 'string' ? value : value.name),
+    )
   }
-  return body
+  return { body, encType: 'application/x-www-form-urlencoded' }
 }
 
 function normalizeLineBreaks(value: string): string {

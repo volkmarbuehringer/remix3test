@@ -31,10 +31,9 @@ export function safeNavigate(href: string, handle: Handle): void {
   if (frameName) {
     let frame = handle.frames.get(frameName)
     if (frame) {
-      frame.src = href
       // An in-frame reload failure must not drop the navigation (it used to
       // surface as an unhandled rejection): fall back to a full-page load.
-      frame.reload().catch(() => {
+      frame.reload({ src: href }).catch(() => {
         window.location.href = href
       })
       return
