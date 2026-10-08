@@ -5,7 +5,7 @@ import { createLogger } from '../../../utils/logger.ts'
 
 const log = createLogger('[Notification]')
 
-export interface NotificationData {
+interface NotificationData {
   recipient: string
   type: 'confirmation' | 'reminder' | 'cancellation'
   appointmentId?: number | undefined

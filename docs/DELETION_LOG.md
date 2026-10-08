@@ -1,5 +1,151 @@
 # Code Deletion Log
 
+## [2026-10-08] Post-drift Dead-Code Audit (2026-10-02 → 10-08 window)
+
+Audit of the drift window since the last pass (`389105b`, the 2026-10-02 log
+entry): the lint-rule curation series (`2175a05`, `d76894b`, `73ac3bc`,
+`921f739`), the type-tightening series (`4bf94de`, `965b089`), the
+env/decoding/dedup refactor (`a10cf36`), the frame-view conversions
+(`cc8c530`, `41cc494`, `834b2a5`, `8aaa277`, `1785cb7`), the lists search
+rewrite (`4187848`, `104c24b`), and the Mastra eval/guardrail additions.
+
+Method: knip is not resolvable offline; ts-prune ran but proved unreliable here
+(it flags exports consumed via `import * as` namespace imports — e.g. it called
+`listAppointments` unused while `verwaltung/appointments/controller.tsx` uses
+it). Used the established in-repo export/usage analyzer instead (whole-word
+reference counting across `app/`, `scripts/`, `test/`, root entrypoints, with
+test/browser-asset/public-module classification), plus a jaccard near-duplicate
+scan over all 369 production files and per-package dependency greps. Every
+candidate was then grep-verified against every file type (code, config, scripts)
+before touching. Two analyzer bugs were found and fixed during calibration:
+skipping `app/**/public/**` (a `SKIP_DIRS` name collision with the root
+`public/`) hid the browser-asset consumer graph, and dotfiles were excluded
+from the string-mention corpus (hiding the `.oxlintrc.json` plugin refs).
+
+Result: the repo is again essentially clean — zero dead app files, zero
+unreferenced exports (the analyzer's single hit, `test/setup.ts globalSetup`,
+is the `remix.json test.setup` runner entry point). What the window introduced
+is stale root files and module-private exports that kept their `export` keyword.
+
+### Files Deleted
+
+- `server.new` (49 lines) — abandoned draft of the HTTP entrypoint, last touched
+  `55a6c0c` (2026-06-06). It imports `./app/data/setup.ts`, which no longer
+  exists; the live `server.ts` diverged fully (node:http(s), `remix/node-fetch-server`,
+  required-env guard, `server-handler`). The archived TLS change design even
+  states "Keep the single `server.ts` entry point — no separate server.new".
+  Only remaining mentions are archived OpenSpec docs. Zero code/config/Docker
+  references.
+- `opencode.json.sav` (4 lines) — stale backup of `opencode.json` from
+  `55b290b` ("install ecc"); diverged from the current config, zero references
+  anywhere.
+
+### Unused Exports Privatized (removed `export` keyword; symbols stay defined and used in-module)
+
+- `app/actions/lists/public/lists-api.ts` — `CreateOutcome`, `PatchOutcome`,
+  `CopyItemsOutcome`, `MoveOutcome`, `MergeOutcome` (return types of the
+  exported request functions; no consumer names them).
+- `app/actions/lists/public/lists-state.ts` — `ItemEdit`.
+- `app/actions/mastra/evals/gates.ts` — `gatesFor`, `JourneyResult`,
+  `runJourney` (`runAllJourneys`/`failedJourneys` stay — imported by
+  `scripts/eval-mastra.ts`; `gates.test.ts` imports neither).
+- `app/actions/mastra/evaluation-model.ts` — `EvaluationModelOptions`.
+- `app/actions/mastra/notifications/sender.ts` — `NotificationData`.
+- `app/data/appointments.ts` — `OccupancyAppointment` (the exported
+  `WeekAppointment` union absorbs it).
+- `app/data/pdf.ts` — `PdfAppointmentRow`.
+- `app/ui/breadcrumbs.tsx` — `BreadcrumbItem` (second time: the 2026-09-27 pass
+  trimmed the re-export; the local interface had re-acquired `export`).
+- `app/ui/theme/menu/index.tsx` — `popoverStyle`, `itemSlotStyle`,
+  `itemLabelStyle`, `itemIndicatorStyle`, `MenuListProps`, `MenuItemProps`
+  (`listStyle`/`itemStyle` stay exported — consumed by the context-menu
+  clientEntries; `335e8b8` curated this module two days ago and left these).
+- `app/utils/agent-chat-durable.ts` — `DurableSuspensionData`,
+  `DurableObserveOptions`, `DurableChatStreamResult`, `DurableChatObserveResult`,
+  `DurableSuspendedToolCall`, `DurableSuspendedRun`, `DurableSuspendedRunsResult`
+  (vocabulary of the still-exported `DurableChatAgent` boundary; `DurableStreamOptions`,
+  `DurableResumeOptions`, `DurableChatAgent`, `toDurableAgentChat` stay — external refs).
+
+27 symbols across 10 files. `MenuList`/`MenuItem` keep working structurally:
+the private `*Props` types still flow through the exported `Handle<…>`
+parameters (typecheck and the browser/e2e suites confirm).
+
+### Kept Deliberately (with reason)
+
+- `test/setup.ts` `globalSetup`/`globalTeardown` — `remix.json test.setup`,
+  runner-invoked (analyzer false positive).
+- `scripts/oxlint-plugins/*.ts` (4 files) — analyzer flagged as unreferenced;
+  they are entry points listed in `.oxlintrc.json` `jsPlugins`, built on the
+  `@oxlint/plugins` devDep. All used.
+- `scripts/convert-ecc-skills.ts`, `scripts/seed-demo-appointments.ts` —
+  manually-run scripts (unchanged policy).
+- `useDurableCustomerChat` in `app/actions/chat/controller.tsx` — part of the
+  documented `CUSTOMER_CHAT_DURABLE` flag block alongside its
+  `__setTestDurableChat` test seam (2026-10-01 "Retained" note); zero refs now
+  but an intentional flag surface.
+- `createMemory` in `app/actions/mastra/agent-config.ts` — zero code refs, but
+  `docs/mastra-agent-modernization.md` §4.2 builds on it as a planned seam.
+- `NodeEnv` / `currentNodeEnv` in `app/config.ts` — the central env module's
+  documented public vocabulary (learned `typescript-gotchas` env-snapshot
+  delta points at this surface).
+- All test-only exports (`__set*` seams, etc. — 75 per analyzer) — imported by
+  `*.test.*` files (unchanged policy).
+- Mastra-registry exports (agents/workflows/tools/scorers) — wired through
+  `app/actions/mastra/index.ts` (unchanged policy).
+- `openspec` / `@fission-ai/openspec` devDeps — `openspec` binaries invoked by
+  `.opencode/commands/opsx-*` (unchanged policy). `oxlint-tsgolint` — backing
+  engine for `.oxlintrc.json` `"typeAware": true`. Every runtime dep and devDep
+  grep-verified in use; depcheck adds nothing here.
+- The `api` controller trio (`app/actions/api/`, `app/actions/api-lists/`,
+  `app/actions/api/lists/`) — the documented `remix doctor` entry-point
+  re-export convention, not duplication.
+- `admin-offerings-config-page.tsx` vs `admin-offering-configs-page.tsx` —
+  similar names, different features with distinct consumers
+  (`admin-offerings-page.tsx` vs `verwaltung/offering-configs/controller.tsx`).
+
+### Duplicate Scan Results (measured, deferred — refactor, not cleanup)
+
+- 7 context-menu `clientEntry` files
+  (`admin/{users,resources,offerings,offering-configs,appointments,uploads}-context-menu.tsx`,
+  `client/public/clients-context-menu.tsx`, ~950 lines total): pairwise
+  53–76% similar. The shared skeleton (row-context `<div mix>` wiring,
+  `GridState` parse + `handleEditAction` param rebuild, confirm-then-submit
+  delete) is genuinely repeated, but each menu's items, labels, disabled-row
+  handling and grid selectors differ — below the >80% merge bar, and the
+  per-page behavior is exactly what `admin-context-menus.test.browser.tsx`
+  pins. A shared `app/ui/mixins/context-menu.ts` factory (allowFiles-legal
+  under `app/ui/**`) is the natural follow-up; deliberately not attempted in
+  a cleanup pass.
+- `admin-offerings-create-page`/`-edit-page` (74%) and
+  `client/create-page`/`edit-page` (63%): same create/edit form family pattern;
+  same recommendation.
+- `verwaltung/offering-configs` vs `verwaltung/resources` controllers (40
+  shared ≥45-char lines, 53%): the two grid controllers repeat the sort/filter/
+  pagination plumbing the 2026-09-27 `app/utils/grid-params.ts` extraction
+  already standardized on the data side; the render plumbing remains per-controller.
+- Server-side `during`/grid helpers: already deduped by `a10cf36` (`grid-params`,
+  `during`) — no re-drift found. `MAX_MESSAGE_LENGTH` still single-sourced.
+- `bodyTextCss` name collision: still not a duplicate (unchanged).
+
+### Pre-existing Dirt (not touched, not caused by this pass)
+
+- `npm run format` fails at HEAD on 12 files unrelated to this session
+  (`agent-events/controller.test.ts`, `intent-classifier.ts`,
+  `settings/controller.tsx`, `api-require-auth.ts`, `test-utils.ts`,
+  `agent-sse.ts`, `sse.ts`, `oxfmt.config.ts`, `package.json`, `remix.json`,
+  two docs). Likely oxfmt-version drift from the `f85607f` tool bump. A repo
+  -wide `format:fix` should be its own session (see the `format-fix-diff-triage`
+  skill before running one). All 12 files touched by this pass are format-clean.
+
+### Impact
+
+- Files deleted: 2 (`server.new`, `opencode.json.sav`) — 53 lines
+- Symbols privatized: 27 across 10 files (export-keyword removal only, net 0 LOC)
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
+  `--max-warnings=0` + theme conformance OK), `npx oxfmt --check` clean on all
+  touched files, full `npm test`: server 1663 pass / 0 fail, browser tier
+  pass / 0 fail (chromium+firefox), e2e 40 pass / 0 fail (11 files, exit 0).
+
 ## [2026-10-02] Eval gate harness (no deletions)
 
 Added `runEvals` gates over support-agent journeys, runnable with

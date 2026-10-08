@@ -108,7 +108,7 @@ interface ListAppointmentsByWeekOptions {
  * is blanked and `user_id` is undefined, so a consumer cannot read the owning
  * tenant's title or id off an occupancy row.
  */
-export type OccupancyAppointment = Omit<Appointment, 'title' | 'user_id'> & {
+type OccupancyAppointment = Omit<Appointment, 'title' | 'user_id'> & {
   title: ''
   user_id: undefined
 }

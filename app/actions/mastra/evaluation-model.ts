@@ -42,7 +42,7 @@ Rules:
 - The answer "type" must match the question "type".
 - Judge only from the supplied state. Do not invent facts.`
 
-export interface EvaluationModelOptions {
+interface EvaluationModelOptions {
   modelId?: string
   providerId?: string
   baseUrl?: string

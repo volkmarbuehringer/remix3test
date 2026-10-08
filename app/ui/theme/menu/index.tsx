@@ -145,16 +145,16 @@ const menuItemIndicatorCss: CSSMixinDescriptor = css({
   opacity: 'var(--rmx-menu-item-indicator-opacity)',
 })
 
-export const popoverStyle = menuPopoverCss
+const popoverStyle = menuPopoverCss
 export const listStyle = menuListCss
 export const itemStyle = menuItemCss
-export const itemSlotStyle = menuItemSlotCss
-export const itemLabelStyle = menuItemLabelCss
-export const itemIndicatorStyle = menuItemIndicatorCss
+const itemSlotStyle = menuItemSlotCss
+const itemLabelStyle = menuItemLabelCss
+const itemIndicatorStyle = menuItemIndicatorCss
 
-export interface MenuListProps extends Props<'div'> {}
+interface MenuListProps extends Props<'div'> {}
 
-export interface MenuItemProps extends Omit<Props<'div'>, 'children' | 'name' | 'type' | 'value'> {
+interface MenuItemProps extends Omit<Props<'div'>, 'children' | 'name' | 'type' | 'value'> {
   checked?: boolean
   children?: RemixNode
   disabled?: boolean

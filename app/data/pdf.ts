@@ -3,7 +3,7 @@ import { z } from 'zod/v4'
 
 import { int8, queryRows } from './rows.ts'
 
-export interface PdfAppointmentRow {
+interface PdfAppointmentRow {
   id: number
   user_name: string | null
   user_email: string

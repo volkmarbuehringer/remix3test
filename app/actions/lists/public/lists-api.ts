@@ -24,7 +24,7 @@ export function listsJsonHeaders(input: {
   return headers
 }
 
-export type CreateOutcome =
+type CreateOutcome =
   | { status: 'ok'; state: ServerListState }
   | { status: 'error'; network: boolean }
 
@@ -41,7 +41,7 @@ export async function createListRequest(
   }
 }
 
-export type PatchOutcome =
+type PatchOutcome =
   | { status: 'ok'; state: ServerListState }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'error'; network: boolean }
@@ -66,7 +66,7 @@ export async function patchListRequest(
   }
 }
 
-export type CopyItemsOutcome =
+type CopyItemsOutcome =
   | { status: 'ok'; copied: number }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'not_found' }
@@ -102,7 +102,7 @@ export async function copyItemsRequest(
   }
 }
 
-export type MoveOutcome =
+type MoveOutcome =
   | { status: 'ok' }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'error'; network: boolean }
@@ -128,7 +128,7 @@ export async function moveItemRequest(
   }
 }
 
-export type MergeOutcome =
+type MergeOutcome =
   | { status: 'ok' }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'not_found' }

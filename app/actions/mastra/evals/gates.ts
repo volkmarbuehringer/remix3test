@@ -14,7 +14,7 @@ function agentFor(journey: EvalJourney): Agent {
  * blanket "no tool threw". Gate-only runs are supported by `runEvals`, so no
  * quality scorer threshold is needed for a hard pass/fail signal.
  */
-export function gatesFor(journey: EvalJourney) {
+function gatesFor(journey: EvalJourney) {
   return [
     ...journey.mustCall.map((tool) => checks.calledTool(tool)),
     ...(journey.mustNotCall ?? []).map((tool) => checks.didNotCall(tool)),
@@ -22,14 +22,14 @@ export function gatesFor(journey: EvalJourney) {
   ]
 }
 
-export interface JourneyResult {
+interface JourneyResult {
   journey: EvalJourney
   verdict: string | undefined
   gateResults: Array<{ id: string; passed: boolean; averageScore?: number }>
 }
 
 /** Runs one journey's gates against its agent through `runEvals`. */
-export async function runJourney(journey: EvalJourney): Promise<JourneyResult> {
+async function runJourney(journey: EvalJourney): Promise<JourneyResult> {
   let result = await runEvals({
     data: [
       {

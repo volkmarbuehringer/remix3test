@@ -116,7 +116,7 @@ export function toggleAllVisible(selected: ReadonlySet<string>, visibleIds: stri
   return next
 }
 
-export type ItemEdit = {
+type ItemEdit = {
   label: string
   priority: '' | ItemPriority
   due: string

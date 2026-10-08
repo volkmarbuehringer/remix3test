@@ -28,7 +28,7 @@ import { createLogger } from './logger.ts'
 // and the real `DurableAgent` both satisfy it without importing vendor generics.
 
 /** Suspension payload emitted by a durable run's `onSuspended` callback. */
-export interface DurableSuspensionData {
+interface DurableSuspensionData {
   toolCallId?: string | undefined
   toolName?: string | undefined
   args?: Record<string, unknown> | undefined
@@ -55,26 +55,26 @@ export interface DurableResumeOptions {
 }
 
 /** Options accepted by `DurableAgent.observe()` that this app uses. */
-export interface DurableObserveOptions {
+interface DurableObserveOptions {
   offset?: number
   idleTimeoutMs?: number
   isAlive?: () => boolean | Promise<boolean>
   onSuspended?: (data: DurableSuspensionData) => void | Promise<void>
 }
 
-export interface DurableChatStreamResult {
+interface DurableChatStreamResult {
   output: { fullStream: ReadableStream }
   runId: string
   cleanup: () => void
 }
 
-export interface DurableChatObserveResult {
+interface DurableChatObserveResult {
   output: { fullStream: ReadableStream }
   detach: () => void
 }
 
 /** A suspended tool call recovered from durable workflow snapshot storage. */
-export interface DurableSuspendedToolCall {
+interface DurableSuspendedToolCall {
   toolCallId: string
   toolName: string
   args?: unknown
@@ -82,14 +82,14 @@ export interface DurableSuspendedToolCall {
   suspendPayload?: unknown
 }
 
-export interface DurableSuspendedRun {
+interface DurableSuspendedRun {
   runId: string
   threadId?: string
   resourceId?: string
   toolCalls: DurableSuspendedToolCall[]
 }
 
-export interface DurableSuspendedRunsResult {
+interface DurableSuspendedRunsResult {
   runs: DurableSuspendedRun[]
   total: number
 }

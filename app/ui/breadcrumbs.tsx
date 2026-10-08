@@ -3,7 +3,7 @@ import { css, type Handle, type RemixNode } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { ROUTE_LABELS } from '../route-labels.ts'
 
-export interface BreadcrumbItem {
+interface BreadcrumbItem {
   current?: boolean
   href?: string
   label: RemixNode
