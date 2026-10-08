@@ -1,6 +1,6 @@
 ---
 name: remix3-testing
-description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring, and Playwright/browser-run hangs (`networkidle` on SSE pages, unforgeable `window.location` navigation, crash cards that hide the stack), and ad-hoc verification against the running dev server (destructive controls must not be exercised there)."
+description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, asserting the rendered content model of server responses with html-validate, and this app's harness for state isolation and `t.serve` e2e wiring, and Playwright/browser-run hangs (`networkidle` on SSE pages, unforgeable `window.location` navigation, crash cards that hide the stack), and ad-hoc verification against the running dev server (destructive controls must not be exercised there)."
 user-invocable: false
 origin: consolidated
 ---
@@ -21,6 +21,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | `waitFor(() => !!getElementById(x))` passes instantly and the next assertion fails on empty content | `references/waitfor-static-element.md` |
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
 | A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/html-amp-escaped-assertions.md` |
+| A rendered page passes the JSX AST rule but you need to catch invalid content models (`<a><button>`, `<h2>` in `<span>`, `<style>` in `<div>`) in dynamically composed HTML or raw `remix/html-template` output | `references/rendered-html-conformance-html-validate.md` |
 | You are ad-hoc verifying a UI change against the running dev server and the path includes a destructive control (delete/clear, or arm-then-confirm) | `references/ad-hoc-verification-safety.md` |
 | A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/state-isolation-and-e2e-serve.md` |
 | A Playwright navigation/submit hangs on a page that mounts an SSE/EventSource channel (`networkidle` never settles) | `references/sse-networkidle-never-settles.md` |
@@ -66,6 +67,11 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Rendered HTML serializes `&` in attribute values as `&amp;` (and `"` as `&quot;`), and `response.text()` returns that serialized HTML with entities intact — so a string assertion written with the raw `&` never matches and fails with no hint of the cause. Match the escaped form in `response.text()`, including in absence assertions.
 - Prefer asserting on a redirect `Location` header when possible: headers are not HTML-escaped and keep the raw `&`.
 
+**Rendered-HTML content-model conformance (`references/rendered-html-conformance-html-validate.md`)**
+
+- Validate the real `router.fetch` response with `html-validate`; `.htmlvalidate.json` sets `"extends": []` so only `element-permitted-content` runs (the loader default is `Config.defaultConfig()` = `html-validate:recommended`). `new HtmlValidate()` never reads the file — use `new HtmlValidate(new FileSystemConfigLoader())` and the **async** `validateString`; `validateStringSync` throws on that loader.
+- Frame content streams scoped styles as an inline `<head>` block after the `<!-- rmx:f:HASH -->` marker; strip `/<head>[\s\S]*?<\/head>/g` before validating or html-validate flags `<head>` under a body element. Assert the response contains `<html` (frame fragments are not documents), and keep the check additive to `remix-a11y/no-nested-interactive` (see `remix3-rendering-ui`).
+
 **State isolation and `t.serve` e2e (`references/state-isolation-and-e2e-serve.md`)**
 
 - The guide's generic seams are app-specific here: the factory is `createNewappRouter(options)` in `app/router.ts` (not `createAppRouter`), shared tests import `router` from `app/test-router.ts`, DB state is an ephemeral Postgres database created by `test/setup.ts` via `remix.json` `test.setup` (not SQLite `:memory:`), and session/cookie helpers already exist in `app/test-utils.ts` (`extractCookie`, `createCsrfSession`, `createAuthCookieWithCsrf*`) instead of a hand-rolled `getResponseCookie`.
@@ -92,6 +98,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Tests interfere when run in parallel, or a shared-DB test fails intermittently or even in isolation.
 - A `waitFor` existence check passes but the content assertion that follows fails.
 - You need to mock an external HTTP service or match escaped markup in rendered output.
+- You need a regression guard for the HTML content model of server-rendered pages (nested interactive content or invalid element nesting the JSX AST rule cannot see).
 - A router test needs an authenticated session or multi-request flow, or you are adding an `*.test.e2e.ts`, and the guide's generic example does not match this repo's harness.
 - A Playwright/e2e navigation or submit hangs on a page with an SSE/EventSource channel, or a browser test hangs after a `window.location` navigation.
 - You are manually verifying a UI change in the running app and the flow contains a delete/reset/confirm action.
@@ -102,4 +109,5 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - `remix3-frame-cliententry` — production `Frame` navigation and `clientEntry` side effects (`handle.queueTask`, `data-*` identity)
 - `remix3-bun-runtime` — running the app and its `remix test` suite under Bun
 - `remix3-css-and-layout` — styling/layout deltas that browser tests assert on (geometry, computed style)
+- `remix3-rendering-ui` — owns the `<a><button>` bug class, `buttonLink()`, and raw-HTML props this validation is additive to
 - vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) — canonical `remix test` runner and `render`/`act` API
