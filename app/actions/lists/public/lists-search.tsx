@@ -5,27 +5,28 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
  *
  * The search is a plain GET form targeting the lists-content frame (the browser
  * serializes `filter` and the hidden open-list `load` id into the URL), so it
- * works without JS and no longer builds URLs in the client. This entry only
- * restores the live behaviour: debounce typing into a submit, clear + resubmit
- * on Escape, and refocus after a frame reload when a filter is active.
+ * works without JS and no longer builds URLs in the client. This entry drives
+ * the interactive layer: debounced typing into a submit, and clear + resubmit
+ * on Escape. The field keeps focus across every submit-navigation because the
+ * form is marked `data-rmx-reset-focus="manual"` (remix #11939), so the
+ * previous reloadComplete refocus hack is retired. We still focus on initial
+ * mount when the field arrives with a filter already set (e.g. arriving via
+ * `?filter=...` or back/forward navigation), which is not a navigation.
  */
 export const ListsSearch = clientEntry(
   import.meta.url + '#ListsSearch',
   function ListsSearch(handle: Handle) {
     let controllers: AbortController[] = []
 
-    function init() {
+    function wire() {
       // The sidebar DOM can be reused or replaced by a frame reload; drop the
-      // previous listeners first so a re-init cannot stack them.
+      // previous listeners first so a re-bind cannot stack them.
       for (let ac of controllers) ac.abort()
       controllers = []
 
       let input = document.getElementById('lists-sidebar-search') as HTMLInputElement | null
       let form = input?.closest('form') as HTMLFormElement | null
       if (!input || !form) return
-
-      // Refocus after a reload so continued typing keeps working.
-      if (input.value.trim()) input.focus()
 
       let ac = new AbortController()
       controllers.push(ac)
@@ -55,7 +56,6 @@ export const ListsSearch = clientEntry(
             }
             input.value = ''
             submit()
-            input.focus()
           }
         },
         { signal: ac.signal },
@@ -66,8 +66,14 @@ export const ListsSearch = clientEntry(
       })
     }
 
+    function mount() {
+      wire()
+      let input = document.getElementById('lists-sidebar-search') as HTMLInputElement | null
+      if (input && input.value.trim()) input.focus()
+    }
+
     if (handle.frame) {
-      handle.frame.addEventListener('reloadComplete', init, { signal: handle.signal })
+      handle.frame.addEventListener('reloadComplete', wire, { signal: handle.signal })
     }
 
     return () => (
@@ -76,7 +82,7 @@ export const ListsSearch = clientEntry(
           css({ display: 'none' }),
           ref(() => {
             if (typeof document === 'undefined') return
-            init()
+            mount()
           }),
         ]}
       />

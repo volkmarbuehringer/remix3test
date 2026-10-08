@@ -299,6 +299,7 @@ function ListsLayout(
               method="get"
               action={routes.lists.index.href()}
               data-rmx-target={frameTarget}
+              data-rmx-reset-focus="manual"
               data-lists-search="true"
               mix={searchFormStyle}
             >
