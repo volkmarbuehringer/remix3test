@@ -1,6 +1,6 @@
 ---
 name: remix3-css-and-layout
-description: "Use when styling Remix 3 / remix-ui pages and something is visually wrong — hover-reveal selectors not emitted, `css()` overrides losing to `@layer rmx.*`, inline SVG/glyph wrapping, native `<select>` overflowing a flex row, content-sized panels collapsing, bounded flex chains not scrolling, full-height sidebar shells, or the `hidden` attribute not hiding."
+description: "Use when styling Remix 3 / remix-ui pages and something is visually wrong — hover-reveal selectors not emitted, `css()` overrides losing to `@layer rmx.*`, inline SVG/glyph wrapping, native `<select>` overflowing a flex row, content-sized panels collapsing, bounded flex chains not scrolling, full-height sidebar shells, a responsive admin grid losing its columns or a two-column edit panel clipping the table, or the `hidden` attribute not hiding."
 user-invocable: false
 origin: consolidated
 ---
@@ -25,6 +25,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 | `hidden` / `toggleAttribute('hidden', …)` has no visual effect; an author `display` in `css()` overrides the UA `[hidden]` rule | `references/hidden-attribute-display-override.md` |
 | Inspecting generated rules in the browser — `document.styleSheets` iteration shows nothing | `references/hover-reveal.md`, `references/cascade-layer-overrides.md` |
 | A scrollbar is missing in Firefox although `&::-webkit-scrollbar` is set | `references/bounded-scroll-flexchain.md` |
+| An admin grid overflows on mobile / hides its row actions, or opening the two-column edit panel clips the table columns | `references/admin-grid-responsive-panels.md` |
 
 ## Core Rules
 
@@ -76,12 +77,19 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - Fix: add `&[hidden] { display: none }` to the **same** `css()` descriptor (it compiles to `.class[hidden]`, out-specifying `.class`). Alternatives: a `data-*` attribute with `&[data-x='true'] { display: none }`, or conditional server-side rendering. If a `clientEntry` must hide it, keep toggling the attribute plus the CSS guard — not `style.display`.
 - If the `display` comes from a different composed mixin/layer rather than this descriptor, read `references/cascade-layer-overrides.md` before reaching for `!important`.
 
+**Responsive admin grids and two-column panels (`references/admin-grid-responsive-panels.md`)**
+
+- A `table.wrap` grid without `table.mobileCards` keeps `min-width: 840px` and scrolls its right-hand columns off a phone; `mobileCards` also needs `data-label` on every `<td>` (including the actions cell) or cards render unlabelled values.
+- The two-column edit/create panel (`minmax(0, 1fr) 340px`) clips the grid because `table.page` caps at 1000px while `table` floors at `min-width: 840px`. Use `pageWide` plus a `twoColumnGrid` override scoped to `@media (min-width: 1101px)` with `min-width: 640px !important`; the media query keeps it from fighting `mobileCards` `min-width: 0 !important`.
+- Verify by measurement: `wrap.scrollWidth === wrap.clientWidth` with the panel open, and `getComputedStyle(thead).display === "none"` plus `td[data-label]` on mobile.
+
 ## When to Use
 
 - You are styling a Remix 3 / `remix-ui` page and a style or layout silently does nothing, loses a specificity/layer contest, or collapses a region.
 - A control toggled through `hidden`, or a hover/focus reveal, does not appear or disappear as intended.
 - Flex/scroll geometry is wrong: panels collapse, lists clip instead of scroll, or a page in the sidebar shell overflows.
 - You are adding a new hand-rolled link/span with an inline SVG, a `<select>` in a flex row, or a content-sized panel inside a bounded shell.
+- You are adding a data grid or a two-column edit panel and need it to survive a phone and a desktop without clipping.
 - Before trusting a `css()` override or a computed style, use these references' CDP / recursive-rule-walk recipes rather than `document.styleSheets`.
 
 ## Related Skills

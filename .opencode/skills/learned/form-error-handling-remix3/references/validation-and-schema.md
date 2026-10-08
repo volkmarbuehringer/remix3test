@@ -235,6 +235,78 @@ Use `String()` on both sides:
 
 Detection: if a `<select>` shows the wrong option after a validation redirect but works on initial load, the runtime types likely differ. Log `typeof res.id` vs `typeof resolvedResourceId` to confirm.
 
+### `selected` and empty strings: `""` is not `null`
+
+`<option selected={resolvedId != null && String(resolvedId) === String(res.id)}>` is
+still wrong when the preserved value is an empty string. A cleared `<select>`
+submits `""`; `"" != null` is `true`, so no resource option matches and the browser
+falls back to the **first** option — the field visually shows a choice while the
+inline error says `ist erforderlich.`.
+
+Normalize "no value" once and give the select a real disabled placeholder option
+selected exactly when empty:
+
+```tsx
+let resourceValue =
+  resolvedResourceId != null && String(resolvedResourceId) !== ""
+    ? String(resolvedResourceId)
+    : ""
+
+<select name="resource_id" required>
+  <option value="" disabled selected={resourceValue === ""}>
+    Ressource auswählen...
+  </option>
+  {resources.map((res) => (
+    <option
+      key={res.id}
+      value={res.id}
+      selected={resourceValue !== "" && resourceValue === String(res.id)}
+    >
+      {res.name}
+    </option>
+  ))}
+</select>
+```
+
+Render the placeholder in **both** create and edit modes: edit mode also re-renders
+from `formValues` on a failed submit, and the same empty-string fallback would
+otherwise show the first row.
+
+### Announce and focus server-rendered errors
+
+Server-rendered field errors are not announced by default, and focus stays where it
+was before the frame re-render. Add all three:
+
+- `role="alert"` on each error element and on the form-level banner.
+- `aria-invalid="true"` plus `aria-describedby` pointing at the error element id on
+  the rejected control.
+- A tiny `clientEntry` inside the form that focuses the first invalid control:
+
+```tsx
+export const FormErrorFocus = clientEntry(
+  import.meta.url + "#FormErrorFocus",
+  function FormErrorFocus(handle: Handle) {
+    return () => (
+      <div
+        mix={[
+          css({ display: "none" }),
+          ref((el) => {
+            if (!el || typeof document === "undefined") return
+            let scope: ParentNode = el.closest("form") ?? document
+            let target = scope.querySelector('[aria-invalid="true"]') as HTMLElement | null
+            target?.focus()
+          }),
+        ]}
+      />
+    )
+  },
+)
+```
+
+Scope with `el.closest("form")` so a page with several forms (filter bar plus edit
+panel) focuses the right one. A clean page has no `aria-invalid`, so the entry is a
+no-op on initial load.
+
 ### Shared Utilities: `app/utils/schema-utils.ts`
 
 Instead of local `issuesToFieldErrors` and `extractFormValues` functions, import from the shared module:

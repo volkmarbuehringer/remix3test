@@ -1,6 +1,6 @@
 ---
 name: remix-forms
-description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation, password security/toggle, session.flash soft-fork routing.'
+description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing.'
 user-invocable: false
 origin: consolidated
 ---
@@ -17,7 +17,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| Adding a `confirm()` dialog to server-rendered delete forms; intercepting a form submit before frame navigation | `references/delete-confirmation.md` |
+| Adding a `confirm()` dialog to server-rendered delete forms; intercepting a form submit before frame navigation; replacing native `confirm()` with a styled dialog and reusing it from context-menu or bulk triggers | `references/delete-confirmation.md` |
 | Password confirmation (cross-field), keeping passwords out of `defaultValue`, visibility toggle (`data-toggle-pw`), the `app/ui` vs `app/assets` `clientEntry` trap | `references/password-forms.md` |
 | One-shot UI state after a POST (routing card) that must self-clear on refresh — `session.flash()` vs `session.set()` | `references/session-flash-routing.md` |
 
@@ -26,6 +26,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - `remix/data-schema` `.optional()`/`.nullable()` are **top-level functions**, not methods: use `s.optional(s.string())`, not `s.string().optional()` (`Property 'optional' does not exist on type 'Schema<...>'`). Full API: `node_modules/remix/src/data-schema/README.md`.
 - Delete confirmation must intercept at the **capture-phase click** level (`{ capture: true }` + `preventDefault()` + `stopPropagation()`); a `submit`-phase listener can be preempted by frame navigation.
 - Render exactly **one** `<ConfirmDelete />` per grid section — one per row causes N stacked `confirm()` dialogs.
+- When a dialog re-submits, call `form.requestSubmit(submitter)`, never `form.submit()`: `submit()` bypasses the `submit` event and the frame runtime, producing a full-page navigation.
 - Never put `defaultValue` on password fields; exclude them from `readFormFieldValues` key arrays.
 - Use `session.flash()` (not `session.set()`) for UI state that should render once and disappear on refresh.
 

@@ -123,3 +123,75 @@ Rendering `<ConfirmDelete />` inside a loop (e.g., inside `.map()`) creates **N 
 | Per-component clientEntry (`on` mixin)            | High — each form needs its own component with serialized props | Medium — works only if `on` fires before Remix intercepts | Low — N components for N forms   |
 | `submit` event listener (bubble phase)            | Low — one listener                                             | Low — may not fire in frame navigation                    | High — one listener handles all  |
 | **Capture-phase click delegation** (this pattern) | Low — one component + `data-confirm` attribute                 | High — fires before Remix intercepts                      | High — one component handles all |
+
+## Upgrade: in-app dialog instead of `window.confirm`
+
+`window.confirm()` is blocking and unstyled; a product surface should ask with its
+own dialog. Keep the capture-phase interception above — only what happens on the
+click changes: **always** `preventDefault()`/`stopPropagation()`, stash the pending
+form and submitter, and re-submit from the dialog confirm button.
+
+```ts
+interface PendingConfirm { message: string; onConfirm: () => void }
+
+// inside the clientEntry setup:
+let pending: PendingConfirm | null = null
+document.addEventListener("click", (event) => {
+  let btn = (event.target as HTMLElement).closest("button[type=submit]") as HTMLButtonElement | null
+  if (!btn) return
+  let form = btn.closest("form[data-confirm]") as HTMLFormElement | null
+  if (!form) return
+  event.preventDefault()
+  event.stopPropagation()
+  pending = {
+    message: form.getAttribute("data-confirm") || "Wirklich löschen?",
+    // requestSubmit dispatches a submit event, so the frame runtime still
+    // performs the DELETE. form.submit() bypasses it (full-page navigation).
+    onConfirm: () => form.requestSubmit(btn),
+  }
+  void handle.update()
+}, { capture: true, signal: handle.signal })
+```
+
+Deltas versus the native version:
+
+- **`requestSubmit(submitter)`, never `submit()`** — `submit()` skips the `submit`
+  event and the frame runtime, turning the in-grid DELETE into a full page load.
+- **Always intercept** — never let the first click through while a dialog is pending.
+- **Focus and dismiss** — render `role="alertdialog"` with `aria-modal="true"` plus
+  `aria-labelledby`/`aria-describedby`; focus the danger button with
+  `ref((el) => el?.focus())`; handle `Escape` with `on("keydown")` and backdrop-click
+  with `event.target === event.currentTarget`.
+- The **one-instance-per-grid** rule above still applies (document-level listeners).
+
+### Reuse from non-click triggers: `requestConfirm`
+
+Context-menu deletes and bulk buttons never click a submit button, so the
+capture-phase listener cannot see them. Export a cancellation-aware event that any
+module can raise:
+
+```ts
+const CONFIRM_EVENT = "app:confirm-request"
+export interface ConfirmRequestDetail { message: string; onConfirm: () => void }
+
+export function requestConfirm(detail: ConfirmRequestDetail): boolean {
+  if (typeof document === "undefined") return false
+  let event = new CustomEvent<ConfirmRequestDetail>(CONFIRM_EVENT, { detail, cancelable: true })
+  document.dispatchEvent(event)
+  return event.defaultPrevented
+}
+```
+
+`ConfirmDelete` listens for the event, calls `event.preventDefault()` and stores the
+detail. Callers fall back to native `confirm()` when no dialog is mounted, so unit
+tests and dialog-less pages keep working:
+
+```ts
+if (requestConfirm({ message, onConfirm: submit })) return
+if (!confirm(message)) return
+submit()
+```
+
+Test the imperative path by mounting `<ConfirmDelete />`, calling `requestConfirm(...)`,
+flushing with `result.act(() => undefined)`, then clicking `[data-confirm-accept]` or
+`[data-confirm-cancel]` and asserting the callback ran (or did not).

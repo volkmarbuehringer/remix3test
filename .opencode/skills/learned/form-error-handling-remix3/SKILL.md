@@ -1,6 +1,6 @@
 ---
 name: form-error-handling-remix3
-description: "Use when handling form validation errors in Remix 3 — `parseSafe` direct re-render, preserved values, per-field errors, coerce/select pitfalls, and admin grid state on validation failure."
+description: "Use when handling form validation errors in Remix 3 — `parseSafe` direct re-render, preserved values, per-field errors, coerce/select pitfalls, the empty-string select fallback, announcing and focusing server-rendered errors, and admin grid state on validation failure."
 ---
 
 # Form Error Handling in Remix 3
@@ -23,7 +23,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| `parseSafe` + schema, value preservation, select fields, `coerce.number()`/empty-select and Postgres `number`-vs-string traps, cross-field and wizard checks, validation tests | `references/validation-and-schema.md` |
+| `parseSafe` + schema, value preservation, select fields, `coerce.number()`/empty-select and Postgres `number`-vs-string traps, the empty-string `""` select fallback, `role="alert"`/`aria-invalid`/focus-first-invalid wiring, cross-field and wizard checks, validation tests | `references/validation-and-schema.md` |
 | Admin CRUD grids: a shared `loadPageData`, `grid-state.ts` hidden inputs, `renderGridFormError` returning **200 not 400**, error banners | `references/admin-grid-state.md` |
 | Adding a new URL-query-param filter that drives a SQL `WHERE` (the 8+ touchpoint checklist) | `references/url-param-filter-checklist.md` |
 
@@ -33,6 +33,8 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - Extract raw string values from `FormData` **before** validation and pass them back as `formValues` so the user never re-types input.
 - `formValues` (from a failed submit) take priority over row data (from the DB); fall back to the row only when absent.
 - `<select>` does not honor `defaultValue` in Remix 3 — use `selected` on each `<option>`.
+- A cleared select submits `""`, and `"" != null` is true: normalize the preserved id to `""` and select a disabled placeholder option when empty, or the browser shows the first option while the field error says required.
+- Server-rendered errors need `role="alert"`, `aria-invalid`/`aria-describedby` on the control, and a focus-first-invalid `clientEntry`; the markup alone is silent to screen readers.
 - Full-page/non-admin forms re-render with `{ status: 400 }`. Admin **grid** forms must render through `renderGridFormError`, which returns **200** so the frame shows inline errors (a non-OK response becomes an error card).
 - Keep `formError` (form validation) and `error` (destroy flow) strictly separate — never chain them.
 
