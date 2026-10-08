@@ -2,7 +2,7 @@
 
 **Purpose.** Map each installed guide chapter to the learned skill that owns it, and record known gaps so they are not rediscovered by asking "is X covered?". Vendor guides stay canonical; this registry only tracks **who points at them**.
 
-**Anchor:** installed `remix 3.0.0-rc.5` (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
+**Anchor:** installed `remix 3.0.0` (build `a36d36caa`, from source `ef2c594`) (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
 
 **Legend:** _state_ = authored | unfinished (chapter says so at its top). _coverage_ = owned (dedicated pointer skill) | good | partial | none.
 

@@ -6,6 +6,8 @@
 
 **Re-validated (2026-09-28):** against installed build `2a098a36c` (installable dist of source `25c674d1f`, the #11940/#11941 pair; `remix` `3.0.0-rc.3`). remix #11941 replaced the `X-Remix-Frame` header check with the `internalFrameRequests` `WeakSet`, so the `render-ui.js` anchors below are re-pinned to that build.
 
+**Re-checked (2026-10-08):** against installed build `a36d36caa` (installable dist of source `ef2c594`; `remix` `3.0.0`). The #11941 mechanism is unchanged and every anchor below still holds verbatim: `@remix-run/render-middleware` `dist/lib/render-ui.js:9` (`internalFrameRequests = new WeakSet()`), `:51` (`onError = internalFrameRequests.has(request) ? () => {} : options.onError`), `:120` (`.add(request)`), and `@remix-run/component` `dist/server/stream.js:79` (default `(error) => console.error(error)`). The intervening #11939 touched `resetFocus`/frame diffing, not this error-suppression path.
+
 **Context:** Deciding what a non-success frame response should become, where frame render errors surface, whether returned frame HTML is safe, when to use `renderToString`/`renderWith`, why a `data-rmx-src` link or frame form is not intercepted, or why a clientEntry's server props are stale after a frame reload.
 
 ## Problem

@@ -20,7 +20,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Running `remix new` / `test` / `doctor` / `routes` / `version` / `completion`, programmatic `runRemix`, wiring `node --import remix/node-tsx` or `loadModule`, the `node-tsx` tsconfig, `remix test` filters, `NODE_ENV=test`, or mocking frozen ES-module exports | `references/cli-devops.md` |
 | Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/self-hosted-fonts.md` |
-| A branch-pinned (`github:…#branch`) dependency may have upstream changes, you must judge whether to update, or you are pinning release-day versions across the post-#11948 split lines (`remix` 3.0.0-rc.5 / `@remix-run/ui` 0.12.0 / `@remix-run/component` 0.8.0) | `references/upstream-dependency-analysis.md` |
+| A branch-pinned (`github:…#branch`) dependency may have upstream changes, you must judge whether to update, or you are pinning release-day versions across the post-#11948 split lines (currently `remix` 3.0.0 / `@remix-run/ui` 0.12.1 / `@remix-run/component` 1.0.0) | `references/upstream-dependency-analysis.md` |
 
 ## Core Rules
 

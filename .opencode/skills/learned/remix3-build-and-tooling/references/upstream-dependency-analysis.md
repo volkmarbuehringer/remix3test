@@ -3,6 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
+**Re-validated:** 2026-10-08 (vendor facts below re-checked against the installed tree at build `a36d36caa` / source `ef2c594`; version table updated from the rc.5 / 0.8.0 / 0.12.0 era to stable `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1`)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -57,22 +58,24 @@ Key focus areas when reviewing diffs:
 
 ## Version Lines After the Component/UI Split (#11948)
 
-As of 2026-10-01 the repo carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. At the `Release v3.0.0-rc.5` commit (`dba1546a0`; tag `remix@3.0.0-rc.5`) they are (a `preview/main` install resolves to the generated installable-build commit `be58f7beb`, built from `904eb5ff3`):
+As of 2026-10-08 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `a36d36caa` (built from `ef2c594`, the merge of #11942/#11939/#11930/#11953), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
 
 | package | version | notes |
 | --- | --- | --- |
-| `remix` | `3.0.0-rc.5` | stable `3.0.0` is pending the `chore: prepare Remix 3 stable release` branch; in prerelease mode changesets bumps the prerelease counter, not the minor |
-| `@remix-run/component` | `0.8.0` | runtime; aliased as `remix/component*` |
-| `@remix-run/component-hmr` | `0.1.0` | aliased as `remix/component-hmr*` |
-| `@remix-run/ui` | `0.12.0` | primitives + animation; **not** aliased into `remix`, must be a direct dependency |
+| `remix` | `3.0.0` | stable released; the prerelease-counter caveat no longer applies |
+| `@remix-run/component` | `1.0.0` | runtime; aliased as `remix/component*` (crossed `0.x` → `1.0` since rc.5) |
+| `@remix-run/component-hmr` | `1.0.0` | aliased as `remix/component-hmr*` (crossed `0.x` → `1.0`) |
+| `@remix-run/ui` | `0.12.1` | primitives + animation; **not** aliased into `remix`, must be a direct dependency; still `0.x` |
+
+Prior state (for git archaeology): at the `Release v3.0.0-rc.5` commit (`dba1546a0`; tag `remix@3.0.0-rc.5`) a `preview/main` install resolved to the generated installable-build commit `be58f7beb` (built from `904eb5ff3`) — `remix 3.0.0-rc.5` / `component 0.8.0` / `component-hmr 0.1.0` / `ui 0.12.0`.
 
 `3.0.0-rc.4` with `ui 0.11.0` / `component 0.7.0` / `component-hmr 0.0.0` is the pre-release state at the split commit itself (`7513dae`).
 
 **Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
 
 ```jsonc
-"remix": "^3.0.0",          // "^3.0.0-rc.5" while still on the release candidate
-"@remix-run/ui": "^0.12.0"
+"remix": "^3.0.0",          // stable 3.0.0 released 2026-10; no -rc suffix needed
+"@remix-run/ui": "^0.12.0"  // 0.12.1 lands under this caret (patch within the minor)
 ```
 
 **`0.x` caret caveat.** On a `0.x` package, `^0.12.0` means `>=0.12.0 <0.13.0` — it locks the minor and allows only patches. That is the correct pin: a `0.x` minor can be breaking (0.11 -> 0.12 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus the package-root runtime and JSX exports). Do not widen it to `>=0.12.0`.
