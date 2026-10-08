@@ -189,10 +189,10 @@ function NavCard(handle: Handle<NavCardProps>) {
     let { icon, title, desc, href } = handle.props
     return (
       <a href={href} mix={cardLinkStyle}>
-        <span mix={titleRowStyle}>
+        <div mix={titleRowStyle}>
           <Glyph name={icon} width={20} height={20} mix={iconStyle} />
           <h2 mix={navTitleStyle}>{title}</h2>
-        </span>
+        </div>
         <p mix={navDescStyle}>{desc}</p>
         <span mix={navActionStyle}>
           Öffnen

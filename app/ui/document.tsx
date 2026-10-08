@@ -69,6 +69,13 @@ export function Document(handle: Handle<DocumentProps>) {
           <Theme />
           <DarkTheme.Style />
           <style>{`
+            /* Used by app/ui/connection-indicator.browser.tsx. It lives in the
+               shell so the component does not render a <style> inside its <div>
+               (invalid content model). */
+            @keyframes sse-pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.4; }
+            }
             @media (prefers-reduced-motion: reduce) {
               body { transition: none !important; }
             }
