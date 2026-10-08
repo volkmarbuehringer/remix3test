@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import type { ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { frames, routes } from '../routes.ts'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
@@ -94,11 +94,9 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
             <a
               href={buildCancelUrl(base, offset, sort, order, filter, period, status)}
               data-rmx-target={frames.appointmentsNewContent}
-              mix={table.linkPlain}
+              mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), css({ width: '100%' })]}
             >
-              <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
-                Abbrechen
-              </button>
+              Abbrechen
             </a>
           </div>
         </div>

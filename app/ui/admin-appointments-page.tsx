@@ -235,6 +235,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   return (
                     <span>
                       <button
+                        type="button"
                         disabled
                         mix={[
                           button({ tone: active ? 'primary' : 'secondary' }),
@@ -246,16 +247,21 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     </span>
                   )
                 }
+                // Style the link itself as the button (`buttonLink`) instead of
+                // nesting a <button> in the <a>: the nested button defaults to
+                // type="submit" and, inside this GET filter form, submits it —
+                // dropping period/status and re-navigating to ?filter= only.
                 return (
-                  <a href={href} data-rmx-target={getSelfFrameTarget()}>
-                    <button
-                      mix={[
-                        button({ tone: active ? 'primary' : 'secondary' }),
-                        segmentedButton({ isFirst, isLast }),
-                      ]}
-                    >
-                      {label}
-                    </button>
+                  <a
+                    href={href}
+                    data-rmx-target={getSelfFrameTarget()}
+                    aria-current={active ? 'true' : undefined}
+                    mix={[
+                      buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                      segmentedButton({ isFirst, isLast }),
+                    ]}
+                  >
+                    {label}
                   </a>
                 )
               },
@@ -287,15 +293,16 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               }
               let href = ADMIN_BASE + '?' + params.toString()
               return (
-                <a href={href} data-rmx-target={getSelfFrameTarget()}>
-                  <button
-                    mix={[
-                      button({ tone: active ? 'primary' : 'secondary' }),
-                      segmentedButton({ isFirst, isLast }),
-                    ]}
-                  >
-                    {label}
-                  </button>
+                <a
+                  href={href}
+                  data-rmx-target={getSelfFrameTarget()}
+                  aria-current={active ? 'true' : undefined}
+                  mix={[
+                    buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                    segmentedButton({ isFirst, isLast }),
+                  ]}
+                >
+                  {label}
                 </a>
               )
             })}
@@ -319,11 +326,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               status,
             )}
             data-rmx-target={getSelfFrameTarget()}
-            mix={table.linkPlain}
+            mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
           >
-            <button mix={[button({ tone: 'primary' })]}>
-              <Glyph name="add" width={14} height={14} /> Neu
-            </button>
+            <Glyph name="add" width={14} height={14} /> Neu
           </a>
         </form>
 
@@ -356,11 +361,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       status,
                     )}
                     data-rmx-target={getSelfFrameTarget()}
-                    mix={table.linkPlain}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
                   >
-                    <button mix={[button({ tone: 'primary' })]}>
-                      <Glyph name="add" width={14} height={14} /> Neu anlegen
-                    </button>
+                    <Glyph name="add" width={14} height={14} /> Neu anlegen
                   </a>
                 </div>
               )}

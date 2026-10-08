@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
@@ -337,11 +337,13 @@ export function Step2(handle: Handle<Step2Props>) {
                   <a
                     href={buildWeekUrl(prevWeekStart)}
                     data-rmx-target={frames.appointmentsNewContent}
-                    mix={css({ textDecoration: 'none' })}
+                    mix={[
+                      css({ textDecoration: 'none' }),
+                      buttonLink({ tone: 'secondary' }),
+                      weekNavBtnCss,
+                    ]}
                   >
-                    <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
-                      ◀ Vorherige
-                    </button>
+                    ◀ Vorherige
                   </a>
                 )}
                 <span
@@ -360,11 +362,13 @@ export function Step2(handle: Handle<Step2Props>) {
                 <a
                   href={buildWeekUrl(nextWeekStart)}
                   data-rmx-target={frames.appointmentsNewContent}
-                  mix={css({ textDecoration: 'none' })}
+                  mix={[
+                    css({ textDecoration: 'none' }),
+                    buttonLink({ tone: 'secondary' }),
+                    weekNavBtnCss,
+                  ]}
                 >
-                  <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
-                    Nächste ▶
-                  </button>
+                  Nächste ▶
                 </a>
               </div>
 
@@ -377,11 +381,9 @@ export function Step2(handle: Handle<Step2Props>) {
                   <a
                     href={buildBackUrl(weekStart)}
                     data-rmx-target={frames.appointmentsNewContent}
-                    mix={table.linkPlain}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
                   >
-                    <button type="button" mix={button({ tone: 'secondary' })}>
-                      Andere Ressource wählen
-                    </button>
+                    Andere Ressource wählen
                   </a>
                 </div>
               ) : (
@@ -464,14 +466,9 @@ export function Step2(handle: Handle<Step2Props>) {
                 <a
                   href={buildBackUrl(weekStart)}
                   data-rmx-target={frames.appointmentsNewContent}
-                  mix={table.linkPlain}
+                  mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), css({ width: '100%' })]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Zurück
-                  </button>
+                  Zurück
                 </a>
                 <a
                   href={buildCancelUrl(
@@ -484,14 +481,14 @@ export function Step2(handle: Handle<Step2Props>) {
                     gridState.status,
                   )}
                   data-rmx-target={frames.appointmentsNewContent}
-                  mix={[table.spacer, table.linkPlain]}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ width: '100%' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
-import button from '../../../ui/theme/button.ts'
+import { buttonLink } from '../../../ui/theme/button.ts'
 import { segmentedButton } from '../../../ui/mixins/segmented.ts'
 import { DarkTheme, Theme } from '../../../theme.tsx'
 import { theme } from '../../../ui/theme/theme.ts'
@@ -10,8 +10,10 @@ import { theme } from '../../../ui/theme/theme.ts'
 // ---------------------------------------------------------------------------
 // Segmented filter groups (period + status) — the CSS-cascade contract.
 //
-// These groups join vendor `button()` mixin buttons: one themed 1px divider per
-// gap, square inner corners, rounded outer edges. `segmentedButton` has to win a
+// These groups style each anchor with the vendor `button()` mixin via
+// `buttonLink` (the page no longer nests a <button> in the <a>, which
+// submitted the surrounding GET filter form): one themed 1px divider per gap,
+// square inner corners, rounded outer edges. `segmentedButton` has to win a
 // cascade-layer contest with the mixin's own non-important `border` shorthand —
 // see the learned delta `remix3-css-and-layout`
 // (`references/cascade-layer-overrides.md`). When that override loses, the
@@ -19,8 +21,8 @@ import { theme } from '../../../ui/theme/theme.ts'
 // doubled divider) in the wrong colour.
 //
 // This is a browser test (no server, no DB): it renders the same
-// button + segmentedButton mix usage the page uses, plus the light/dark theme
-// variables, and asserts the computed styles. What it cannot cover: the
+// buttonLink + segmentedButton mix usage the page uses, plus the light/dark
+// theme variables, and asserts the computed styles. What it cannot cover: the
 // `!important` that makes the outcome hold for *any* sub-layer registration
 // order. Which `rmx.<class>` sub-layer wins depends on render order, so a green
 // run is "not regressed in this render", not proof the important is unnecessary.
@@ -54,15 +56,16 @@ function segmentGroup() {
         let isLast = index === all.length - 1
         let active = value === ''
         return (
-          <a href="#">
-            <button
-              mix={[
-                button({ tone: active ? 'primary' : 'secondary' }),
-                segmentedButton({ isFirst, isLast }),
-              ]}
-            >
-              {value === '' ? 'Alle' : PERIOD_LABELS[value]}
-            </button>
+          <a
+            href="#"
+            data-segment
+            aria-current={active ? 'true' : undefined}
+            mix={[
+              buttonLink({ tone: active ? 'primary' : 'secondary' }),
+              segmentedButton({ isFirst, isLast }),
+            ]}
+          >
+            {value === '' ? 'Alle' : PERIOD_LABELS[value]}
           </a>
         )
       })}
@@ -73,10 +76,10 @@ function segmentGroup() {
 function readSegments() {
   let group = document.querySelector<HTMLElement>('[data-segment-group]')
   if (!group) throw new Error('segment group not rendered')
-  let segments = [...group.querySelectorAll<HTMLButtonElement>('button')]
+  let segments = [...group.querySelectorAll<HTMLAnchorElement>('a[data-segment]')]
   if (segments.length < 3) throw new Error('expected at least three segments')
 
-  let read = (element: HTMLButtonElement): SegmentRead => {
+  let read = (element: HTMLAnchorElement): SegmentRead => {
     let style = getComputedStyle(element)
     return {
       borderLeftWidth: style.borderLeftWidth,

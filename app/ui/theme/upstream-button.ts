@@ -1,4 +1,5 @@
-import { css, type CSSMixinDescriptor } from 'remix/component'
+import { createElement, createMixin, css } from 'remix/component'
+import type { CSSMixinDescriptor, ElementProps, MixinDescriptor } from 'remix/component'
 
 export type ButtonSize = 'md' | 'lg'
 export type ButtonTone = 'neutral' | 'primary' | 'ghost'
@@ -8,7 +9,27 @@ export interface ButtonOptions {
   tone?: ButtonTone
 }
 
-type ButtonMixin = readonly [CSSMixinDescriptor, CSSMixinDescriptor, CSSMixinDescriptor]
+type ButtonMixin = readonly [
+  MixinDescriptor,
+  CSSMixinDescriptor,
+  CSSMixinDescriptor,
+  CSSMixinDescriptor,
+]
+
+// The upstream button mixin (`@remix-run/ui`'s, formerly `remix/ui/button`)
+// defaults a native <button> host to `type="button"` when the caller sets no
+// type. The #11948 vendoring kept only the three CSS descriptors and dropped this
+// attribute mixin, which silently turned every untyped `<button mix={[button()]}>`
+// into an implicit submit button — the root cause of the appointments filter
+// regression (nested-in-anchor buttons started submitting the surrounding form).
+//
+// It is a no-op on non-button hosts, so `buttonLink()` anchors are unaffected.
+const buttonDefaultAttrs = createMixin((handle, hostType) => (props) => {
+  if (hostType !== 'button' || props.type !== undefined) {
+    return handle.element
+  }
+  return createElement(handle.element, { ...props, type: 'button' })
+})()
 
 const baseStyle: CSSMixinDescriptor = css({
   '--rmx-button-shadow': '0 0 0 0 rgba(0, 0, 0, 0)',
@@ -144,7 +165,7 @@ const toneStyles = {
 
 export function button(options: ButtonOptions = {}): ButtonMixin {
   let { size = 'md', tone = 'neutral' } = options
-  return [baseStyle, sizeStyles[size], toneStyles[tone]]
+  return [buttonDefaultAttrs, baseStyle, sizeStyles[size], toneStyles[tone]]
 }
 
 export default button

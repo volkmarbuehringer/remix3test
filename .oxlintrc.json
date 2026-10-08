@@ -81,12 +81,14 @@
       "files": ["**/*.{ts,tsx,js,jsx}"],
       "jsPlugins": [
         "./scripts/oxlint-plugins/prefer-let-locals-plugin.ts",
-        "./scripts/oxlint-plugins/canonical-header-names-plugin.ts"
+        "./scripts/oxlint-plugins/canonical-header-names-plugin.ts",
+        "./scripts/oxlint-plugins/no-nested-interactive-plugin.ts"
       ],
       "rules": {
         "remix-headers/canonical-header-name": "error",
         "remix-style/prefer-const-module-scope": "error",
         "remix-style/prefer-let-locals": "error",
+        "remix-a11y/no-nested-interactive": "error",
         "no-var": "error",
         "arrow-body-style": ["error", "as-needed"],
         "unicorn/no-array-sort": "error",

@@ -3,7 +3,7 @@ import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { segmentedButton } from './mixins/segmented.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { table } from './mixins/admin-table.ts'
@@ -221,6 +221,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     return (
                       <span>
                         <button
+                          type="button"
                           disabled
                           mix={[
                             button({ tone: active ? 'primary' : 'secondary' }),
@@ -237,15 +238,12 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       href={href}
                       data-rmx-target={frames.appointmentsNewContent}
                       aria-current={active ? 'true' : undefined}
+                      mix={[
+                        buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                        segmentedButton({ isFirst, isLast }),
+                      ]}
                     >
-                      <button
-                        mix={[
-                          button({ tone: active ? 'primary' : 'secondary' }),
-                          segmentedButton({ isFirst, isLast }),
-                        ]}
-                      >
-                        {label}
-                      </button>
+                      {label}
                     </a>
                   )
                 },
@@ -280,15 +278,12 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     href={href}
                     data-rmx-target={frames.appointmentsNewContent}
                     aria-current={active ? 'true' : undefined}
+                    mix={[
+                      buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                      segmentedButton({ isFirst, isLast }),
+                    ]}
                   >
-                    <button
-                      mix={[
-                        button({ tone: active ? 'primary' : 'secondary' }),
-                        segmentedButton({ isFirst, isLast }),
-                      ]}
-                    >
-                      {label}
-                    </button>
+                    {label}
                   </a>
                 )
               })}
@@ -297,11 +292,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
             <a
               href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
               data-rmx-target={frames.appointmentsNewContent}
-              mix={table.linkPlain}
+              mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
             >
-              <button mix={[button({ tone: 'primary' })]}>
-                <Glyph name="add" width={14} height={14} /> Neu
-              </button>
+              <Glyph name="add" width={14} height={14} /> Neu
             </a>
           </div>
         </div>
@@ -325,11 +318,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       status,
                     )}
                     data-rmx-target={frames.appointmentsNewContent}
-                    mix={table.linkPlain}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
                   >
-                    <button mix={[button({ tone: 'primary' })]}>
-                      <Glyph name="add" width={14} height={14} /> Ersten Termin anlegen
-                    </button>
+                    <Glyph name="add" width={14} height={14} /> Ersten Termin anlegen
                   </a>
                 </div>
               )}
@@ -642,14 +633,13 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                                 status,
                               )}
                               data-rmx-target={frames.appointmentsNewContent}
-                              mix={table.linkPlain}
+                              mix={[
+                                table.linkPlain,
+                                buttonLink({ tone: 'secondary' }),
+                                css({ width: '100%' }),
+                              ]}
                             >
-                              <button
-                                type="button"
-                                mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                              >
-                                Abbrechen
-                              </button>
+                              Abbrechen
                             </a>
                           </div>
                         </RestfulForm>

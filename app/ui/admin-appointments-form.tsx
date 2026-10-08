@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { animateEntrance } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -333,14 +333,14 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                     period,
                     status,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ width: '100%' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>

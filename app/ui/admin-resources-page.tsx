@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
@@ -134,11 +134,9 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             data-rmx-target={getSelfFrameTarget()}
-            mix={table.linkPlain}
+            mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
           >
-            <button mix={[button({ tone: 'primary' })]}>
-              <Glyph name="add" width={14} height={14} /> Neu anlegen
-            </button>
+            <Glyph name="add" width={14} height={14} /> Neu anlegen
           </a>
         </form>
 
@@ -154,11 +152,9 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   <a
                     href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
                     data-rmx-target={getSelfFrameTarget()}
-                    mix={table.linkPlain}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
                   >
-                    <button mix={[button({ tone: 'primary' })]}>
-                      <Glyph name="add" width={14} height={14} /> Neu anlegen
-                    </button>
+                    <Glyph name="add" width={14} height={14} /> Neu anlegen
                   </a>
                 </div>
               )}
@@ -587,14 +583,14 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                     order,
                     filter,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ width: '100%' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>
@@ -728,14 +724,14 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                     order,
                     filter,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ width: '100%' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>
