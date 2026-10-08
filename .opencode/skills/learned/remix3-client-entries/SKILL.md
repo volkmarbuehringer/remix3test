@@ -1,13 +1,13 @@
 ---
 name: remix3-client-entries
-description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`), and the interactivity runtime: `createRoot`/`run()` lifecycle, custom event mixins, `on(...)`/`handle.update()` cancellation, `navigate`/`link`/`attrs`, optimistic UI, enhanced form submission, keyboard-navigable rich lists, programmatic `maxLength` clamping, finalize-on-complete markdown for streamed chat, and decomposing an over-1,000-line `clientEntry`/`.browser.tsx` into styles/state/API/drag/view modules without behavior change."
+description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`), and the interactivity runtime: `createRoot`/`run()` lifecycle, custom event mixins, `on(...)`/`handle.update()` cancellation, `navigate`/`link`/`attrs`, optimistic UI, enhanced form submission, keyboard-navigable rich lists, programmatic `maxLength` clamping, finalize-on-complete markdown for streamed chat, and decomposing an over-1,000-line `clientEntry`/`.browser.tsx` into styles/state/API/drag/view modules without behavior change, and deduplicating several similar `clientEntry`s behind one shared factory while keeping `clientEntry(...)` at each call site."
 user-invocable: false
 origin: consolidated
 ---
 
 # Remix 3 Client Entry Browser Behaviors
 
-**Consolidated from:** `remix3-queuetask-over-raf`, `remix3-firefox-single-import-map`, `remix3-aria-tabs`, `roving-tabindex-keyboard-lists`, `maxlength-programmatic-value-bypass`, `streamed-chat-markdown-finalize`, `remix3-textarea-bulk-clear-wipe`, `remix3-client-entry-decomposition`
+**Consolidated from:** `remix3-queuetask-over-raf`, `remix3-firefox-single-import-map`, `remix3-aria-tabs`, `roving-tabindex-keyboard-lists`, `maxlength-programmatic-value-bypass`, `streamed-chat-markdown-finalize`, `remix3-textarea-bulk-clear-wipe`, `remix3-client-entry-decomposition`, `remix3-client-entry-factory-extraction`
 
 This skill is the **index** for browser-side deltas that live in a Remix 3 `clientEntry`. For the Frame/entry runtime and `remix/component` component-model APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -24,6 +24,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | Setting an input/textarea value programmatically (chip, autofill, URL prefill) and the `maxLength` cap must still hold | `references/maxlength-programmatic-value-bypass.md` |
 | Streaming agent/LLM text into a chat bubble and rendering markdown only once the stream settles, without `innerHTML` | `references/streamed-chat-markdown-finalize.md` |
 | A `clientEntry` / `.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX and must be split without behavior change | `references/client-entry-decomposition.md` |
+| Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration | `references/client-entry-factory-extraction.md` |
 | Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/textarea-bulk-clear-wipe-history.md` |
 
 ## Core Rules
@@ -74,6 +75,10 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 
 - Extract in order — styles → pure state → network → cohesive DOM subsystem → view — keeping the tree green after each step. The view split's trap: you **cannot** keep reads via destructuring and writes via assignment (`let { title } = view` copies a primitive and writes the local, not the closure) — convert every inline mutation to a setter callback (`view.setTitle(v)`) and every ref that writes closure state to a `view.onXRef(el)` hook. Never slice a block by line offset (numbers shift after any edit) — anchor on unique content and re-read after each write; match the static-import source extension (`.tsx`).
 
+**Deduplicating similar `clientEntry`s with a shared factory (`references/client-entry-factory-extraction.md`)**
+
+- `clientEntry(entryId, component)` only tags the function (`$entry`/`$entryId`); hydration resolves from the id's `#ExportName`, not function identity. Extract the body into a factory but keep `clientEntry(import.meta.url + '#Name', factory({...}))` at each call site — a factory calling `clientEntry` itself points `href` at the wrong module and the export name is absent there. The shared module must be under an allowFiles path. Preserve the select guard, and only `handle.update()` on capture when rendered items depend on the captured row. Direct-render browser tests bypass hydration — verify with an e2e that waits for a hydration marker (`state: 'attached'`; the trigger is invisible).
+
 ## When to Use
 
 - You are building browser behavior in a Remix 3 `clientEntry` and the DOM does not do what the server render implies: an op must wait for `handle.update()`, client entries silently do nothing in Firefox, or same-page panels need to become hash-deep-linked ARIA tabs.
@@ -84,6 +89,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 - You set a `maxLength`-bounded field programmatically (chip click, autofill, URL prefill, draft restore) and the counter can exceed the cap.
 - You stream agent/LLM text into a chat bubble and want markdown rendering in the settled reply without an `innerHTML` XSS risk.
 - A single `clientEntry`/`.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX — see `references/client-entry-decomposition.md` for the extraction order and the view-model setter rule.
+- Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration — see `references/client-entry-factory-extraction.md` (keep `clientEntry(...)` at each call site).
 
 ## Related Skills
 
