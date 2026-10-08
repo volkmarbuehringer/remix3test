@@ -5,6 +5,12 @@ const surface = theme.surface as Record<string, string>
 
 export const table = {
   page: css({ maxWidth: '1000px' }),
+  /**
+   * Page wrapper for the two-column edit/create view. Unlike `page` it does not
+   * cap the width: with a 380px panel the grid column would otherwise fall below
+   * `table`'s fixed min-width and scroll horizontally, hiding the row actions.
+   */
+  pageWide: css({ maxWidth: 'none' }),
   title: css({
     margin: 0,
     fontSize: theme.fontSize.xl,
@@ -424,12 +430,26 @@ export const table = {
   }),
   twoColumn: css({
     display: 'grid',
-    gridTemplateColumns: '1fr 380px',
-    gap: '24px',
+    gridTemplateColumns: 'minmax(0, 1fr) 340px',
+    gap: '20px',
     alignItems: 'start',
-    '@media (max-width: 768px)': {
+    // Below this the grid and panel cannot both fit without the table scrolling,
+    // so stack the panel under the grid instead of clipping its columns.
+    '@media (max-width: 1100px)': {
       gridTemplateColumns: '1fr',
       gap: theme.space.md,
+    },
+  }),
+  /**
+   * Lowers the grid's fixed min-width while the edit/create panel shares the
+   * row. `!important` because this rule and `table`'s min-width land in sibling
+   * `@layer rmx.*` sub-layers where declaration order, not specificity, decides
+   * the winner (same cascade caveat as `mobileCards`). Scoped to >=1101px so it
+   * cannot fight the mobile card layout's `min-width: 0 !important`.
+   */
+  twoColumnGrid: css({
+    '@media (min-width: 1101px)': {
+      '& table': { minWidth: '640px !important' },
     },
   }),
 

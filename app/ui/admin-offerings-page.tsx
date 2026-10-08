@@ -5,6 +5,7 @@ import { rotatedGlyphCss } from './mixins/icon.ts'
 import { segmentedButton } from './mixins/segmented.ts'
 import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { PageSection } from './page-primitives.tsx'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 
@@ -239,6 +240,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     }
 
     let hasFormPanel = !!(editRow || creating)
+    // Any right-hand panel (edit/create/config/add-week) shares the two-column row.
+    let hasSidePanel = !!(editRow || creating || configResourceId || addWeek)
 
     // Derive the page size from the server-computed next offset so the footer can
     // show "Seite N" without another prop.
@@ -260,7 +263,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     }
 
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasSidePanel ? table.twoColumnGrid : undefined]}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
@@ -762,68 +765,74 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     )
 
     // Two-column layout when editing, creating, configuring, or adding a week
-    if (editRow || creating || configResourceId || addWeek) {
+    if (hasSidePanel) {
       return (
-        <div mix={table.page}>
-          <div mix={table.twoColumn}>
-            {gridSection}
-            <div mix={table.stickyPanel}>
-              {editRow ? (
-                <AdminOfferingsEditPage
-                  row={editRow}
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  period={period}
-                  status={status}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                  formError={formError}
-                />
-              ) : creating ? (
-                <AdminOfferingsCreatePage
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  period={period}
-                  status={status}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                  formError={formError}
-                />
-              ) : configResourceId ? (
-                <AdminOfferingsConfigPage
-                  resources={resources}
-                  config={offeringConfig}
-                  resourceId={configResourceId}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter ?? ''}
-                  period={period ?? ''}
-                  status={status ?? ''}
-                />
-              ) : addWeek ? (
-                <AdminOfferingsWeekPage
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter ?? ''}
-                  period={period ?? ''}
-                  status={status ?? ''}
-                />
-              ) : null}
+        <PageSection title="Angebote" description="Angebote und Buchungszeiträume verwalten.">
+          <div mix={table.pageWide}>
+            <div mix={table.twoColumn}>
+              {gridSection}
+              <div mix={table.stickyPanel}>
+                {editRow ? (
+                  <AdminOfferingsEditPage
+                    row={editRow}
+                    resources={resources}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    period={period}
+                    status={status}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                    formError={formError}
+                  />
+                ) : creating ? (
+                  <AdminOfferingsCreatePage
+                    resources={resources}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    period={period}
+                    status={status}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                    formError={formError}
+                  />
+                ) : configResourceId ? (
+                  <AdminOfferingsConfigPage
+                    resources={resources}
+                    config={offeringConfig}
+                    resourceId={configResourceId}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter ?? ''}
+                    period={period ?? ''}
+                    status={status ?? ''}
+                  />
+                ) : addWeek ? (
+                  <AdminOfferingsWeekPage
+                    resources={resources}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter ?? ''}
+                    period={period ?? ''}
+                    status={status ?? ''}
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        </PageSection>
       )
     }
 
-    return <div mix={table.page}>{gridSection}</div>
+    return (
+      <PageSection title="Angebote" description="Angebote und Buchungszeiträume verwalten.">
+        <div mix={table.page}>{gridSection}</div>
+      </PageSection>
+    )
   }
 }

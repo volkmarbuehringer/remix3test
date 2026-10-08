@@ -9,7 +9,7 @@ import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 
 interface LayoutProps {
   children?: RemixNode
-  title?: string
+  title?: string | undefined
 }
 
 export function Layout(handle: Handle<LayoutProps>) {

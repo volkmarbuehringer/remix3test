@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { PageSection } from './page-primitives.tsx'
 import { animateEntrance } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -25,6 +26,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
+import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { AdminResourcesContextMenu } from '../actions/admin/public/admin-resources-context-menu.tsx'
 
@@ -105,9 +107,13 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
         <ConfirmDelete />
-        {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+        {!hasFormPanel && formError ? (
+          <div mix={table.errorBanner} role="alert">
+            {formError}
+          </div>
+        ) : null}
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -141,7 +147,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={table.wrap} data-resources-table="true">
+        <div mix={[table.wrap, table.mobileCards]} data-resources-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -261,19 +267,27 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
                     data-row-id={row.id}
                   >
-                    <td mix={table.td} title={row.name ?? ''}>
+                    <td mix={table.td} data-label="Name" title={row.name ?? ''}>
                       {row.name ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.description}>
+                    <td mix={table.td} data-label="Beschreibung" title={row.description}>
                       {row.description}
                     </td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at as number)}>
+                    <td
+                      mix={table.td}
+                      data-label="Erstellt"
+                      title={formatTimestamp(row.created_at as number)}
+                    >
                       {formatTimestamp(row.created_at as number)}
                     </td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>
+                    <td
+                      mix={table.td}
+                      data-label="Aktualisiert"
+                      title={formatTimestamp(row.updated_at as number)}
+                    >
                       {formatTimestamp(row.updated_at as number)}
                     </td>
-                    <td mix={table.actionCell}>
+                    <td mix={table.actionCell} data-label="Aktionen">
                       <div mix={rowActionsStyle}>
                         <a
                           href={buildEditUrl(
@@ -416,37 +430,43 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     // Two-column layout when editing or creating
     if (editRow || creating) {
       return (
-        <div mix={table.page}>
-          <div mix={table.twoColumn}>
-            {gridSection}
-            <div mix={table.stickyPanel}>
-              {editRow ? (
-                <AdminResourcesEditPanel
-                  row={editRow}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                />
-              ) : (
-                <AdminResourcesCreatePanel
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                />
-              )}
+        <PageSection title="Ressourcen" description="Ressourcen anlegen und verwalten.">
+          <div mix={table.pageWide}>
+            <div mix={table.twoColumn}>
+              {gridSection}
+              <div mix={table.stickyPanel}>
+                {editRow ? (
+                  <AdminResourcesEditPanel
+                    row={editRow}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                  />
+                ) : (
+                  <AdminResourcesCreatePanel
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </PageSection>
       )
     }
 
-    return <div mix={table.page}>{gridSection}</div>
+    return (
+      <PageSection title="Ressourcen" description="Ressourcen anlegen und verwalten.">
+        <div mix={table.page}>{gridSection}</div>
+      </PageSection>
+    )
   }
 }
 
@@ -489,6 +509,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -504,11 +525,13 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   id="ar-name"
                   name="name"
                   type="text"
+                  aria-invalid={nameError ? 'true' : undefined}
                   value={nameValue}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
                 {nameError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -528,11 +551,13 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   id="ar-desc"
                   name="description"
                   type="text"
+                  aria-invalid={descError ? 'true' : undefined}
                   value={descValue}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
                 {descError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -552,6 +577,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   id="ar-caps"
                   name="capabilities"
                   rows={4}
+                  aria-invalid={capsError ? 'true' : undefined}
                   value={capsValue}
                   mix={[
                     input.base,
@@ -562,6 +588,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 />
                 {capsError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -628,6 +655,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -644,11 +672,13 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="name"
                   type="text"
                   required
+                  aria-invalid={nameError ? 'true' : undefined}
                   defaultValue={formValues?.name ?? ''}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
                 {nameError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -669,11 +699,13 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="description"
                   type="text"
                   required
+                  aria-invalid={descError ? 'true' : undefined}
                   defaultValue={formValues?.description ?? ''}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
                 {descError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -693,6 +725,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   id="ar-caps-c"
                   name="capabilities"
                   rows={4}
+                  aria-invalid={capsError ? 'true' : undefined}
                   defaultValue={formValues?.capabilities ?? ''}
                   mix={[
                     input.base,
@@ -703,6 +736,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 />
                 {capsError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,

@@ -11,7 +11,9 @@ export default createController(routes.verwaltung, {
   actions: {
     async index(context) {
       let stats = await countDashboardStats(context.db)
-      return renderVerwaltungPage(context.render, <VerwaltungDashboardContent stats={stats} />)
+      return renderVerwaltungPage(context.render, <VerwaltungDashboardContent stats={stats} />, {
+        title: 'Übersicht – Verwaltung',
+      })
     },
   },
 })

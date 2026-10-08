@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { PageSection } from './page-primitives.tsx'
 import { animateEntrance } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -28,6 +29,7 @@ import type {
 } from '../data/offering-configs-queries.ts'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
+import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
 
@@ -230,9 +232,13 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
         <ConfirmDelete />
-        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+        {formError ? (
+          <div mix={table.errorBanner} role="alert">
+            {formError}
+          </div>
+        ) : null}
         <form
           method="GET"
           action={routes.verwaltung.offeringConfigs.index.href()}
@@ -264,7 +270,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           </a>
         </form>
 
-        <div mix={table.wrap} data-offering-configs-table="true">
+        <div mix={[table.wrap, table.mobileCards]} data-offering-configs-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -351,19 +357,31 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
                     data-row-id={row.id}
                   >
-                    <td mix={table.td} title={row.resource_name ?? ''}>
+                    <td mix={table.td} data-label="Ressource" title={row.resource_name ?? ''}>
                       {row.resource_name ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>
+                    <td
+                      mix={table.td}
+                      data-label="Beschreibung"
+                      title={row.resource_description ?? ''}
+                    >
                       {row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>
+                    <td
+                      mix={[table.td, css({ fontSize: '11px' })]}
+                      data-label="Regeln"
+                      title={rulesSummary(row.rules)}
+                    >
                       {rulesSummary(row.rules)}
                     </td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>
+                    <td
+                      mix={table.td}
+                      data-label="Aktualisiert"
+                      title={formatTimestamp(row.updated_at)}
+                    >
                       {formatTimestamp(row.updated_at)}
                     </td>
-                    <td mix={table.actionCell}>
+                    <td mix={table.actionCell} data-label="Aktionen">
                       <div mix={rowActionsStyle}>
                         <a
                           href={buildEditUrl(
@@ -484,39 +502,51 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
     if (editRow || creating) {
       return (
-        <div mix={table.page}>
-          <div mix={table.twoColumn}>
-            {gridSection}
-            <div mix={table.stickyPanel}>
-              {editRow ? (
-                <EditPanel
-                  row={editRow}
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                />
-              ) : (
-                <CreatePanel
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                />
-              )}
+        <PageSection
+          title="Angebotskonfigurationen"
+          description="Zeitraster-Konfigurationen für Ressourcen."
+        >
+          <div mix={table.pageWide}>
+            <div mix={table.twoColumn}>
+              {gridSection}
+              <div mix={table.stickyPanel}>
+                {editRow ? (
+                  <EditPanel
+                    row={editRow}
+                    resources={resources}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                  />
+                ) : (
+                  <CreatePanel
+                    resources={resources}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </PageSection>
       )
     }
 
-    return <div mix={table.page}>{gridSection}</div>
+    return (
+      <PageSection
+        title="Angebotskonfigurationen"
+        description="Zeitraster-Konfigurationen für Ressourcen."
+      >
+        <div mix={table.page}>{gridSection}</div>
+      </PageSection>
+    )
   }
 }
 
@@ -557,6 +587,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
           action={routes.verwaltung.offeringConfigs.update.href({ id: row.id })}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -571,6 +602,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <select
                   id="oc-resource"
                   name="resource_id"
+                  aria-invalid={resourceError ? 'true' : undefined}
                   mix={[
                     input.base,
                     input.focus,
@@ -586,6 +618,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 </select>
                 {resourceError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,
@@ -679,6 +712,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
       >
         <RestfulForm method="POST" action={routes.verwaltung.offeringConfigs.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -694,6 +728,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                   id="oc-resource-c"
                   name="resource_id"
                   required
+                  aria-invalid={resourceError ? 'true' : undefined}
                   mix={[
                     input.base,
                     input.focus,
@@ -712,6 +747,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 </select>
                 {resourceError ? (
                   <div
+                    role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
                       fontSize: theme.fontSize.xs,

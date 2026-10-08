@@ -361,9 +361,9 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
     return (
       <div mix={table.page}>
         <div mix={titleBar}>
-          <h2 mix={table.title}>
+          <h1 mix={table.title}>
             Monatsauswertung — {monthNameDE(state.month)} {state.year}
-          </h2>
+          </h1>
           {/* data-rmx-document: the PDF must download via a native document
               navigation or the frame runtime fetches it and swallows the file. */}
           <a href={pdfUrl(state)} data-rmx-document mix={[table.searchBtn, table.linkPlain]}>

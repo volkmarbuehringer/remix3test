@@ -226,7 +226,7 @@ function renderOfferingsPage(
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
-    init,
+    { init, title: 'Angebote – Verwaltung' },
   )
 }
 

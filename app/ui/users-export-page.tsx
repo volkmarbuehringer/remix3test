@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
+import { PageSection } from './page-primitives.tsx'
 
 interface UsersExportPageProps {
   /** Per-field validation errors keyed by input name. */
@@ -14,12 +15,6 @@ interface UsersExportPageProps {
 
 const pageStyle = css({
   maxWidth: '640px',
-})
-
-const descStyle = css({
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-  marginBottom: '1rem',
 })
 
 const formStyle = css({
@@ -87,60 +82,66 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
     let p = handle.props
 
     return (
-      <div mix={pageStyle}>
-        <p mix={descStyle}>
-          Wählen Sie einen Zeitraum aus, um alle Benutzer mit Terminen in diesem Zeitraum als PDF zu
-          exportieren.
-        </p>
+      <PageSection
+        title="Benutzer-Export"
+        description="Wählen Sie einen Zeitraum aus, um alle Benutzer mit Terminen in diesem Zeitraum als PDF zu exportieren."
+      >
+        <div mix={pageStyle}>
+          {p.notice && <div mix={noticeStyle}>{p.notice}</div>}
 
-        {p.notice && <div mix={noticeStyle}>{p.notice}</div>}
-
-        {/* data-rmx-document: the PDF download must bypass frame interception
+          {/* data-rmx-document: the PDF download must bypass frame interception
             and submit as a native document navigation, or the frame runtime
             fetches it and swallows the attachment response. */}
-        <form
-          method="GET"
-          action={routes.verwaltung.usersExport.index.href()}
-          data-rmx-document
-          mix={formStyle}
-        >
-          <div mix={fieldRowStyle}>
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="startDate">
-                Startdatum
-              </label>
-              <input
-                id="startDate"
-                name="startDate"
-                type="date"
-                value={p.startDate ?? ''}
-                mix={inputStyle}
-                required
-              />
-              {p.fieldErrors?.startDate && (
-                <div mix={fieldErrorStyle}>{p.fieldErrors.startDate}</div>
-              )}
+          <form
+            method="GET"
+            action={routes.verwaltung.usersExport.index.href()}
+            data-rmx-document
+            mix={formStyle}
+          >
+            <div mix={fieldRowStyle}>
+              <div mix={fieldGroupStyle}>
+                <label mix={labelStyle} htmlFor="startDate">
+                  Startdatum
+                </label>
+                <input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  value={p.startDate ?? ''}
+                  mix={inputStyle}
+                  required
+                />
+                {p.fieldErrors?.startDate && (
+                  <div mix={fieldErrorStyle} role="alert">
+                    {p.fieldErrors.startDate}
+                  </div>
+                )}
+              </div>
+              <div mix={fieldGroupStyle}>
+                <label mix={labelStyle} htmlFor="endDate">
+                  Enddatum
+                </label>
+                <input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  value={p.endDate ?? ''}
+                  mix={inputStyle}
+                  required
+                />
+                {p.fieldErrors?.endDate && (
+                  <div mix={fieldErrorStyle} role="alert">
+                    {p.fieldErrors.endDate}
+                  </div>
+                )}
+              </div>
             </div>
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="endDate">
-                Enddatum
-              </label>
-              <input
-                id="endDate"
-                name="endDate"
-                type="date"
-                value={p.endDate ?? ''}
-                mix={inputStyle}
-                required
-              />
-              {p.fieldErrors?.endDate && <div mix={fieldErrorStyle}>{p.fieldErrors.endDate}</div>}
-            </div>
-          </div>
-          <button type="submit" mix={submitStyle}>
-            PDF erstellen
-          </button>
-        </form>
-      </div>
+            <button type="submit" mix={submitStyle}>
+              PDF erstellen
+            </button>
+          </form>
+        </div>
+      </PageSection>
     )
   }
 }

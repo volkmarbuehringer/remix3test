@@ -1,6 +1,7 @@
 import { css, type Handle } from 'remix/component'
 import { Glyph, type GlyphName } from '../ui/theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
+import { PageSection } from './page-primitives.tsx'
 
 import { routes } from '../routes.ts'
 import type { DashboardStats } from '../data/admin-dashboard.ts'
@@ -9,12 +10,19 @@ interface VerwaltungDashboardContentProps {
   stats?: DashboardStats
 }
 
+interface Badge {
+  text: string
+  danger?: boolean
+  /** When set the badge is its own link, e.g. "16 abgelaufen" -> ?status=expired */
+  href?: string
+}
+
 interface NavCardProps {
   icon: GlyphName
   title: string
   desc: string
   href: string
-  badges?: Array<{ text: string; danger?: boolean }>
+  badges?: Badge[]
 }
 
 const cardBaseCss = {
@@ -22,29 +30,37 @@ const cardBaseCss = {
   borderRadius: theme.radius.lg,
   padding: '1.25rem',
   boxShadow: theme.shadow.sm,
-  border: `1px solid ${theme.colors.border.default}`,
+  border: '1px solid ' + theme.colors.border.default,
 }
 
 const cardStyle = css(cardBaseCss)
 
 /**
- * Whole-card navigation link. The entire card is the hit target (matching the
- * button-only affordance before, but with a larger, more scannable surface).
+ * Interactive navigation card. The whole surface stays clickable, but the card
+ * itself is a <div>: a transparent overlay <a> (labelled with the title) covers
+ * it. That is what lets the count badges be independent links — nesting them
+ * inside a whole-card <a> would emit invalid interactive content.
  */
-const cardLinkStyle = css({
+const cardNavStyle = css({
   ...cardBaseCss,
+  position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  color: 'inherit',
-  textDecoration: 'none',
   transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: theme.shadow.md,
     borderColor: theme.colors.action.primary.background,
   },
+})
+
+const cardOverlayStyle = css({
+  position: 'absolute',
+  inset: 0,
+  zIndex: 0,
+  borderRadius: theme.radius.lg,
   '&:focus-visible': {
-    outline: `2px solid ${theme.colors.action.primary.background}`,
+    outline: '2px solid ' + theme.colors.action.primary.background,
     outlineOffset: '2px',
   },
 })
@@ -73,6 +89,8 @@ const cardDescStyle = css({
 })
 
 const countStyle = css({
+  position: 'relative',
+  zIndex: 1,
   display: 'inline-flex',
   alignItems: 'center',
   gap: theme.space.xs,
@@ -101,6 +119,11 @@ const countExpiredStyle = css({
   fontWeight: 600,
 })
 
+const badgeLinkStyle = css({
+  textDecoration: 'none',
+  '&:hover': { textDecoration: 'underline' },
+})
+
 const cardActionStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
@@ -116,7 +139,6 @@ const toolbarStyle = css({
   flexWrap: 'wrap',
   alignItems: 'center',
   gap: theme.space.md,
-  marginBottom: theme.space.lg,
 })
 
 const searchFormStyle = css({
@@ -130,7 +152,7 @@ const searchInputStyle = css({
   flex: 1,
   padding: '0.5rem 0.75rem',
   fontSize: '0.875rem',
-  border: `1px solid ${theme.colors.border.default}`,
+  border: '1px solid ' + theme.colors.border.default,
   borderRadius: theme.radius.md,
   background: theme.surface.lvl1,
   color: theme.colors.text.primary,
@@ -138,7 +160,7 @@ const searchInputStyle = css({
   '&:focus-visible': {
     outline: 'none',
     borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.action.primary.background}`,
+    boxShadow: '0 0 0 2px ' + theme.colors.action.primary.background,
   },
 })
 
@@ -173,13 +195,92 @@ const quickCreateStyle = css({
   '&:hover': { background: theme.colors.action.primary.backgroundHover },
 })
 
+// ── KPI tiles (mirrors the /admin dashboard strip) ──
+
+const kpiGridStyle = css({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gap: theme.space.md,
+})
+
+const kpiTileStyle = css({
+  ...cardBaseCss,
+  padding: theme.space.lg,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
+})
+
+const kpiTileLinkStyle = css({
+  ...cardBaseCss,
+  padding: theme.space.lg,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
+  color: 'inherit',
+  textDecoration: 'none',
+  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: theme.shadow.md,
+    borderColor: theme.colors.action.primary.background,
+  },
+  '&:focus-visible': {
+    outline: '2px solid ' + theme.colors.action.primary.background,
+    outlineOffset: '2px',
+  },
+})
+
+const kpiLabelStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  fontWeight: theme.fontWeight.medium,
+})
+
+const kpiValueStyle = css({
+  fontSize: '1.625rem',
+  fontWeight: theme.fontWeight.bold,
+  color: theme.colors.text.primary,
+  fontVariantNumeric: 'tabular-nums',
+  lineHeight: theme.lineHeight.tight,
+})
+
+const kpiHintStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const kpiValueDangerStyle = css({
+  color: theme.colors.action.danger.background,
+})
+
+const kpiValueSuccessStyle = css({
+  color: theme.colors.success.foreground,
+})
+
+const navGridStyle = css({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gap: theme.space.xl,
+  alignItems: 'start',
+})
+
+const sectionLabelStyle = css({
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  textTransform: 'uppercase',
+  letterSpacing: theme.letterSpacing.meta,
+  color: theme.colors.text.muted,
+  margin: 0,
+})
+
 const exportRowStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: theme.space.md,
-  padding: `${theme.space.sm} 0`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
+  padding: theme.space.sm + ' 0',
+  borderBottom: '1px solid ' + theme.colors.border.default,
   '&:last-child': { borderBottom: 'none' },
 })
 
@@ -207,12 +308,13 @@ function formatCount(n: number): string {
   return n.toLocaleString('de-DE')
 }
 
-/** A single navigation destination rendered as a fully clickable card. */
+/** A single navigation destination rendered as an interactive card. */
 function NavCard(handle: Handle<NavCardProps>) {
   return () => {
     let { icon, title, desc, href, badges } = handle.props
     return (
-      <a href={href} mix={cardLinkStyle}>
+      <div mix={cardNavStyle}>
+        <a href={href} aria-label={title} mix={cardOverlayStyle} />
         <span mix={titleRowStyle}>
           <Glyph name={icon} width={20} height={20} mix={iconStyle} />
           <h2 mix={cardTitleStyle}>{title}</h2>
@@ -220,18 +322,56 @@ function NavCard(handle: Handle<NavCardProps>) {
         <p mix={cardDescStyle}>{desc}</p>
         {badges && badges.length > 0 ? (
           <div mix={countStyle}>
-            {badges.map((b) => (
-              <span key={b.text} mix={b.danger ? countExpiredStyle : countBadgeStyle}>
-                {b.text}
-              </span>
-            ))}
+            {badges.map((b) => {
+              let badgeMix = b.danger ? countExpiredStyle : countBadgeStyle
+              return b.href ? (
+                <a key={b.text} href={b.href} mix={[badgeMix, badgeLinkStyle]}>
+                  {b.text}
+                </a>
+              ) : (
+                <span key={b.text} mix={badgeMix}>
+                  {b.text}
+                </span>
+              )
+            })}
           </div>
         ) : null}
         <span mix={cardActionStyle}>
           Öffnen
           <Glyph name="arrowRight" width={14} height={14} />
         </span>
+      </div>
+    )
+  }
+}
+
+interface KpiTileProps {
+  label: string
+  value: string
+  hint?: string
+  kind?: 'normal' | 'danger' | 'success'
+  href?: string
+}
+
+/** A single at-a-glance figure; links to its section when actionable. */
+function KpiTile(handle: Handle<KpiTileProps>) {
+  return () => {
+    let { label, value, hint, kind, href } = handle.props
+    let valueClass =
+      kind === 'danger' ? kpiValueDangerStyle : kind === 'success' ? kpiValueSuccessStyle : null
+    let body = (
+      <>
+        <div mix={kpiLabelStyle}>{label}</div>
+        <div mix={[kpiValueStyle, valueClass].filter(Boolean)}>{value}</div>
+        {hint ? <div mix={kpiHintStyle}>{hint}</div> : null}
+      </>
+    )
+    return href ? (
+      <a href={href} mix={kpiTileLinkStyle}>
+        {body}
       </a>
+    ) : (
+      <div mix={kpiTileStyle}>{body}</div>
     )
   }
 }
@@ -245,14 +385,20 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
     let resources = formatCount(stats?.resources ?? 0)
     let configs = formatCount(stats?.offeringConfigs ?? 0)
 
+    let appointments = routes.verwaltung.appointments.index.href()
+    let pendingUrl = appointments + '?status=pending'
+    let expiredUrl = appointments + '?status=expired'
+    let offeringsUrl = routes.verwaltung.offerings.index.href()
+    let resourcesUrl = routes.verwaltung.resources.index.href()
+    let configsUrl = routes.verwaltung.offeringConfigs.index.href()
+
     return (
-      <div>
+      <PageSection
+        title="Verwaltung"
+        description="Überblick über Termine, Angebote und Ressourcen."
+      >
         <div mix={toolbarStyle}>
-          <form
-            method="GET"
-            action={routes.verwaltung.appointments.index.href()}
-            mix={searchFormStyle}
-          >
+          <form method="GET" action={appointments} mix={searchFormStyle}>
             <input
               type="search"
               name="filter"
@@ -271,21 +417,52 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
           </a>
         </div>
 
-        <div
-          mix={css({
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: theme.space.xl,
-          })}
-        >
+        <div mix={kpiGridStyle}>
+          <KpiTile
+            label="Ausstehende Termine"
+            value={pending}
+            kind="success"
+            hint="ab heute"
+            href={pendingUrl}
+          />
+          <KpiTile
+            label="Abgelaufene Termine"
+            value={expired}
+            kind="danger"
+            hint="vor heute"
+            href={expiredUrl}
+          />
+          <KpiTile
+            label="Angebote"
+            value={offerings}
+            hint="Buchungszeiträume"
+            href={offeringsUrl}
+          />
+          <KpiTile
+            label="Ressourcen"
+            value={resources}
+            hint="verfügbare Ressourcen"
+            href={resourcesUrl}
+          />
+          <KpiTile
+            label="Konfigurationen"
+            value={configs}
+            hint="Zeitraster-Regeln"
+            href={configsUrl}
+          />
+        </div>
+
+        <p mix={sectionLabelStyle}>Schnellzugriff</p>
+
+        <div mix={navGridStyle}>
           <NavCard
             icon="calendar"
             title="Termine"
             desc="Termine und Buchungen verwalten."
-            href={routes.verwaltung.appointments.index.href()}
+            href={appointments}
             badges={[
-              { text: `${pending} ausstehend` },
-              { text: `${expired} abgelaufen`, danger: true },
+              { text: pending + ' ausstehend', href: pendingUrl },
+              { text: expired + ' abgelaufen', danger: true, href: expiredUrl },
             ]}
           />
 
@@ -293,24 +470,24 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
             icon="clock"
             title="Angebote"
             desc="Angebote und Buchungszeiträume verwalten."
-            href={routes.verwaltung.offerings.index.href()}
-            badges={[{ text: `${offerings} Buchungszeiträume` }]}
+            href={offeringsUrl}
+            badges={[{ text: offerings + ' Buchungszeiträume', href: offeringsUrl }]}
           />
 
           <NavCard
             icon="cog"
             title="Ressourcen"
             desc="Ressourcen anlegen und verwalten."
-            href={routes.verwaltung.resources.index.href()}
-            badges={[{ text: `${resources} Ressourcen` }]}
+            href={resourcesUrl}
+            badges={[{ text: resources + ' Ressourcen', href: resourcesUrl }]}
           />
 
           <NavCard
             icon="edit"
             title="Angebotskonfigurationen"
             desc="Zeitraster-Konfigurationen für Ressourcen."
-            href={routes.verwaltung.offeringConfigs.index.href()}
-            badges={[{ text: `${configs} konfiguriert` }]}
+            href={configsUrl}
+            badges={[{ text: configs + ' konfiguriert', href: configsUrl }]}
           />
 
           <NavCard
@@ -365,7 +542,7 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
             </div>
           </div>
         </div>
-      </div>
+      </PageSection>
     )
   }
 }

@@ -5,6 +5,7 @@ import { rotatedGlyphCss } from './mixins/icon.ts'
 import { segmentedButton } from './mixins/segmented.ts'
 import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { PageSection } from './page-primitives.tsx'
 
 import { table } from './mixins/admin-table.ts'
 import {
@@ -185,10 +186,18 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
 
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
         <ConfirmDelete />
-        {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
-        {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
+        {!hasFormPanel && formError ? (
+          <div mix={table.errorBanner} role="alert">
+            {formError}
+          </div>
+        ) : null}
+        {!hasFormPanel && error ? (
+          <div mix={table.errorBanner} role="alert">
+            {error}
+          </div>
+        ) : null}
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
@@ -333,7 +342,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         </form>
 
         {/* Table */}
-        <div mix={table.wrap} data-appointments-table="true">
+        <div mix={[table.wrap, table.mobileCards]} data-appointments-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
@@ -555,37 +564,50 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
                     data-row-id={row.id}
                   >
-                    <td mix={table.td} title={row.title}>
+                    <td mix={table.td} data-label="Titel" title={row.title}>
                       {row.title}
                     </td>
-                    <td mix={table.td} title={row.user_email ?? ''}>
+                    <td mix={table.td} data-label="E-Mail" title={row.user_email ?? ''}>
                       {row.user_email ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.resource_description ?? row.resource_name ?? ''}>
+                    <td
+                      mix={table.td}
+                      data-label="Ressource"
+                      title={row.resource_description ?? row.resource_name ?? ''}
+                    >
                       {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={formatDate(row.date)}>
+                    <td mix={table.td} data-label="Datum" title={formatDate(row.date)}>
                       <span mix={dateCellStyle}>
-                        <span
-                          mix={[
-                            table.statusBadge,
-                            Number(row.date) < todayMidnight
-                              ? table.statusBadgeDisabled
-                              : table.statusBadgeActive,
-                          ]}
-                        >
-                          {Number(row.date) < todayMidnight ? 'Abgelaufen' : 'Ausstehend'}
-                        </span>
+                        {/* The badge only adds information when no status filter
+                            is applied; otherwise every row repeats the active
+                            filter and the badge eats the date column. */}
+                        {status === 'all' ? (
+                          <span
+                            mix={[
+                              table.statusBadge,
+                              Number(row.date) < todayMidnight
+                                ? table.statusBadgeDisabled
+                                : table.statusBadgeActive,
+                            ]}
+                          >
+                            {Number(row.date) < todayMidnight ? 'Abgelaufen' : 'Ausstehend'}
+                          </span>
+                        ) : null}
                         {formatDate(row.date)}
                       </span>
                     </td>
-                    <td mix={table.td} title={row.during}>
+                    <td mix={table.td} data-label="Zeit" title={row.during}>
                       {formatDuring(row.during)}
                     </td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>
+                    <td
+                      mix={table.td}
+                      data-label="Aktualisiert"
+                      title={formatTimestamp(row.updated_at)}
+                    >
                       {formatTimestamp(row.updated_at)}
                     </td>
-                    <td mix={table.actionCell}>
+                    <td mix={table.actionCell} data-label="Aktionen">
                       <div mix={rowActionsStyle}>
                         <a
                           href={buildEditUrl(
@@ -712,69 +734,77 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       </div>
     )
 
+    let connection = (
+      <div mix={headerBarStyle}>
+        <ConnectionIndicator
+          url={routes.verwaltung.appointments.events.href()}
+          reloadMode="frame"
+          skipReloadParams={['editing', 'creating']}
+        />
+      </div>
+    )
+
     // Two-column layout when editing or creating
     if (editRow || creating) {
       return (
-        <div mix={table.page}>
-          <div mix={headerBarStyle}>
-            <ConnectionIndicator
-              url={routes.verwaltung.appointments.events.href()}
-              reloadMode="frame"
-              skipReloadParams={['editing', 'creating']}
-            />
-          </div>
-          <div mix={table.twoColumn}>
-            {gridSection}
-            <div mix={table.stickyPanel}>
-              {editRow ? (
-                <AdminAppointmentsEditPage
-                  row={editRow}
-                  resources={resources}
-                  users={users}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  period={period}
-                  status={status}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                  formError={formError}
-                />
-              ) : creating ? (
-                <AdminAppointmentsCreatePage
-                  resources={resources}
-                  users={users}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  period={period}
-                  status={status}
-                  defaultStartMin={defaultStartMin}
-                  defaultEndMin={defaultEndMin}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                  formError={formError}
-                />
-              ) : null}
+        <PageSection
+          title="Termine"
+          description="Termine und Buchungen verwalten, bearbeiten und exportieren."
+        >
+          <div mix={table.pageWide}>
+            {connection}
+            <div mix={table.twoColumn}>
+              {gridSection}
+              <div mix={table.stickyPanel}>
+                {editRow ? (
+                  <AdminAppointmentsEditPage
+                    row={editRow}
+                    resources={resources}
+                    users={users}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    period={period}
+                    status={status}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                    formError={formError}
+                  />
+                ) : creating ? (
+                  <AdminAppointmentsCreatePage
+                    resources={resources}
+                    users={users}
+                    offset={String(offset)}
+                    sort={sortColumn}
+                    order={sortDirection}
+                    filter={filter}
+                    period={period}
+                    status={status}
+                    defaultStartMin={defaultStartMin}
+                    defaultEndMin={defaultEndMin}
+                    formValues={formValues}
+                    fieldErrors={fieldErrors}
+                    formError={formError}
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        </PageSection>
       )
     }
 
     return (
-      <div mix={table.page}>
-        <div mix={headerBarStyle}>
-          <ConnectionIndicator
-            url={routes.verwaltung.appointments.events.href()}
-            reloadMode="frame"
-            skipReloadParams={['editing', 'creating']}
-          />
+      <PageSection
+        title="Termine"
+        description="Termine und Buchungen verwalten, bearbeiten und exportieren."
+      >
+        <div mix={table.page}>
+          {connection}
+          {gridSection}
         </div>
-        {gridSection}
-      </div>
+      </PageSection>
     )
   }
 }

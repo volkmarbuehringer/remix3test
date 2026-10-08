@@ -166,7 +166,7 @@ function renderReport1Page(
       selectedUserId={data.selectedUserId}
       users={data.users}
     />,
-    init,
+    { init, title: 'Monatsauswertung – Verwaltung' },
   )
 }
 

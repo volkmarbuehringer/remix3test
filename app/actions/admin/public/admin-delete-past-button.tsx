@@ -1,5 +1,6 @@
 import { clientEntry, on, type Handle } from 'remix/component'
 import button from '../../../ui/theme/button.ts'
+import { requestConfirm } from '../../../ui/confirm-delete.browser.tsx'
 
 interface DeletePastButtonProps {
   csrfToken: string
@@ -22,31 +23,38 @@ export const DeletePastButton = clientEntry(
 
       let clickHandler = on<HTMLButtonElement>('click', () => {
         let noun = pastCount === 1 ? 'vergangenes Angebot' : 'vergangene Angebote'
-        if (!confirm(`Wirklich ${pastCount} ${noun} löschen?`)) return
+        let message = 'Wirklich ' + pastCount + ' ' + noun + ' löschen?'
 
-        let form = document.createElement('form')
-        form.method = 'POST'
-        form.action = deletePastHref
+        let runDelete = () => {
+          let form = document.createElement('form')
+          form.method = 'POST'
+          form.action = deletePastHref
 
-        let addField = (name: string, value: string) => {
-          let input = document.createElement('input')
-          input.type = 'hidden'
-          input.name = name
-          input.value = value
-          form.appendChild(input)
+          let addField = (name: string, value: string) => {
+            let input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = name
+            input.value = value
+            form.appendChild(input)
+          }
+
+          addField('_csrf', csrfToken)
+          addField('_offset', offset)
+          addField('_sort', sort)
+          addField('_order', order)
+          addField('_filter', filter)
+          addField('_period', period)
+          if (status) addField('_status', status)
+
+          document.body.appendChild(form)
+          form.submit()
+          form.remove()
         }
 
-        addField('_csrf', csrfToken)
-        addField('_offset', offset)
-        addField('_sort', sort)
-        addField('_order', order)
-        addField('_filter', filter)
-        addField('_period', period)
-        if (status) addField('_status', status)
-
-        document.body.appendChild(form)
-        form.submit()
-        form.remove()
+        // Prefer the grid's styled dialog; fall back to window.confirm when none.
+        if (requestConfirm({ message, onConfirm: runDelete })) return
+        if (!confirm(message)) return
+        runDelete()
       })
 
       return (

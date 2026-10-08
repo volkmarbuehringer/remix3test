@@ -5,6 +5,7 @@ import { onMenuSelect } from '@remix-run/ui/menu'
 import { safeNavigate } from '../utils/frame-utils.ts'
 import { gridStateToParams, type GridState } from '../utils/grid-state.ts'
 import { MenuList } from './theme/menu/index.tsx'
+import { requestConfirm } from './confirm-delete.browser.tsx'
 
 /**
  * The row captured at right-click time. Passed to the menu's item renderer and
@@ -186,8 +187,12 @@ export function confirmAndSubmitRowForm(
   message: string,
   attribute = 'data-delete-form',
 ): void {
+  let submit = () => submitRowForm(rowId, attribute)
+  // Prefer the page's styled dialog; fall back to window.confirm when none is
+  // mounted (headless tests, pages without a grid).
+  if (requestConfirm({ message, onConfirm: submit })) return
   if (!confirm(message)) return
-  submitRowForm(rowId, attribute)
+  submit()
 }
 
 /**
@@ -200,8 +205,11 @@ export function confirmFromFormAndSubmit(
   message: string,
   attribute = 'data-delete-form',
 ): void {
-  let form = document.querySelector<HTMLFormElement>(`form[${attribute}="${rowId}"]`)
+  let form = document.querySelector<HTMLFormElement>('form[' + attribute + '="' + rowId + '"]')
   if (!form) return
-  if (!confirm(form.getAttribute('data-confirm') || message)) return
-  form.requestSubmit()
+  let text = form.getAttribute('data-confirm') || message
+  let submit = () => form.requestSubmit()
+  if (requestConfirm({ message: text, onConfirm: submit })) return
+  if (!confirm(text)) return
+  submit()
 }

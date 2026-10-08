@@ -39,11 +39,18 @@ const flashSuccessStyle = css({
   borderBottom: `1px solid ${surface.successBorder}`,
 })
 
+interface VerwaltungRenderOptions {
+  /** Document title for full-page responses. Frame fragments have no document. */
+  title?: string | undefined
+  init?: ResponseInit | undefined
+}
+
 export function renderVerwaltungPage(
   render: (node: RemixNode, init?: ResponseInit) => Response,
   content: RemixNode,
-  init?: ResponseInit,
+  options: VerwaltungRenderOptions = {},
 ) {
+  let { title, init } = options
   let isFrame = currentRequestTargetsFrame(...FRAME_TARGETS)
 
   if (isFrame) {
@@ -72,7 +79,7 @@ export function renderVerwaltungPage(
     )
   }
   return render(
-    <Layout>
+    <Layout title={title}>
       <VerwaltungNav />
       {content}
     </Layout>,

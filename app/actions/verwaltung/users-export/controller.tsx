@@ -49,7 +49,7 @@ async function downloadUsersExport(
         startDate={startDate}
         endDate={endDate}
       />,
-      { status: 400 },
+      { init: { status: 400 }, title: 'Benutzer-Export – Verwaltung' },
     )
   }
 
@@ -63,7 +63,7 @@ async function downloadUsersExport(
         startDate={startDate}
         endDate={endDate}
       />,
-      { status: 400 },
+      { init: { status: 400 }, title: 'Benutzer-Export – Verwaltung' },
     )
   }
   let endMsExclusive = endMs + MS_PER_DAY
@@ -83,7 +83,7 @@ async function downloadUsersExport(
           startDate={result.value.startDate}
           endDate={result.value.endDate}
         />,
-        { status: 200 },
+        { init: { status: 200 }, title: 'Benutzer-Export – Verwaltung' },
       )
     }
 
@@ -126,6 +126,7 @@ export default createController(routes.verwaltung.usersExport, {
             return renderVerwaltungPage(
               context.render,
               <UsersExportPage startDate={startDate} endDate={endDate} />,
+              { title: 'Benutzer-Export – Verwaltung' },
             )
           }
           url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
@@ -134,7 +135,9 @@ export default createController(routes.verwaltung.usersExport, {
         return downloadUsersExport(context, startDate, endDate)
       }
 
-      return renderVerwaltungPage(context.render, <UsersExportPage />)
+      return renderVerwaltungPage(context.render, <UsersExportPage />, {
+        title: 'Benutzer-Export – Verwaltung',
+      })
     },
 
     async create(context) {
