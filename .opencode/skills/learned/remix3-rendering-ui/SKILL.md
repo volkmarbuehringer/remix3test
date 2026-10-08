@@ -42,7 +42,8 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 **First-party UI blocks (`references/first-party-ui-blocks.md`)**
 
 - Selection order: style mixins (`button`/`input`/`checkbox`/`radio`/`toggle`) keep the native control → composed controls (`accordion`/`breadcrumbs`/`combobox`/`menu`/`select`/`tabs`) own multi-element relationships → headless primitives (`popover`/`listbox`/`anchor` and `/primitives`) when markup must change. Interactive controls still need a `clientEntry` boundary.
-- This app wraps the vendored `app/ui/theme/upstream-button.ts` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts), and deliberately renders its own breadcrumbs in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
+- This app wraps the vendored `app/ui/theme/upstream-button.ts` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts); the vendored copy must also keep upstream's attribute default (`type="button"`), and a link that needs button styling uses `buttonLink()` — a nested `<a><button>` submits a surrounding form and is blocked by `remix-a11y/no-nested-interactive`.
+- It deliberately renders its own breadcrumbs in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
 - Menus use `@remix-run/ui/menu` primitives, wrapped by the app's `app/ui/theme/menu/index.tsx` styled `MenuList`/`MenuItem`; `onMenuSelect` comes from the vendor module.
 
 **Raw HTML props (`references/unsafe-html.md`)**
@@ -58,6 +59,7 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 - You need to pass a value from a component to a descendant without prop-drilling, or to give a reusable control a stable id.
 - You are editing the document shell, adding head tags/preloads, or wiring the browser entry/import map.
 - You are choosing a `remix/component` building block or deciding whether to use, wrap, or replace a vendor component.
+- A link styled as a button submits/reloads its form, or an untyped `button()` control starts submitting after a vendor bump.
 - A raw-HTML prop throws `Invalid innerHTML`/`srcDoc`/`srcdoc prop`, or a mixin returning one is now stripped.
 - You are writing an HTML-string response (standalone error page, frame fragment, email/RSS) outside the component runtime.
 
