@@ -24,7 +24,7 @@ import { AdminOfferingsConfigPage } from './admin-offerings-config-page.tsx'
 import { AdminOfferingsWeekPage } from './admin-offerings-week-page.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 import { RestfulForm } from './restful-form.tsx'
-import { getCspNonce } from '../middleware/security-headers.ts'
+import { GridStateScript } from './grid-state-script.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
@@ -746,17 +746,16 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="offerings-grid-state" type="application/json" nonce={getCspNonce()}>
-          {JSON.stringify({
-            offset: String(offset),
-            sort: sortColumn,
-            order: sortDirection,
-            filter: filter ?? '',
-            period: period ?? '',
-            status: status ?? '',
-            baseHref: routes.verwaltung.offerings.index.href(),
-          })}
-        </script>
+        <GridStateScript
+          id="offerings-grid-state"
+          baseHref={routes.verwaltung.offerings.index.href()}
+          offset={offset}
+          sort={sortColumn}
+          order={sortDirection}
+          filter={filter}
+          period={period}
+          status={status}
+        />
         <AdminOfferingsContextMenu />
         <ConfirmDelete />
       </div>

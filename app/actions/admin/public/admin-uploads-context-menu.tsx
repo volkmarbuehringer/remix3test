@@ -1,123 +1,45 @@
-import { clientEntry, css, ref, type Handle } from 'remix/component'
-import * as menu from '@remix-run/ui/menu'
-import { onMenuSelect } from '@remix-run/ui/menu'
-import { MenuItem, MenuList } from '../../../ui/theme/menu/index.tsx'
+import { clientEntry, css } from 'remix/component'
+
+import { confirmAndSubmitRowForm, createRowContextMenu } from '../../../ui/row-context-menu.tsx'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
+import { MenuItem } from '../../../ui/theme/menu/index.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 
 /**
- * ClientEntry that adds a right-click context menu to the admin uploads table
- * rows. The actions are "Herunterladen" and "Löschen"; both reuse what is
- * already rendered server-side (the row's download link and its per-row delete
- * form, identified by `data-delete-form`), so the menu adds no second code path
- * for CSRF, grid state or the frame runtime.
- *
- * The menu is the right-click affordance only: every row already shows the
- * joined download/delete buttons, so no "⋯" trigger button is rendered.
- *
- * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
- * mouse coordinates of the right-click. Event delegation on the table container
- * captures `contextmenu` events from server-rendered rows and dispatches a
- * synthetic event to the hidden trigger.
+ * Right-click menu for admin upload rows. "Herunterladen" reuses the row's
+ * server-rendered download link and "Löschen" its per-row delete form, so the
+ * menu adds no second code path for CSRF, grid state, or the frame runtime.
  */
 export const AdminUploadsContextMenu = clientEntry(
   import.meta.url + '#AdminUploadsContextMenu',
-  function AdminUploadsContextMenu(handle: Handle) {
-    let rightClickedRowId: string | null = null
-    let rightClickedFilename: string | null = null
-
-    return () => (
-      <menu.Context label="Dateiaktionen">
-        {/*
-          Hidden trigger element — positioned at right-click coordinates.
-          Uses `opacity: 0` (not `display: none`) so the synthetic `contextmenu`
-          event dispatches correctly and `getBoundingClientRect()` works.
-        */}
-        <div
-          mix={[
-            menu.contextTrigger(),
-            ref((el) => {
-              let table = document.querySelector('[data-uploads-table]')
-              if (!table) return
-
-              function onContextMenu(event: Event) {
-                let mouseEvent = event as MouseEvent
-                mouseEvent.preventDefault()
-
-                let target = mouseEvent.target as HTMLElement | null
-                let row = target?.closest?.('[data-row-id]') as HTMLElement | null
-                if (!row) return
-
-                rightClickedRowId = row.dataset.rowId ?? null
-                rightClickedFilename = row.getAttribute('data-upload-filename') ?? null
-
-                el.style.left = mouseEvent.clientX + 'px'
-                el.style.top = mouseEvent.clientY + 'px'
-
-                el.dispatchEvent(
-                  new MouseEvent('contextmenu', {
-                    clientX: mouseEvent.clientX,
-                    clientY: mouseEvent.clientY,
-                    bubbles: true,
-                    cancelable: true,
-                  }),
-                )
-              }
-
-              table.addEventListener('contextmenu', onContextMenu)
-
-              handle.signal.addEventListener('abort', () => {
-                table.removeEventListener('contextmenu', onContextMenu)
-              })
-            }),
-            css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
-          ]}
-        />
-
-        <MenuList
-          mix={onMenuSelect((event) => {
-            let rowId = rightClickedRowId
-            if (!rowId) return
-
-            if (event.item.name === 'download') {
-              handleDownloadAction(rowId)
-            } else if (event.item.name === 'delete') {
-              handleDeleteAction(rowId)
-            }
-          })}
-        >
-          <MenuItem name="download">
-            <Glyph name="download" width={14} height={14} /> Herunterladen
-          </MenuItem>
-          <Separator />
-          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
-            <Glyph name="trash" width={14} height={14} /> Löschen
-          </MenuItem>
-        </MenuList>
-      </menu.Context>
-    )
-
-    function handleDownloadAction(rowId: string) {
-      // Reuse the row's existing download link so the frame runtime handles it
-      // exactly as the visible icon button does (attachment avoidance etc.).
-      let link = document.querySelector<HTMLAnchorElement>(
-        `[data-row-id="${rowId}"] a[data-download-link]`,
-      )
-      if (link) {
-        link.click()
+  createRowContextMenu({
+    label: 'Dateiaktionen',
+    tableSelector: '[data-uploads-table]',
+    items: () => (
+      <>
+        <MenuItem name="download">
+          <Glyph name="download" width={14} height={14} /> Herunterladen
+        </MenuItem>
+        <Separator />
+        <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
+          <Glyph name="trash" width={14} height={14} /> Löschen
+        </MenuItem>
+      </>
+    ),
+    onSelect: (name, target) => {
+      if (name === 'download') {
+        let link = document.querySelector<HTMLAnchorElement>(
+          `[data-row-id="${target.rowId}"] a[data-download-link]`,
+        )
+        if (link) link.click()
+      } else if (name === 'delete') {
+        let filename = target.row.getAttribute('data-upload-filename')
+        confirmAndSubmitRowForm(
+          target.rowId,
+          filename ? `Datei "${filename}" wirklich löschen?` : 'Wirklich löschen?',
+        )
       }
-    }
-
-    function handleDeleteAction(rowId: string) {
-      let filename = rightClickedFilename
-      let message = filename ? `Datei "${filename}" wirklich löschen?` : 'Wirklich löschen?'
-      if (!confirm(message)) return
-
-      let form = document.querySelector<HTMLFormElement>(`form[data-delete-form="${rowId}"]`)
-      if (form) {
-        form.requestSubmit()
-      }
-    }
-  },
+    },
+  }),
 )

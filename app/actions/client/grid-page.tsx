@@ -22,7 +22,7 @@ import {
   buildEditUrl,
   buildFilterParams,
 } from '../../ui/mixins/admin-urls.ts'
-import { getCspNonce } from '../../middleware/security-headers.ts'
+import { GridStateScript } from '../../ui/grid-state-script.tsx'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
 type Row = Client
@@ -481,15 +481,14 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="clients-grid-state" type="application/json" nonce={getCspNonce()}>
-          {JSON.stringify({
-            offset: String(offset),
-            sort: sortCol,
-            order: sortOrder,
-            filter: filter ?? '',
-            baseHref: ADMIN_BASE,
-          })}
-        </script>
+        <GridStateScript
+          id="clients-grid-state"
+          baseHref={ADMIN_BASE}
+          offset={offset}
+          sort={sortCol}
+          order={sortOrder}
+          filter={filter}
+        />
         <ClientsContextMenu />
       </div>
     )

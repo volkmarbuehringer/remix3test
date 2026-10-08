@@ -25,7 +25,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
-import { getCspNonce } from '../middleware/security-headers.ts'
+import { GridStateScript } from './grid-state-script.tsx'
 import { AdminResourcesContextMenu } from '../actions/admin/public/admin-resources-context-menu.tsx'
 
 interface AdminResourcesPageProps {
@@ -353,15 +353,14 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           ) : null}
 
           {/* Context menu data and clientEntry */}
-          <script id="resources-grid-state" type="application/json" nonce={getCspNonce()}>
-            {JSON.stringify({
-              offset: String(offset),
-              sort: sortColumn,
-              order: sortDirection,
-              filter: filter ?? '',
-              baseHref: routes.verwaltung.resources.index.href(),
-            })}
-          </script>
+          <GridStateScript
+            id="resources-grid-state"
+            baseHref={routes.verwaltung.resources.index.href()}
+            offset={offset}
+            sort={sortColumn}
+            order={sortDirection}
+            filter={filter}
+          />
           <AdminResourcesContextMenu />
         </div>
 

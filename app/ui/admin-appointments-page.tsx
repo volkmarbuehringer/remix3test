@@ -26,7 +26,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { AdminAppointmentsContextMenu } from '../actions/admin/public/admin-appointments-context-menu.tsx'
-import { getCspNonce } from '../middleware/security-headers.ts'
+import { GridStateScript } from './grid-state-script.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import type {
   AppointmentRow,
@@ -695,17 +695,16 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="appointments-grid-state" type="application/json" nonce={getCspNonce()}>
-          {JSON.stringify({
-            offset: String(offset),
-            sort: sortColumn,
-            order: sortDirection,
-            filter: filter ?? '',
-            period: period ?? '',
-            status: status ?? '',
-            baseHref: routes.verwaltung.appointments.index.href(),
-          })}
-        </script>
+        <GridStateScript
+          id="appointments-grid-state"
+          baseHref={routes.verwaltung.appointments.index.href()}
+          offset={offset}
+          sort={sortColumn}
+          order={sortDirection}
+          filter={filter}
+          period={period}
+          status={status}
+        />
         <AdminAppointmentsContextMenu />
       </div>
     )

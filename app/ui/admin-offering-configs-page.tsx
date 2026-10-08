@@ -28,7 +28,7 @@ import type {
 } from '../data/offering-configs-queries.ts'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
-import { getCspNonce } from '../middleware/security-headers.ts'
+import { GridStateScript } from './grid-state-script.tsx'
 import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
 
 interface AdminOfferingConfigsPageProps {
@@ -474,15 +474,14 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="offering-configs-grid-state" type="application/json" nonce={getCspNonce()}>
-          {JSON.stringify({
-            offset: String(offset),
-            sort: sortColumn,
-            order: sortDirection,
-            filter: filter ?? '',
-            baseHref: routes.verwaltung.offeringConfigs.index.href(),
-          })}
-        </script>
+        <GridStateScript
+          id="offering-configs-grid-state"
+          baseHref={routes.verwaltung.offeringConfigs.index.href()}
+          offset={offset}
+          sort={sortColumn}
+          order={sortDirection}
+          filter={filter}
+        />
         <AdminOfferingConfigsContextMenu />
       </div>
     )

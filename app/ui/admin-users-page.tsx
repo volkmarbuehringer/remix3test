@@ -27,7 +27,7 @@ import {
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 import { AdminUsersContextMenu } from '../actions/admin/public/admin-users-context-menu.tsx'
-import { getCspNonce } from '../middleware/security-headers.ts'
+import { GridStateScript } from './grid-state-script.tsx'
 
 const ADMIN_BASE = routes.admin.users.index.href()
 
@@ -543,17 +543,14 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="users-grid-state" type="application/json" nonce={getCspNonce()}>
-          {/* WARNING: Only serialize server-controlled data here.
-              User-provided values MUST be escaped to prevent </script> breakout. */}
-          {JSON.stringify({
-            offset: String(offset),
-            sort: sortColumn,
-            order: sortDirection,
-            filter: filter ?? '',
-            baseHref: routes.admin.users.index.href(),
-          })}
-        </script>
+        <GridStateScript
+          id="users-grid-state"
+          baseHref={routes.admin.users.index.href()}
+          offset={offset}
+          sort={sortColumn}
+          order={sortDirection}
+          filter={filter}
+        />
         <AdminUsersContextMenu />
       </div>
     )
