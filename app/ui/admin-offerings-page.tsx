@@ -13,6 +13,11 @@ import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { table } from './mixins/admin-table.ts'
 import {
+  verwaltungGridDensity,
+  verwaltungGridFill,
+  verwaltungGridWrap,
+} from './mixins/verwaltung-grid.ts'
+import {
   sortArrow,
   buildSortUrl,
   buildPaginationUrl,
@@ -263,7 +268,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     }
 
     let gridSection = (
-      <div mix={[table.minWidth0, hasSidePanel ? table.twoColumnGrid : undefined]}>
+      <div mix={[table.minWidth0, hasSidePanel ? table.twoColumnGrid : verwaltungGridFill]}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
@@ -439,7 +444,10 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={[table.wrap, table.mobileCards]} data-offerings-table="true">
+        <div
+          mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-offerings-table="true"
+        >
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {emptyMessage}
@@ -830,8 +838,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     }
 
     return (
-      <PageSection title="Angebote" description="Angebote und Buchungszeiträume verwalten.">
-        <div mix={table.page}>{gridSection}</div>
+      <PageSection title="Angebote" titleHidden compact>
+        <div mix={[table.page, verwaltungGridFill]}>{gridSection}</div>
       </PageSection>
     )
   }

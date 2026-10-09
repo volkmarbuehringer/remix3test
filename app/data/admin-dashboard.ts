@@ -3,6 +3,7 @@ import { z } from 'zod/v4'
 
 import { getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { queryRows, int8Aggregate } from './rows.ts'
+import { countPastOfferings } from './offerings-queries.ts'
 
 export interface DashboardStats {
   /** Appointments whose date is on/after today (pending / upcoming). */
@@ -15,6 +16,8 @@ export interface DashboardStats {
   resources: number
   /** Number of offering-config rulesets (one per resource). */
   offeringConfigs: number
+  /** Offerings whose day is before today — the delete-past maintenance target. */
+  offeringsPast: number
 }
 
 async function toCount(db: Database, query: string): Promise<number> {
@@ -40,11 +43,21 @@ export async function countDashboardStats(db: Database): Promise<DashboardStats>
   )
   let apptRow = apptRows[0]
 
+  // The four cardinality reads are independent; run them together instead of
+  // serially so the dashboard's TTFB is one query round-trip, not four.
+  let [offerings, resources, offeringConfigs, offeringsPast] = await Promise.all([
+    toCount(db, 'SELECT COUNT(*) AS count FROM appointoffering'),
+    toCount(db, 'SELECT COUNT(*) AS count FROM resources'),
+    toCount(db, 'SELECT COUNT(*) AS count FROM offering_configs'),
+    countPastOfferings(db),
+  ])
+
   return {
     appointmentsPending: apptRow?.pending ?? 0,
     appointmentsExpired: apptRow?.expired ?? 0,
-    offerings: await toCount(db, 'SELECT COUNT(*) AS count FROM appointoffering'),
-    resources: await toCount(db, 'SELECT COUNT(*) AS count FROM resources'),
-    offeringConfigs: await toCount(db, 'SELECT COUNT(*) AS count FROM offering_configs'),
+    offerings,
+    resources,
+    offeringConfigs,
+    offeringsPast,
   }
 }

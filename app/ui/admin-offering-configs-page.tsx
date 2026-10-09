@@ -10,6 +10,11 @@ import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
+  verwaltungGridDensity,
+  verwaltungGridFill,
+  verwaltungGridWrap,
+} from './mixins/verwaltung-grid.ts'
+import {
   sortArrow,
   buildSortUrl,
   buildPaginationUrl,
@@ -232,7 +237,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
-      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
         <ConfirmDelete />
         {formError ? (
           <div mix={table.errorBanner} role="alert">
@@ -270,7 +275,10 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           </a>
         </form>
 
-        <div mix={[table.wrap, table.mobileCards]} data-offering-configs-table="true">
+        <div
+          mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-offering-configs-table="true"
+        >
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -540,11 +548,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     }
 
     return (
-      <PageSection
-        title="Angebotskonfigurationen"
-        description="Zeitraster-Konfigurationen für Ressourcen."
-      >
-        <div mix={table.page}>{gridSection}</div>
+      <PageSection title="Angebotskonfigurationen" titleHidden compact>
+        <div mix={[table.page, verwaltungGridFill]}>{gridSection}</div>
       </PageSection>
     )
   }

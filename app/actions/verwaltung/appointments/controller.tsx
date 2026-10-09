@@ -297,7 +297,7 @@ function renderAppointmentsPage(
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
-    { init, title: 'Termine – Verwaltung' },
+    { init, title: 'Termine – Verwaltung', fullHeight: !data.editRow && !data.creating },
   )
 }
 

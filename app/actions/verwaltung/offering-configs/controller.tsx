@@ -181,7 +181,11 @@ function renderOfferingConfigPage(
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
-    { init, title: 'Angebotskonfigurationen – Verwaltung' },
+    {
+      init,
+      title: 'Angebotskonfigurationen – Verwaltung',
+      fullHeight: !data.editRow && !data.creating,
+    },
   )
 }
 

@@ -165,7 +165,7 @@ function renderResourcePage(
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
-    { init, title: 'Ressourcen – Verwaltung' },
+    { init, title: 'Ressourcen – Verwaltung', fullHeight: !data.editRow && !data.creating },
   )
 }
 

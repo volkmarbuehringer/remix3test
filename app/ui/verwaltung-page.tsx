@@ -195,6 +195,27 @@ const quickCreateStyle = css({
   '&:hover': { background: theme.colors.action.primary.backgroundHover },
 })
 
+const attentionBannerStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: theme.space.sm,
+  padding: `${theme.space.sm} ${theme.space.md}`,
+  border: `1px solid ${theme.colors.warning.border}`,
+  borderRadius: theme.radius.md,
+  background: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
+  fontSize: theme.fontSize.sm,
+})
+
+const attentionLinkStyle = css({
+  marginLeft: 'auto',
+  color: 'inherit',
+  fontWeight: theme.fontWeight.semibold,
+  textDecoration: 'underline',
+  whiteSpace: 'nowrap',
+})
+
 // ── KPI tiles (mirrors the /admin dashboard strip) ──
 
 const kpiGridStyle = css({
@@ -248,14 +269,6 @@ const kpiValueStyle = css({
 const kpiHintStyle = css({
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,
-})
-
-const kpiValueDangerStyle = css({
-  color: theme.colors.action.danger.background,
-})
-
-const kpiValueSuccessStyle = css({
-  color: theme.colors.success.foreground,
 })
 
 const navGridStyle = css({
@@ -349,20 +362,17 @@ interface KpiTileProps {
   label: string
   value: string
   hint?: string
-  kind?: 'normal' | 'danger' | 'success'
   href?: string
 }
 
 /** A single at-a-glance figure; links to its section when actionable. */
 function KpiTile(handle: Handle<KpiTileProps>) {
   return () => {
-    let { label, value, hint, kind, href } = handle.props
-    let valueClass =
-      kind === 'danger' ? kpiValueDangerStyle : kind === 'success' ? kpiValueSuccessStyle : null
+    let { label, value, hint, href } = handle.props
     let body = (
       <>
         <div mix={kpiLabelStyle}>{label}</div>
-        <div mix={[kpiValueStyle, valueClass].filter(Boolean)}>{value}</div>
+        <div mix={kpiValueStyle}>{value}</div>
         {hint ? <div mix={kpiHintStyle}>{hint}</div> : null}
       </>
     )
@@ -384,11 +394,13 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
     let offerings = formatCount(stats?.offerings ?? 0)
     let resources = formatCount(stats?.resources ?? 0)
     let configs = formatCount(stats?.offeringConfigs ?? 0)
+    let pastOfferings = stats?.offeringsPast ?? 0
 
     let appointments = routes.verwaltung.appointments.index.href()
     let pendingUrl = appointments + '?status=pending'
     let expiredUrl = appointments + '?status=expired'
     let offeringsUrl = routes.verwaltung.offerings.index.href()
+    let offeringsPastUrl = offeringsUrl + '?status=expired'
     let resourcesUrl = routes.verwaltung.resources.index.href()
     let configsUrl = routes.verwaltung.offeringConfigs.index.href()
 
@@ -411,27 +423,29 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
               Suchen
             </button>
           </form>
-          <a href={routes.appointmentsNew.index.href()} data-rmx-document mix={quickCreateStyle}>
+          <a href={appointments + '?creating=true'} data-rmx-document mix={quickCreateStyle}>
             <Glyph name="add" width={14} height={14} />
             Neuer Termin
           </a>
         </div>
 
+        {pastOfferings > 0 ? (
+          <div mix={attentionBannerStyle}>
+            <Glyph name="info" width={16} height={16} />
+            <span>
+              {pastOfferings === 1
+                ? '1 vergangener Buchungszeitraum kann aufgeräumt werden.'
+                : `${formatCount(pastOfferings)} vergangene Buchungszeiträume können aufgeräumt werden.`}
+            </span>
+            <a href={offeringsPastUrl} mix={attentionLinkStyle}>
+              Aufräumen
+            </a>
+          </div>
+        ) : null}
+
         <div mix={kpiGridStyle}>
-          <KpiTile
-            label="Ausstehende Termine"
-            value={pending}
-            kind="success"
-            hint="ab heute"
-            href={pendingUrl}
-          />
-          <KpiTile
-            label="Abgelaufene Termine"
-            value={expired}
-            kind="danger"
-            hint="vor heute"
-            href={expiredUrl}
-          />
+          <KpiTile label="Kommende Termine" value={pending} hint="ab heute" href={pendingUrl} />
+          <KpiTile label="Abgelaufene Termine" value={expired} hint="vor heute" href={expiredUrl} />
           <KpiTile
             label="Angebote"
             value={offerings}
@@ -461,7 +475,7 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
             desc="Termine und Buchungen verwalten."
             href={appointments}
             badges={[
-              { text: pending + ' ausstehend', href: pendingUrl },
+              { text: pending + ' kommend', href: pendingUrl },
               { text: expired + ' abgelaufen', danger: true, href: expiredUrl },
             ]}
           />
@@ -497,7 +511,7 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
             href={routes.verwaltung.report1.index.href()}
           />
 
-          <div mix={cardStyle}>
+          <div id="exporte" mix={cardStyle}>
             <span mix={titleRowStyle}>
               <Glyph name="open" width={20} height={20} mix={iconStyle} />
               <h2 mix={cardTitleStyle}>Exporte & Berichte</h2>

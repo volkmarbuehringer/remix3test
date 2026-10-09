@@ -10,6 +10,11 @@ import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
+  verwaltungGridDensity,
+  verwaltungGridFill,
+  verwaltungGridWrap,
+} from './mixins/verwaltung-grid.ts'
+import {
   sortArrow,
   buildSortUrl,
   buildPaginationUrl,
@@ -107,7 +112,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
-      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
         <ConfirmDelete />
         {!hasFormPanel && formError ? (
           <div mix={table.errorBanner} role="alert">
@@ -147,7 +152,10 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={[table.wrap, table.mobileCards]} data-resources-table="true">
+        <div
+          mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-resources-table="true"
+        >
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -463,8 +471,8 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     }
 
     return (
-      <PageSection title="Ressourcen" description="Ressourcen anlegen und verwalten.">
-        <div mix={table.page}>{gridSection}</div>
+      <PageSection title="Ressourcen" titleHidden compact>
+        <div mix={[table.page, verwaltungGridFill]}>{gridSection}</div>
       </PageSection>
     )
   }

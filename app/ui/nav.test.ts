@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { MOBILE_ITEMS, NAV_SECTIONS } from './nav.ts'
+import { MOBILE_ITEMS, NAV_SECTIONS, navSectionsForRole } from './nav.ts'
 
 describe('NAV_SECTIONS', () => {
   it('has one section', () => {
@@ -53,6 +53,31 @@ describe('NAV_SECTIONS', () => {
         assert.ok(item.href.startsWith('/'), `item ${item.label} href should start with /`)
       }
     }
+  })
+})
+
+describe('navSectionsForRole', () => {
+  it('hides admin-only items from non-admins', () => {
+    let items = navSectionsForRole('user').flatMap((s) => s.items)
+    assert.ok(!items.some((i) => i.href === '/admin'), 'non-admin should not see /admin')
+    assert.ok(!items.some((i) => i.href === '/verwaltung'), 'non-admin should not see /verwaltung')
+  })
+
+  it('shows admin-only items to admins', () => {
+    let items = navSectionsForRole('admin').flatMap((s) => s.items)
+    assert.ok(
+      items.some((i) => i.href === '/admin'),
+      'admin should see /admin',
+    )
+    assert.ok(
+      items.some((i) => i.href === '/verwaltung'),
+      'admin should see /verwaltung',
+    )
+  })
+
+  it('treats an anonymous visitor like a non-admin', () => {
+    let items = navSectionsForRole(undefined).flatMap((s) => s.items)
+    assert.ok(!items.some((i) => i.adminOnly), 'anonymous should not see admin-only items')
   })
 })
 

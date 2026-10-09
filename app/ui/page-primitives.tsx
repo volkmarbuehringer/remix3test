@@ -10,6 +10,9 @@ interface PageSectionProps {
    *  visible label already names the page (for example the breadcrumb's
    *  current-page crumb) so the heading is not shown twice. */
   titleHidden?: boolean
+  /** Tighter header-to-content gap (8px instead of 16px). Used by the
+   *  Verwaltung grids so more table rows fit above the fold. */
+  compact?: boolean
   /** Optional extra styles merged with `sectionCss` (e.g. `flex: 1` so a
    *  viewport-bounded page's content can fill the remaining height). */
   mix?: MixValue<HTMLElement>
@@ -17,9 +20,9 @@ interface PageSectionProps {
 
 export function PageSection(handle: Handle<PageSectionProps>) {
   return () => {
-    let { children, description, title, titleHidden, mix } = handle.props
+    let { children, description, title, titleHidden, compact, mix } = handle.props
     return (
-      <section mix={[sectionCss, mix].filter(Boolean)}>
+      <section mix={[compact ? sectionCompactCss : sectionCss, mix].filter(Boolean)}>
         {title || description ? (
           <div mix={sectionHeaderCss}>
             {title ? (
@@ -64,6 +67,12 @@ const sectionCss = css({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.space.lg,
+})
+
+const sectionCompactCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.sm,
 })
 
 const sectionHeaderCss = css({

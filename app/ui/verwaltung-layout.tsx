@@ -43,14 +43,34 @@ interface VerwaltungRenderOptions {
   /** Document title for full-page responses. Frame fragments have no document. */
   title?: string | undefined
   init?: ResponseInit | undefined
+  /**
+   * Fill the bounded page area and let the grid's row region scroll instead of
+   * the page. Used by the Verwaltung data grids so a 15-row page does not
+   * produce a page scrollbar. Ignored on frame fragments, which have their own
+   * host layout.
+   */
+  fullHeight?: boolean | undefined
 }
+
+/**
+ * Bounded fill shell for the Verwaltung grids. `height: 100%` resolves against
+ * the page scroll container's content box; the tab nav stays fixed and the
+ * page's `<section>` takes the rest, so the page itself never overflows.
+ */
+const fullHeightShellStyle = css({
+  height: '100%',
+  minHeight: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  '& > section': { flex: 1, minHeight: 0 },
+})
 
 export function renderVerwaltungPage(
   render: (node: RemixNode, init?: ResponseInit) => Response,
   content: RemixNode,
   options: VerwaltungRenderOptions = {},
 ) {
-  let { title, init } = options
+  let { title, init, fullHeight } = options
   let isFrame = currentRequestTargetsFrame(...FRAME_TARGETS)
 
   if (isFrame) {
@@ -78,6 +98,18 @@ export function renderVerwaltungPage(
       init,
     )
   }
+  if (fullHeight) {
+    return render(
+      <Layout title={title}>
+        <div mix={fullHeightShellStyle}>
+          <VerwaltungNav />
+          {content}
+        </div>
+      </Layout>,
+      init,
+    )
+  }
+
   return render(
     <Layout title={title}>
       <VerwaltungNav />

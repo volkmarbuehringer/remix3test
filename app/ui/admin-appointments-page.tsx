@@ -9,6 +9,11 @@ import { PageSection } from './page-primitives.tsx'
 
 import { table } from './mixins/admin-table.ts'
 import {
+  verwaltungGridDensity,
+  verwaltungGridFill,
+  verwaltungGridWrap,
+} from './mixins/verwaltung-grid.ts'
+import {
   sortArrow,
   sortRule,
   buildSortUrl,
@@ -186,7 +191,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
 
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
-      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : undefined]}>
+      <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
         <ConfirmDelete />
         {!hasFormPanel && formError ? (
           <div mix={table.errorBanner} role="alert">
@@ -342,7 +347,10 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         </form>
 
         {/* Table */}
-        <div mix={[table.wrap, table.mobileCards]} data-appointments-table="true">
+        <div
+          mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-appointments-table="true"
+        >
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
@@ -796,11 +804,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     }
 
     return (
-      <PageSection
-        title="Termine"
-        description="Termine und Buchungen verwalten, bearbeiten und exportieren."
-      >
-        <div mix={table.page}>
+      <PageSection title="Termine" titleHidden compact>
+        <div mix={[table.page, verwaltungGridFill]}>
           {connection}
           {gridSection}
         </div>

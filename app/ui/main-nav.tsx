@@ -5,7 +5,7 @@ import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
-import { MOBILE_ITEMS, NAV_SECTIONS } from './nav.ts'
+import { MOBILE_ITEMS, navSectionsForRole } from './nav.ts'
 import { NavToggle } from '../ui/layout/nav-toggle.browser.tsx'
 import { NotificationBell } from './notification-bell.browser.tsx'
 
@@ -50,6 +50,16 @@ export function MainNav() {
       return linkSection !== currentSection
     }
 
+    let visibleSections = navSectionsForRole(user?.role)
+    let mobileAuthItems = MOBILE_ITEMS.filter((it) => it.requireAuth)
+    // The drawer mirrors the section nav so admin-only destinations survive the
+    // mobile collapse of the desktop links, minus anything the mobile items
+    // already cover (e.g. the "Neuer Termin" CTA targeting /appointments/new).
+    let coveredByMobileItems = new Set(mobileAuthItems.map((it) => it.href))
+    let extraSectionItems = visibleSections
+      .flatMap((section) => section.items)
+      .filter((item) => !coveredByMobileItems.has(item.href))
+
     return (
       <header mix={navWrapCss}>
         <div mix={navInnerCss}>
@@ -73,8 +83,8 @@ export function MainNav() {
           </a>
 
           <nav mix={[navLinksCss, desktopOnlyCss]}>
-            {NAV_SECTIONS.map((section, i) => {
-              let items = section.items.filter((it) => !it.adminOnly || user?.role === 'admin')
+            {visibleSections.map((section, i) => {
+              let items = section.items
               if (items.length === 0) return null
               return (
                 <div key={i} mix={sectionGroupCss}>
@@ -204,6 +214,16 @@ export function MainNav() {
                     </a>
                   ),
                 )}
+                {extraSectionItems.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    {...(isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}
+                    mix={drawerLinkCss}
+                  >
+                    {item.label}
+                  </a>
+                ))}
                 <form method="POST" action={routes.auth.logout.href()} mix={drawerLogoutFormCss}>
                   {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
                   <button type="submit" mix={drawerLogoutBtnCss}>
@@ -468,10 +488,15 @@ const drawerBodyCss = css({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
+  // Top-aligned and scrollable: the drawer now carries the full role-gated nav,
+  // which can exceed the viewport height on a phone. A centered flex column
+  // would clip the first items out of reach once it overflows.
+  justifyContent: 'flex-start',
   flex: 1,
-  gap: '1rem',
-  padding: '2rem',
+  minHeight: 0,
+  overflowY: 'auto',
+  gap: '0.75rem',
+  padding: '1.5rem 2rem',
 })
 
 const drawerCtaCss = css({

@@ -23,7 +23,11 @@ const ITEMS: NavItem[] = [
   { label: 'Ressourcen', href: routes.verwaltung.resources.index.href() },
   { label: 'Angebotskonfigurationen', href: routes.verwaltung.offeringConfigs.index.href() },
   { label: 'Monatsauswertung', href: routes.verwaltung.report1.index.href() },
-  { label: 'Exporte', href: routes.verwaltung.usersExport.index.href() },
+  // The export tab points at the dashboard's "Exporte & Berichte" card (its
+  // anchor), which is the hub for all three export destinations. Linking the
+  // tab straight at /verwaltung/users-export made the label broader than the
+  // one page it opened.
+  { label: 'Exporte', href: routes.verwaltung.index.href() + '#exporte' },
 ]
 
 const navCss = css({

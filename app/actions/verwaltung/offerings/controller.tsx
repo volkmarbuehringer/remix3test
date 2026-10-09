@@ -226,7 +226,7 @@ function renderOfferingsPage(
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
-    { init, title: 'Angebote – Verwaltung' },
+    { init, title: 'Angebote – Verwaltung', fullHeight: !data.editRow && !data.creating },
   )
 }
 

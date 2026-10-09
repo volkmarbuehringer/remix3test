@@ -105,7 +105,7 @@ describe('Verwaltung Dashboard', () => {
       return match ? Number(match[1]!.replace(/\./g, '')) : NaN
     }
 
-    let renderedPending = badgeCount('ausstehend')
+    let renderedPending = badgeCount('kommend')
     let renderedExpired = badgeCount('abgelaufen')
     assert.ok(
       !Number.isNaN(renderedPending) && renderedPending >= 2,
@@ -124,6 +124,11 @@ describe('Verwaltung Dashboard', () => {
     let html = await response.text()
 
     assert.ok(html.includes('Exporte &amp; Berichte'), 'export card heading should render')
+    assert.ok(html.includes('id="exporte"'), 'export hub anchor should render')
+    assert.ok(
+      html.includes(`href="${routes.verwaltung.index.href()}#exporte"`),
+      'export tab should point at the dashboard export hub',
+    )
     assert.ok(html.includes('Alle Termine'), 'recent-terms export row should render')
     assert.ok(html.includes('Benutzerübersicht'), 'user-summary export row should render')
     assert.ok(html.includes('Benutzer im Zeitraum'), 'filtered-user export row should render')
@@ -140,8 +145,31 @@ describe('Verwaltung Dashboard', () => {
       'term search form should target the appointments grid filter',
     )
     assert.ok(
-      html.includes(routes.appointmentsNew.index.href()) && html.includes('Neuer Termin'),
-      'new-appointment quick action should render',
+      html.includes(routes.verwaltung.appointments.index.href() + '?creating=true') &&
+        html.includes('Neuer Termin'),
+      'new-appointment quick action should open the in-section admin create form',
+    )
+  })
+
+  it('keeps the role-gated section links reachable from the mobile drawer', async () => {
+    let response = await router.fetch(DASHBOARD_URL, {
+      headers: { Cookie: adminCookie },
+    })
+    let html = await response.text()
+
+    // The desktop nav collapses behind the hamburger below 768px; the drawer
+    // must still carry the admin-only destinations or they become unreachable.
+    let drawerStart = html.indexOf('id="nav-drawer"')
+    let drawerEnd = html.indexOf('</header>', drawerStart)
+    assert.ok(drawerStart !== -1 && drawerEnd > drawerStart, 'navigation drawer should render')
+    let drawer = html.slice(drawerStart, drawerEnd)
+    assert.ok(
+      drawer.includes(`href="${routes.verwaltung.index.href()}"`),
+      'drawer should link to Verwaltung for an admin',
+    )
+    assert.ok(
+      drawer.includes(`href="${routes.admin.index.href()}"`),
+      'drawer should link to Admin for an admin',
     )
   })
 
