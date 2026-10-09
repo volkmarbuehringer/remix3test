@@ -7,7 +7,8 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import type { PageSizeKey } from '../../../utils/get-page-size.ts'
 import { monthNameDE } from '../../../utils/date-utils.ts'
 import { pdfAttachmentResponse } from '../../../utils/pdf-utils.ts'
 import { buildReport1Pdf } from '../../../utils/report1-pdf.ts'
@@ -39,6 +40,8 @@ interface Report1PageData {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -109,7 +112,9 @@ async function loadReport1PageData(
     >
   >,
 ): Promise<Report1PageData> {
-  let effectivePageSize = getPageSize(context.session, REPORT1_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.verwaltungReport1
+  let effectivePageSize = getPageSize(context.session, REPORT1_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let query = parseReport1Query(context, overrides)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
 
@@ -135,6 +140,8 @@ async function loadReport1PageData(
     hasMore: result.hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
     nextOffset: offset + effectivePageSize,
+    pageKey,
+    pageSizeOverride,
     sortColumn: query.column,
     sortDirection: query.direction,
     filter: query.filter,
@@ -158,6 +165,8 @@ function renderReport1Page(
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
       nextOffset={data.nextOffset}
+      pageKey={data.pageKey}
+      pageSizeOverride={data.pageSizeOverride}
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
       filter={data.filter}

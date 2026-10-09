@@ -55,6 +55,10 @@ describe('Notifications controller', () => {
     assert.ok(html.includes('Benachrichtigungen'), 'page should contain the inbox heading')
     assert.ok(html.includes('data-notifications-list'), 'page should render the list container')
     assert.ok(html.includes('Bestätigung'), 'page should render the notification type badge')
+    assert.ok(
+      html.includes('data-current-page-size="15"'),
+      'the global default page size should be rendered',
+    )
   })
 
   it('GET /notifications redirects unauthenticated users to login', async () => {
@@ -164,5 +168,89 @@ describe('Notifications controller', () => {
     assert.equal(rows.rows[0].n, 0, 'all unread notifications should be cleared')
 
     await pool.query('DELETE FROM notifications WHERE id = ANY($1)', [[id1, id2]])
+  })
+
+  it('POST /notifications/page-size saves a per-page override read back on the next GET', async () => {
+    let { id, email } = await createFreshUser()
+    await createNotificationFor(id, 'confirmation')
+    let session = await getSessionFor(email)
+
+    let response = await router.fetch(`${BASE}${routes.notifications.pageSize.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'page-size', pageSize: '25' }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    assert.equal(response.headers.get('Location'), routes.notifications.index.href())
+
+    let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    let html = await page.text()
+    assert.ok(html.includes('data-current-page-size="25"'), 'the saved size should be effective')
+    assert.ok(html.includes('value="25"'), 'the slider should show the saved size')
+    assert.ok(
+      html.includes('value="reset-page-size"'),
+      'a reset-to-default control should be offered once overridden',
+    )
+  })
+
+  it('POST /notifications/page-size with the reset action clears the override', async () => {
+    let { id, email } = await createFreshUser()
+    await createNotificationFor(id, 'confirmation')
+    let session = await getSessionFor(email)
+
+    await router.fetch(`${BASE}${routes.notifications.pageSize.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'page-size', pageSize: '50' }),
+      redirect: 'manual',
+    })
+    await router.fetch(`${BASE}${routes.notifications.pageSize.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, _action: 'reset-page-size' }),
+      redirect: 'manual',
+    })
+
+    let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    let html = await page.text()
+    assert.ok(html.includes('data-current-page-size="15"'), 'falls back to the global default')
+    assert.ok(html.includes('value="15"'), 'the slider should show the global default')
+    assert.ok(
+      !html.includes('value="reset-page-size"'),
+      'the reset control should hide once there is no override',
+    )
+  })
+
+  it('POST /notifications/page-size ignores an invalid size', async () => {
+    let { id, email } = await createFreshUser()
+    await createNotificationFor(id, 'confirmation')
+    let session = await getSessionFor(email)
+
+    let response = await router.fetch(`${BASE}${routes.notifications.pageSize.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        _action: 'page-size',
+        pageSize: '999',
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+
+    let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    let html = await page.text()
+    assert.ok(
+      html.includes('data-current-page-size="15"'),
+      'an invalid size must leave the default in place',
+    )
   })
 })

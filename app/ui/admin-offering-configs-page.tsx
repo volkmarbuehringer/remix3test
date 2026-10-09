@@ -37,6 +37,8 @@ import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]
@@ -44,6 +46,8 @@ interface AdminOfferingConfigsPageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -222,6 +226,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
       hasMore,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       sortColumn,
       sortDirection,
       filter,
@@ -441,7 +447,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           )}
         </div>
 
-        {(offset > 0 || hasMore) && (
+        {rows.length > 0 && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>
@@ -491,6 +497,13 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.verwaltung.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={Math.max(1, nextOffset - offset)}
+                pageSizeOverride={pageSizeOverride}
+                controlId="offering-configs-page-size"
+              />
             </div>
           </div>
         )}

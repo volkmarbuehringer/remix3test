@@ -5,6 +5,7 @@ import { router } from '../../test-router.ts'
 import { pool } from '../../data/test-pool.ts'
 import { BASE, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
 import { createAuthCookieWithCsrfForUser, createTestUser } from '../../test-utils.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 import { getTodayUtcMidnight } from '../../utils/date-utils.ts'
 import { routes } from '../../routes.ts'
 
@@ -189,5 +190,102 @@ describe('Verwaltung Dashboard', () => {
       assert.ok(html.includes(`href="${href}"`), `expected whole-card link for ${href}`)
     }
     assert.ok(html.includes('Öffnen'), 'card action label should render')
+  })
+
+  describe('page-size preference', () => {
+    async function freshAdmin() {
+      let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      if (!auth?.cookie) throw new Error('failed to create admin session')
+      return auth
+    }
+
+    function pageSizePost(
+      auth: { cookie: string; csrfToken: string },
+      body: Record<string, string>,
+    ) {
+      return router.fetch(`${BASE}${routes.verwaltung.pageSize.href()}`, {
+        method: 'POST',
+        headers: { Cookie: auth.cookie },
+        body: new URLSearchParams({ _csrf: auth.csrfToken, ...body }),
+        redirect: 'manual',
+      })
+    }
+
+    it('saves the override and returns to the grid with offset dropped', async () => {
+      let auth = await freshAdmin()
+
+      let response = await pageSizePost(auth, {
+        _action: 'page-size',
+        pageKey: 'verwaltung.offerings',
+        pageSize: '25',
+        returnTo: '/verwaltung/offerings?sort=ao.day&order=asc&offset=24',
+      })
+
+      assert.equal(response.status, 302)
+      assert.equal(
+        response.headers.get('Location'),
+        '/verwaltung/offerings?sort=ao.day&order=asc',
+        'changing the page size must drop the stale offset',
+      )
+
+      let sid = await readSessionId(auth.cookie)
+      let session = await sessionStorage.read(sid)
+      assert.deepEqual(session?.get('pageSizes'), { 'verwaltung.offerings': 25 })
+    })
+
+    it('reset clears the override', async () => {
+      let auth = await freshAdmin()
+      await pageSizePost(auth, {
+        _action: 'page-size',
+        pageKey: 'verwaltung.offerings',
+        pageSize: '25',
+        returnTo: '/verwaltung/offerings',
+      })
+
+      let response = await pageSizePost(auth, {
+        _action: 'reset-page-size',
+        pageKey: 'verwaltung.offerings',
+        returnTo: '/verwaltung/offerings',
+      })
+      assert.equal(response.status, 302)
+
+      let sid = await readSessionId(auth.cookie)
+      let session = await sessionStorage.read(sid)
+      assert.deepEqual(session?.get('pageSizes'), {}, 'reset removes the page entry')
+    })
+
+    it('refuses a returnTo outside /verwaltung', async () => {
+      let auth = await freshAdmin()
+
+      let response = await pageSizePost(auth, {
+        _action: 'page-size',
+        pageKey: 'verwaltung.offerings',
+        pageSize: '25',
+        returnTo: 'https://evil.example/steal',
+      })
+
+      assert.equal(response.status, 302)
+      assert.equal(
+        response.headers.get('Location'),
+        routes.verwaltung.index.href(),
+        'an off-site returnTo falls back to the dashboard',
+      )
+    })
+
+    it('ignores an unknown page key', async () => {
+      let auth = await freshAdmin()
+
+      let response = await pageSizePost(auth, {
+        _action: 'page-size',
+        pageKey: 'not.a.page',
+        pageSize: '25',
+        returnTo: '/verwaltung/offerings',
+      })
+      assert.equal(response.status, 302)
+
+      let sid = await readSessionId(auth.cookie)
+      let session = await sessionStorage.read(sid)
+      assert.equal(session?.get('pageSizes'), undefined, 'unknown keys are not stored')
+    })
   })
 })

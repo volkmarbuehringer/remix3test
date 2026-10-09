@@ -9,6 +9,8 @@ import { table } from './mixins/admin-table.ts'
 import { sortArrow, sortRule } from './mixins/admin-urls.ts'
 import type { Report1Row, Report1UserOption } from '../data/report1.ts'
 import { Report1FilterAutoSubmit } from './report1-filter-autosubmit.browser.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const REPORT_COLUMNS: [field: string, label: string, hint?: string][] = [
   ['name', 'Name'],
@@ -25,6 +27,8 @@ interface AdminReport1PageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -313,6 +317,8 @@ function Report1Pagination(
   nextOffset: number,
   hasMore: boolean,
   visibleRows: number,
+  pageKey: PageSizeKey,
+  pageSizeOverride: number | null,
 ): RemixNode {
   let pageSize = nextOffset - offset
   let page = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1
@@ -341,6 +347,13 @@ function Report1Pagination(
             Vor
           </span>
         )}
+        <PageSizeControl
+          action={routes.verwaltung.pageSize.href()}
+          pageKey={pageKey}
+          pageSize={Math.max(1, pageSize)}
+          pageSizeOverride={pageSizeOverride}
+          controlId="report1-page-size"
+        />
       </div>
     </div>
   )
@@ -374,7 +387,16 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
         {Report1FilterBar(state, p.users)}
         {Report1Table(state, p.rows)}
         {p.rows.length > 0
-          ? Report1Pagination(state, p.offset, p.prevOffset, p.nextOffset, p.hasMore, p.rows.length)
+          ? Report1Pagination(
+              state,
+              p.offset,
+              p.prevOffset,
+              p.nextOffset,
+              p.hasMore,
+              p.rows.length,
+              p.pageKey,
+              p.pageSizeOverride,
+            )
           : null}
       </div>
     )

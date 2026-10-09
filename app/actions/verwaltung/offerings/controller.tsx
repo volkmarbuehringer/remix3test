@@ -26,7 +26,8 @@ import { getAdminIdentity } from '../../../utils/context.ts'
 import { AdminOfferingsPage } from '../../../ui/admin-offerings-page.tsx'
 import { getConfig, upsertConfig, generateWeek } from '../../../data/offering-configs.ts'
 import type { OfferingConfig } from '../../../data/offering-configs.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import type { PageSizeKey } from '../../../utils/get-page-size.ts'
 
 import {
   listOfferings,
@@ -75,6 +76,8 @@ interface OfferingPageData {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -117,7 +120,9 @@ async function loadOfferingPageData(
     >
   >,
 ): Promise<OfferingPageData> {
-  let effectivePageSize = getPageSize(context.session, OFFERINGS_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.verwaltungOfferings
+  let effectivePageSize = getPageSize(context.session, OFFERINGS_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
@@ -177,6 +182,8 @@ async function loadOfferingPageData(
     hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
     nextOffset: offset + effectivePageSize,
+    pageKey,
+    pageSizeOverride,
     sortColumn: column,
     sortDirection: direction,
     filter,
@@ -209,6 +216,8 @@ function renderOfferingsPage(
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
       nextOffset={data.nextOffset}
+      pageKey={data.pageKey}
+      pageSizeOverride={data.pageSizeOverride}
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
       filter={data.filter}

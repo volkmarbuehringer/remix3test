@@ -19,7 +19,8 @@ import { routes } from '../../../routes.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import type { PageSizeKey } from '../../../utils/get-page-size.ts'
 import {
   gridStateFromFormData,
   gridStateToParams,
@@ -46,6 +47,8 @@ interface ResourcePageData {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -78,7 +81,9 @@ async function loadResourcePageData(
   >,
 ): Promise<ResourcePageData> {
   let db = context.db
-  let effectivePageSize = getPageSize(context.session, RESOURCES_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.verwaltungResources
+  let effectivePageSize = getPageSize(context.session, RESOURCES_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let pageNum = Math.floor(offset / effectivePageSize) + 1
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
@@ -118,6 +123,8 @@ async function loadResourcePageData(
     hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
     nextOffset: offset + effectivePageSize,
+    pageKey,
+    pageSizeOverride,
     sortColumn: column,
     sortDirection: direction,
     filter,
@@ -156,6 +163,8 @@ function renderResourcePage(
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
       nextOffset={data.nextOffset}
+      pageKey={data.pageKey}
+      pageSizeOverride={data.pageSizeOverride}
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
       filter={data.filter}

@@ -62,6 +62,7 @@ export const routes = route({
     unreadCount: get('/unread-count'),
     markRead: post('/:id/read'),
     markAllRead: post('/mark-all-read'),
+    pageSize: post('/page-size'),
   }),
 
   chat: route('chat', {
@@ -213,6 +214,9 @@ export const routes = route({
 
   verwaltung: route('verwaltung', {
     index: get('/'),
+    // Shared endpoint behind every Verwaltung grid's "Einträge pro Seite"
+    // slider; the form carries the page key and the grid URL to return to.
+    pageSize: post('/page-size'),
 
     offerings: route('offerings', {
       index: get('/'),

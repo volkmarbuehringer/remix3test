@@ -37,6 +37,8 @@ import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerin
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
 import { formatDuring } from '../utils/during.ts'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 interface AdminOfferingsPageProps {
   rows: OfferingRow[]
@@ -44,6 +46,8 @@ interface AdminOfferingsPageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -217,6 +221,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
       hasMore,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       sortColumn,
       sortDirection,
       filter,
@@ -697,7 +703,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         </div>
 
         {/* Pagination */}
-        {(offset > 0 || hasMore) && (
+        {rows.length > 0 && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {rows.length > 0 && (
@@ -752,6 +758,13 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.verwaltung.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="offerings-page-size"
+              />
             </div>
           </div>
         )}

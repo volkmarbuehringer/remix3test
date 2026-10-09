@@ -25,7 +25,8 @@ import {
   gridStateOverrides,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import type { PageSizeKey } from '../../../utils/get-page-size.ts'
 import { AdminAppointmentsPage } from '../../../ui/admin-appointments-page.tsx'
 
 import {
@@ -107,6 +108,8 @@ interface AppointmentPageData {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -161,7 +164,9 @@ async function loadAppointmentPageData(
     status?: string | undefined
   },
 ): Promise<AppointmentPageData> {
-  let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.verwaltungAppointments
+  let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let gridFilter = readAppointmentGridFilter(context)
   let filter = overrides?.filter ?? gridFilter.filter
@@ -250,6 +255,8 @@ async function loadAppointmentPageData(
     hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
     nextOffset: offset + effectivePageSize,
+    pageKey,
+    pageSizeOverride,
     sortColumn: column,
     sortDirection: direction,
     filter,
@@ -281,6 +288,8 @@ function renderAppointmentsPage(
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
       nextOffset={data.nextOffset}
+      pageKey={data.pageKey}
+      pageSizeOverride={data.pageSizeOverride}
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
       filter={data.filter}

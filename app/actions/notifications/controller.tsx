@@ -7,11 +7,19 @@ import { redirect } from 'remix/response/redirect'
 import { routes } from '../../routes.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getPageSize } from '../../utils/get-page-size.ts'
+import {
+  clearPageSize,
+  getPageSize,
+  getPageSizeOverride,
+  isValidPageSize,
+  setPageSize,
+  PAGE_SIZE_KEYS,
+} from '../../utils/get-page-size.ts'
 import { parseId } from '../../utils/ids.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
+import { PageSizeControl } from '../../ui/page-size-control.tsx'
 import { notificationsChannel } from '../../utils/notifications-sse.ts'
 import {
   listUserNotifications,
@@ -34,7 +42,8 @@ export default createController(routes.notifications, {
   actions: {
     async index(context) {
       let user = getCurrentUser()
-      let pageSize = getPageSize(context.session, DEFAULT_PAGE_SIZE)
+      let pageSize = getPageSize(context.session, DEFAULT_PAGE_SIZE, PAGE_SIZE_KEYS.notifications)
+      let pageSizeOverride = getPageSizeOverride(context.session, PAGE_SIZE_KEYS.notifications)
       let offset = readOffset(context.url)
       let { rows, hasMore } = await listUserNotifications(context.db, user.id, {
         pageSize,
@@ -45,9 +54,26 @@ export default createController(routes.notifications, {
           notifications={rows}
           offset={offset}
           pageSize={pageSize}
+          pageSizeOverride={pageSizeOverride}
           hasMore={hasMore}
         />,
       )
+    },
+
+    async pageSize(context) {
+      let session = context.session
+      if (session) {
+        if (context.formData.get('_action') === 'reset-page-size') {
+          clearPageSize(session, PAGE_SIZE_KEYS.notifications)
+        } else {
+          let raw = context.formData.get('pageSize')
+          let next = typeof raw === 'string' ? Number(raw) : NaN
+          if (isValidPageSize(next)) {
+            setPageSize(session, next, PAGE_SIZE_KEYS.notifications)
+          }
+        }
+      }
+      return redirect(routes.notifications.index.href())
     },
 
     events(context) {
@@ -95,12 +121,14 @@ type NotificationsPageProps = {
   notifications: Notification[]
   offset: number
   pageSize: number
+  /** The saved per-page override, or null when the global default applies. */
+  pageSizeOverride: number | null
   hasMore: boolean
 }
 
 function NotificationsPage(handle: Handle<NotificationsPageProps>) {
   return () => {
-    let { notifications, offset, pageSize, hasMore } = handle.props
+    let { notifications, offset, pageSize, pageSizeOverride, hasMore } = handle.props
     let base = routes.notifications.index.href()
     let prevHref = offset > 0 ? `${base}?offset=${Math.max(0, offset - pageSize)}` : base
     let nextHref = `${base}?offset=${offset + pageSize}`
@@ -172,13 +200,22 @@ function NotificationsPage(handle: Handle<NotificationsPageProps>) {
                   ) : (
                     <span />
                   )}
-                  {hasMore ? (
-                    <a href={nextHref} mix={pageLinkCss}>
-                      Weiter
-                    </a>
-                  ) : (
-                    <span />
-                  )}
+                  <div mix={paginationEndCss}>
+                    {hasMore ? (
+                      <a href={nextHref} mix={pageLinkCss}>
+                        Weiter
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                    <PageSizeControl
+                      action={routes.notifications.pageSize.href()}
+                      pageKey={PAGE_SIZE_KEYS.notifications}
+                      pageSize={pageSize}
+                      pageSizeOverride={pageSizeOverride}
+                      controlId="notifications-page-size"
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -311,8 +348,19 @@ const readBtnCss = css({
 
 const paginationCss = css({
   display: 'flex',
+  alignItems: 'center',
   justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: '0.75rem',
   marginTop: '1rem',
+})
+
+const paginationEndCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  flexWrap: 'wrap',
+  gap: '0.75rem',
 })
 
 const pageLinkCss = css({

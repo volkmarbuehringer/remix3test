@@ -40,6 +40,8 @@ import type {
   AppointmentUserOption,
 } from '../data/appointments.ts'
 import { formatDuring } from '../utils/during.ts'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()
 
@@ -82,6 +84,8 @@ interface AdminAppointmentsPageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -168,6 +172,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       hasMore,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       sortColumn,
       sortDirection,
       filter,
@@ -673,7 +679,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         </div>
 
         {/* Pagination */}
-        {(offset > 0 || hasMore) && (
+        {rows.length > 0 && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>
@@ -723,6 +729,13 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.verwaltung.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={Math.max(1, nextOffset - offset)}
+                pageSizeOverride={pageSizeOverride}
+                controlId="appointments-page-size"
+              />
             </div>
           </div>
         )}

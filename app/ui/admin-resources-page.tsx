@@ -34,6 +34,8 @@ import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { AdminResourcesContextMenu } from '../actions/admin/public/admin-resources-context-menu.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 interface AdminResourcesPageProps {
   rows: Resource[]
@@ -41,6 +43,8 @@ interface AdminResourcesPageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -98,6 +102,8 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
       hasMore,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       sortColumn,
       sortDirection,
       filter,
@@ -383,7 +389,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         </div>
 
         {/* Pagination */}
-        {(offset > 0 || hasMore) && (
+        {rows.length > 0 && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>
@@ -429,6 +435,13 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.verwaltung.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={Math.max(1, nextOffset - offset)}
+                pageSizeOverride={pageSizeOverride}
+                controlId="resources-page-size"
+              />
             </div>
           </div>
         )}

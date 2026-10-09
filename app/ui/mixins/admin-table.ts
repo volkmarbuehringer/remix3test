@@ -342,6 +342,8 @@ export const table = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.space.sm,
     padding: `${theme.space.xs} ${theme.space.sm}`,
     background: surface.lvl0,
     borderRadius: theme.radius.md,
@@ -517,8 +519,8 @@ export const table = {
 
   /** Pushes elements apart in a flex row */
   spacer: css({ flex: 1 }),
-  /** Stacks pagination nav buttons */
-  flexGapSm: css({ display: 'flex', gap: '0.5rem' }),
+  /** Lays out pagination nav buttons (and an optional page-size control). */
+  flexGapSm: css({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }),
   /** Underlines are harmful inside table links wrapping buttons */
   linkPlain: css({ textDecoration: 'none' }),
   /** Hides content while keeping it in the DOM for JS access */
