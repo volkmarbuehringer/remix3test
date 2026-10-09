@@ -22,6 +22,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 | A content-sized flex-column panel/card collapses to its header; a bounded full-height shell under-sizes | `references/content-sized-flex-panel.md` |
 | A viewport-bounded page's inner list/sidebar won't scroll; a `flex: 1` child is clipped by an `overflow: hidden` `display: block` wrapper | `references/bounded-scroll-flexchain.md` |
 | Filling the available height in an admin sidebar shell; `height: 100vh` overflows the stacked chrome | `references/full-height-sidebar-shell.md` |
+| A plain-`Layout` (no sidebar) grid shows a page scrollbar; you want the header/filters pinned and only rows to scroll | `references/plain-layout-bounded-grid.md` |
 | `hidden` / `toggleAttribute('hidden', …)` has no visual effect; an author `display` in `css()` overrides the UA `[hidden]` rule | `references/hidden-attribute-display-override.md` |
 | Inspecting generated rules in the browser — `document.styleSheets` iteration shows nothing | `references/hover-reveal.md`, `references/cascade-layer-overrides.md` |
 | A scrollbar is missing in Firefox although `&::-webkit-scrollbar` is set | `references/bounded-scroll-flexchain.md` |
@@ -70,6 +71,12 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - `height: 100vh` inside the admin sidebar shell overflows because the visible box is `viewport − MainNav − footer − breadcrumbs − shell padding`, producing a permanent scrollbar. A `Frame` splices content with **no wrapper**, so the page is a direct child of the shared `pageStyle` scroll container — the **shell** must be height-constrained, not just the page.
 - Add a **config-gated** full-height mode to `createSidebarLayout` (`fullHeightTargets?: string[]`): matching pathnames get `shellStyle { height: 100%; grid-template-rows: minmax(0, 1fr) }` and `contentStyle { height: 100% }`, and the page uses `display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden`. Never change the shared shell globally — a blanket `height: 100%` breaks the sticky sidebar on tall pages.
 - A standalone page rendered directly in the plain `Layout` (e.g. `/chat`) has a definite-height parent, so `height: 100%` works there and it must **not** be in `fullHeightTargets`. Verify by grepping the files for the old `height: '100vh'` — an OpenSpec checkbox does not prove the code landed.
+
+**Plain-Layout bounded grid (`references/plain-layout-bounded-grid.md`)**
+
+- The top-level `Layout`'s scroll container is `main > div` (`pageStyle { flex: 1; overflow-y: auto }`), **not** the document. To keep a grid page from ever overflowing it, add a route-scoped `fullHeight` option that wraps the tab nav + `<section>` in `height: 100%; display: flex; flex-direction: column` with `& > section { flex: 1; min-height: 0 }` — `height: 100%` on the section alone overflows by the sibling nav's height.
+- Fill the chain down to the row region with `flex: 1 1 auto` (never `flex: 1`): the same classes run unbounded in frame fragments/agent panels, where basis 0 + `min-height: 0` collapses the grid. Density overrides use `!important` (sibling `@layer rmx.*` sub-layers). Measured: 15 rows, row 47→39px, page never scrolls; below ~865px viewport only rows scroll.
+- Verify with a temporary `t.serve` e2e asserting `pageEl.scrollHeight === pageEl.clientHeight`; the document itself will not reveal the overflow.
 
 **Hidden attribute (`references/hidden-attribute-display-override.md`)**
 
