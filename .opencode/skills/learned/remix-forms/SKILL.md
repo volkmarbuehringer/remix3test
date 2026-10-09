@@ -1,6 +1,6 @@
 ---
 name: remix-forms
-description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing.'
+description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing, or a session value mutated in place that never persists.'
 user-invocable: false
 origin: consolidated
 ---
@@ -20,6 +20,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 | Adding a `confirm()` dialog to server-rendered delete forms; intercepting a form submit before frame navigation; replacing native `confirm()` with a styled dialog and reusing it from context-menu or bulk triggers | `references/delete-confirmation.md` |
 | Password confirmation (cross-field), keeping passwords out of `defaultValue`, visibility toggle (`data-toggle-pw`), the `app/ui` vs `app/assets` `clientEntry` trap | `references/password-forms.md` |
 | One-shot UI state after a POST (routing card) that must self-clear on refresh — `session.flash()` vs `session.set()` | `references/session-flash-routing.md` |
+| A session value you mutated in place is missing on the next request — storing a map/array/set in the session | `references/session-value-persistence.md` |
 
 ## Core Rules
 
@@ -29,6 +30,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - When a dialog re-submits, call `form.requestSubmit(submitter)`, never `form.submit()`: `submit()` bypasses the `submit` event and the frame runtime, producing a full-page navigation.
 - Never put `defaultValue` on password fields; exclude them from `readFormFieldValues` key arrays.
 - Use `session.flash()` (not `session.set()`) for UI state that should render once and disappear on refresh.
+- Session values persist only through `session.set()`/`unset()`: both stores' `save()` write only when `session.dirty`, which in-place mutation never sets. Read-modify-write a **fresh** container and call `set()`; never mutate the object returned by `get()`.
 
 ## Related Skills
 
