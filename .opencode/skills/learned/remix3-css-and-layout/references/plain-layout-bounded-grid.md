@@ -77,6 +77,10 @@ return { pageScroll: pageEl.scrollHeight, pageClient: pageEl.clientHeight,
 
 `pageScroll === pageClient` is the "page never scrolls" assertion. Delete the harness afterwards.
 
+## Sidebar-shell variant (admin grids)
+
+`createSidebarLayout` also accepts a **per-render** `fullHeight` override — `renderAdminPage(render, activeItem, content, { fullHeight })` — which wins over the path-based `fullHeightTargets`. The `/admin` grids use it to bound themselves only in list view (`fullHeight: !(editRow || creating)`), so the two-column edit/create panel keeps normal document scrolling. The fill chain is the same `dataGridFill`/`dataGridWrap` pair (`app/ui/mixins/data-grid.ts`, re-exported as the `verwaltungGrid*` aliases) and the row region is marked `data-grid-scroll` for the navigation reset (see `nested-scroller-navigation-reset.md`). Intermediate wrappers (e.g. the clients `#client-grid-section` → `#client-grid-content`) each need the fill class, or the row region never gets a definite height.
+
 ## When to Use
 
 - A `/verwaltung` (or any plain-`Layout`) data grid shows a page scrollbar and you want chrome pinned while only rows scroll.
