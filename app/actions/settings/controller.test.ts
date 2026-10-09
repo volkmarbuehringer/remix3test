@@ -338,6 +338,22 @@ describe('Settings controller', () => {
         'should keep the display tab active after saving',
       )
     })
+
+    it('renders the page size as an arbitrary-value slider', async () => {
+      let session = await createAuthCookieWithCsrfForUser(testUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}?tab=display`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('type="range"'), 'page size should render as a slider')
+      assert.ok(html.includes('name="pageSize"'), 'slider should post pageSize')
+      assert.ok(html.includes('min="5"'), 'slider should expose the lower bound')
+      assert.ok(html.includes('max="100"'), 'slider should expose the upper bound')
+    })
   })
 
   describe('DELETE ACCOUNT', () => {

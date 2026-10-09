@@ -16,7 +16,13 @@ import { users, type User } from '../../data/schema.ts'
 import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { getPageSize, VALID_PAGE_SIZES } from '../../utils/get-page-size.ts'
+import {
+  getPageSize,
+  isValidPageSize,
+  PAGE_SIZE_DEFAULT,
+  PAGE_SIZE_MAX,
+  PAGE_SIZE_MIN,
+} from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -36,6 +42,7 @@ import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
+import { PageSizeSlider } from '../../ui/page-size-slider.browser.tsx'
 import { buttonLink } from '../../ui/theme/button.ts'
 import { segmentedButton } from '../../ui/mixins/segmented.ts'
 
@@ -54,7 +61,7 @@ export default createController(routes.settings, {
   actions: {
     index(context) {
       let user = getCurrentUser()
-      let pageSize = getPageSize(context.session, 15)
+      let pageSize = getPageSize(context.session, PAGE_SIZE_DEFAULT)
       let isFrame = isFrameTargeted(context.request, frames.settingsPanel)
       return context.render(
         <SettingsView
@@ -68,7 +75,7 @@ export default createController(routes.settings, {
 
     async action(context) {
       let user = getCurrentUser()
-      let pageSize = getPageSize(context.session, 15)
+      let pageSize = getPageSize(context.session, PAGE_SIZE_DEFAULT)
       let isFrame = isFrameTargeted(context.request, frames.settingsPanel)
       let _action =
         typeof context.formData.get('_action') === 'string'
@@ -173,7 +180,7 @@ export default createController(routes.settings, {
         if (session) {
           let raw = context.formData.get('pageSize')
           let nextPageSize = typeof raw === 'string' ? Number(raw) : NaN
-          if (!isNaN(nextPageSize) && (VALID_PAGE_SIZES as readonly number[]).includes(nextPageSize)) {
+          if (isValidPageSize(nextPageSize)) {
             session.set('pageSize', nextPageSize)
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
@@ -478,28 +485,28 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                 <input type="hidden" name="_action" value="set-page-size" />
                 <CsrfTokenInput />
                 <div mix={pageSizeRowCss}>
-                  <label mix={[fieldLabelCss, pageSizeFieldCss]}>
+                  <label mix={[fieldLabelCss, pageSizeFieldCss]} htmlFor="page-size-slider">
                     <span>Einträge pro Seite</span>
-                    <select name="pageSize" mix={selectCss}>
-                      <option value={10} selected={pageSize === 10}>
-                        10
-                      </option>
-                      <option value={15} selected={pageSize === 15}>
-                        15
-                      </option>
-                      <option value={20} selected={pageSize === 20}>
-                        20
-                      </option>
-                      <option value={25} selected={pageSize === 25}>
-                        25
-                      </option>
-                      <option value={50} selected={pageSize === 50}>
-                        50
-                      </option>
-                      <option value={100} selected={pageSize === 100}>
-                        100
-                      </option>
-                    </select>
+                    <span mix={rangeControlCss} data-page-size-control="true">
+                      <input
+                        id="page-size-slider"
+                        type="range"
+                        name="pageSize"
+                        min={PAGE_SIZE_MIN}
+                        max={PAGE_SIZE_MAX}
+                        step={1}
+                        value={String(pageSize)}
+                        mix={rangeCss}
+                        data-page-size-range="true"
+                      />
+                      <output
+                        mix={rangeOutputCss}
+                        data-page-size-output="true"
+                        htmlFor="page-size-slider"
+                      >
+                        {pageSize}
+                      </output>
+                    </span>
                   </label>
                   <button type="submit" mix={submitButton} aria-label="Anzeige speichern">
                     Speichern
@@ -626,6 +633,7 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
             </div>
           ) : null}
         </div>
+        <PageSizeSlider />
       </>
     )
   }
@@ -877,8 +885,31 @@ const pageSizeRowCss = css({
 })
 
 const pageSizeFieldCss = css({
-  flex: '1 1 12rem',
-  maxWidth: '16rem',
+  flex: '1 1 18rem',
+  maxWidth: '24rem',
+})
+
+// Range + live readout for the page-size slider. `accentColor` themes the
+// thumb/track across browsers without a bespoke pseudo-element reset.
+const rangeControlCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+})
+
+const rangeCss = css({
+  flex: 1,
+  minWidth: '8rem',
+  accentColor: theme.colors.action.primary.background,
+  cursor: 'pointer',
+})
+
+const rangeOutputCss = css({
+  minWidth: '3ch',
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums',
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
 })
 
 const complexityListCss = css({
@@ -913,19 +944,6 @@ const successBanner = css({
   color: successSurface.successText ?? '#065f46',
   margin: 0,
   padding: theme.space.md,
-})
-
-const selectCss = css({
-  display: 'block',
-  width: '100%',
-  padding: '0.5rem',
-  fontSize: theme.fontSize.md,
-  fontFamily: theme.fontFamily.sans,
-  color: theme.colors.text.primary,
-  backgroundColor: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  cursor: 'pointer',
 })
 
 const hintTextCss = css({
