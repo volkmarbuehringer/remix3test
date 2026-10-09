@@ -92,6 +92,10 @@ export const routes = route({
 
   admin: route('admin', {
     index: get('/'),
+    // Shared endpoint behind every Admin grid's "Einträge pro Seite" slider;
+    // mirrors the Verwaltung grid control (the form carries the page key and
+    // the grid URL to return to).
+    pageSize: post('/page-size'),
 
     clients: route('clients', {
       index: get('/'),

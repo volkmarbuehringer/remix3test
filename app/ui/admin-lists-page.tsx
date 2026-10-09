@@ -28,6 +28,9 @@ import {
   buildFilterParams,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
+import { PageSizeControl } from './page-size-control.tsx'
+import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.admin.lists.index.href()
 
@@ -44,6 +47,8 @@ interface AdminListsPageProps {
   editRow?: ListRow | null
   creating?: boolean
   pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
@@ -226,6 +231,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       editRow = null,
       creating = false,
       pageSize,
+      pageKey,
+      pageSizeOverride,
       formValues,
       fieldErrors,
       formError,
@@ -251,7 +258,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     }
 
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasFormPanel ? undefined : dataGridFill]}>
         <ConfirmDelete />
 
         <form
@@ -357,7 +364,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           </a>
         </form>
 
-        <div mix={table.wrap} data-lists-table="true">
+        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true" data-lists-table="true">
           {lists.length === 0 ? (
             <div mix={emptyStateStyle}>
               <span>{emptyMessage}</span>
@@ -654,7 +661,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           )}
         </div>
 
-        {(offset > 0 || hasMore) && (
+        {(offset > 0 || hasMore || lists.length > 0) && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {lists.length > 0 ? (
@@ -709,6 +716,13 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="lists-page-size"
+              />
             </div>
           </div>
         )}
@@ -717,7 +731,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
 
     if (editRow || creating) {
       return (
-        <div mix={table.page}>
+        <div mix={[table.page, dataGridFill]}>
           <h2 mix={table.title}>Gespeicherte Listen</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
@@ -752,7 +766,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     }
 
     return (
-      <div mix={table.page}>
+      <div mix={[table.page, dataGridFill]}>
         <h2 mix={table.title}>Gespeicherte Listen</h2>
         {gridSection}
       </div>

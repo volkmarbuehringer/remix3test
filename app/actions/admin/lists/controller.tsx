@@ -18,6 +18,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
+import type { AppContext } from '../../../types/context.ts'
 import {
   gridStateFromForm,
   gridStateFromFormData,
@@ -30,7 +31,7 @@ import {
   gridSortColumn,
   gridSortDirection,
 } from '../../../utils/grid-params.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
@@ -141,6 +142,7 @@ async function loadGridData(
 type ListsRenderContext = {
   db: Database
   render: Parameters<typeof renderAdminPage>[0]
+  session: AppContext['session']
 }
 
 async function renderListsError(
@@ -159,6 +161,8 @@ async function renderListsError(
     pageSize: number
   },
 ): Promise<Response> {
+  let pageKey = PAGE_SIZE_KEYS.adminLists
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let grid: AdminGridErrorState = {
     offset: opts.offset,
     sortColumn: opts.column,
@@ -166,6 +170,8 @@ async function renderListsError(
     filter: opts.filter,
     status: opts.status,
     pageSize: opts.pageSize,
+    pageKey,
+    pageSizeOverride,
   }
   return renderGridFormError<ListRow>({
     render: context.render,
@@ -193,6 +199,8 @@ async function renderListsError(
         editRow={opts.editRow ?? null}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
+        pageKey={page.pageKey}
+        pageSizeOverride={page.pageSizeOverride}
         formValues={page.formValues}
         fieldErrors={page.fieldErrors}
         formError={page.formError}
@@ -201,6 +209,7 @@ async function renderListsError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
+    fullHeight: !(opts.editRow || opts.creating),
     grid,
   })
 }
@@ -210,7 +219,9 @@ export default createController(routes.admin.lists, {
 
   actions: {
     async index(context) {
-      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
+      let pageKey = PAGE_SIZE_KEYS.adminLists
+      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT, pageKey)
+      let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
       let statusParam = context.url.searchParams.get('status')
@@ -259,14 +270,21 @@ export default createController(routes.admin.lists, {
           editRow={editRow}
           creating={creating}
           pageSize={effectivePageSize}
+          pageKey={pageKey}
+          pageSizeOverride={pageSizeOverride}
         />,
+        { fullHeight: !(editRow || creating) },
       )
     },
 
     async create(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
+      let effectivePageSize = getPageSize(
+        context.session,
+        LISTS_PAGE_LIMIT,
+        PAGE_SIZE_KEYS.adminLists,
+      )
 
       let rawValues = readFormFieldValues(LISTS_FORM_KEYS, formData)
       let parseResult = s.parseSafe(listsCreateSchema, formData)
@@ -319,7 +337,11 @@ export default createController(routes.admin.lists, {
     async update(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
+      let effectivePageSize = getPageSize(
+        context.session,
+        LISTS_PAGE_LIMIT,
+        PAGE_SIZE_KEYS.adminLists,
+      )
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {

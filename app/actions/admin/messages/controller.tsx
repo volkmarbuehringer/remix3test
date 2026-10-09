@@ -22,7 +22,7 @@ import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { parseId } from '../../../utils/ids.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import {
   gridFilter,
   gridOffset,
@@ -120,7 +120,9 @@ async function renderMessagesPage(
   context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
   opts: { offset: number; filter?: string | undefined; column: string; direction: 'asc' | 'desc' },
 ): Promise<Response> {
-  let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
+  let pageKey = PAGE_SIZE_KEYS.adminMessages
+  let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
 
   let { rows, hasMore } = await loadMessagesGrid(context.db, {
     offset: opts.offset,
@@ -140,16 +142,20 @@ async function renderMessagesPage(
       pageSize={effectivePageSize}
       prevOffset={Math.max(0, opts.offset - effectivePageSize)}
       nextOffset={opts.offset + effectivePageSize}
+      pageKey={pageKey}
+      pageSizeOverride={pageSizeOverride}
       filter={opts.filter}
       sortColumn={opts.column}
       sortDirection={opts.direction}
     />,
+    { fullHeight: true },
   )
 }
 
 type MessagesRenderContext = {
   db: Database
   render: Parameters<typeof renderAdminPage>[0]
+  session: AppContext['session']
 }
 
 /**
@@ -174,12 +180,16 @@ async function renderMessagesError(
     pageSize: number
   },
 ): Promise<Response> {
+  let pageKey = PAGE_SIZE_KEYS.adminMessages
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let grid: AdminGridErrorState = {
     offset: opts.offset,
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
     pageSize: opts.pageSize,
+    pageKey,
+    pageSizeOverride,
   }
   return renderGridFormError<AdminMessageRow>({
     render: context.render,
@@ -200,6 +210,8 @@ async function renderMessagesError(
         pageSize={page.pageSize}
         prevOffset={Math.max(0, page.offset - page.pageSize)}
         nextOffset={page.offset + page.pageSize}
+        pageKey={page.pageKey}
+        pageSizeOverride={page.pageSizeOverride}
         filter={page.filter}
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
@@ -211,6 +223,7 @@ async function renderMessagesError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
+    fullHeight: true,
     grid,
   })
 }
@@ -248,7 +261,11 @@ export default createController(routes.admin.messages, {
     async action(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
+      let effectivePageSize = getPageSize(
+        context.session,
+        MESSAGES_PAGE_LIMIT,
+        PAGE_SIZE_KEYS.adminMessages,
+      )
 
       let rawValues = readFormFieldValues(MESSAGES_FORM_KEYS, formData)
       let parseResult = s.parseSafe(messageSchema, formData)

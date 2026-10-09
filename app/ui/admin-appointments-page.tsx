@@ -355,6 +355,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         {/* Table */}
         <div
           mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-grid-scroll="true"
           data-appointments-table="true"
         >
           {rows.length === 0 ? (

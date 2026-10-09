@@ -4,6 +4,8 @@ import { ClientGridPage } from './grid-page.tsx'
 import { ClientEditPage } from './edit-page.tsx'
 import { ClientCreatePage } from './create-page.tsx'
 import { table } from '../../ui/mixins/admin-table.ts'
+import { dataGridFill } from '../../ui/mixins/data-grid.ts'
+import type { PageSizeKey } from '../../utils/get-page-size.ts'
 
 interface ClientPageProps {
   rows: Client[]
@@ -15,6 +17,8 @@ interface ClientPageProps {
   sortDirection: 'asc' | 'desc'
   filter?: string | undefined
   pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   editRow?: Client | null
   creating?: boolean
   formValues?: Record<string, string> | undefined
@@ -34,6 +38,8 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       sortDirection,
       filter,
       pageSize,
+      pageKey,
+      pageSizeOverride,
       editRow,
       creating = false,
       formValues,
@@ -43,7 +49,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
     let hasSidebar = editRow || creating
 
     let gridSection = (
-      <div mix={table.minWidth0} id="client-grid-section">
+      <div mix={[table.minWidth0, dataGridFill]} id="client-grid-section">
         <ClientGridPage
           rows={rows}
           offset={offset}
@@ -53,6 +59,8 @@ function ClientPage(handle: Handle<ClientPageProps>) {
           sortOrder={sortDirection}
           filter={filter}
           pageSize={pageSize}
+          pageKey={pageKey}
+          pageSizeOverride={pageSizeOverride}
           editingId={editRow?.id ?? null}
         />
       </div>
@@ -60,7 +68,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
 
     if (hasSidebar) {
       return (
-        <div mix={table.page}>
+        <div mix={[table.page, dataGridFill]}>
           <h2 mix={table.title}>Client-Test</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
@@ -93,7 +101,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
     }
 
     return (
-      <div mix={table.page}>
+      <div mix={[table.page, dataGridFill]}>
         <h2 mix={table.title}>Client-Test</h2>
         {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {gridSection}

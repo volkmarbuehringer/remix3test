@@ -43,7 +43,7 @@ import { hashPassword } from '../../../utils/password-hash.ts'
 import { sendAccountDeletionEmail } from '../../../utils/send-email.ts'
 
 import { parseSort } from '../../../utils/sort-params.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 
 type SafeUser = Pick<
   User,
@@ -188,6 +188,7 @@ async function disableGuardReason(
 type UsersRenderContext = {
   db: Database
   render: Parameters<typeof renderAdminPage>[0]
+  session: AppContext['session']
 }
 
 /**
@@ -213,12 +214,16 @@ async function renderUsersError(
     pageSize: number
   },
 ): Promise<Response> {
+  let pageKey = PAGE_SIZE_KEYS.adminUsers
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let grid: AdminGridErrorState = {
     offset: opts.offset,
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
     pageSize: opts.pageSize,
+    pageKey,
+    pageSizeOverride,
   }
   return renderGridFormError<SafeUser>({
     render: context.render,
@@ -244,6 +249,8 @@ async function renderUsersError(
         editRow={opts.editRow ?? null}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
+        pageKey={page.pageKey}
+        pageSizeOverride={page.pageSizeOverride}
         formValues={page.formValues}
         fieldErrors={page.fieldErrors}
         formError={page.formError}
@@ -252,6 +259,7 @@ async function renderUsersError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
+    fullHeight: !(opts.editRow || opts.creating),
     grid,
   })
 }
@@ -265,7 +273,9 @@ async function renderUsersError(
 async function renderUsersIndex(
   context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
 ): Promise<Response> {
-  let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.adminUsers
+  let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = context.url.searchParams.get('filter') || undefined
 
@@ -308,7 +318,10 @@ async function renderUsersIndex(
       editRow={editRow}
       creating={creating}
       pageSize={effectivePageSize}
+      pageKey={pageKey}
+      pageSizeOverride={pageSizeOverride}
     />,
+    { fullHeight: !(editRow || creating) },
   )
 }
 
@@ -331,7 +344,11 @@ export default createController(routes.admin.users, {
     async create(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
+      let effectivePageSize = getPageSize(
+        context.session,
+        USERS_PAGE_SIZE,
+        PAGE_SIZE_KEYS.adminUsers,
+      )
 
       let rawValues = readFormFieldValues(USERS_FORM_KEYS, formData)
       let parseResult = s.parseSafe(userCreateSchema, formData)
@@ -429,7 +446,11 @@ export default createController(routes.admin.users, {
     async update(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
+      let effectivePageSize = getPageSize(
+        context.session,
+        USERS_PAGE_SIZE,
+        PAGE_SIZE_KEYS.adminUsers,
+      )
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {

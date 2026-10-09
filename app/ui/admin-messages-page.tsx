@@ -23,6 +23,9 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { MessageExpand } from './message-expand.browser.tsx'
 import { MessageCompose } from './message-compose.browser.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.admin.messages.index.href()
 
@@ -45,6 +48,8 @@ interface AdminMessagesPageProps {
   pageSize: number
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   filter?: string | undefined
   sortColumn: string
   sortDirection: 'asc' | 'desc'
@@ -239,6 +244,8 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       pageSize,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       filter,
       sortColumn,
       sortDirection,
@@ -255,7 +262,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       buildPaginationUrl(ADMIN_BASE, newOffset, sortColumn, sortDirection, filter)
 
     return (
-      <div mix={table.page}>
+      <div mix={[table.page, dataGridFill]}>
         <ConfirmDelete />
         <MessageExpand />
         <MessageCompose />
@@ -367,7 +374,13 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
         </div>
 
         {/* Messages grid */}
-        <div mix={table.wrap} role="log" aria-live="polite" data-messages-table="true">
+        <div
+          mix={[table.wrap, dataGridWrap]}
+          role="log"
+          aria-live="polite"
+          data-grid-scroll="true"
+          data-messages-table="true"
+        >
           {messages.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -525,7 +538,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
         </div>
 
         {/* Pagination */}
-        {(offset > 0 || hasMore) && (
+        {(offset > 0 || hasMore || messages.length > 0) && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {messages.length > 0 ? (
@@ -558,6 +571,13 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
               ) : null}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="messages-page-size"
+              />
             </div>
           </div>
         )}

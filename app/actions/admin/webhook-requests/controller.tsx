@@ -21,7 +21,12 @@ import { requireAdminSseAuth } from '../../../middleware/sse-auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminWebhookRequestsPage } from '../../../ui/admin-webhook-requests-page.tsx'
 import { getAdminIdentity } from '../../../utils/context.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import {
+  getPageSize,
+  getPageSizeOverride,
+  PAGE_SIZE_KEYS,
+  type PageSizeKey,
+} from '../../../utils/get-page-size.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import {
   gridStateDirection,
@@ -44,6 +49,8 @@ interface PageData {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
 }
 
 function hermesUrl(): string {
@@ -94,7 +101,10 @@ async function loadPageData(
   context: Pick<AppContext, 'db' | 'url' | 'session'>,
   overrides: GridOverrides = {},
 ): Promise<PageData> {
-  let pageSize = overrides.pageSize ?? getPageSize(context.session, WEBHOOK_REQUESTS_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.adminWebhookRequests
+  let pageSize =
+    overrides.pageSize ?? getPageSize(context.session, WEBHOOK_REQUESTS_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = overrides.filter ?? context.url.searchParams.get('filter') ?? undefined
 
@@ -131,6 +141,8 @@ async function loadPageData(
     sortDirection: direction,
     filter,
     pageSize,
+    pageKey,
+    pageSizeOverride,
   }
 }
 
@@ -182,6 +194,7 @@ async function renderIndexPage(
       editingOrder={editingOrder}
       editingFilter={editingFilter}
     />,
+    { fullHeight: !editRow && !viewRow },
   )
 }
 

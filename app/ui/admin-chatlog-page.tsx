@@ -13,6 +13,8 @@ import {
   type ChatlogSourceFilter,
 } from '../data/chatlog-sources.ts'
 import { chatlogQuery } from '../utils/chatlog-query.ts'
+import { PageSizeControl } from './page-size-control.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 import { frames, routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -60,6 +62,8 @@ interface ChatLogPageProps {
   pageSize: number
   prevOffset: number
   nextOffset: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   /** Thread whose transcript is open in the detail pane, if any. */
   selectedId?: string | undefined
   /** Active source filter (Alle keeps every thread). */
@@ -192,6 +196,8 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
       pageSize,
       prevOffset,
       nextOffset,
+      pageKey,
+      pageSizeOverride,
       selectedId,
       source,
       sourceCounts,
@@ -388,7 +394,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           </div>
         </div>
 
-        {(offset > 0 || hasMore) && (
+        {(offset > 0 || hasMore || conversations.length > 0) && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {conversations.length > 0 ? (
@@ -421,6 +427,13 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
               ) : null}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="chatlog-page-size"
+              />
             </div>
           </div>
         )}

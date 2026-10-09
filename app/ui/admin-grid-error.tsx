@@ -1,6 +1,7 @@
 import type { RemixNode } from 'remix/component'
 
 import { renderAdminPage } from './admin-layout.tsx'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 /**
  * Grid-state and validation-error metadata carried on a controlled-submission error re-render.
@@ -17,6 +18,8 @@ export interface AdminGridErrorState {
   filter?: string | undefined
   status?: string | undefined
   pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
 }
 
 interface AdminGridErrorPage<Row> extends AdminGridErrorState {
@@ -46,6 +49,8 @@ export async function renderGridFormError<Row>(opts: {
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
+  /** Keep a bounded grid page full-height on the error re-render too. */
+  fullHeight?: boolean | undefined
   grid: AdminGridErrorState
 }): Promise<Response> {
   let { render, activeItem, loadRows, buildPage, grid } = opts
@@ -66,7 +71,9 @@ export async function renderGridFormError<Row>(opts: {
       filter: grid.filter,
       status: grid.status,
       pageSize: grid.pageSize,
+      pageKey: grid.pageKey,
+      pageSizeOverride: grid.pageSizeOverride,
     }),
-    { status: 200 },
+    { status: 200, fullHeight: opts.fullHeight },
   )
 }

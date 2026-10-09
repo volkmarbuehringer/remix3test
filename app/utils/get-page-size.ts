@@ -18,6 +18,13 @@ export const PAGE_SIZE_KEYS = {
   verwaltungResources: 'verwaltung.resources',
   verwaltungOfferingConfigs: 'verwaltung.offering-configs',
   verwaltungReport1: 'verwaltung.report1',
+  adminChatlog: 'admin.chatlog',
+  adminMessages: 'admin.messages',
+  adminLists: 'admin.lists',
+  adminUsers: 'admin.users',
+  adminUploads: 'admin.uploads',
+  adminWebhookRequests: 'admin.webhook-requests',
+  adminClients: 'admin.clients',
 } as const
 
 export type PageSizeKey = (typeof PAGE_SIZE_KEYS)[keyof typeof PAGE_SIZE_KEYS]

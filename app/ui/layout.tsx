@@ -6,6 +6,7 @@ import { getContext } from 'remix/middleware/async-context'
 import { Document } from './document.tsx'
 import { MainNav } from './main-nav.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
+import { PageScrollReset } from './page-scroll-reset.browser.tsx'
 
 interface LayoutProps {
   children?: RemixNode
@@ -47,7 +48,7 @@ export function Layout(handle: Handle<LayoutProps>) {
           {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
           {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
           <main mix={mainStyle}>
-            <div mix={pageStyle}>
+            <div mix={pageStyle} data-page-scroller="true">
               {currentPath.startsWith('/admin') ||
               currentPath.startsWith('/ai') ||
               currentPath.startsWith('/lists') ||
@@ -60,6 +61,7 @@ export function Layout(handle: Handle<LayoutProps>) {
           <footer mix={footerStyle}>
             <p mix={footerTextCss}>&copy; {new Date().getFullYear()} newapp. Built with Remix.</p>
           </footer>
+          <PageScrollReset />
         </div>
       </Document>
     )
@@ -83,6 +85,10 @@ const mainStyle = css({
 const pageStyle = css({
   flex: 1,
   overflowY: 'auto',
+  // The app's real scroll container (not the document). Reserve the scrollbar
+  // gutter so grids whose content height crosses the viewport — common with
+  // variable row heights — do not shift sideways when the scrollbar toggles.
+  scrollbarGutter: 'stable',
   maxWidth: '1200px',
   width: '100%',
   margin: '0 auto',

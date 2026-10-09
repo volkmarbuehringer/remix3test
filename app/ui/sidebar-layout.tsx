@@ -104,23 +104,34 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
 
   type PageProps = {
     activeItem: ID
+    /** Per-render full-height override; falls back to `fullHeightTargets`. */
+    fullHeight?: boolean | undefined
     children?: RemixNode
   }
 
+  /** `ResponseInit` plus app-only render options that must not reach the response. */
+  type RenderInit = ResponseInit & { fullHeight?: boolean | undefined }
+
   function ShellOrFragment(handle: Handle<PageProps>) {
     return () => {
-      let { activeItem, children } = handle.props
+      let { activeItem, fullHeight, children } = handle.props
       let target = currentFrameTarget()
       if (target != null && contentOnlyTargetSet.has(target)) {
         return children
       }
       if (isFrameRequest()) {
-        return <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
+        return (
+          <LayoutComponent activeItem={activeItem} fullHeight={fullHeight}>
+            {children}
+          </LayoutComponent>
+        )
       }
       if (getContext().request.method !== 'GET') {
         return (
           <Layout>
-            <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
+            <LayoutComponent activeItem={activeItem} fullHeight={fullHeight}>
+              {children}
+            </LayoutComponent>
           </Layout>
         )
       }
@@ -130,12 +141,14 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
 
   function LayoutComponent(handle: Handle<PageProps>) {
     return () => {
-      let { activeItem, children } = handle.props
+      let { activeItem, fullHeight: fullHeightOverride, children } = handle.props
       let fullHeight =
+        fullHeightOverride ??
         fullHeightTargets?.some((path) => {
           let pathname = new URL(getContext().request.url).pathname
           return pathname === path || pathname.startsWith(path + '/')
-        }) ?? false
+        }) ??
+        false
 
       // Admin pages render as frame fragments through this shell (not the top-level
       // Layout), so PRG flash messages must be surfaced here to be visible.
@@ -220,9 +233,15 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     render: (node: RemixNode, init?: ResponseInit) => Response,
     activeItem: ID,
     content: RemixNode,
-    init?: ResponseInit,
+    init?: RenderInit,
   ) {
-    return render(<ShellOrFragment activeItem={activeItem}>{content}</ShellOrFragment>, init)
+    let { fullHeight, ...responseInit } = init ?? {}
+    return render(
+      <ShellOrFragment activeItem={activeItem} fullHeight={fullHeight}>
+        {content}
+      </ShellOrFragment>,
+      responseInit,
+    )
   }
 
   return { renderPage, Layout: LayoutComponent, isFrameRequest }

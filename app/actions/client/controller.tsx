@@ -13,12 +13,13 @@ import { clients } from '../../data/schema.ts'
 import type { Client } from '../../data/schema.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { getAdminIdentity } from '../../utils/context.ts'
+import type { AppContext } from '../../types/context.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { ClientPage } from './page.tsx'
 import { paginate } from '../../utils/pagination.ts'
 import { parseSort } from '../../utils/sort-params.ts'
 import { isConstraintViolation } from '../../utils/db-errors.ts'
-import { getPageSize } from '../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../utils/get-page-size.ts'
 import {
   gridFilter,
   gridOffset,
@@ -119,7 +120,11 @@ function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
   }
 }
 
-type ClientsRenderContext = { db: Database; render: Parameters<typeof renderAdminPage>[0] }
+type ClientsRenderContext = {
+  db: Database
+  render: Parameters<typeof renderAdminPage>[0]
+  session: AppContext['session']
+}
 
 async function renderClientsError(
   context: ClientsRenderContext,
@@ -136,12 +141,16 @@ async function renderClientsError(
     pageSize: number
   },
 ): Promise<Response> {
+  let pageKey = PAGE_SIZE_KEYS.adminClients
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let grid: AdminGridErrorState = {
     offset: opts.offset,
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
     pageSize: opts.pageSize,
+    pageKey,
+    pageSizeOverride,
   }
   return renderGridFormError<Row>({
     render: context.render,
@@ -167,6 +176,8 @@ async function renderClientsError(
         editRow={opts.editRow ?? null}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
+        pageKey={page.pageKey}
+        pageSizeOverride={page.pageSizeOverride}
         formValues={page.formValues}
         fieldErrors={page.fieldErrors}
         formError={page.formError}
@@ -175,6 +186,7 @@ async function renderClientsError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
+    fullHeight: !(opts.editRow || opts.creating),
     grid,
   })
 }
@@ -186,7 +198,9 @@ export default createController(routes.admin.clients, {
     // -- GET /admin/clients -- Render main page --
     async index(context) {
       let db = context.db
-      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
+      let pageKey = PAGE_SIZE_KEYS.adminClients
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE, pageKey)
+      let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
 
@@ -228,7 +242,10 @@ export default createController(routes.admin.clients, {
           editRow={editRow}
           creating={creating}
           pageSize={effectivePageSize}
+          pageKey={pageKey}
+          pageSizeOverride={pageSizeOverride}
         />,
+        { fullHeight: !(editRow || creating) },
       )
     },
 
@@ -250,7 +267,7 @@ export default createController(routes.admin.clients, {
     async update(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE, PAGE_SIZE_KEYS.adminClients)
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
@@ -385,7 +402,7 @@ export default createController(routes.admin.clients, {
     async create(context) {
       let db = context.db
       let formData = context.formData
-      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE, PAGE_SIZE_KEYS.adminClients)
 
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)

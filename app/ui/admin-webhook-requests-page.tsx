@@ -10,6 +10,9 @@ import { RestfulForm } from './restful-form.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const BASE = routes.admin.webhookRequests.index.href()
 
@@ -22,6 +25,9 @@ interface AdminWebhookRequestsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   editRow?: WebhookRequestRow | null
   viewRow?: WebhookRequestRow | null
   editingOffset?: string
@@ -133,7 +139,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
     )
 
     let gridSection = (
-      <div mix={hasSidebar ? table.minWidth0 : undefined}>
+      <div mix={hasSidebar ? table.minWidth0 : dataGridFill}>
         <ConfirmDelete />
         <form method="GET" action={BASE} data-rmx-target={frameTarget} mix={table.filterBar}>
           <input
@@ -160,7 +166,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
           )}
         </form>
 
-        <div mix={table.wrap}>
+        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true">
           <table mix={table.table}>
             <thead>
               <tr>
@@ -361,6 +367,13 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
               ) : (
                 <span mix={table.pageLinkDisabled}>Vor</span>
               )}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={p.pageKey}
+                pageSize={p.pageSize}
+                pageSizeOverride={p.pageSizeOverride}
+                controlId="webhook-requests-page-size"
+              />
             </div>
           </div>
         )}

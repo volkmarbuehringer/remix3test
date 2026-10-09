@@ -160,6 +160,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         {/* Table */}
         <div
           mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-grid-scroll="true"
           data-resources-table="true"
         >
           {rows.length === 0 ? (

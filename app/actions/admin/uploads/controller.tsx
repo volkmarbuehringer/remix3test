@@ -82,8 +82,14 @@ import { buildZipArchive } from '../../../utils/zip.ts'
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import {
+  getPageSize,
+  getPageSizeOverride,
+  PAGE_SIZE_KEYS,
+  type PageSizeKey,
+} from '../../../utils/get-page-size.ts'
 import { takeUploadedIds, takeUploadError } from '../../../middleware/upload-claim.ts'
+import { PageSizeControl } from '../../../ui/page-size-control.tsx'
 import { table } from '../../../ui/mixins/admin-table.ts'
 import { sortArrow, sortRule } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
@@ -230,7 +236,9 @@ async function renderUploadsPage(
     opts.filter !== undefined ? opts.filter : context.url.searchParams.get('filter') || undefined
   let kind =
     opts.kind !== undefined ? opts.kind : parseUploadKind(context.url.searchParams.get('kind'))
-  let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.adminUploads
+  let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let { column, direction } = parseSort(context.url, {
     allowedColumns: UPLOAD_SORT_FIELDS,
     defaultColumn: 'created_at',
@@ -270,6 +278,9 @@ async function renderUploadsPage(
       filter={filter}
       kind={kind}
       quota={quota}
+      pageSize={pageSize}
+      pageKey={pageKey}
+      pageSizeOverride={pageSizeOverride}
     />,
   )
 }
@@ -484,6 +495,9 @@ type UploadsContentProps = {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   kind: UploadKind | undefined
+  pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   quota: {
     userUsedBytes: number
     userQuotaBytes: number | null
@@ -506,6 +520,9 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
       sortDirection,
       filter,
       kind,
+      pageSize,
+      pageKey,
+      pageSizeOverride,
       quota,
     } = handle.props
 
@@ -904,6 +921,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               ) : (
                 <span mix={table.pageLinkDisabled}>Vor</span>
               )}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="uploads-page-size"
+              />
             </div>
           </div>
         </div>

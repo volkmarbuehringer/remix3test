@@ -28,6 +28,9 @@ import {
 } from './mixins/admin-urls.ts'
 import { AdminUsersContextMenu } from '../actions/admin/public/admin-users-context-menu.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
+import { PageSizeControl } from './page-size-control.tsx'
+import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.admin.users.index.href()
 
@@ -55,6 +58,8 @@ interface AdminUsersPageProps {
   editRow?: DisplayUser | null
   creating?: boolean
   pageSize: number
+  pageKey: PageSizeKey
+  pageSizeOverride: number | null
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
@@ -131,6 +136,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
       editRow = null,
       creating = false,
       pageSize,
+      pageKey,
+      pageSizeOverride,
       formValues,
       fieldErrors,
       formError,
@@ -140,7 +147,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
 
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, editRow || creating ? undefined : dataGridFill]}>
         <ConfirmDelete />
 
         {/* Toolbar + Filter */}
@@ -211,7 +218,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={table.wrap} data-users-table="true">
+        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true" data-users-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Benutzer gefunden für diese Suche.' : 'Keine Benutzer vorhanden.'}
@@ -483,7 +490,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         </div>
 
         {/* Pagination */}
-        {(offset > 0 || hasMore) && (
+        {(offset > 0 || hasMore || rows.length > 0) && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {rows.length > 0 ? (
@@ -536,6 +543,13 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="users-page-size"
+              />
             </div>
           </div>
         )}
@@ -556,7 +570,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     // Two-column layout when editing or creating
     if (editRow || creating) {
       return (
-        <div mix={table.page}>
+        <div mix={[table.page, dataGridFill]}>
           <h2 mix={table.title}>Benutzer</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
@@ -589,7 +603,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     }
 
     return (
-      <div mix={table.page}>
+      <div mix={[table.page, dataGridFill]}>
         <h2 mix={table.title}>Benutzer</h2>
         {gridSection}
       </div>

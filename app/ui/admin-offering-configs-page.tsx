@@ -283,6 +283,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
         <div
           mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-grid-scroll="true"
           data-offering-configs-table="true"
         >
           {rows.length === 0 ? (

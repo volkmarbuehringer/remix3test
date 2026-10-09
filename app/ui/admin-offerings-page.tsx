@@ -452,6 +452,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         {/* Table */}
         <div
           mix={[table.wrap, table.mobileCards, verwaltungGridWrap, verwaltungGridDensity]}
+          data-grid-scroll="true"
           data-offerings-table="true"
         >
           {rows.length === 0 ? (

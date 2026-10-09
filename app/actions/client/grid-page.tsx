@@ -23,6 +23,9 @@ import {
   buildFilterParams,
 } from '../../ui/mixins/admin-urls.ts'
 import { GridStateScript } from '../../ui/grid-state-script.tsx'
+import { PageSizeControl } from '../../ui/page-size-control.tsx'
+import { dataGridFill, dataGridWrap } from '../../ui/mixins/data-grid.ts'
+import { PAGE_SIZE_KEYS, type PageSizeKey } from '../../utils/get-page-size.ts'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
 type Row = Client
@@ -37,6 +40,8 @@ interface ClientGridPageProps {
   sortOrder?: 'asc' | 'desc'
   filter?: string | undefined
   pageSize?: number
+  pageKey?: PageSizeKey
+  pageSizeOverride?: number | null
   editingId?: number | null
 }
 
@@ -130,6 +135,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sortOrder = 'asc',
       filter,
       pageSize = 15,
+      pageKey = PAGE_SIZE_KEYS.adminClients,
+      pageSizeOverride = null,
       editingId,
     } = handle.props
     let sortCol = sortField ?? 'id'
@@ -147,7 +154,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
     }
 
     return (
-      <div id="client-grid-content">
+      <div mix={dataGridFill} id="client-grid-content">
         <ConfirmDelete />
 
         {/* Toolbar + Filter bar (single GET form → frame navigation) */}
@@ -226,7 +233,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             </div>
           </div>
         ) : (
-          <div mix={table.wrap} data-clients-table-wrap="true">
+          <div
+            mix={[table.wrap, dataGridWrap]}
+            data-grid-scroll="true"
+            data-clients-table-wrap="true"
+          >
             <table mix={table.table} data-clients-table="true">
               <colgroup>
                 <col mix={css({ width: '60px' })} />
@@ -423,7 +434,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
         )}
 
         {/* Pagination */}
-        {(offset > 0 || hasNext) && (
+        {(offset > 0 || hasNext || rows.length > 0) && (
           <div mix={table.pagination}>
             <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {rows.length > 0 ? (
@@ -476,6 +487,13 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
+              <PageSizeControl
+                action={routes.admin.pageSize.href()}
+                pageKey={pageKey}
+                pageSize={pageSize}
+                pageSizeOverride={pageSizeOverride}
+                controlId="clients-page-size"
+              />
             </div>
           </div>
         )}

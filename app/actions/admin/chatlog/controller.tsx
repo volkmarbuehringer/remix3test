@@ -15,7 +15,7 @@ import { fragmentResponseInit } from '../../../utils/fragment-response.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
-import { getPageSize } from '../../../utils/get-page-size.ts'
+import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import { ChatLogPage } from '../../../ui/admin-chatlog-page.tsx'
 import { ChatlogDetailFragment } from '../../../ui/admin-fragments/chatlog-detail-fragment.tsx'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -113,7 +113,9 @@ async function renderChatLogPage(
   selectedId: string | undefined,
   source: ChatlogSourceFilter,
 ): Promise<Response> {
-  let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
+  let pageKey = PAGE_SIZE_KEYS.adminChatlog
+  let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let adminUserId = getCurrentUser().id
 
   try {
@@ -167,6 +169,8 @@ async function renderChatLogPage(
         pageSize={effectivePageSize}
         prevOffset={Math.max(0, offset - effectivePageSize)}
         nextOffset={offset + effectivePageSize}
+        pageKey={pageKey}
+        pageSizeOverride={pageSizeOverride}
         selectedId={selectedId}
         source={source}
         sourceCounts={sourceCounts}
@@ -185,6 +189,8 @@ async function renderChatLogPage(
         pageSize={effectivePageSize}
         prevOffset={0}
         nextOffset={effectivePageSize}
+        pageKey={pageKey}
+        pageSizeOverride={pageSizeOverride}
         selectedId={selectedId}
         source={source}
         sourceCounts={EMPTY_SOURCE_COUNTS}
