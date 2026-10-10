@@ -47,7 +47,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 
 - The app's `resolveFrame`, not the runtime, decides a non-2xx frame outcome: a 4xx body renders in the slot, a 5xx becomes a bounded `ErrorCard` fragment, and a 401 becomes the full-page login redirect — so the global `error` event only sees genuine runtime faults, and frame render errors stay silent by design (the `fallback` is the visibility mechanism).
 - A supplied `data-rmx-src` must be a valid same-origin URL regardless of `data-rmx-target`; invalid or cross-origin values disable interception. Native constraint validation and the native `submit` event always run before Remix intercepts, and several admin forms here set `novalidate`.
-- `renderToString()` (frame-free complete HTML) and `renderWith()` (a different renderer) are vendor APIs with no current app call site; frame fragments stream through `context.render(..., fragmentResponseInit())`.
+- `renderToString()` (frame-free complete HTML) and `renderWith()` (a different renderer) are vendor APIs with no production app call site; the only `renderToString()` use is the Bun SSR-regression test in `app/actions/lists/public/lists-search.test.tsx`. Frame fragments stream through `context.render(..., fragmentResponseInit())`.
 - After a frame reload a clientEntry keeps its factory-closure setup state but receives fresh `handle.props` — read changing server values in the render function, never snapshot them in the closure.
 
 ## Core Invariants
