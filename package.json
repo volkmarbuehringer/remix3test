@@ -14,6 +14,7 @@
     "test:e2e": "NODE_ENV=test remix test --type e2e --concurrency 2",
     "test:bun": "NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type server --concurrency 6 && NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type browser --concurrency 3 && NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type e2e --concurrency 2",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.bun.json --noEmit",
+    "typecheck:bun": "bun check && bun check -p tsconfig.bun.json",
     "lint": "oxlint --max-warnings=0 --ignore-pattern=.mastra && node ./scripts/check-theme-conformance.ts",
     "dev:mastra": "mastra dev -d app/actions/mastra",
     "eval:mastra": "node --env-file-if-exists=.env --import remix/node-tsx scripts/eval-mastra.ts",

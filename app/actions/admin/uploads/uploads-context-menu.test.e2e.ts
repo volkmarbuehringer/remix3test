@@ -70,18 +70,19 @@ describe('admin uploads: row context menu hydrates', () => {
 
     let deleteItem = page.locator('[role="menu"]').getByText('Löschen', { exact: true })
     await deleteItem.waitFor({ timeout: 10_000 })
-
-    let confirmMessage = ''
-    page.once('dialog', (dialog) => {
-      confirmMessage = dialog.message()
-      void dialog.accept()
-    })
     await deleteItem.click()
 
-    await row.waitFor({ state: 'detached', timeout: 15_000 })
+    // The uploads page mounts <ConfirmDelete />, so requestConfirm routes the
+    // delete through the styled in-app dialog. window.confirm is only the
+    // fallback when no dialog is mounted, so waiting on a native dialog event
+    // would hang here.
+    await page.locator('[data-confirm-dialog]').waitFor({ timeout: 10_000 })
     assert.ok(
-      confirmMessage.includes(filename),
-      `delete confirmation should name the row, got: ${confirmMessage}`,
+      (await page.locator('#confirm-delete-message').innerText()).includes(filename),
+      'delete confirmation should name the row',
     )
+    await page.locator('[data-confirm-accept]').click()
+
+    await row.waitFor({ state: 'detached', timeout: 15_000 })
   })
 })

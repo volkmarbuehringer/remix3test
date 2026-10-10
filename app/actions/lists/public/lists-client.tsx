@@ -1342,9 +1342,14 @@ export const ListsClient = clientEntry(
       },
       onTitleInputRef: (el) => {
         titleInputRef = el
+        // The input is uncontrolled: `defaultValue` only applies when the node is
+        // created, so a frame swap landing after `syncFieldInputs()` would leave
+        // it showing the previous list's value. Re-assert the state on bind.
+        if (el && el.value !== title) el.value = title
       },
       onDescriptionInputRef: (el) => {
         descriptionInputRef = el
+        if (el && el.value !== description) el.value = description
       },
       onNewItemRef: (el) => {
         newItemRef = el

@@ -72,7 +72,11 @@ export const ListsSearch = clientEntry(
       if (input && input.value.trim()) input.focus()
     }
 
-    if (handle.frame) {
+    // Frame reload events only fire in the browser. Registering during SSR passes
+    // @remix-run/component's frozen AbortSignal-shaped `handle.signal` stub to
+    // native addEventListener, which Bun rejects (`TypeError: Type error`); Node
+    // tolerates it. See remix3-bun-runtime.
+    if (handle.frame && typeof document !== 'undefined') {
       handle.frame.addEventListener('reloadComplete', wire, { signal: handle.signal })
     }
 
