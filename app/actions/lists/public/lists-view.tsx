@@ -266,6 +266,24 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
   } = view
 
   let vis = visibleItems()
+  // One-pass visible→real index map. The row loop runs inside a `vis.map`, and
+  // every visible row needs its position in the full `items` array (mutations
+  // address the real array, and the filter can reorder/hide rows). Calling
+  // `items.findIndex` per row made each `handle.update()` — fired on every
+  // member edit commit — O(n²). This keeps the render linear.
+  let realIndexById = new Map<string, number>()
+  for (let i = 0; i < items.length; i++) {
+    let id = items[i]!.id
+    if (!realIndexById.has(id)) realIndexById.set(id, i)
+  }
+  // The roving-tabindex id and the reorder-disabled flag are constant for the
+  // whole render. `activeItemId()` is O(n) (`items.some(...)` plus a full
+  // `filterItems` allocation in the fallback branch) and `filterActive()` reads
+  // the filter, so evaluating either inside `vis.map` turned the render into
+  // O(n²) with n array copies — a multi-second stall once a list had enough
+  // members. Compute them once here.
+  let activeId = activeItemId()
+  let rowDraggable = !filterActive()
   let doneCount = vis.filter((item) => item.done === true).length
   let totalCount = vis.length
   let allVisibleSelected = vis.length > 0 && vis.every((item) => selectedItemIds.has(item.id))
@@ -1015,7 +1033,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               ]}
             >
               {vis.map((item, index) => {
-                let realIndex = items.findIndex((i) => i.id === item.id)
+                let realIndex = realIndexById.get(item.id) ?? index
                 return (
                   <div
                     key={item.id}
@@ -1084,10 +1102,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       }),
                     ]}
                     role="listitem"
-                    draggable={!filterActive()}
+                    draggable={rowDraggable}
                     data-index={realIndex}
                     data-item-id={item.id}
-                    tabIndex={item.id === activeItemId() ? 0 : -1}
+                    tabIndex={item.id === activeId ? 0 : -1}
                   >
                     <input
                       type="checkbox"
@@ -1149,6 +1167,16 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           <select
                             mix={[
                               metaFieldStyle,
+                              // Uncontrolled: the initial choice is asserted once on
+                              // mount (like the label textarea's `defaultValue`), and the
+                              // user's selection lives in the DOM until `saveEdit` reads
+                              // `editPriority`. Keeping a controlled `value=` here would
+                              // make the runtime's controlled-reflection listener snap the
+                              // selection back on the next render, but the fields below are
+                              // the ones that actually broke (see the input/change notes).
+                              ref((el: HTMLSelectElement) => {
+                                if (el && el.value !== editPriority) el.value = editPriority
+                              }),
                               on('change', (e) => {
                                 view.setEditPriority(
                                   (e.currentTarget.value || '') as '' | ItemPriority,
@@ -1156,7 +1184,6 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                               }),
                             ]}
                             aria-label="Priorität"
-                            value={editPriority}
                           >
                             <option value="">Priorität…</option>
                             <option value="low">Niedrig</option>
@@ -1167,24 +1194,36 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             type="date"
                             mix={[
                               metaFieldStyle,
+                              // Uncontrolled via `defaultValue` (mirrors the label
+                              // textarea). A controlled `value={editDue}` makes the
+                              // component runtime attach a reflection listener that
+                              // restores the DOM value to the last render on every
+                              // `change`, and `setEditDue` never re-renders — so a picked
+                              // date visually vanishes until some unrelated re-render
+                              // happens to sync it. `defaultValue` is applied only at
+                              // mount, so nothing reverts it while editing.
                               on('change', (e) => {
                                 view.setEditDue(e.currentTarget.value)
                               }),
                             ]}
                             aria-label="Fällig am"
-                            value={editDue}
+                            defaultValue={editDue}
                           />
                           <input
                             type="text"
                             mix={[
                               metaFieldStyle,
+                              // Uncontrolled via `defaultValue` (same reason as the date
+                              // field): a controlled `value={editTags}` is snapped back
+                              // toward the empty last-render value after each keystroke,
+                              // so the user can't type a tag at all until a later render.
                               on('input', (e) => {
                                 view.setEditTags(e.currentTarget.value)
                               }),
                             ]}
                             placeholder="Tags, kommagetrennt"
                             aria-label="Tags"
-                            value={editTags}
+                            defaultValue={editTags}
                           />
                         </div>
                       </div>
@@ -1269,7 +1308,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           >
                             <Glyph name="close" width={16} height={16} />
                           </button>
-                          {!filterActive() && (
+                          {rowDraggable && (
                             <>
                               <button
                                 mix={[iconActionStyle, on('click', () => moveUp(realIndex))]}

@@ -915,6 +915,13 @@ export const ListsClient = clientEntry(
           i === index ? editItemFields(item, edit, Date.now()) : item,
         )
         setDirty()
+        // Commit at the fast 300ms debounce, exactly like addItem / toggleDone /
+        // moveItem and the title/description blur handlers. This is the ONLY
+        // path that persists a member's due date or tags, so without it an
+        // "add a date / tag" rides setDirty()'s default 1500ms debounce and
+        // feels much slower than every other edit. Calling it after setDirty()
+        // re-arms the already-scheduled slow timer to the fast one.
+        scheduleAutosave(true)
       }
       editingIndex = null
       editText = ''
