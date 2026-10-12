@@ -60,6 +60,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - The factory closure of a `clientEntry` persists across frame DOM replacement; only the render function re-runs. State a "did I mount?" fact in the closure only if the render function cannot observe the new DOM.
 - For cross-boundary transitions the frame runtime must not intercept (binary downloads, cross-section links, login), use `data-rmx-document` — do not disable the runtime.
 - Programmatic frame navigation is `frame.reload({ src: href })` (build `044d8372`, remix #11938); `frame.src = href; frame.reload()` is the pre-#11938 equivalent. `reload({ method, body })` submits form data without changing history (GET encodes into the query; POST defaults to URL encoding).
+- Under HMR, a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` now retain the HMR timestamp, remix #11980, build `c1787ef`); the runtime compares client-entry identity with exactly one 13-digit `t=` query segment ignored (`@remix-run/component` `dist/runtime/client-entry-boundary.js` `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN`), so the existing entry keeps its state instead of remounting. Two `t` segments → not ignored → treated as different entries. Dev-only; production hrefs are fingerprinted, not timestamped.
 
 > Version-pinned facts here reference the pinned `remix` preview build (see `package.json`). Re-check against the installed vendor source before relying on them.
 

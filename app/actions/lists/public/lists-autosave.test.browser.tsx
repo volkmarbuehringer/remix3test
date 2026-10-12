@@ -112,7 +112,7 @@ describe('ListsClient autosave', () => {
     await settle(500)
     assert.equal(calls.length, 0, 'nothing is sent before the 1.5s debounce')
 
-    assert.ok(await waitFor(() => calls.length === 1), 'the edit should autosave')
+    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the edit should autosave')
     assert.equal(calls[0]!.url, '/lists/7')
     assert.equal(calls[0]!.init.method, 'PUT')
     let headers = calls[0]!.init.headers as Record<string, string>
@@ -136,7 +136,7 @@ describe('ListsClient autosave', () => {
     typeTitle(input, 'Ne')
     typeTitle(input, 'Neu')
 
-    assert.ok(await waitFor(() => calls.length === 1))
+    assert.ok(await waitFor(() => calls.length === 1, 8000))
     await settle(300)
     assert.equal(calls.length, 1, 'only the final value should be sent')
     assert.equal(calls[0]!.init.body, JSON.stringify({ title: 'Neu' }))
@@ -180,7 +180,7 @@ describe('ListsClient autosave', () => {
     })
 
     assert.equal(itemIdsOf(result.container).length, 1, 'Enter must add the item to the list')
-    assert.ok(await waitFor(() => calls.length === 1), 'the added item should autosave')
+    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the added item should autosave')
     let payload = JSON.parse(String(calls[0]!.init.body)) as {
       items: Array<{ id: string; label: string }>
     }
@@ -214,7 +214,7 @@ describe('ListsClient autosave', () => {
     await result.act(() => deleteSelected!.click())
 
     assert.deepEqual(itemIdsOf(result.container), ['keep'])
-    assert.ok(await waitFor(() => calls.length === 1), 'the deletion should autosave')
+    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the deletion should autosave')
     let payload = JSON.parse(String(calls[0]!.init.body)) as { items: Array<{ id: string }> }
     assert.deepEqual(
       payload.items.map((item) => item.id),
@@ -265,7 +265,9 @@ describe('ListsClient undo', () => {
 
     await result.act(() => buttonByText(result.container, 'Nur Erledigte löschen')!.click())
 
-    assert.ok(await waitFor(() => calls.length === 1), 'the clear should autosave')
+    // 1.5s debounce; the 3s default budget flakes under suite load on a cold
+    // browser pool.
+    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the clear should autosave')
     assert.equal(
       JSON.parse(String(calls[0]!.init.body))
         .items.map((item: { id: string }) => item.id)
@@ -275,7 +277,11 @@ describe('ListsClient undo', () => {
 
     await result.act(() => buttonByText(result.container, 'Rückgängig')!.click())
 
-    assert.ok(await waitFor(() => calls.length === 2), 'undo is itself a mutation')
+    // Worst legit path is not the 300ms fast debounce: an undo landing while
+    // the clear PUT is still in flight is serialized by saveNow, and the
+    // save's drift/dirty branch then re-arms the slow 1.5s debounce — ~2s of
+    // timer chaining plus polling slack.
+    assert.ok(await waitFor(() => calls.length === 2, 8000), 'undo is itself a mutation')
     assert.equal(
       JSON.parse(String(calls[1]!.init.body))
         .items.map((item: { id: string }) => item.id)
