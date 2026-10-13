@@ -7,6 +7,7 @@ import {
   cloneItems,
   createItem,
   deleteItemAt,
+  dueBadge,
   editItemFields,
   filterItems,
   itemsFingerprint,
@@ -170,5 +171,55 @@ describe('lists-state', () => {
       ['a'],
     )
     assert.equal(filterItems(sample, '   '), sample)
+  })
+
+  it('filterItems also matches tags (case-insensitive substring)', () => {
+    let tagged: ListItem[] = [
+      item('t1', 'Milch kaufen', { tags: ['Einkauf', 'Kühlware'] }),
+      item('t2', 'Bohrer', { tags: ['Werkstatt'] }),
+      item('t3', 'Zitrone', { tags: ['Kühlware'] }),
+      item('t4', 'Ohne Tag'),
+    ]
+    assert.deepEqual(
+      filterItems(tagged, 'einkauf').map((i) => i.id),
+      ['t1'],
+    )
+    assert.deepEqual(
+      filterItems(tagged, 'KÜHL').map((i) => i.id),
+      ['t1', 't3'],
+    )
+    // The label match still works for an item that has no tags.
+    assert.deepEqual(
+      filterItems(tagged, 'zitr').map((i) => i.id),
+      ['t3'],
+    )
+  })
+
+  it('sortItems by due puts dated items first (ascending) and undated items last in order', () => {
+    let dated: ListItem[] = [
+      item('a', 'Ohne Termin'),
+      item('c', 'Mitte', { due: '2026-10-15' }),
+      item('b', 'Früh', { due: '2026-10-10' }),
+      item('d', 'Spät', { due: '2026-10-20' }),
+      item('e', 'Auch ohne Termin'),
+    ]
+    assert.deepEqual(
+      sortItems(dated, 'due').map((i) => i.id),
+      ['b', 'c', 'd', 'a', 'e'],
+    )
+  })
+
+  it('dueBadge humanizes today/tomorrow, flags overdue, and shows short dates otherwise', () => {
+    // Fixed "now": Wednesday, 2026-10-14 local midnight + some hours.
+    let now = new Date(2026, 9, 14, 9, 0, 0).getTime()
+    assert.deepEqual(dueBadge('2026-10-14', false, now), { text: 'heute', overdue: false })
+    assert.deepEqual(dueBadge('2026-10-15', false, now), { text: 'morgen', overdue: false })
+    assert.deepEqual(dueBadge('2026-10-13', false, now), { text: 'überfällig', overdue: true })
+    assert.deepEqual(dueBadge('2026-10-18', false, now), { text: '18.10.', overdue: false })
+    // Done items never scream "überfällig" — the date just shows quietly.
+    assert.deepEqual(dueBadge('2026-10-13', true, now), { text: '13.10.', overdue: false })
+    // Other years carry the year so the day/month alone stays unambiguous.
+    assert.deepEqual(dueBadge('2027-01-03', false, now), { text: '03.01.2027', overdue: false })
+    assert.deepEqual(dueBadge('2025-12-24', true, now), { text: '24.12.2025', overdue: false })
   })
 })

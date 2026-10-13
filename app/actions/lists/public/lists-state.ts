@@ -1,5 +1,5 @@
 export type ItemPriority = 'low' | 'medium' | 'high'
-export type SortMode = 'manual' | 'az' | 'done' | 'updated'
+export type SortMode = 'manual' | 'az' | 'done' | 'due' | 'updated'
 
 export type ListItem = {
   id: string
@@ -28,6 +28,43 @@ export type ListConflictState = {
 
 export function priorityLabel(p: ItemPriority): string {
   return p === 'high' ? 'Hoch' : p === 'medium' ? 'Mittel' : 'Niedrig'
+}
+
+/**
+ * Local calendar date key ("YYYY-MM-DD") for an epoch — compared against item
+ * `due` strings, which are plain calendar days (no time, no timezone). ISO
+ * keys sort lexicographically in chronological order.
+ */
+function localDateKey(date: Date): string {
+  let m = String(date.getMonth() + 1).padStart(2, '0')
+  let d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
+}
+
+/**
+ * Humanize a `due` date ("YYYY-MM-DD") for the badge: "heute" / "morgen" /
+ * "überfällig", else a short "18.10." (with year when it differs from the
+ * current one). Done items never read "überfällig" — a finished task should
+ * not keep alarming. `overdue` marks the state for styling. Malformed values
+ * fall through untouched (the server schema is the validation boundary).
+ */
+export function dueBadge(
+  due: string,
+  done = false,
+  nowMs: number = Date.now(),
+): { text: string; overdue: boolean } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { text: due, overdue: false }
+  let now = new Date(nowMs)
+  let today = localDateKey(now)
+  if (due < today && !done) return { text: 'überfällig', overdue: true }
+  if (due === today) return { text: 'heute', overdue: false }
+  // Day rollover via the Date constructor so DST/month ends stay correct.
+  let tomorrow = localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
+  if (due === tomorrow) return { text: 'morgen', overdue: false }
+  let short = `${due.slice(8, 10)}.${due.slice(5, 7)}.`
+  return due.slice(0, 4) === today.slice(0, 4)
+    ? { text: short, overdue: false }
+    : { text: `${short}${due.slice(0, 4)}`, overdue: false }
 }
 
 /** Shallow copy used for undo snapshots and hydration; mirrors the old inline .map. */
@@ -78,6 +115,17 @@ export function sortItems(items: ListItem[], mode: SortMode): ListItem[] {
       break
     case 'updated':
       next.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+      break
+    case 'due':
+      // Dated items first, earliest due date on top (ISO calendar days compare
+      // lexicographically in chronological order); undated items keep their
+      // relative order at the end (Array#sort is stable).
+      next.sort((a, b) => {
+        if (!a.due && !b.due) return 0
+        if (!a.due) return 1
+        if (!b.due) return -1
+        return a.due < b.due ? -1 : a.due > b.due ? 1 : 0
+      })
       break
     case 'manual':
       break
@@ -151,8 +199,14 @@ export function parseItemsFingerprint(fingerprint: string): ListItem[] {
   return JSON.parse(fingerprint) as ListItem[]
 }
 
-/** In-list search: a falsy query returns the original reference (no copy). */
+/** In-list search: a falsy query returns the original reference (no copy).
+ *  Matches the label or any tag, case-insensitive substring. */
 export function filterItems(items: ListItem[], query: string): ListItem[] {
   let q = query.trim().toLowerCase()
-  return q ? items.filter((item) => item.label.toLowerCase().includes(q)) : items
+  if (!q) return items
+  return items.filter(
+    (item) =>
+      item.label.toLowerCase().includes(q) ||
+      (item.tags ?? []).some((t) => t.toLowerCase().includes(q)),
+  )
 }

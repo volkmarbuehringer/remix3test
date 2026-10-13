@@ -128,6 +128,7 @@ function renderWithSpy(items: ListItem[]): Counts {
     setNewItemLabel: noop,
     setListFilter: noop,
     clearListFilter: noop,
+    applyTagFilter: noop,
     setCopyTargetId: noop,
     setFocusedId: noop,
     setEditText: noop,

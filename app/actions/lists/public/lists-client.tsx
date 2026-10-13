@@ -802,7 +802,9 @@ export const ListsClient = clientEntry(
           ? 'A–Z sortiert'
           : mode === 'done'
             ? 'Nach Erledigt sortiert'
-            : 'Nach Änderung sortiert',
+            : mode === 'due'
+              ? 'Nach Fälligkeit sortiert'
+              : 'Nach Änderung sortiert',
       )
       setDirty()
       void handle.update()
@@ -1323,6 +1325,15 @@ export const ListsClient = clientEntry(
       clearListFilter: () => {
         listFilter = ''
         if (filterInputRef) filterInputRef.value = ''
+        void handle.update()
+      },
+      // Tag chips set the filter programmatically: the field is uncontrolled,
+      // so the DOM value must be synced alongside the state (mirrors
+      // clearListFilter). Announced because the click moves focus context.
+      applyTagFilter: (tag: string) => {
+        listFilter = tag
+        if (filterInputRef) filterInputRef.value = tag
+        announce(`Nach Tag „${tag}" gefiltert`)
         void handle.update()
       },
       setCopyTargetId: (value) => {

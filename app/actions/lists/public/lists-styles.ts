@@ -73,10 +73,31 @@ export const dueBadgeStyle = css({
   backgroundColor: theme.surface.lvl2,
 })
 
+// Overdue due-dates read as a warning tint on the badge itself.
+export const overdueBadgeStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: theme.colors.action.danger.border,
+  backgroundColor: theme.colors.action.danger.background + '0f',
+})
+
 export const tagChipStyle = css({
   color: theme.colors.text.primary,
   borderColor: theme.colors.border.default,
   backgroundColor: theme.surface.lvl2,
+})
+
+// Tag chips double as filter shortcuts, so they render as buttons; reset the
+// UA button defaults that would fight the chip look (metaBadgeStyle).
+export const tagChipButtonStyle = css({
+  cursor: 'pointer',
+  font: 'inherit',
+  '&:hover': {
+    backgroundColor: theme.surface.lvl3,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '1px',
+  },
 })
 
 // Editing surface: the label textarea plus a metadata editor row

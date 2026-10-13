@@ -11,6 +11,7 @@ import {
   type ListItem,
   type SortMode,
   type UndoKind,
+  dueBadge,
   priorityLabel,
 } from './lists-state.ts'
 import { UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
@@ -21,7 +22,9 @@ import {
   metaRowStyle,
   metaBadgeStyle,
   dueBadgeStyle,
+  overdueBadgeStyle,
   tagChipStyle,
+  tagChipButtonStyle,
   editTextareaStyle,
   metaEditorStyle,
   metaFieldStyle,
@@ -146,6 +149,7 @@ export type ListsEditorView = {
   setNewItemLabel: (value: string) => void
   setListFilter: (value: string) => void
   clearListFilter: () => void
+  applyTagFilter: (tag: string) => void
   setCopyTargetId: (value: string) => void
   setFocusedId: (id: string) => void
   setEditText: (value: string) => void
@@ -738,6 +742,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 <option value="manual">Sortieren…</option>
                 <option value="az">A–Z</option>
                 <option value="done">Nach Erledigt</option>
+                <option value="due">Nach Fälligkeit</option>
                 <option value="updated">Nach Änderung</option>
               </select>
               <button
@@ -1034,6 +1039,9 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             >
               {vis.map((item, index) => {
                 let realIndex = realIndexById.get(item.id) ?? index
+                // Humanized due date for the badge (heute/morgen/überfällig);
+                // done items never read as overdue.
+                let dueInfo = item.due != null ? dueBadge(item.due, item.done === true) : null
                 return (
                   <div
                     key={item.id}
@@ -1250,13 +1258,36 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 {priorityLabel(item.priority)}
                               </span>
                             )}
-                            {item.due != null && (
-                              <span mix={[metaBadgeStyle, dueBadgeStyle]}>📅 {item.due}</span>
+                            {item.due != null && dueInfo && (
+                              <span
+                                data-due-badge=""
+                                data-due-overdue={dueInfo.overdue ? '' : undefined}
+                                title={`Fällig: ${item.due}`}
+                                mix={[
+                                  metaBadgeStyle,
+                                  dueBadgeStyle,
+                                  ...(dueInfo.overdue ? [overdueBadgeStyle] : []),
+                                ]}
+                              >
+                                📅 {dueInfo.text}
+                              </span>
                             )}
                             {Array.from(new Set(item.tags ?? [])).map((tag) => (
-                              <span key={tag} mix={[metaBadgeStyle, tagChipStyle]}>
+                              <button
+                                key={tag}
+                                type="button"
+                                data-tag-filter={tag}
+                                mix={[
+                                  metaBadgeStyle,
+                                  tagChipStyle,
+                                  tagChipButtonStyle,
+                                  on('click', () => view.applyTagFilter(tag)),
+                                ]}
+                                title={`Nach Tag „${tag}" filtern`}
+                                aria-label={`Elemente mit Tag ${tag} anzeigen`}
+                              >
                                 #{tag}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         )}
