@@ -63,12 +63,42 @@ async function typeInto(
     click: () => Promise<void>
     press: (key: string) => Promise<void>
     pressSequentially: (text: string, options: { delay: number }) => Promise<void>
+    inputValue: () => Promise<string>
   },
   value: string,
+  opts: { delay?: number; retries?: number; settleMs?: number } = {},
 ) {
-  await field.click()
-  await field.press('Control+a')
-  await field.pressSequentially(value, { delay: 5 })
+  let delay = opts.delay ?? 5
+  let retries = opts.retries ?? 2
+  let settleMs = opts.settleMs ?? 1500
+
+  async function attempt(fill: () => Promise<void>) {
+    await field.click()
+    await field.press('Control+a')
+    await fill()
+    let deadline = Date.now() + settleMs
+    while (Date.now() < deadline) {
+      try {
+        if ((await field.inputValue()) === value) return true
+      } catch {
+        break // node replaced mid-settle — retry below
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    return false
+  }
+
+  // Under full-suite load the client-entry mount/patch pipeline can swallow
+  // the first keystrokes (they land before the on('input') handler is bound,
+  // and the first flush then stamps the field with stale state), leaving the
+  // field one or more characters short. Type, verify the field settled at the
+  // intended value, and re-type — bounded — when it did not. Every retry must
+  // use real keystrokes: Playwright `fill()` does not fire the remix
+  // on('input') handler, so it would fix the DOM without fixing app state.
+  for (let round = 0; round <= retries; round++) {
+    if (await attempt(() => field.pressSequentially(value, { delay }))) return
+  }
+  throw new Error(`typeInto could not settle ${JSON.stringify(value)} into the field`)
 }
 
 // ---------------------------------------------------------------------------

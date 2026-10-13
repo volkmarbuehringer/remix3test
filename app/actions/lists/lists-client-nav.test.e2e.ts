@@ -72,18 +72,34 @@ describe('lists frame navigation', () => {
 
   // Playwright's `fill()` does not fire the remix `on('input')` handler in this
   // e2e environment (see lists-client-importmap.test.e2e.ts), so the value must
-  // be typed with real keystrokes to mark the editor dirty.
+  // be typed with real keystrokes to mark the editor dirty. Under full-suite
+  // load the client-entry mount/patch pipeline can also swallow the first
+  // keystrokes; verify the field settled at the intended value and re-type,
+  // bounded, when it did not (see lists-client-edit.test.e2e.ts).
   async function typeInto(
     field: {
       click: () => Promise<void>
       press: (key: string) => Promise<void>
       pressSequentially: (text: string, options: { delay: number }) => Promise<void>
+      inputValue: () => Promise<string>
     },
     value: string,
   ) {
-    await field.click()
-    await field.press('Control+a')
-    await field.pressSequentially(value, { delay: 5 })
+    for (let round = 0; round < 3; round++) {
+      await field.click()
+      await field.press('Control+a')
+      await field.pressSequentially(value, { delay: 5 })
+      let deadline = Date.now() + 1500
+      while (Date.now() < deadline) {
+        try {
+          if ((await field.inputValue()) === value) return
+        } catch {
+          break // node replaced mid-settle — retype below
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    }
+    throw new Error(`typeInto could not settle ${JSON.stringify(value)} into the field`)
   }
 
   it('shows the opened list title/description after switching away from an edited list', async (t) => {
