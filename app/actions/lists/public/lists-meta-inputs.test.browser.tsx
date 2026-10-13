@@ -48,7 +48,7 @@ function editButtonFor(container: HTMLElement, index: number): HTMLButtonElement
   return btns[index] as HTMLButtonElement
 }
 
-let state: ListInitialState = {
+const state: ListInitialState = {
   id: 7,
   title: 'x',
   description: '',
