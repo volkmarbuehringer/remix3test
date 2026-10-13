@@ -16,7 +16,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | Task involves... | Start with |
 | --- | --- |
 | Form interception in frames (post-#11668), `resolveFrame`, frame direct render, `data-rmx-document`/`data-rmx-history`, nested-frame PRG redirects | `references/frame-navigation.md` |
-| `clientEntry` cascade limits, `mounted` guards after reload, reload-driven data loading, global document listeners, SSR-safety/authoring constraints | `references/cliententry-lifecycle.md` |
+| `clientEntry` cascade limits, `mounted` guards after reload, reload-driven data loading, the `reloadStart`/`reloadComplete` pre/post-reload hooks (loading state + pre-swap flush), global document listeners, SSR-safety/authoring constraints | `references/cliententry-lifecycle.md` |
 | Styling clientEntry children, joined button groups, inline-edit table cells, `on` mixin hydration, drag-and-drop, fragment scrolling | `references/cliententry-dom-and-styling.md` |
 | Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests, timing an e2e click after named-frame registration | `references/frame-layout-and-testing.md` |
 | Deferring frames until visible (LazyFrame/IntersectionObserver), collapsed or offscreen frame content, measuring frame fan-out | `references/lazy-frames.md` |
@@ -29,7 +29,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | A frame fails/cancels or its resolver must choose a fallback vs a login redirect; whether returned frame HTML is safe; `renderToString`/`renderWith`; a `data-rmx-src` link is not intercepted; native validation/`submit` ordering; stale server props after a frame reload | `references/frame-failures-and-rendering.md` |
 
 - `references/frame-navigation.md` — the frame navigation/forms contract and escape hatches.
-- `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps.
+- `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps, plus the `reloadStart`/`reloadComplete` pre/post-reload hooks.
 - `references/cliententry-dom-and-styling.md` — DOM mutation and CSS patterns inside entries.
 - `references/frame-layout-and-testing.md` — layout wiring and verification.
 - `references/lazy-frames.md` — the eager/lazy decision rule, the `name`/auth trap, and how to measure and verify frame fan-out.

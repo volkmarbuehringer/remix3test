@@ -236,7 +236,40 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts:905`, dispatched by `completeReload` defined at `:900`; the inherited-reload variant dispatches at `:940`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts:936`, dispatched by `completeReload` defined at `:931`; the inherited-reload variant dispatches at `:971`). At this point `handle.frame.src` contains the just-rendered URL.
+
+### `reloadStart` — synchronous pre-reload hook
+
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts:827`, inside `startReload` at `:824`; the ancestor and inherited variants dispatch at `:842` and `:943`). Use it for work that must still see the outgoing frame state:
+
+- **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
+- **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
+
+Both events fire on the entry's `handle.frame`, and the factory closure survives the reload, so the flag round-trips:
+
+```typescript
+// inside the clientEntry factory
+let loading = false
+
+function onReloadStart() {
+  flushPendingEdits()        // keepalive write of any debounced edit
+  loading = true
+  void handle.update()
+}
+
+function onReloadComplete() {
+  hydrateFromFrameDocument() // read the new server state — see the section above
+  loading = false
+  void handle.update()
+}
+
+if (typeof document !== 'undefined') {
+  handle.frame.addEventListener('reloadStart', onReloadStart, { signal: handle.signal })
+  handle.frame.addEventListener('reloadComplete', onReloadComplete, { signal: handle.signal })
+}
+```
+
+A loading flag like this is easy to leave **dead**: if a `loading`/`loadingList` branch exists but the flag is only initialized and cleared (never set `true`), the branch never renders. Grep the setter before trusting the branch. First application: `app/actions/lists/public/lists-client.tsx` (`beginFrameReload` sets it; `reloadFromFrame` clears it), tested by `app/actions/lists/public/lists-loading.test.browser.tsx`.
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
