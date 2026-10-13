@@ -56,7 +56,13 @@ export const ListsClient = clientEntry(
     // A single in-flight save. Autosave, manual flush and keepalive all await
     // this so two PUTs cannot race the same If-Match precondition.
     let savingPromise: Promise<boolean> | null = null
-    let loadError = ''
+    // Last failed write (create/patch/keepalive/drag). Rendered as an in-place
+    // banner with a retry action; never a full-editor takeover. Cleared by a
+    // successful save or an explicit dismissal.
+    let saveError = ''
+    // Browser connectivity, surfaced as a banner. Kept in closure state so a
+    // reconnect can retry the pending write.
+    let offline = typeof navigator !== 'undefined' && navigator.onLine === false
     let editingIndex: number | null = null
     let editText = ''
     let editPriority: '' | ItemPriority = ''
@@ -268,7 +274,7 @@ export const ListsClient = clientEntry(
       loadedUpdatedAt = null
       clearSelection()
       saveStatus = 'saved'
-      loadError = ''
+      saveError = ''
       conflictState = { show: false, serverState: null }
       snapshotClean()
       clearFilter()
@@ -317,17 +323,18 @@ export const ListsClient = clientEntry(
         try {
           let outcome = await createListRequest(getCsrfHeaders(), { title, description, items })
           if (outcome.status === 'ok') {
+            saveError = ''
             newId = outcome.state.id
             loadedListId = newId
             loadedUpdatedAt = outcome.state.updated_at
             ok = true
           } else {
-            loadError = outcome.network
+            saveError = outcome.network
               ? 'Speichern fehlgeschlagen (Netzwerkfehler)'
               : 'Speichern fehlgeschlagen'
           }
         } catch {
-          loadError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
+          saveError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
         }
         saving = false
         if (ok && newId !== null) {
@@ -364,6 +371,7 @@ export const ListsClient = clientEntry(
           }
           let outcome = await patchListRequest(getCsrfHeaders(), loadedListId, partial)
           if (outcome.status === 'ok') {
+            saveError = ''
             let state = outcome.state
             if (Number.isFinite(state.updated_at)) loadedUpdatedAt = state.updated_at
             // If the user kept typing during the save, mark dirty and reschedule
@@ -388,12 +396,12 @@ export const ListsClient = clientEntry(
             conflictState = { show: true, serverState: outcome.state }
             ok = false
           } else {
-            loadError = outcome.network
-              ? 'Aktualisieren fehlgeschlagen (Netzwerkfehler)'
-              : 'Aktualisieren fehlgeschlagen'
+            saveError = outcome.network
+              ? 'Speichern fehlgeschlagen (Netzwerkfehler)'
+              : 'Speichern fehlgeschlagen'
           }
         } catch {
-          loadError = 'Aktualisieren fehlgeschlagen (Netzwerkfehler)'
+          saveError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
         }
         saving = false
         if (ok) {
@@ -422,6 +430,22 @@ export const ListsClient = clientEntry(
       }
       void promise.then(clear, clear)
       return promise
+    }
+
+    // Re-run the failed write. Pass `manual` so a not-yet-created list can still
+    // be created on retry; the flag is ignored for an existing list.
+    let retrySave = () => {
+      if (offline) return
+      void saveNow(true)
+    }
+
+    let dismissSaveError = () => {
+      saveError = ''
+      // The error is still real (the edit is unsaved) — but the user chose to
+      // dismiss it, so fall back to the honest "Ungespeichert" state instead of
+      // leaving an inert "Fehler" pill behind.
+      if (saveStatus === 'error') saveStatus = isDirty() ? 'dirty' : 'saved'
+      void handle.update()
     }
 
     // Push the current editor state into the matching sidebar row so the
@@ -602,7 +626,7 @@ export const ListsClient = clientEntry(
       clearSelection()
       snapshotClean()
       saveStatus = 'saved'
-      loadError = ''
+      saveError = ''
       loadingList = false
       conflictState = { show: false, serverState: null }
       clearFilter()
@@ -649,7 +673,7 @@ export const ListsClient = clientEntry(
         loadedUpdatedAt = null
         clearSelection()
         saveStatus = 'dirty'
-        loadError = ''
+        saveError = ''
         loadingList = false
         conflictState = { show: false, serverState: null }
         draftRestored = true
@@ -666,7 +690,7 @@ export const ListsClient = clientEntry(
       loadedUpdatedAt = null
       clearSelection()
       saveStatus = 'saved'
-      loadError = ''
+      saveError = ''
       loadingList = false
       conflictState = { show: false, serverState: null }
       snapshotClean()
@@ -692,10 +716,14 @@ export const ListsClient = clientEntry(
       // fires synchronously before the new content is fetched, while
       // `loadedListId`/`clean*` still describe the outgoing list — the only point
       // where the edit can still be attributed to the right row.
-      function flushBeforeFrameReload() {
+      function beginFrameReload() {
         flushWithKeepalive()
+        // Real loading feedback for the frame swap (list switch, sidebar search,
+        // pagination). reloadFromFrame clears it on reloadComplete.
+        loadingList = true
+        void handle.update()
       }
-      handle.frame.addEventListener('reloadStart', flushBeforeFrameReload, {
+      handle.frame.addEventListener('reloadStart', beginFrameReload, {
         signal: handle.signal,
       })
     }
@@ -722,8 +750,8 @@ export const ListsClient = clientEntry(
         setDirty()
         void handle.update()
       },
-      setLoadError: (message) => {
-        loadError = message
+      setSaveError: (message) => {
+        saveError = message
       },
       showConflict: (state) => {
         conflictState = { show: true, serverState: state }
@@ -986,6 +1014,26 @@ export const ListsClient = clientEntry(
     }
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', flushWithKeepalive, { signal: handle.signal })
+
+      // Lost connectivity: keep the editor and the dirty draft, surface a
+      // banner, and retry the pending/failed write once the browser is back.
+      window.addEventListener(
+        'offline',
+        () => {
+          offline = true
+          void handle.update()
+        },
+        { signal: handle.signal },
+      )
+      window.addEventListener(
+        'online',
+        () => {
+          offline = false
+          void handle.update()
+          if (saveError || isDirty()) retrySave()
+        },
+        { signal: handle.signal },
+      )
     }
 
     // The "Weitere Aktionen" menu is a native <details>, which otherwise never
@@ -1239,7 +1287,8 @@ export const ListsClient = clientEntry(
       description,
       saving,
       loadingList,
-      loadError,
+      saveError,
+      offline,
       conflictState,
       draftRestored,
       undoSnapshot,
@@ -1269,6 +1318,8 @@ export const ListsClient = clientEntry(
       copyTargets,
       scheduleAutosave,
       saveNow,
+      retrySave,
+      dismissSaveError,
       flushNow,
       discardChanges,
       copyCurrentList,

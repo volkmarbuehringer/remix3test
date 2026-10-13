@@ -20,7 +20,7 @@ export type ListsDragContext = {
   getCsrfHeaders: () => Record<string, string>
   flush: () => Promise<boolean>
   commitReorder: (items: ListItem[]) => void
-  setLoadError: (message: string) => void
+  setSaveError: (message: string) => void
   showConflict: (state: ServerListState) => void
   reloadFrame: () => void
   update: () => void
@@ -271,7 +271,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
       return
     }
     if (targetId === sourceId) {
-      ctx.setLoadError('Element kann nicht in dieselbe Liste verschoben werden')
+      ctx.setSaveError('Element kann nicht in dieselbe Liste verschoben werden')
       ctx.update()
       return
     }
@@ -291,7 +291,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
         ctx.showConflict(outcome.state)
         ctx.update()
       } else {
-        ctx.setLoadError(
+        ctx.setSaveError(
           outcome.network
             ? 'Verschieben fehlgeschlagen (Netzwerkfehler)'
             : 'Verschieben fehlgeschlagen',
@@ -299,7 +299,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
         ctx.update()
       }
     } catch {
-      ctx.setLoadError('Verschieben fehlgeschlagen (Netzwerkfehler)')
+      ctx.setSaveError('Verschieben fehlgeschlagen (Netzwerkfehler)')
       ctx.update()
     }
   }
@@ -463,19 +463,19 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
           if (sourceRow && Number.isFinite(server.updated_at)) {
             sourceRow.setAttribute('data-updated-at', String(server.updated_at))
           }
-          ctx.setLoadError(
+          ctx.setSaveError(
             `Die Liste "${sourceName}" wurde zwischenzeitlich geändert. Bitte erneut ziehen.`,
           )
         }
         ctx.update()
       } else if (outcome.status === 'not_found') {
-        ctx.setLoadError('Liste nicht gefunden')
+        ctx.setSaveError('Liste nicht gefunden')
         ctx.update()
       } else if (outcome.status === 'bad_request') {
-        ctx.setLoadError(count === 0 ? 'Die Quellliste ist leer' : 'Zusammenführen nicht möglich')
+        ctx.setSaveError(count === 0 ? 'Die Quellliste ist leer' : 'Zusammenführen nicht möglich')
         ctx.update()
       } else {
-        ctx.setLoadError(
+        ctx.setSaveError(
           outcome.network
             ? 'Zusammenführen fehlgeschlagen (Netzwerkfehler)'
             : 'Zusammenführen fehlgeschlagen',
@@ -483,7 +483,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
         ctx.update()
       }
     } catch {
-      ctx.setLoadError('Zusammenführen fehlgeschlagen (Netzwerkfehler)')
+      ctx.setSaveError('Zusammenführen fehlgeschlagen (Netzwerkfehler)')
       ctx.update()
     }
   }

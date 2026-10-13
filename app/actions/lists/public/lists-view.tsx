@@ -83,7 +83,8 @@ export type ListsEditorView = {
   description: string
   saving: boolean
   loadingList: boolean
-  loadError: string
+  saveError: string
+  offline: boolean
   conflictState: ListConflictState
   draftRestored: boolean
   undoSnapshot: ListItem[] | null
@@ -115,6 +116,8 @@ export type ListsEditorView = {
 
   scheduleAutosave: (fast?: boolean) => void
   saveNow: (manual?: boolean) => Promise<boolean>
+  retrySave: () => void
+  dismissSaveError: () => void
   flushNow: () => Promise<boolean>
   discardChanges: () => void
   copyCurrentList: () => Promise<void>
@@ -168,40 +171,41 @@ export type ListsEditorView = {
 }
 
 export function renderListsEditor(view: ListsEditorView): RemixNode {
+  // Loading feedback for a frame swap (list switch, sidebar-search submit,
+  // pagination). A non-blocking placeholder, not an error takeover: the old
+  // editor is replaced only for the duration of the reload, then reloadComplete
+  // re-hydrates the real content.
   if (view.loadingList) {
     return (
       <div
+        data-loading-list=""
+        role="status"
+        aria-live="polite"
         mix={css({
           fontFamily: theme.fontFamily.sans,
           maxWidth: 'min(1000px, calc(100% - 2rem))',
           width: '100%',
           margin: '0 auto',
           padding: theme.space.xxl,
-          textAlign: 'center',
-          color: theme.colors.text.secondary,
-          fontSize: theme.fontSize.lg,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.space.md,
         })}
       >
-        Liste wird geladen…
-      </div>
-    )
-  }
-
-  if (view.loadError) {
-    return (
-      <div
-        mix={css({
-          fontFamily: theme.fontFamily.sans,
-          maxWidth: 'min(1000px, calc(100% - 2rem))',
-          width: '100%',
-          margin: '0 auto',
-          padding: theme.space.xxl,
-          textAlign: 'center',
-          color: theme.colors.action.danger.background,
-          fontSize: theme.fontSize.lg,
-        })}
-      >
-        {view.loadError}
+        <span mix={visuallyHiddenStyle}>Liste wird geladen…</span>
+        {[0, 1, 2].map((row) => (
+          <span
+            key={row}
+            aria-hidden="true"
+            mix={css({
+              display: 'block',
+              height: row === 0 ? '2rem' : '3rem',
+              width: row === 0 ? '60%' : '100%',
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.surface.lvl2,
+            })}
+          />
+        ))}
       </div>
     )
   }
@@ -212,6 +216,8 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     title,
     description,
     saving,
+    saveError,
+    offline,
     conflictState,
     draftRestored,
     undoSnapshot,
@@ -241,6 +247,8 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     copyTargets,
     scheduleAutosave,
     saveNow,
+    retrySave,
+    dismissSaveError,
     flushNow,
     discardChanges,
     copyCurrentList,
@@ -394,21 +402,44 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               </form>
             </>
           )}
-          <span
-            role="status"
-            aria-live="polite"
-            title="Speicherstatus dieser Liste"
-            mix={css({
-              fontSize: theme.fontSize.xs,
-              fontWeight: theme.fontWeight.semibold,
-              color: statusColor(),
-              padding: `${theme.space.xs} ${theme.space.sm}`,
-              borderRadius: theme.radius.full,
-              backgroundColor: theme.surface.lvl3,
-            })}
-          >
-            {statusLabel()}
-          </span>
+          {saveError ? (
+            <button
+              type="button"
+              data-save-status-retry=""
+              title={saveError}
+              aria-label={`Speichern fehlgeschlagen: ${saveError}. Erneut versuchen`}
+              mix={[
+                button({ tone: 'secondary' }),
+                css({
+                  fontSize: theme.fontSize.xs,
+                  fontWeight: theme.fontWeight.semibold,
+                  color: statusColor(),
+                  padding: `${theme.space.xs} ${theme.space.sm}`,
+                  borderRadius: theme.radius.full,
+                  backgroundColor: theme.surface.lvl3,
+                }),
+                on('click', retrySave),
+              ]}
+            >
+              Fehler – Erneut versuchen
+            </button>
+          ) : (
+            <span
+              role="status"
+              aria-live="polite"
+              title="Speicherstatus dieser Liste"
+              mix={css({
+                fontSize: theme.fontSize.xs,
+                fontWeight: theme.fontWeight.semibold,
+                color: statusColor(),
+                padding: `${theme.space.xs} ${theme.space.sm}`,
+                borderRadius: theme.radius.full,
+                backgroundColor: theme.surface.lvl3,
+              })}
+            >
+              {statusLabel()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -448,6 +479,76 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             >
               Trotzdem speichern
             </button>
+          </div>
+        )}
+
+        {/* Save error — in place, never replaces the editor. "Erneut versuchen"
+            re-runs the failed write; the banner clears on a successful save. */}
+        {saveError && (
+          <div
+            role="alert"
+            data-save-error-banner=""
+            mix={css({
+              marginBottom: theme.space.md,
+              padding: theme.space.md,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.action.danger.background + '15',
+              border: `1px solid ${theme.colors.action.danger.border}`,
+              fontSize: theme.fontSize.sm,
+              display: 'flex',
+              gap: theme.space.sm,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            })}
+          >
+            <span mix={css({ flex: 1 })}>{saveError}</span>
+            <button
+              type="button"
+              data-save-retry=""
+              mix={[
+                button({ tone: 'secondary' }),
+                css({ fontSize: theme.fontSize.xs }),
+                on('click', retrySave),
+              ]}
+            >
+              Erneut versuchen
+            </button>
+            <button
+              type="button"
+              aria-label="Fehlermeldung schließen"
+              title="Schließen"
+              mix={[
+                button({ tone: 'secondary' }),
+                css({ fontSize: theme.fontSize.xs }),
+                on('click', dismissSaveError),
+              ]}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Offline — keep the editor (and the dirty draft) usable and retry the
+            pending write as soon as the browser reports connectivity. */}
+        {offline && (
+          <div
+            role="status"
+            data-offline-banner=""
+            mix={css({
+              marginBottom: theme.space.md,
+              padding: theme.space.md,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.warning.background + '20',
+              border: `1px solid ${theme.colors.warning.border}`,
+              fontSize: theme.fontSize.sm,
+              display: 'flex',
+              gap: theme.space.sm,
+              alignItems: 'center',
+            })}
+          >
+            <span mix={css({ flex: 1 })}>
+              Offline — Änderungen werden gespeichert, sobald die Verbindung wieder da ist.
+            </span>
           </div>
         )}
 

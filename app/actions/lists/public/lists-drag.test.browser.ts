@@ -100,7 +100,7 @@ function setup(options: { items?: ListItem[] } = {}) {
       items = next
       committed.push(next)
     },
-    setLoadError: () => {},
+    setSaveError: () => {},
     showConflict: () => {},
     reloadFrame: () => {
       reloads++
