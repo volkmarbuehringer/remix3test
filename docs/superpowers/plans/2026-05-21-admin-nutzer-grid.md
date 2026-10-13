@@ -722,7 +722,14 @@ Update the `AdminNavItem` type to include `'nutzer'`:
 
 ```typescript
 export type AdminNavItem =
-  'dashboard' | 'chatlog' | 'chatonly' | 'agentonly' | 'messages' | 'lists' | 'client' | 'nutzer'
+  | 'dashboard'
+  | 'chatlog'
+  | 'chatonly'
+  | 'agentonly'
+  | 'messages'
+  | 'lists'
+  | 'client'
+  | 'nutzer'
 ```
 
 Add the nav item in the "Data" section of `NAV_GROUPS`:

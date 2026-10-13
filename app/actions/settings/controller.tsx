@@ -652,7 +652,16 @@ type PasswordFieldProps = {
 
 function PasswordField(handle: Handle<PasswordFieldProps>) {
   return () => {
-    let { autoComplete, error, errorId, fieldId, label, minLength: minLengthProp, name, children } = handle.props
+    let {
+      autoComplete,
+      error,
+      errorId,
+      fieldId,
+      label,
+      minLength: minLengthProp,
+      name,
+      children,
+    } = handle.props
 
     return (
       <div mix={fieldGroupCss}>
