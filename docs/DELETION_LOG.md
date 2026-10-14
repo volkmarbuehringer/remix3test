@@ -1,5 +1,66 @@
 # Code Deletion Log
 
+## [2026-10-14] Re-verification Pass — zero deletions (b8c2de1 → 6de97f8 window)
+
+Fresh tool run after the 2026-10-08 audit's commit (`b8c2de1`): knip 6.41.0,
+depcheck 1.4.7, ts-prune 2.x, plus tsc/oxlint. Unlike 2026-09-27/10-08, the tools
+installed cleanly this time, so the maintained in-repo analyzer was not needed —
+but knip still has no config for this repo, so its entry graph excludes
+`remix.json` `test.files` / `allowFiles` consumers and every export finding must
+be adjudicated by hand.
+
+Result: **nothing to delete.** The `b8c2de1 → HEAD` window (lists in-place save
+errors, per-grid page-size settings, runnable mobile nav, dependency bumps)
+introduced no dead code. Every knip "unused files" (213) hit is again the
+runner-glob false-positive class; every "unused export" (65) / "unused type"
+(12) hit is an already-adjudicated test seam, runner-invoked entry point, or
+asset-graph consumer — sampled grep re-verification of the full 2026-10-08 kept
+list found all consumers intact (e.g. `serializeSessionCookie`,
+`readSessionId`, `uploadLimitErrorCode`, `errorToText`, `parseInline`,
+`activeFrameNameOrNull`, `listChatThreads`, `NAV_SECTIONS`, `AdminLayout`,
+`sidebarHeaderStyle`, `defaultLayoutPolicy`/`previewDeleteBlock`, `RawRowError`,
+`int8Aggregate`, the four `deleteExpired*`, `RMX_01_GLYPHS`/`glyphValues`,
+`pipelineRowHtml`, `isAllowedCsrfOrigin`, `runEvals`-surface seams).
+
+### Findings re-adjudicated (all kept)
+
+- ts-prune (2 hits, identical root cause): `app/ui/theme/presets/rmx-01/glyphs.ts
+  glyphValues` + `.../rmx-01/index.ts RMX_01_GLYPHS`. Sole production consumer is
+  the `<RMX_01_GLYPHS />` render in `app/ui/document.tsx:133`; `GlyphValues`
+  types `createGlyphSheet`'s parameter. True positives (unused exported symbol)
+  unless a future session decides the `glyphValues` const can be inline-arg'd;
+  left as the pre-set-architecture's deliberate shape.
+- knip duplicate-export hits: `app/data/rows.ts int8|int8Aggregate` and
+  `app/ui/theme/upstream-button.ts button|default` — same aliases as 2026-10-08.
+- depcheck: no unused runtime deps, no missing deps. devDeps beyond the
+  `openspec` CLI tools: none (its dependency-usage graph DOES see
+  `remix.json test.files`, so `html-validate` was correctly reported used in
+  `app/html-conformance.test.ts` — knip's report on it is the entry-graph blind
+  spot, matching the 2026-10-08 note).
+- Duplicate scan re-measured: context-menu `clientEntry` family still below the
+  >80% merge bar (offerings↔offering-configs: 25 diff-lines of 45; the shared
+  machinery is already extracted in `app/ui/row-context-menu.tsx`'s
+  `createRowContextMenu` factory); `dangerStyle` still a deliberate
+  partial-drift vendored copy; `MAX_MESSAGE_LENGTH` still single-sourced;
+  `sidebarHeaderStyle` name collision in `appointment-sidebar.tsx` still a
+  coincidental ~3-line overlap, not a merge candidate.
+
+### Environment note
+
+npm 12's `allowed-versions.*` project config (`.npmrc`) auto-bumped the
+oxlint/oxfmt/minor devDeps in `package.json` + `pnpm-lock.yaml` during this
+session's `npm run` verification calls; the bump was reverted (not part of this
+pass). lint and tests were green under the auto-selected patch/minor versions,
+which sit inside the committed caret ranges.
+
+### Impact
+
+- Files deleted: 0; exports removed: 0; lines changed: 0
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
+  `--max-warnings=0` + theme conformance OK), full `npm test`: server 1708
+  pass / 0 fail / 1 todo, browser 730 pass / 0 fail / 2 skipped, e2e 46
+  pass / 0 fail.
+
 ## [2026-10-08] Post-drift Dead-Code Audit (2026-10-02 → 10-08 window)
 
 Audit of the drift window since the last pass (`389105b`, the 2026-10-02 log
