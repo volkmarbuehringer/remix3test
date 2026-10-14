@@ -53,9 +53,22 @@ session's `npm run` verification calls; the bump was reverted (not part of this
 pass). lint and tests were green under the auto-selected patch/minor versions,
 which sit inside the committed caret ranges.
 
+### Follow-up: unused-import sweep (5 production files, 5 test files)
+
+Same session, unreported follow-up: removed imports with zero body usages —
+`db`/`sql` (admin-messages.test), `extractCookie` (admin-users.test), `db`
+(logout.test), `User` type (appointment controller), `Layout` (home controller),
+`ListsClient`/`Layout` (lists controller), `appointofferings` (support-tools),
+`clearPendingGate` (support-agent test), `getPeriodRange`/`getTodayUtcMidnight`
+(verwaltung appointments controller). One initial mistake (removing the live
+`db` import from lists/controller.test.ts, used at lines 988–2048) was caught by
+typecheck and reverted before commit. Verified: typecheck clean, lint clean,
+226/226 tests pass across the five affected files.
+
 ### Impact
 
-- Files deleted: 0; exports removed: 0; lines changed: 0
+- Files deleted: 0; exports removed: 0; lines changed: 0 (pre-sweep state; the
+  unused-import sweep touches 12 lines across 10 files)
 - Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
   `--max-warnings=0` + theme conformance OK), full `npm test`: server 1708
   pass / 0 fail / 1 todo, browser 730 pass / 0 fail / 2 skipped, e2e 46

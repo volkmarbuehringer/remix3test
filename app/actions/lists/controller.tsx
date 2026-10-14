@@ -5,8 +5,6 @@ import { maxLength, minLength } from 'remix/data-schema/checks'
 
 import { requireAuth } from '../../middleware/auth.ts'
 
-import { ListsClient } from './public/lists-client.tsx'
-import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import {

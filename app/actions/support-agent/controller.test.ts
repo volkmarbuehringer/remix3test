@@ -20,7 +20,6 @@ import {
 import {
   upsertPendingGate,
   markGateSuspended,
-  clearPendingGate,
   resolvePendingGate,
 } from './run-store.ts'
 import { mastra } from '../mastra/index.ts'

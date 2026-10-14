@@ -8,7 +8,6 @@ import {
   appointments,
   resources,
   messages,
-  appointofferings,
   offeringConfigs,
   appointtypes,
 } from '../../../data/schema.ts'
