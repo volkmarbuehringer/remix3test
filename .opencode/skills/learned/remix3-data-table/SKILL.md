@@ -1,6 +1,6 @@
 ---
 name: remix3-data-table
-description: 'Use when working with remix/data-table grids — typed `db.findMany`/`db.findOne`/`db.create` typing pitfalls (dynamic sort column, unknown json/bigint columns, row adapters), multi-ID `inList()` filters, and raw-SQL (`sql`/`rawSql`/`db.exec`) sort/filter grids.'
+description: "Use when working with remix/data-table grids or writes — typed `db.findMany`/`db.findOne`/`db.create` typing pitfalls (dynamic sort column, unknown json/bigint columns, row adapters), write-returning (`returnRow`/`returning: '*'`, zero-row update), multi-ID `inList()` filters, and raw-SQL (`sql`/`rawSql`/`db.exec`) sort/filter grids."
 user-invocable: false
 origin: consolidated
 ---
@@ -21,6 +21,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 | `db.findMany({ orderBy })` rejecting a dynamic sort column (TS2322 OrderByTuple) | `references/dynamic-sort-order-by.md` |
 | Raw-SQL grid (`sql`/`rawSql`/`db.exec`) needing safe sort + filter columns | `references/raw-sql-sort-filter.md` |
 | `TableRow<typeof table>` won't assign to a UI row type (unknown json/bigint columns) | `references/row-adapter.md` |
+| Insert/update needs the written row back, or an optimistic-concurrency update must detect a zero-row match | `references/write-returning.md` |
 
 ## Core Rules
 
@@ -28,6 +29,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 - **Dynamic sort column**: narrow to a `SORTABLE_FIELDS` union and cast (`as ListSortColumn`, not `as any`); add a stable `['id','desc']` tiebreaker.
 - **Raw-SQL sort/filter**: whitelist column identifiers, build `ORDER BY`/`WHERE` as `rawSql` fragments, parameterize every value, and compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`).
 - **Typed-API rows**: own one canonical row interface plus one adapter that narrows `unknown` json/bigint columns at a single boundary — no `as unknown as` casts at call sites.
+- **Return the written row at write time**: prefer `db.create(..., { returnRow: true })` / `createMany(..., { returnRows: true })` / the query-builder `.update(changes, { returning: '*' })` (returns `{ rows }`, no throw on zero rows) over `INSERT … RETURNING id` + re-select. Returned rows already ran `afterRead` — adapters on top must be idempotent; MySQL lacks `returning`.
 - **Decode `db.exec` rows** with wire-honest zod schemas (int4→number, int8→string) — see `database-gotchas` (`references/raw-sql-wire-honest-rows.md`).
 - **`exactOptionalPropertyTypes`**: widen pass-through optionals to `| undefined` instead of fighting the strict flag.
 
