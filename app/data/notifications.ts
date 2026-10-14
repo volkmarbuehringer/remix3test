@@ -44,15 +44,17 @@ export async function createNotification(
   db: Database,
   input: CreateNotificationInput,
 ): Promise<Notification | null> {
+  // RETURNING the whole row avoids a follow-up SELECT for the row we just
+  // wrote; notificationWireSchema decodes the int8 columns at this boundary.
   let row = await queryRow(
     db,
     sql`INSERT INTO notifications (user_id, type, title, body, appointment_id, read_at, created_at)
      VALUES (${input.userId}, ${input.type}, ${input.title ?? ''}, ${input.body ?? ''}, ${input.appointmentId ?? null}, NULL, ${Date.now()})
-     RETURNING id`,
-    z.object({ id: z.number() }),
+     RETURNING id, user_id, type, title, body, appointment_id, read_at, created_at`,
+    notificationWireSchema,
   )
   if (!row) return null
-  return await findNotification(db, row.id, input.userId)
+  return toNotification(row)
 }
 
 interface ListNotificationsOptions {

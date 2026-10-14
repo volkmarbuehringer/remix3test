@@ -358,17 +358,18 @@ export async function patchList(
     )
     if ((locked.rows ?? []).length === 0) return { ok: false, reason: 'not_found' }
 
-    let existing = await tx.findOne(lists, { where })
-    if (!existing) return { ok: false, reason: 'not_found' }
-
-    let parsed = parseRow(existing)
-
-    let updateWhere = { ...where }
+    let updateWhere: Record<string, unknown> = { ...where }
     if (options?.expectedUpdatedAt != null) {
+      // The precondition needs the current row: it detects a stale If-Match
+      // before writing and supplies the `current` payload for a 409.
+      let existing = await tx.findOne(lists, { where })
+      if (!existing) return { ok: false, reason: 'not_found' }
+
+      let parsed = parseRow(existing)
       if (parsed.updated_at !== options.expectedUpdatedAt) {
         return { ok: false, reason: 'conflict', current: parsed }
       }
-      ;(updateWhere as Record<string, unknown>).updated_at = options.expectedUpdatedAt
+      updateWhere.updated_at = options.expectedUpdatedAt
     }
 
     let updateFields: Record<string, unknown> = { updated_at: Date.now() }
@@ -382,16 +383,27 @@ export async function patchList(
       updateFields.list = assignStableIds(partial.items)
     }
 
-    let writeResult = await tx.updateMany(lists, updateFields, {
-      where: updateWhere,
-    })
-    if (options?.expectedUpdatedAt != null && (writeResult.affectedRows ?? 0) === 0) {
-      let current = (await tx.findOne(lists, { where })) as Record<string, unknown>
-      return { ok: false, reason: 'conflict', current: parseRow(current) }
+    // RETURNING the updated row removes the follow-up SELECT; the table's
+    // afterRead hook has already decoded int8 columns and parsed `list`.
+    let result = (await tx.query(lists).where(updateWhere).update(updateFields, {
+      returning: '*',
+    })) as { rows: Array<Record<string, unknown>> }
+    let updated = result.rows[0]
+    if (updated === undefined) {
+      if (options?.expectedUpdatedAt != null) {
+        // The optimistic-concurrency predicate matched no row: another writer
+        // bumped updated_at between our read and the write. Re-read so the
+        // caller can retry against the current state.
+        let current = await tx.findOne(lists, { where })
+        if (!current) return { ok: false, reason: 'not_found' }
+        return {
+          ok: false,
+          reason: 'conflict',
+          current: parseRow(current as Record<string, unknown>),
+        }
+      }
+      return { ok: false, reason: 'not_found' }
     }
-
-    let updated = (await tx.findOne(lists, { where })) as Record<string, unknown> | null
-    if (!updated) return { ok: false, reason: 'not_found' }
     return { ok: true, row: parseRow(updated) }
   })
 }
