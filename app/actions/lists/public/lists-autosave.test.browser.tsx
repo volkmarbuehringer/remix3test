@@ -280,8 +280,11 @@ describe('ListsClient undo', () => {
     // Worst legit path is not the 300ms fast debounce: an undo landing while
     // the clear PUT is still in flight is serialized by saveNow, and the
     // save's drift/dirty branch then re-arms the slow 1.5s debounce — ~2s of
-    // timer chaining plus polling slack.
-    assert.ok(await waitFor(() => calls.length === 2, 8000), 'undo is itself a mutation')
+    // timer chaining plus polling slack. That 2s best case can stretch well
+    // past 8s on a cold browser pool or momentary host load (this flaked at
+    // 8s twice under `npm test` while being green on four identical reruns),
+    // so poll to 12s before declaring the second save missing.
+    assert.ok(await waitFor(() => calls.length === 2, 12000), 'undo is itself a mutation')
     assert.equal(
       JSON.parse(String(calls[1]!.init.body))
         .items.map((item: { id: string }) => item.id)
