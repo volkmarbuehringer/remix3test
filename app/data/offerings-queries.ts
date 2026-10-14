@@ -1,4 +1,4 @@
-import { rawSql, sql, type Database } from 'remix/data-table'
+import { rawSql, sql, type Database, type SqlStatement } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 import { getPeriodRange, getTodayUtcMidnight } from '../utils/date-utils.ts'
@@ -47,83 +47,72 @@ const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
 
 const OFFERINGS_SEARCH_COLUMNS = ['r.name', 'r.description'] as const
 
+/**
+ * Build a safe WHERE fragment for the offerings grid. Every value is bound via
+ * a `?` placeholder (resolved by `rawSql`) rather than hand-numbered `$n`
+ * positions; the only interpolated text is the static {@link OFFERINGS_SEARCH_COLUMNS}
+ * whitelist. `status === 'all'` adds no day filter; the default ("pending") and
+ * "expired" compare against the shared UTC-midnight boundary.
+ */
+function offeringsWhereStatement(opts: {
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+}): SqlStatement {
+  let conditions: string[] = []
+  let values: unknown[] = []
+
+  if (opts.filter) {
+    let escaped = opts.filter.slice(0, 200).replace(/[%_\\]/g, '\\$&')
+    let searchPattern = `%${escaped}%`
+    conditions.push(`(${OFFERINGS_SEARCH_COLUMNS.map((col) => `${col} ILIKE ?`).join(' OR ')})`)
+    values.push(searchPattern, searchPattern)
+  }
+
+  let periodRange = opts.period ? getPeriodRange(opts.period) : null
+  if (periodRange) {
+    conditions.push('ao.day >= ? AND ao.day < ?')
+    values.push(periodRange.startMs, periodRange.endMs)
+  }
+
+  let todayMidnight = getTodayUtcMidnight()
+  if (opts.status === 'all') {
+    // No day filter — show every offering regardless of date.
+  } else if (opts.status === 'pending' || !opts.status) {
+    conditions.push('ao.day >= ?')
+    values.push(todayMidnight)
+  } else if (opts.status === 'expired') {
+    conditions.push('ao.day < ?')
+    values.push(todayMidnight)
+  }
+
+  if (conditions.length === 0) return rawSql('')
+  return rawSql(`WHERE ${conditions.join(' AND ')}`, values)
+}
+
 export async function listOfferings(
   db: Database,
   opts: ListOfferingsOpts,
 ): Promise<{ rows: OfferingRow[]; hasMore: boolean }> {
   let { offset, pageSize, column, direction, filter, period, status } = opts
 
-  let query = `
-    SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
-           ao.during, ao.created_at, ao.updated_at
-    FROM appointoffering ao
-    LEFT JOIN resources r ON r.id = ao.resource_id
-  `
-
-  let queryParams: unknown[] = []
-  let paramIndex = 0
-  let hasWhere = false
-
-  if (filter) {
-    paramIndex++
-    let escaped = filter.slice(0, 200).replace(/[%_\\]/g, '\\$&')
-    let searchPattern = `%${escaped}%`
-    let conditions = OFFERINGS_SEARCH_COLUMNS.map((col) => `${col} ILIKE $${paramIndex}`)
-    query += ` WHERE (${conditions.join(' OR ')})`
-    queryParams.push(searchPattern)
-    hasWhere = true
-  }
-
-  let periodRange = period ? getPeriodRange(period) : null
-  if (periodRange) {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day >= $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day >= $${paramIndex}`
-      hasWhere = true
-    }
-    queryParams.push(periodRange.startMs)
-
-    paramIndex++
-    query += ` AND ao.day < $${paramIndex}`
-    queryParams.push(periodRange.endMs)
-  }
-
-  let todayMidnight = getTodayUtcMidnight()
-  if (status === 'all') {
-    // No day filter — show every offering regardless of date.
-  } else if (status === 'pending' || !status) {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day >= $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day >= $${paramIndex}`
-    }
-    queryParams.push(todayMidnight)
-  } else if (status === 'expired') {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day < $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day < $${paramIndex}`
-    }
-    queryParams.push(todayMidnight)
-  }
-
-  paramIndex++
   let orderCol = OFFERINGS_ORDER_BY_COLUMNS[column]
   if (!orderCol) throw new Error(`Invalid sort column: ${column}`)
   let orderDir = compileOrderByDirection(direction)
-  query += ` ORDER BY ${orderCol} ${orderDir}, id DESC`
-  query += ` LIMIT $${paramIndex}`
-  queryParams.push(pageSize + 1)
+  let where = offeringsWhereStatement({ filter, period, status })
+  let orderBy = rawSql(`ORDER BY ${orderCol} ${orderDir}, id DESC`)
 
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  queryParams.push(offset)
-
-  let rows = await queryRows(db, rawSql(query, queryParams), offeringRowSchema)
+  let rows = await queryRows(
+    db,
+    sql`SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
+           ao.during, ao.created_at, ao.updated_at
+    FROM appointoffering ao
+    LEFT JOIN resources r ON r.id = ao.resource_id
+    ${where}
+    ${orderBy}
+    LIMIT ${pageSize + 1} OFFSET ${offset}`,
+    offeringRowSchema,
+  )
   let hasMore = rows.length > pageSize
   if (hasMore) rows.pop()
 
