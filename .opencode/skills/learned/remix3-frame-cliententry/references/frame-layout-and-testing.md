@@ -232,9 +232,9 @@ Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed w
 
 ```ts
 // @remix-run/component/src/runtime/frame.ts (installed 1.0.0), hydrateContainer
-let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1249
+let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1279
 for (let { marker, entry, complete } of hydrations) {
-  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1251
+  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1281
 }
 ```
 
@@ -259,3 +259,5 @@ Then prove it was a same-document frame swap, not a reload: count `page.on('load
 **Caveat:** this signal only covers frames present in the **server-rendered** HTML. A nested pane that is mounted conditionally or arrives in a later fragment hydrate is not guaranteed by this ordering — wait for its own content instead. This is vendor code; re-check `hydrateContainer` in the installed `frame.ts` before relying on the line numbers.
 
 **Validated:** 2026-10-04 in `/home/lucky/remix3test` against `remix` 3.0.0 / `@remix-run/component` 1.0.0 (installed `frame.ts` `hydrateContainer`); `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+
+**Re-validated (2026-10-14):** against the now-installed build `2c9e033` (installable dist of source `e6a63ea`; `remix` `3.0.0`, `@remix-run/component` `1.0.0`). The ordering claim holds at the current lines: `hydrateContainer` is defined at `@remix-run/component` `src/runtime/frame.ts:1245`, calls `createSubFrames(container.childNodes, context, options)` at `:1279`, and only then schedules each hydration marker via `scheduleHydrationMarker(...)` at `:1281`.

@@ -1,6 +1,7 @@
 # Session Values Persist Only Through set/unset
 
 **Extracted:** 2026-10-09
+**Revalidated:** 2026-10-14 against build `2c9e033` / source `e6a63ea` (`@remix-run/session` 1.0.0).
 
 ## Problem
 
@@ -23,7 +24,7 @@ async save(session) {
 }
 ```
 
-`dirty` is set only inside `set()`, `unset()`, and `regenerateId()`
+`dirty` is set only inside `set()`, `unset()`, `regenerateId()`, and `flash()`
 (`src/lib/session.ts`: getter at line 79; `#dirty = true` in those methods). In-place
 mutation sets nothing. Worse, it is order-dependent: if the same request also calls
 `session.set()` for another key, the whole map is serialized and the mutation is

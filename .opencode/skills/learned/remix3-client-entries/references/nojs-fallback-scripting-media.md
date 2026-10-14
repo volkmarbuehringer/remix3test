@@ -36,6 +36,12 @@ Keep the server-side hide (`hidden={inactive || undefined}`) so there is no
 first-paint flash; `!important` beats the panel descriptor's author-origin
 `&[hidden]{display:none}`.
 
+> **App re-checked 2026-10-14:** this app no longer uses the recipe — `PANEL_REVEAL_CSS`,
+> `<noscript>`, and `@media (scripting: none)` are all absent from `app/`, and the settings tabs are
+> now server-rendered (`SettingsTabs` in `app/actions/settings/controller.tsx`) so there are no
+> server-hidden panels to reveal. The `scripting` media-feature mechanism above is still the correct
+> approach if a page reintroduces a no-JS reveal.
+
 ## Verification
 
 - JS enabled: click each tab and assert `getComputedStyle(panel).display === 'none'`

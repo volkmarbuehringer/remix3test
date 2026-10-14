@@ -2,7 +2,7 @@
 
 **Source:** `remix3-textarea-bulk-clear-wipe`
 
-**Status: RESOLVED upstream.** Fixed by `remix-run/remix` commit `f5b5c5340` ("Preserve textarea values on first update after hydration", PR #11880). The installed `@remix-run/ui` guard now reads `reconcile.ts:1736-1742`: the bulk-clear fast path requires `curr.length > 0` (it only fires when a committed child is actually being removed). Keep this delta only as history/context — do not re-apply the workaround.
+**Status: RESOLVED upstream.** Fixed by `remix-run/remix` commit `f5b5c5340` ("Preserve textarea values on first update after hydration", PR #11880). The installed `@remix-run/component` guard now reads `reconcile.ts:1736-1742`: the bulk-clear fast path requires `curr.length > 0` (it only fires when a committed child is actually being removed). Keep this delta only as history/context — do not re-apply the workaround.
 
 ## The original bug (for context)
 
@@ -25,11 +25,11 @@ When a textarea was re-diffed with an **unchanged** `value`/`defaultValue`, `_ch
 
 ## The old workaround (REMOVED — do not reintroduce)
 
-Rendering the value as children kept it tracked (`next.length !== 0`), so the bulk-clear never fired. This required an `as never` cast because the framework's JSX types declare `children?: never` on textarea. The three sites in `app/actions/lists/public/lists-client.tsx` (description, new-item, edit-item textareas) used it and were reverted to `defaultValue={...}` after the upstream fix landed.
+Rendering the value as children kept it tracked (`next.length !== 0`), so the bulk-clear never fired. This required an `as never` cast because the framework's JSX types declare `children?: never` on textarea. The three sites in `app/actions/lists/public/lists-view.tsx` (description, new-item, edit-item textareas) used it and were reverted to `defaultValue={...}` after the upstream fix landed (path re-checked 2026-10-14: the inline editor moved out of `lists-client.tsx` in the decomposition).
 
 ## Resolution notes
 
-- Upstream guard change: `packages/ui/src/runtime/reconcile.ts` — `diffChildren` bulk-clear now gated on `curr.length > 0`.
-- Upstream tests: `packages/ui/src/test/hydration.forms.test.tsx` covers untouched `defaultValue`, user-edited `defaultValue`, and controlled `value` across repeated updates.
+- Upstream guard change: `packages/component/src/runtime/reconcile.ts` — `diffChildren` bulk-clear now gated on `curr.length > 0` (the runtime moved from `@remix-run/ui` to `@remix-run/component` in the #11948 split).
+- Upstream tests: `packages/ui/src/test/hydration.forms.test.tsx` covers untouched `defaultValue`, user-edited `defaultValue`, and controlled `value` across repeated updates (pre-#11948 path; the installed `@remix-run/component` ships only `src/test/README.md` and `utils.ts`, so the suite is not in the package).
 - The app's controlled-input fields were never affected — inputs have no text children, so bulk-clear was a no-op there.
-- App code after revert: `defaultValue={description}` / `defaultValue={newItemLabel}` / `defaultValue={editText}` in `app/actions/lists/public/lists-client.tsx`. The `title`/`description` fields stay uncontrolled and still rely on `syncFieldInputs()` refs to push state into the DOM on list load.
+- App code after revert: `defaultValue={description}` / `defaultValue={newItemLabel}` / `defaultValue={editText}` in `app/actions/lists/public/lists-view.tsx` (`:675`, `:735`, `:1273`). The `title`/`description` fields stay uncontrolled; `syncFieldInputs()` (in `app/actions/lists/public/lists-client.tsx:188`) still pushes state into the DOM on list load (app re-checked 2026-10-14).

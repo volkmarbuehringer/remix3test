@@ -4,6 +4,7 @@
 
 **Extracted:** 2026-08-18
 **Updated:** 2026-08-19 (vendor added `remix db rollback` CLI, #11723; rollback is now the preferred recovery for runner-based apps)
+**Revalidated:** 2026-10-14 against build `2c9e033` / source `e6a63ea` (`@remix-run/data-table` 1.0.0, `@remix-run/data-table-postgres` 1.0.0).
 **Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (branch-pinned `remix`, installed in `node_modules/`).
 
 ## Problem
@@ -20,7 +21,7 @@ The vendor `remix` skill already documents that drift is detected (`node_modules
 Four recovery paths (pick by context):
 
 1. **Revert the migration edit** — restore the original `up.sql` so the checksum matches the journal. Cleanest when the edit was accidental.
-2. **Roll back via the CLI (preferred for runner-based apps)** — `remix db rollback` walks the journal and reverts applied migrations newest-first. Bounds: `--step <count>` (default `1`) or `--to <id>` (revert back *through* that migration, inclusive; accepts a bare id or the `id_name` directory form). `--dry-run` reports what would be reverted without running it. This is the supported replacement for the "clear the journal" surgery and for undocumented `down` runs — orphaned journal entries are ignored on down runs (runner.ts:104), so rollback stays possible even when a migration file is missing. Note: an empty `--to ""` now throws `Unknown migration target: ""` (runner.ts:66 changed `!to` → `to === undefined` in #11723) — it is **not** a "revert everything" escape hatch.
+2. **Roll back via the CLI (preferred for runner-based apps)** — `remix db rollback` walks the journal and reverts applied migrations newest-first. Bounds: `--step <count>` (default `1`) or `--to <id>` (revert back *through* that migration, inclusive; accepts a bare id or the `id_name` directory form). `--dry-run` reports what would be reverted without running it. This is the supported replacement for the "clear the journal" surgery and for undocumented `down` runs — orphaned journal entries are ignored on down runs (runner.ts:105), so rollback stays possible even when a migration file is missing. Note: an empty `--to ""` now throws `Unknown migration target: ""` (runner.ts:66 changed `!to` → `to === undefined` in #11723) — it is **not** a "revert everything" escape hatch.
 3. **Clear the journal (last resort)** — one-time DB surgery: `DELETE FROM data_table_migrations;` (or drop the table). Lets `db.migrate()` start clean; the schema already exists so nothing re-runs. Only needed when the CLI is not an option (no migrations directory, or you want to abandon the journal entirely).
 4. **Stop consulting the journal — bootstrap the schema instead (newapp's choice)**. Route schema creation through `db.executeScript()` with idempotent DDL so no journal is read:
 

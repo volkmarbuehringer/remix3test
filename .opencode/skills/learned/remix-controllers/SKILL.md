@@ -34,14 +34,14 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 **Route Contract and Resource Helpers (`references/route-contract-and-controllers.md`)**
 
-- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:76,238,240`) — do not rewrite to `only`.
+- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:83,252,254`) — do not rewrite to `only`.
 - A controller owns only the direct `Route` leaves of its map; register nested maps (e.g. `routes.appointment.types`) separately. A missing, unknown, or nested key throws a `TypeError` at `router.map(...)` (startup), not on the first request.
 - `controller.middleware` reaches only that controller's direct leaves, not a separately-mapped nested map; repeat the boundary there.
 - Bare-string leaves are `Route<'ANY', ...>` — branch on `context.method`. `context.headers` is request headers, so return a `Response` for response headers; `context.router` re-enters the pipeline.
 
 **Request Pipeline and Middleware Ordering (`references/request-middleware.md`)**
 
-- The app owns the 500 response in `createServerHandler` (`app/utils/server-handler.ts`), not `createRequestListener`'s `onError`; the client address arrives via the listener's `(request, client)` argument and is stamped as `X-Client-Ip`.
+- The app owns the 500 response via `renderServerError()` in `app/utils/server-handler.ts`, wired through `createRequestListener`'s `onError` in `server.ts` (app re-checked 2026-10-14: `onError` is now passed and `createServerHandler` no longer wraps `router.fetch` in try/catch); the client address arrives via the listener's `(request, client)` argument and is stamped as `X-Client-Ip`.
 - Root order lives in `app/middleware/root.ts`; `compression()` runs after `staticFiles()` (so root static responses are uncompressed) and `loadDatabase()` must precede `loadAuth()`.
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.

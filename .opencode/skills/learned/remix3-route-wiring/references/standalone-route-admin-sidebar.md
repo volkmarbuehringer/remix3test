@@ -38,16 +38,16 @@ In `app/ui/admin-layout.tsx`, add the standalone route as a nav item with `ifram
 
 `EventSource` cannot follow 302 redirects. Using `requireAuth()` on an SSE endpoint causes the EventSource to silently fail when redirecting to login.
 
-Use the repo's `requireSseAuth()` middleware (`app/middleware/sse-auth.ts`) on any non-interactive endpoint (EventSource, WebSocket):
+Use the repo's SSE-auth middleware (`app/middleware/sse-auth.ts`) on any non-interactive endpoint (EventSource, WebSocket). *(app re-checked 2026-10-14: the auth-only `requireSseAuth()` export was removed; the module now exports only `requireAdminSseAuth()`, which adds a 403 for a non-admin identity.)*
 
 ```tsx
 export const mySseHandler = createAction<typeof mySseRoute, AppContext>(mySseRoute, {
-  middleware: [requireSseAuth()],
+  middleware: [requireAdminSseAuth()],
   handler: async (context) => channel.subscribe(context.request),
 })
 ```
 
-**Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The `requireSseAuth()` middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint.
+**Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The SSE-auth middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint.
 
 Auth state check behavior (`context.get(Auth)`):
 
@@ -56,6 +56,7 @@ Auth state check behavior (`context.get(Auth)`):
 | `loadAuth()` not installed | 401            |
 | No valid session (`!auth.ok` or no `identity`) | 401            |
 | Valid session             | passes through |
+| Valid session, non-admin identity | 403 |
 
 ### 4. Client IP extraction
 

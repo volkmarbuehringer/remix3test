@@ -1,10 +1,11 @@
 # Narrow Unknown Columns at One Row Adapter
 
 **Extracted:** 2026-09-04
+**Revalidated:** 2026-10-14 against build `2c9e033` / source `e6a63ea` (`@remix-run/data-table` 1.0.0).
 
 ## Problem
 
-Even the **typed query API** — `db.findMany`, `db.findOne`, `db.create(..., { returnRow: true })` — returns `TableRow<typeof table>` where json and bigint columns are typed `unknown`. In `@remix-run/data-table`, `ColumnBuilder<output = unknown>` and `column.json()` / `column.bigint()` return the default builder, so their `ColumnOutput` is `unknown` (`dist/lib/column.d.ts`). Only `integer()/text()/enum()` carry concrete types (`number`/`string`/union):
+Even the **typed query API** — `db.findMany`, `db.findOne`, `db.create(..., { returnRow: true })` — returns `TableRow<typeof table>` where json and bigint columns are typed `unknown`. In `@remix-run/data-table`, `ColumnBuilder<output = unknown>` and `column.json()` / `column.bigint()` return the default builder, so their `ColumnOutput` is `unknown` (`dist/lib/column.d.ts`). Builders such as `integer()/text()/enum()` carry concrete types (`number`/`string`/union):
 
 ```ts
 // TableRow<typeof lists>:

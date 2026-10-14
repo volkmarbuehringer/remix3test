@@ -14,7 +14,7 @@ No skill covers reduced motion; the only `matchMedia` reference is a test stub. 
 
 - **CSS boundary first.** Put `@media (prefers-reduced-motion: reduce)` inside `css(...)` and neutralize transitions/transforms there. It works before JavaScript loads, applies to server-rendered frames, and covers static transitions. The app does this in `app/ui/document.tsx` (`body { transition: none !important }`) and `app/ui/scaffold-home-page.tsx`.
 - **JS boundary second.** For JavaScript-driven motion, check the same media query before starting work: `window.matchMedia('(prefers-reduced-motion: reduce)').matches`.
-- **Use the app helper.** `app/utils/motion.ts` exports `prefersReducedMotion()` and `entrance(config)`, which returns `false` under reduced motion and otherwise the config. Every entrance in the app is wrapped with `entrance(...)`; reuse it rather than adding another check. `app/assets/error-card.browser.tsx` shows it composed with a spring: `animateEntrance(entrance({ ..., ...spring('smooth') }))`.
+- **Use the app helper.** `app/utils/motion.ts` exports `entrance(config)` (its `prefersReducedMotion()` check is module-private), which returns `false` under reduced motion and otherwise the config. Every entrance in the app is wrapped with `entrance(...)`; reuse it rather than adding another check. `app/assets/error-card.browser.tsx` shows it composed with a spring: `animateEntrance(entrance({ ..., ...spring('smooth') }))`.
 - **Reduced motion is not "no feedback."** Prefer shorter fades, instant layout changes, or a non-motion state change when movement is not essential.
 
 ## When to Use

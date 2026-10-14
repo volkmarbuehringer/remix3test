@@ -8,7 +8,7 @@
 
 ## Problem
 
-`@remix-run/component`'s server runtime gives every component `signal: ssrSignal`, a frozen plain object (`@remix-run/component/dist/server/stream.js`), not an `AbortSignal`. So `handle.frame.addEventListener(type, fn, { signal: handle.signal })` in component setup throws `TypeError: Type error` under Bun. Node does **not** reject the real `ssrSignal` shape — its `EventTarget` duck-types any object exposing `addEventListener` — which is why the Node suite stays green on the unguarded code.
+`@remix-run/component`'s server runtime gives every component `signal: ssrSignal`, a frozen plain object (`@remix-run/component/dist/server/stream.js`), not an `AbortSignal`. So `handle.frame.addEventListener(type, fn, { signal: handle.signal })` in component setup throws `TypeError: Type error` under Bun. Node does **not** reject the real `ssrSignal` shape — its `EventTarget` duck-types an object exposing `aborted` plus `addEventListener` — which is why the Node suite stays green on the unguarded code.
 
 ## Solution
 
@@ -20,7 +20,7 @@ if (typeof document !== 'undefined') {
 }
 ```
 
-Repro of the divergence (the real `ssrSignal` exposes a no-op `addEventListener`, so Node duck-types it): `new EventTarget().addEventListener('x', () => {}, { signal: Object.freeze({ addEventListener() {}, removeEventListener() {} }) })` → Node accepts, Bun throws `Type error`. A plain `Object.freeze({})` throws on **both**, so it does not reproduce the Node/Bun split. Sweep every `addEventListener(..., { signal: handle.signal })` that can run during SSR.
+Repro of the divergence (the real `ssrSignal` exposes `aborted` plus no-op `addEventListener`, which is enough for Node's duck-type check): `new EventTarget().addEventListener('x', () => {}, { signal: Object.freeze({ aborted: false, addEventListener() {}, removeEventListener() {} }) })` → Node accepts, Bun throws `Type error`. Node requires the `aborted` property: an object with only `addEventListener`/`removeEventListener` is rejected (`The "options.signal" property must be an instance of AbortSignal`), and a plain `Object.freeze({})` throws on **both**, so neither reproduces the Node/Bun split. Sweep every `addEventListener(..., { signal: handle.signal })` that can run during SSR.
 
 ## Guarding against regression
 
@@ -49,4 +49,4 @@ NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type server \
   app/actions/lists/public/lists-search.test.tsx
 ```
 
-Version-pinned facts (verified 2026-10-10, Bun 1.4.3, remix build `044d83772`): `handle.frame` is a real `TypedEventTarget` (`createFrameHandle()` returns `new TypedEventTarget()`), the SSR `signal` is `Object.freeze({...})` with a no-op `addEventListener`, and Node's `addEventListener` accepts that exact object while rejecting `Object.freeze({})`.
+Version-pinned facts (verified 2026-10-14, Bun 1.4.3, Node 26.12.0, build `2c9e033`/source `e6a63ea`; the earlier 2026-10-10 repro used a two-method object that Node now rejects): `handle.frame` is a real `TypedEventTarget` (`createFrameHandle()` returns `new TypedEventTarget()`), the SSR `signal` is `Object.freeze({...})` with a no-op `addEventListener`, and Node's `addEventListener` accepts that exact object while rejecting `Object.freeze({})`.

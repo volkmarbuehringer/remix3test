@@ -15,7 +15,7 @@ Covers `remix/cli` and `remix/node-tsx`.
 
 Programmatic: `import { runRemix } from 'remix/cli'`
 
-> **Note — multiple route trees:** When `routes.ts` exports multiple named route trees (e.g., `routes`, `adminRoutes`, `aiRoutes` composed via `router.map()`), `remix routes` only discovers the **first/default** export. It cannot see independently mounted trees — they work at runtime but don't appear in CLI output. Don't treat missing routes in `remix routes` as a wiring error.
+> **Note — multiple route trees:** When `routes.ts` exports multiple named route trees (e.g., `routes`, `adminRoutes`, `aiRoutes` composed via `router.map()`), `remix routes` reads only the export **named `routes`**. The loader worker (`load-route-map-worker.ts`) does `import(routesFile)` and requires `'routes' in routeModule`, throwing `must export a named "routes" value` otherwise. Independently mounted named trees (`adminRoutes`, `aiRoutes`, …) work at runtime but don't appear in CLI output. Don't treat missing routes in `remix routes` as a wiring error.
 
 ## node-tsx
 
@@ -68,17 +68,15 @@ remix test --coverage
 
 Available `--type` values: `server`, `browser`, `e2e`.
 
-### `NODE_ENV=test` Not Auto-Set
+### `NODE_ENV` Defaults to `test`
 
-`remix test` does **not** set `NODE_ENV=test` like Jest/Vitest. Add it to the test script yourself:
+`remix test` sets `NODE_ENV` to `test` when it is unset: `runRemixTest()` runs `process.env.NODE_ENV ??= 'test'` (`@remix-run/test` `src/cli.ts:71`) before spawning workers, so guards like `if (process.env.NODE_ENV !== 'test')` fire without a script prefix. Because it uses `??=` (not `=`), an explicit `NODE_ENV` still wins. This app keeps the prefix on its scripts anyway:
 
 ```json
 "scripts": {
   "test": "NODE_ENV=test remix test"
 }
 ```
-
-Without this, guards like `if (process.env.NODE_ENV !== 'test')` won't fire — code will attempt real SMTP connections, DB seeds, etc.
 
 ### Mocking ES Module Named Exports
 

@@ -23,7 +23,7 @@ Drive the reveal from a `clientEntry` that toggles **inline** `style.opacity` on
 
 The working implementation is in this repo:
 
-- `app/actions/lists/public/lists-client.tsx` — the clientEntry that toggles inline `opacity`/`pointer-events` on the row-actions cluster from `mouseenter`/`mouseleave`/`focusin`/`focusout`, re-inits on frame `reloadComplete`, and aborts prior listeners (`AbortController`). It also has the **delegated** variant (`mouseover`/`closest('[role="listitem"]')` on a stable container) for lists whose rows re-render on every state change.
+- `app/actions/lists/public/lists-row-actions.tsx` — the clientEntry that toggles inline `opacity`/`pointer-events` on the row-actions cluster from `mouseenter`/`mouseleave`/`focusin`/`focusout`, re-inits on frame `reloadComplete`, and aborts prior listeners (`AbortController`). The **delegated** variant (`mouseover`/`closest('[role="listitem"]')` on a stable container, for lists whose rows re-render on every state change) lives in `app/actions/lists/public/lists-view.tsx:1090-1135` (paths re-checked 2026-10-14; both moved out of `lists-client.tsx` in the decomposition).
 - `app/ui/lists-layout.tsx` — the `rowActionsStyle`/`deleteFormStyle`/`renameBtnStyle` cluster styles (resting `opacity: 0; pointerEvents: none`, plus the `@media (hover: none)` override).
 
 ### Key details

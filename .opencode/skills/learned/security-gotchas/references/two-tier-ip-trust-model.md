@@ -3,7 +3,7 @@
 **Source:** `remix3-two-tier-ip-trust-model`
 
 **Extracted:** 2026-06-26
-**Revalidated:** 2026-09-24 against `remix` 3.0.0-rc.3 (build 3e516fcc2, source 9ed3a5c; `@remix-run/node-fetch-server` 0.14.1, `src/lib/request-listener.ts:455`).
+**Revalidated:** 2026-10-14 against `remix` 3.0.0 (build 2c9e033, source e6a63ea; `@remix-run/node-fetch-server` 1.0.0, `src/lib/request-listener.ts:458-471`).
 **Context:** Remix 3 apps where client IP is used for both security-critical checks (localhost guards, rate limiting) and audit logging.
 
 ## Problem
@@ -14,7 +14,7 @@ Using a single `sourceIp()` function with a fallback chain (`X-Forwarded-For` �
 
 Use **two tiers** of IP resolution. The working implementation is `app/utils/request-ip.ts`:
 
-- `connectionIp(request)` — Tier 1 (trusted): reads `X-Client-Ip`, the header stamped by `server.ts` from the TCP socket.
+- `connectionIp(request)` — Tier 1 (trusted): reads `X-Client-Ip`, the header stamped by `app/utils/server-handler.ts:79` from the TCP-socket address that `server.ts` passes in.
 - `isLocalhost(ip)` — matches `127.0.0.1`, `::1`, `::ffff:127.0.0.1`.
 - `sourceIp(request)` — Tier 2 (untrusted): fallback chain `X-Client-Ip` → `Cf-Connecting-Ip` → `X-Forwarded-For` → `X-Real-Ip`, for audit logging only.
 
@@ -57,11 +57,15 @@ which silently re-enables every attack the two-tier model was meant to stop:
 const handler = createRequestListener(handler, { trustProxy: true })
 ```
 
-### Correct server.ts
+### Correct server.ts / server handler
 
-See `server.ts` — the listener stamps `X-Client-Ip` from the real TCP socket
-(`request.headers.set('X-Client-Ip', client?.address ?? '')`, always `set()` so
-a client-supplied value is overwritten) and passes `{ trustProxy: false }`.
+See `server.ts` + `app/utils/server-handler.ts:79` — `server.ts` receives the
+TCP-socket address as `client.address` and hands it to `createServerHandler`,
+which stamps `X-Client-Ip` from that value
+(`request.headers.set('X-Client-Ip', clientIp)`, always `set()` so a
+client-supplied value is overwritten). `server.ts` passes
+`{ trustProxy: isHmr }` (true only under `REMIX_NODE_HMR=1`, i.e. dev/HMR), so
+production stays socket-only.
 
 `trustProxy: true` is only safe when a **trusted reverse proxy strips and
 rewrites** `X-Forwarded-For` (e.g. nginx `proxy_set_header`, cloudflare).

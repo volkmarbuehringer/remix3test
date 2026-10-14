@@ -4,6 +4,9 @@
 **Extracted:** 2026-10-04
 **Context:** Adding isolated browser coverage for `app/ui/settings-enhance.browser.tsx` (the
 `/settings` entry) and `app/actions/lists/public/{lists-row-actions,lists-sidebar-keyboard}.tsx`.
+(**Obsolete 2026-10-14:** `settings-enhance.browser.tsx` was deleted — the settings tabs are now
+server-rendered by `SettingsTabs` in `app/actions/settings/controller.tsx:396`, so the
+`SettingsEnhance` example below is historical; the guidance still applies to the lists entries.)
 Complements `cliententry-browser-test-stubs.md` (geometry/media stubs); this delta covers fixture
 ownership, state reset, and fixture fidelity for entries that query `document` instead of rendering
 their own DOM.

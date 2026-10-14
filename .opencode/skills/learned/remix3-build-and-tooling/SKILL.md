@@ -36,7 +36,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 **`remix` CLI + `node-tsx` (`references/cli-devops.md`)**
 
-- `remix new <dir>`, `remix test`, `remix doctor [--fix]`, `remix routes [--table]`, `remix version`, `remix completion bash|zsh`, plus programmatic `runRemix` from `remix/cli`. `remix routes` discovers only the **first/default** export of `routes.ts` — independently mounted named trees run but stay invisible — and `remix test` takes a positional glob with `--type=server|browser|e2e` (no `--run`), does **not** auto-set `NODE_ENV=test`, and supports `--coverage`.
+- `remix new <dir>`, `remix test`, `remix doctor [--fix]`, `remix routes [--table]`, `remix version`, `remix completion bash|zsh`, plus programmatic `runRemix` from `remix/cli`. `remix routes` reads only the export **named `routes`** from `routes.ts` (the loader worker requires `'routes' in routeModule`, otherwise it throws `must export a named "routes" value`) — independently mounted named trees run but stay invisible — and `remix test` takes a positional glob with `--type=server|browser|e2e` (no `--run`), **defaults `NODE_ENV` to `test` when it is unset** (`process.env.NODE_ENV ??= 'test'`), and supports `--coverage`.
 - Register the TypeScript/JSX loader with `remix/node-tsx` (`node --import remix/node-tsx ./server.ts`, side-effect `import 'remix/node-tsx'`, scoped `loadModule` from `remix/node-tsx/load-module`) under `module`/`moduleResolution: NodeNext`, `allowImportingTsExtensions`, `isolatedModules`, `verbatimModuleSyntax`, and `rewriteRelativeImportExtensions`. `mock.method(obj, name)` cannot spy frozen ES-module named exports, so prefer side-effect/DOM testing or wrap the export in a mutable object (`export let scrollLock = { … }`).
 
 **HMR dev server (`references/hmr-dev-server.md`)**
@@ -55,7 +55,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 - You are wiring or diagnosing the asset server: moving static mapping/access config into `remix.json → assets`, adopting `loadConfig` + `config.assets`, migrating `fileMap` to `mounts`, reasoning about `denyFiles` precedence, or asking what is actually reachable with `remix assets` / `remix assets inspect`.
 - You are relocating or adding browser (`.browser.*`) source and need to know where it belongs (`<route>/public/` vs shared `app/ui/`), how `git mv` changes relative-import depth, or whether an import is servable under `allowFiles`.
-- You are running the `remix` CLI (scaffold, tests, doctor, routes), setting up `node-tsx` to execute TypeScript/JSX directly, filtering `remix test` by type, setting `NODE_ENV=test`, or working around frozen ES-module exports in tests.
+- You are running the `remix` CLI (scaffold, tests, doctor, routes), setting up `node-tsx` to execute TypeScript/JSX directly, filtering `remix test` by type, `NODE_ENV` handling in `remix test`, or working around frozen ES-module exports in tests.
 - You are wiring or debugging `npm run hmr` (asset-server/HMR config, proxy hangs, `EADDRINUSE`, the pre-#11913 hoisted-declaration `ReferenceError`).
 - You are self-hosting a webfont, auditing for a third-party font CDN, or serving `public/` through the static middleware.
 - A branch-pinned dependency may have moved and you need to judge whether updating breaks the app.

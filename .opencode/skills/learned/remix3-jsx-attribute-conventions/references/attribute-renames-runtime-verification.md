@@ -4,6 +4,8 @@
 
 **Validated:** 2026-09-24 against `remix` 3.0.0-rc.3, installable build `3e516fcc2` (source `9ed3a5c`) — `ElementProps = Record<string, any>` at `@remix-run/ui` `src/runtime/jsx.ts:17`; `FormHTMLProps` carries `data-rmx-target` (`src/runtime/dom.ts:2305`); the runtime still reads `data-rmx-*` at `dist/runtime/navigation.js:417-437`.
 
+**Re-validated (2026-10-14):** against the now-installed build `2c9e033` (installable dist of source `e6a63ea`; `remix` `3.0.0`, `@remix-run/component` `1.0.0`, `@remix-run/ui` `0.12.1`) — the JSX/attribute runtime now lives in `@remix-run/component`: `ElementProps = Record<string, any>` at `@remix-run/component` `src/runtime/jsx.ts:17`; `FormHTMLProps` carries `data-rmx-target` at `src/runtime/dom.ts:2308`; the runtime reads `data-rmx-target`/`-src`/`-reset-scroll`/`-history` at `dist/runtime/navigation.js:435-465` (`data-rmx-document` in the src at `src/runtime/navigation.ts:587`/`:603` — link/form; the link/src reads are `:592-598`, the form reads `:611-618`; `data-rmx-preserve-dom` at `src/runtime/diff-dom.ts:35`), so the `rmx-*` → `data-rmx-*` rename still holds.
+
 ## Problem
 
 `remix/component`'s automatic JSX runtime types the `jsx()` factory's props as `ElementProps = Record<string, any>` (`packages/component/src/runtime/jsx.ts:17` — the installed vendor copy is `@remix-run/component` `src/runtime/jsx.ts`). So **every attribute is accepted** on any intrinsic element — the strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX.

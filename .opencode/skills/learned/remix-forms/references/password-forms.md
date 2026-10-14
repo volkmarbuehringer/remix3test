@@ -74,10 +74,12 @@ if (!parsed.success) {
 
 ## Solution 3: Password visibility toggle via `data-toggle-pw`
 
+> **App re-checked 2026-10-14:** this app no longer uses a `clientEntry` for the toggle. `PasswordToggle` in `app/ui/password-toggle.browser.tsx` renders a nonce'd `<script>` containing `PASSWORD_TOGGLE_SCRIPT` (`app/ui/password-toggle.script.ts`); the `clientEntry` snippet below is historical.
+
 Create a `clientEntry` in `app/assets/` (NOT in `app/ui/`) that uses document-level event delegation:
 
 ```typescript
-// app/assets/password-toggle.tsx
+// app/ui/password-toggle.browser.tsx
 import { clientEntry, type Handle } from 'remix/component'
 
 const eyeSvg = `<svg xmlns="..." width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
@@ -116,7 +118,7 @@ Render the toggle once via a shared component (e.g., in `AuthForm`):
 
 ```typescript
 // app/ui/auth-card.tsx (or your shared form component)
-import { PasswordToggle } from '../assets/password-toggle.tsx'
+import { PasswordToggle } from '../ui/password-toggle.browser.tsx'
 
 export function AuthForm(handle: Handle<AuthFormProps>) {
   return () => (
@@ -204,3 +206,5 @@ AssetServerCompilationError: Failed to resolve import "node:async_hooks"
 ```
 
 The fix: keep `clientEntry` components in `app/assets/` (the designated directory for browser modules) and use `data-*` attributes + event delegation to bridge to server-rendered components.
+
+> **App re-checked 2026-10-14:** the app now also ships `clientEntry` components under `app/ui/` (e.g. `app/ui/confirm-delete.browser.tsx`) and `remix.json`'s `assets.allowFiles` includes `app/ui/**`; treat the "must live in `app/assets/`" conclusion as historical — this toggle moved to a server-rendered nonce'd `<script>` entirely.

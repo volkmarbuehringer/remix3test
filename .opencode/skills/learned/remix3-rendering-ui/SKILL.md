@@ -1,6 +1,6 @@
 ---
 name: remix3-rendering-ui
-description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, choosing among remix/component style mixins, composed controls, and headless primitives, raw-HTML props (`unsafeHTML()`), and HTML-string responses outside the component runtime (`remix/html-template`)."
+description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, choosing between app-owned `css()` styling and `@remix-run/ui` headless primitives, raw-HTML props (`unsafeHTML()`), and HTML-string responses outside the component runtime (`remix/html-template`)."
 user-invocable: false
 origin: learned
 ---
@@ -19,7 +19,7 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 | --- | --- |
 | Sharing a value with descendant components (`handle.context`), generating a stable DOM id (`handle.id`), or a browser-reactive context value (`TypedEventTarget`) | `references/component-context-and-handle-id.md` |
 | Adding to `<head>` (meta/og, modulepreload, styles, CSP nonce), wiring the browser entry script / import map, or `context.render(tree, ResponseInit)` | `references/document-shell-and-asset-entry.md` |
-| Choosing among `remix/component` style mixins, composed controls, and headless primitives, or deciding whether to wrap/replace a vendor component | `references/first-party-ui-blocks.md` |
+| Choosing between app-owned `css()` styling and an `@remix-run/ui` headless primitive, or deciding whether to wrap/replace a vendor component | `references/first-party-ui-blocks.md` |
 | Rendering raw HTML through a prop (`innerHTML`, iframe `srcDoc`/`srcdoc`) and `Framework invariant: Invalid … prop` throws after a Remix bump | `references/unsafe-html.md` |
 | Returning an HTML string outside the component runtime (standalone 500/429/error pages, frame fragments, email/RSS), with XSS-safe interpolation | `references/html-template.md` |
 
@@ -41,14 +41,14 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 
 **First-party UI blocks (`references/first-party-ui-blocks.md`)**
 
-- Selection order: style mixins (`button`/`input`/`checkbox`/`radio`/`toggle`) keep the native control → composed controls (`accordion`/`breadcrumbs`/`combobox`/`menu`/`select`/`tabs`) own multi-element relationships → headless primitives (`popover`/`listbox`/`anchor` and `/primitives`) when markup must change. Interactive controls still need a `clientEntry` boundary. Toggle note (since build `c93cec30`/source `e5ed055`, PR #11986): the upstream `@remix-run/ui/toggle` module exports the mixin as a flat `toggle` callable directly as `mix={toggle({...})}` — the old `toggle.control()` shape no longer exists; the app currently uses no toggle mixin, but do not re-adopt the group-under-`.control` pattern.
+- Selection order: style the native control with `css()`; reach for an `@remix-run/ui` headless primitive (`accordion`/`anchor`/`animation`/`combobox`/`listbox`/`menu`/`popover`/`select`/`tabs`/`toggle`) when the product needs its behavior or markup. `@remix-run/ui` 0.12.1 no longer exports the styled `button`/`input`/`checkbox`/`radio` mixins or the `breadcrumbs` module (removed in the 0.11 → 0.12 cleanup, #11986), and there are no `/primitives` subpaths; the app vendors its own button (`app/ui/theme/upstream-button.ts`). Interactive controls still need a `clientEntry` boundary. Toggle note (since build `c93cec30`/source `e5ed055`, PR #11986): the upstream `@remix-run/ui/toggle` module exports the mixin as a flat `toggle` callable directly as `mix={toggle({...})}` — the old `toggle.control()` shape no longer exists; the app currently uses no toggle mixin, but do not re-adopt the group-under-`.control` pattern.
 - This app wraps the vendored `app/ui/theme/upstream-button.ts` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts); the vendored copy must also keep upstream's attribute default (`type="button"`), and a link that needs button styling uses `buttonLink()` — a nested `<a><button>` submits a surrounding form and is blocked by `remix-a11y/no-nested-interactive`.
-- It deliberately renders its own breadcrumbs in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
+- It deliberately renders its own breadcrumbs in `app/ui/breadcrumbs.tsx` (the pre-0.12 vendor component hardcoded `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides; it was removed in the 0.11 → 0.12 cleanup).
 - Menus use `@remix-run/ui/menu` primitives, wrapped by the app's `app/ui/theme/menu/index.tsx` styled `MenuList`/`MenuItem`; `onMenuSelect` comes from the vendor module.
 
 **Raw HTML props (`references/unsafe-html.md`)**
 
-- As of upstream #11885, `innerHTML`/`srcDoc`/`srcdoc` only accept the opaque value from `unsafeHTML()` (and `outerHTML` is rejected outright); a plain string throws `Framework invariant: Invalid innerHTML prop` at render time, not from `tsc` (`createElement`'s `ElementProps = Record<string, any>`). `unsafeHTML()` authorizes, it does not sanitize — keep escaping at the call site. The app's only prop site is `app/ui/theme/runtime.ts` (DOM `el.innerHTML = …` assignments are unaffected).
+- As of upstream #11885, `innerHTML`/`srcDoc`/`srcdoc` only accept the opaque value from `unsafeHTML()` (and `outerHTML` is rejected outright); a plain string throws `Framework invariant: Invalid innerHTML prop: expected a value created with unsafeHTML()` at render time, not from `tsc` (`createElement`'s `ElementProps = Record<string, any>`); #11988 added that suffix, and the guide's §"Raw HTML with unsafeHTML" now authors the base pattern. `unsafeHTML()` authorizes, it does not sanitize — keep escaping at the call site. The app's only prop site is `app/ui/theme/runtime.ts` (DOM `el.innerHTML = …` assignments are unaffected).
 
 **HTML-string responses (`references/html-template.md`)**
 

@@ -62,11 +62,11 @@ server-generated id through a request-scoped channel instead.
 Fix (Remix 3: `formData()` runs before auth, so the handler can't bind the owner at insert):
 1. Add an AsyncLocalStorage scope middleware BEFORE the body parser:
    `uploadClaimScope()` → `storage.run({}, next)`.
-2. In the upload handler, after `INSERT … RETURNING id`, call `setUploadedId(id)`.
-3. In the post-auth controller, claim only `takeUploadedId()` — ignore `context.formData.get('file')`.
-4. Make `setUploadedId` throw when the scope is missing, so a middleware reorder fails loudly
+2. In the upload handler, after `INSERT … RETURNING id`, call `addUploadedId(id)`.
+3. In the post-auth controller, claim only `takeUploadedIds()` — ignore `context.formData.get('file')`.
+4. Make `addUploadedId` throw when the scope is missing, so a middleware reorder fails loudly
    instead of silently producing unclaimable rows.
 
 ## Further Reading
 
-The code review that found this bypass in practice: `app/actions/uploads/controller.tsx` — the `UPDATE uploads SET uploaded_by` was left unscoped while the download/index queries were scoped. The follow-up review (2026-08-04) found that even the scoped form above is bypassable and replaced the client-supplied-id claim with a server-side request scope (`app/middleware/upload-claim.ts`).
+The code review that found this bypass in practice: `app/actions/admin/uploads/controller.tsx` (app re-checked 2026-10-14: the uploads route moved under `admin/`; the claim UPDATE now lives in `app/data/uploads.ts:289` and is scoped) — the `UPDATE uploads SET uploaded_by` was left unscoped while the download/index queries were scoped. The follow-up review (2026-08-04) found that even the scoped form above is bypassable and replaced the client-supplied-id claim with a server-side request scope (`app/middleware/upload-claim.ts`).

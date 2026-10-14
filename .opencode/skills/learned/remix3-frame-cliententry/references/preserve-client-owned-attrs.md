@@ -14,7 +14,7 @@ frame/document reload. Read this when:
 
 Frame DOM replacement reconciles the live element against the incoming server HTML
 attribute-by-attribute (`diffElementAttributes` in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/diff-dom.ts`).
-Only `open`, `checked`, and `value` on native form elements are exempt
+`open` (details/dialog), `checked`, `value`, `selected`, and `popover` are exempt
 (`shouldPreserveLiveAttribute`). Any other client-set attribute the incoming HTML does not
 carry is **removed**; one it carries with a different value is **overwritten**.
 
@@ -51,4 +51,4 @@ Server test: fetch a full document and assert `<html ... data-rmx-preserve-attrs
 
 ## Vendor Reference
 
-`node_modules/remix/src/component/README.md` (`data-rmx-preserve-attrs`) — since preview build a4d62e19 (#11895/#11809); still documented on `remix` 3.0.0-rc.3 (build `3e516fcc2`)
+`node_modules/remix/src/component/README.md` (`data-rmx-preserve-attrs`) — since preview build a4d62e19 (#11895/#11809); documented on `remix` 3.0.0 (build `2c9e033`)

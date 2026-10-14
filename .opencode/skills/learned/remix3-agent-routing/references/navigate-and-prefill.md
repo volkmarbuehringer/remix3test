@@ -118,13 +118,13 @@ Agent tool return     →  SSE navigate event    →  client store
 #### 1. Shared client store
 
 ```typescript
-// app/assets/agent-prefill-store.ts
+// app/ui/agent-prefill-store.browser.ts
 export const agentPrefillMap = new Map<string, Record<string, string>>()
 ```
 
 #### 2. `resolveFrameResponse` injects header (UTF-8 safe)
 
-In `entry.tsx`'s frame resolver:
+In `app/assets/frame-response.browser.tsx` (called from `entry.tsx`'s `resolveFrame`):
 
 ```typescript
 let prefillKey = url.pathname + url.search
@@ -187,4 +187,4 @@ async index(context) {
 - **Key matching:** `handleNavigate` stores relative path. `resolveFrameResponse` receives full URL. Use `url.pathname + url.search`.
 - **UTF-8 base64:** Use `TextEncoder` + `btoa` on client, `Buffer.from` on server. `btoa`/`atob` throws on non-Latin-1 characters.
 - **Don't delete before fetch:** Delete from Map only after `response.ok`.
-- **Import chain:** Keep `agentPrefillMap` in a separate module — `entry.tsx` references `document` and can't be imported server-side.
+- **Import chain:** Keep `agentPrefillMap` in a separate module — `app/assets/entry.tsx` references `document` and can't be imported server-side.

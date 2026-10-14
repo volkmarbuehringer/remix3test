@@ -21,8 +21,10 @@ Use a **single shared `clientEntry`** with a **capture-phase `click` listener** 
 
 #### 1. Create the shared component
 
+> **App re-checked 2026-10-14:** `app/ui/confirm-delete.browser.tsx` now implements the in-app `alertdialog` + `requestConfirm` variant from the Upgrade section below, not the `window.confirm` snippet here.
+
 ```tsx
-// app/assets/confirm-delete.tsx
+// app/ui/confirm-delete.browser.tsx
 import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 export const ConfirmDelete = clientEntry(
@@ -60,7 +62,7 @@ export const ConfirmDelete = clientEntry(
 #### 2. Add to page + attribute to forms
 
 ```tsx
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 
 // In the page component, render it once inside the grid wrapper:
 <div mix={table.minWidth0}>

@@ -33,5 +33,5 @@ No skill indexes `@remix-run/ui/animation`; the presence and layout mixins are g
 ## Reference
 
 - `node_modules/remix/guides/07-animation.md` §"Entrance and exit animations", §"Layout animations"
-- `node_modules/remix/src/ui/animation/README.md`
+- `node_modules/.pnpm/@remix-run+ui@*2c9e033*/node_modules/@remix-run/ui/src/animation/README.md`
 - `app/utils/motion.ts`, `app/assets/error-card.browser.tsx`

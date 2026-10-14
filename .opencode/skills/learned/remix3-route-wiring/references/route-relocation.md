@@ -80,7 +80,7 @@ After route relocation + validation upgrade, verify:
       defaults to **302**. A frame-PRG handler that previously returned an explicit **303** must
       keep it (`new Response(null, { status: 303, ... })`); a status assertion in the test catches
       the regression.
-- [ ] Admin-only SSE: auth-only `requireSseAuth()` over-permits. Use a role-aware guard returning
+- [ ] Admin-only SSE: auth-only guards over-permit (the auth-only `requireSseAuth()` export was removed; app re-checked 2026-10-14). Use a role-aware guard returning
       plain 401/403 — not `requireAdmin`, whose redirect/HTML breaks `EventSource`. This repo's
       `requireAdminSseAuth()` (`app/middleware/sse-auth.ts`) is the pattern; see
       `remix3-route-wiring` (`references/standalone-route-admin-sidebar.md`).

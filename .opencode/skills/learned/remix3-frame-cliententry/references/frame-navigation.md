@@ -86,7 +86,7 @@ Key facts (post-#11668):
 
 - `data-rmx-document` opts the form back out to a normal document navigation.
 - `data-rmx-src="/frame"` overrides the URL resolved into the frame while the form `action` stays the navigation destination.
-- `data-rmx-reset-scroll="false"` preserves scroll position.
+- `data-rmx-reset-scroll="false"` preserves scroll position on push/replace. Since #11989 it does not survive traversal (Back/Forward forces `after-transition`), and the runtime reset still only scrolls the document — see `remix3-css-and-layout` → `nested-scroller-navigation-reset.md` for nested containers.
 - Submitter overrides (`formmethod`, `formenctype`, `formtarget`) take precedence.
 - The `resolveFrame` client resolver must forward `formData`/`method`/`encType` (see the next section).
 - The server action must return a frame fragment (or redirect) so the targeted frame renders correctly.
@@ -236,7 +236,7 @@ async index(context) {
 
 Target-ful frame clients then bail to a full-page navigation of the marker URL (no frame headers → binary downloads); target-less fetches degrade to rendering the page fragment. For the download trigger itself, prefer `data-rmx-document` **on the form** (as of #11668 forms are intercepted like links): native navigation hands the attachment to the browser's download manager without leaving the page — no shim needed on the happy path.
 
-**Since #11940** the browser navigation listener also steps aside when `event.downloadRequest != null` and for hash-only changes (`event.hashChange` with no pending frame reload) (`ui` `src/runtime/navigation.ts`, `startNavigationListenerImpl`). A link carrying the native `download` attribute therefore needs no `data-rmx-document`; the escape is still required for an attachment endpoint reached by a plain link or form with no `download` attribute. Also, a hash-only change no longer triggers a frame reload, so in-frame `#fragment` deep links are handled entirely by the browser.
+**Since #11940** the browser navigation listener also steps aside when `event.downloadRequest != null` and for hash-only changes (`event.hashChange` with no pending frame reload) (`@remix-run/component` `src/runtime/navigation.ts`, `startNavigationListenerImpl`). A link carrying the native `download` attribute therefore needs no `data-rmx-document`; the escape is still required for an attachment endpoint reached by a plain link or form with no `download` attribute. Also, a hash-only change no longer triggers a frame reload, so in-frame `#fragment` deep links are handled entirely by the browser.
 
 ### Conditionally apply `data-rmx-document` in shared navigation
 

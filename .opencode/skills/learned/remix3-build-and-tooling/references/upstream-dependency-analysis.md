@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-08 (vendor facts below re-checked against the installed tree at build `a36d36caa` / source `ef2c594`; version table updated from the rc.5 / 0.8.0 / 0.12.0 era to stable `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1`)
+**Re-validated:** 2026-10-14 (vendor facts below re-checked against the installed tree at build `2c9e033` / source `e6a63ea`; version table unchanged from the stable `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1` lines — the `3.1.0` / `1.1.0` / `0.13.0` release is staged on PR #11978 and not yet on `preview/main`)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -64,7 +64,7 @@ Key focus areas when reviewing diffs:
 
 ## Version Lines After the Component/UI Split (#11948)
 
-As of 2026-10-08 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `044d83772` (built from `abe67bc`, i.e. `ef2c594` plus #11938/#11975), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
+As of 2026-10-14 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `2c9e033` (built from `e6a63ea`, i.e. `e5ed055` plus #11988/#11989/#11990), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
 
 | package | version | notes |
 | --- | --- | --- |
@@ -85,6 +85,14 @@ Prior state (for git archaeology): at the `Release v3.0.0-rc.5` commit (`dba1546
 - Also removed internal unexported namespace objects left over from the styled-removal series in `combobox.tsx`, `select.tsx`, `menu.tsx`.
 
 App-side clearance at this bump (recorded so the next styled-removal-series bump has a baseline): the app imports only `@remix-run/ui/animation` (untouched) and `@remix-run/ui/menu` (unexported-namespace deletion only); grep found zero usage of any removed API; `npm run typecheck` clean; full browser suite green (mod a known timing flake in the lists autosave undo selection test). `remix test --only` scoped to that test and a full `npm run test:browser` rerun both pass at the new pin.
+
+**Bump recorded 2026-10-14 (second, same day): build `c93cec30`/source `e5ed055` → `2c9e033`/source `e6a63ea` (#11988 `unsafeHTML()` prop diagnostics, #11989 traverse scroll/focus, #11990 component/testing docs).** Range touches `packages/component` runtime (`navigation.ts`, `unsafe-html.ts`), the vendor `remix` skill, component/test READMEs and package descriptions, `packages/remix/INDEX.md` + guides, and tests/demos; `packages/ui` and the other packages are byte-identical to the prior pin. API deltas (verified in the installed `.pnpm/@remix-run+component@…2c9e033…/` tree):
+
+- `unsafe-html.ts` only rewords the thrown invariants — `innerHTML`/`srcDoc`/`srcdoc` now say "expected a value created with unsafeHTML()" and `outerHTML` says it is "not supported on host elements". No new validation; app already wraps at `app/ui/theme/runtime.ts`.
+- `navigation.ts` `startNavigationListenerImpl`: on `traverse` (back/forward) `scroll` and `focusReset` are forced to `'after-transition'`, ignoring stored `manual`/legacy-boolean settings (previously `resetScroll: false` survived traversal). The app sets no `data-rmx-reset-scroll` and only `data-rmx-reset-focus="manual"` on the lists search form; those submits are pushes and `lists-search.tsx` refocuses on mount for back/forward, so no source change was required.
+- No changed/renamed exports and no new opaque types; `@remix-run/ui` is untouched.
+
+App-side clearance: the lock resolves both `path:` entries to the single `2c9e033` tarball; `npm run typecheck` clean; server/browser/e2e suites green (recorded 2026-10-14). The unrelated `oxlint`/`@oxlint/plugins` `1.87 → 1.88` float that `pnpm update` also produced is not part of this range.
 
 **Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
 
