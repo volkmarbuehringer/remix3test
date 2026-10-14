@@ -77,6 +77,15 @@ Prior state (for git archaeology): at the `Release v3.0.0-rc.5` commit (`dba1546
 
 `3.0.0-rc.4` with `ui 0.11.0` / `component 0.7.0` / `component-hmr 0.0.0` is the pre-release state at the split commit itself (`7513dae`).
 
+**Bump recorded 2026-10-14: build `c1787ef`/source `7d5a2f9` → `c93cec30`/`e5ed055` (PR #11986 "Clean up UI APIs after styled component removal").** Range touches **only `packages/ui`**; `@remix-run/component`, `-hmr`, `assets`, the `remix` CLI, and the guides are byte-identical to the prior pin. API deltas (all verified live in the installed `.pnpm/@remix-run+ui@…c93cec30…/src/` tree):
+
+- `@remix-run/ui/toggle` export renamed: `toggle.control` is gone → flat `toggle` export, callable directly as `toggle()` (`src/toggle.ts:186` `export const toggle = toggleMixin`). Option type `ToggleControlOptions` → `ToggleOptions`.
+- Removed the always-empty styled prop types: `AccordionProps`/`AccordionItemProps`/`AccordionTriggerProps`/`AccordionContentProps`, `SelectProps`/`SelectOptionProps` (unless aliased via closing div param), `ComboboxProps`/`ComboboxOptionProps`, and the empty `TabsRootOptions`/`TabListOptions` metadata objects. Composition now = `Context` props + per-mixin `*Options` types + app-owned `Props<'div'>`/`Props<'button'>`.
+- Accordion `headingLevel` prop, its context fields, and `AccordionHeadingLevel` were deleted entirely (`src/accordion.tsx`); the README now instructs an app-owned heading element (`<h2>`-style wrapper around the `trigger()` button) inside the accordion trigger markup.
+- Also removed internal unexported namespace objects left over from the styled-removal series in `combobox.tsx`, `select.tsx`, `menu.tsx`.
+
+App-side clearance at this bump (recorded so the next styled-removal-series bump has a baseline): the app imports only `@remix-run/ui/animation` (untouched) and `@remix-run/ui/menu` (unexported-namespace deletion only); grep found zero usage of any removed API; `npm run typecheck` clean; full browser suite green (mod a known timing flake in the lists autosave undo selection test). `remix test --only` scoped to that test and a full `npm run test:browser` rerun both pass at the new pin.
+
 **Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
 
 ```jsonc
