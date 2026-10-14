@@ -4,6 +4,7 @@ import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { readEventStream } from './read-sse.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
+import { describeToolApproval } from '../../../ui/agent-chat/approval-copy.ts'
 
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
@@ -506,31 +507,19 @@ export const CustomerChatStream = clientEntry(
     }) {
       let container = getChatArea()
       if (!container) return
+      // A server-rendered no-JS gate may already be on the page; a stream
+      // suspension would otherwise duplicate the same decision form.
+      if (document.getElementById('chat-approval')) return
 
-      let args = data.args || {}
-      let isCancelSingle = 'appointmentSummary' in args
-      let isCancelAll = 'count' in args || 'appointmentSummaries' in args
-
-      let title: string
-      let description: string
-      if (isCancelSingle) {
-        title = 'Termin stornieren?'
-        description = String(args.appointmentSummary ?? '')
-      } else if (isCancelAll) {
-        title = String(args.count ?? 0) + ' Termine stornieren?'
-        description = (args.appointmentSummaries as string[] | undefined)?.join(', ') ?? ''
-      } else {
-        title = 'Aktion bestätigen'
-        description = JSON.stringify(args, null, 2)
-      }
-
+      let copy = describeToolApproval(data.args)
       container.appendChild(
         renderAgentApprovalCard({
           variant: 'customer',
           runId: data.runId,
           toolCallId: data.toolCallId,
-          title,
-          description,
+          threadId: currentThreadId ?? undefined,
+          title: copy.title,
+          description: copy.description,
         }),
       )
       scrollToBottom()
@@ -905,19 +894,15 @@ export const CustomerChatStream = clientEntry(
       submittingOtherResource = false
     }
 
-    async function handleApproval(action: 'approve' | 'decline', e: Event) {
-      let btn = e.target as HTMLButtonElement
-      btn.disabled = true
-      let runId = btn.dataset.runId
-      let toolCallId = btn.dataset.toolCallId
+    async function handleApproval(action: 'approve' | 'decline', form: HTMLFormElement) {
+      // Carry the form's hidden runId/toolCallId/threadId into the streamed
+      // request. The SSE path authenticates with the X-Sse-Request header, so
+      // the native CSRF token is not part of this transport.
+      let body = new FormData(form)
+      body.delete('_csrf')
 
       hideApproval()
       beginStream()
-
-      let body = new FormData()
-      body.set('runId', runId || '')
-      if (toolCallId) body.set('toolCallId', toolCallId)
-      if (currentThreadId) body.set('threadId', currentThreadId)
 
       await submitAndStream('/chat/' + action, body)
     }
@@ -979,10 +964,6 @@ export const CustomerChatStream = clientEntry(
                     handleCancel()
                   } else if (target.classList.contains('slot-btn')) {
                     void handleSlotClick(e)
-                  } else if (target.classList.contains('approve-btn')) {
-                    void handleApproval('approve', e)
-                  } else if (target.classList.contains('decline-btn')) {
-                    void handleApproval('decline', e)
                   } else if (target.classList.contains('q-answer-btn')) {
                     void handleAnswer()
                   } else if (target.classList.contains('slot-other-resource-btn')) {
@@ -990,6 +971,28 @@ export const CustomerChatStream = clientEntry(
                   } else if (target.classList.contains('slot-close-btn')) {
                     handleSlotCancel()
                   }
+                },
+                { signal: lifecycleSignal },
+              )
+
+              // Upgrade the native approve/decline form to the SSE transport.
+              // The element stays a real form, so a no-JS submit still posts to
+              // /chat/approve or /chat/decline via the buttons' formaction.
+              chatArea.addEventListener(
+                'submit',
+                (e) => {
+                  let decisionForm = e.target
+                  if (
+                    !(decisionForm instanceof HTMLFormElement) ||
+                    decisionForm.id !== 'chat-approval'
+                  )
+                    return
+                  e.preventDefault()
+                  let submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null
+                  void handleApproval(
+                    submitter?.value === 'decline' ? 'decline' : 'approve',
+                    decisionForm,
+                  )
                 },
                 { signal: lifecycleSignal },
               )

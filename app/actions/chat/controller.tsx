@@ -1,4 +1,5 @@
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 import { requireAuth } from '../../middleware/auth.ts'
 import { mastra, getDurableCustomerAgent } from '../mastra/index.ts'
 import { routes } from '../../routes.ts'
@@ -12,7 +13,7 @@ import {
   type DurableChatAgent,
 } from '../../utils/agent-chat-durable.ts'
 import { recordChatRun, findChatRunOwner, clearChatRun, findLatestChatRun } from './run-store.ts'
-import { chatGateStore } from './gate-store.ts'
+import { chatGateStore, resolvePendingGate } from './gate-store.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
 import { createLogger } from '../../utils/logger.ts'
@@ -207,6 +208,49 @@ function customerChatEngine() {
   return useDurableCustomerChat() ? durableEngine : engine
 }
 
+function isSseRequest(request: Request): boolean {
+  return request.headers.get('X-Sse-Request') === '1'
+}
+
+interface DecisionFormContext {
+  session: { flash(key: 'success' | 'error', value: string): void }
+}
+
+/**
+ * Runs a native (no-JS) decision form submission.
+ *
+ * The engine always answers with an SSE stream, so drain it — which runs the
+ * decision to completion or to the next suspension — then redirect back to the
+ * chat page with a flash result (the guide 09 form-mutation shape). A drained
+ * `agent-error` frame, a non-200 status or a thrown error becomes the error
+ * flash rather than a silently dropped decision.
+ */
+async function completeDecisionForm(
+  context: DecisionFormContext,
+  run: () => Promise<Response>,
+  message: { success: string; error: string },
+): Promise<Response> {
+  let failed = false
+  try {
+    let response = await run()
+    if (response.status !== 200) {
+      failed = true
+    } else {
+      let body = await response.text()
+      failed = body.includes('event: agent-error')
+    }
+  } catch (err) {
+    chatLog.error('decision form failed:', sanitizeLog(String(err)))
+    failed = true
+  }
+  try {
+    context.session.flash(failed ? 'error' : 'success', failed ? message.error : message.success)
+  } catch (err) {
+    chatLog.error('decision flash failed:', sanitizeLog(String(err)))
+  }
+  return redirect(routes.chat.index.href(), 303)
+}
+
 export const customerChat = createController(routes.chat, {
   middleware: [requireAuth()],
 
@@ -222,9 +266,27 @@ export const customerChat = createController(routes.chat, {
         resume = await resolveCustomerResume(user.id)
       }
 
+      // No-JS gate: a suspended tool decision is rendered as a native form so
+      // the customer can approve or decline without the stream client. The
+      // ownership join drops a gate whose run already settled.
+      let gate = fresh ? null : await resolvePendingGate(user.id)
+      let pendingApproval =
+        gate?.gateType === 'tool_decision'
+          ? {
+              runId: gate.runId,
+              toolCallId: gate.toolCallId,
+              threadId: gate.threadId,
+              args: gate.args,
+            }
+          : null
+
       return context.render(
         <Layout>
-          <CustomerChatPage threadId={resume.threadId} messages={resume.messages} />
+          <CustomerChatPage
+            threadId={resume.threadId}
+            messages={resume.messages}
+            pendingApproval={pendingApproval}
+          />
         </Layout>,
       )
     },
@@ -265,24 +327,42 @@ export const customerChat = createController(routes.chat, {
 
     async approve(context) {
       let user = getCurrentUser()
-      return customerChatEngine().toolDecision({
-        context,
-        actorId: user.id,
-        decision: 'approve',
-        runId: context.formData.get('runId')?.toString() || undefined,
-        toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
-      })
+      let decide = () =>
+        customerChatEngine().toolDecision({
+          context,
+          actorId: user.id,
+          decision: 'approve',
+          runId: context.formData.get('runId')?.toString() || undefined,
+          toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
+        })
+
+      if (!isSseRequest(context.request)) {
+        return completeDecisionForm(context, decide, {
+          success: 'Aktion bestätigt.',
+          error: 'Die Bestätigung konnte nicht verarbeitet werden.',
+        })
+      }
+      return decide()
     },
 
     async decline(context) {
       let user = getCurrentUser()
-      return customerChatEngine().toolDecision({
-        context,
-        actorId: user.id,
-        decision: 'decline',
-        runId: context.formData.get('runId')?.toString() || undefined,
-        toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
-      })
+      let decide = () =>
+        customerChatEngine().toolDecision({
+          context,
+          actorId: user.id,
+          decision: 'decline',
+          runId: context.formData.get('runId')?.toString() || undefined,
+          toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
+        })
+
+      if (!isSseRequest(context.request)) {
+        return completeDecisionForm(context, decide, {
+          success: 'Aktion abgelehnt.',
+          error: 'Die Entscheidung konnte nicht verarbeitet werden.',
+        })
+      }
+      return decide()
     },
 
     async answer(context) {

@@ -4,7 +4,11 @@ import * as assert from 'remix/assert'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import {
+  createAuthCookieWithCsrf,
+  createAuthCookieWithCsrfForUser,
+  extractCookie,
+} from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import {
   __setTestAgent,
@@ -15,7 +19,7 @@ import {
   chatRateLimiter,
 } from './controller.tsx'
 import { recordChatRun, findChatRunOwner } from './run-store.ts'
-import { resolvePendingGate } from './gate-store.ts'
+import { resolvePendingGate, markGateSuspended, clearPendingGate } from './gate-store.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 import type {
   DurableChatAgent,
@@ -893,6 +897,118 @@ describe('Customer Chat controller', () => {
     let owner = await findChatRunOwner(contRunId)
     assert.ok(owner, 're-suspended continuation should keep its ownership row')
     assert.equal(owner!.userId, adminId)
+  })
+
+  // ── Native (no-JS) approval form ────────────────────────
+  //
+  // Approve/decline are also real form posts (guide 09): a browser without the
+  // stream client submits the server-rendered form, the action drains the SSE
+  // decision and answers with a 303 + flash. The `X-Sse-Request` header is what
+  // distinguishes the enhanced transport from the native one.
+
+  it('POST /chat/approve without X-Sse-Request drains the decision and 303s with a success flash', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, runId, toolCallId: 'tc' }),
+    })
+
+    assert.equal(response.status, 303, 'native approval must redirect after saving')
+    assert.equal(response.headers.get('Location'), routes.chat.index.href())
+
+    let cookie = extractCookie(response) || session.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: cookie } })
+    let html = await page.text()
+    assert.ok(
+      html.includes('Aktion bestätigt.'),
+      'success flash should render on the redirected page',
+    )
+  })
+
+  it('POST /chat/decline without X-Sse-Request drains the decision and 303s', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_DECLINE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, runId, toolCallId: 'tc' }),
+    })
+
+    assert.equal(response.status, 303, 'native decline must redirect')
+    assert.equal(response.headers.get('Location'), routes.chat.index.href())
+  })
+
+  it('POST /chat/approve without a CSRF token is rejected on the native path', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ runId: 'x' }),
+    })
+
+    assert.equal(response.status, 403, 'a token-less agent-path form post must not pass')
+  })
+
+  it('GET /chat renders a native approval form for a suspended tool decision', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    let runId = crypto.randomUUID()
+    let threadId = crypto.randomUUID()
+
+    await recordChatRun({ runId, userId: adminId, threadId })
+    await markGateSuspended(adminId, {
+      runId,
+      threadId,
+      gateType: 'tool_decision',
+      toolCallId: 'tc-native',
+      toolName: 'book',
+      args: { appointmentSummary: 'Morgen 10:00' },
+    })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    try {
+      let response = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: session.cookie } })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+
+      assert.ok(html.includes('id="chat-approval"'), 'server should render the approval form')
+      assert.ok(html.includes('action="/chat/approve"'), 'form should post to the approve route')
+      assert.ok(html.includes(`value="${runId}"`), 'form should carry the suspended run id')
+      assert.ok(html.includes('name="runId"'), 'form should submit the run id')
+      assert.ok(
+        html.includes('formaction="/chat/decline"'),
+        'decline button should override the form action',
+      )
+      assert.ok(html.includes('name="_csrf"'), 'native form must carry a CSRF token')
+      assert.ok(html.includes('Termin stornieren?'), 'copy should describe the pending tool call')
+    } finally {
+      await clearPendingGate(adminId, runId)
+    }
   })
 
   // ── Decline (POST) ──────────────────────────────────────

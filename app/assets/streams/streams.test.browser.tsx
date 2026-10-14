@@ -133,6 +133,93 @@ describe('SSE stream EventSource lifecycle', () => {
     window.fetch = originalFetch
     cleanup?.()
   })
+
+  it('CustomerChatStream upgrades the native approval form to an SSE /chat/approve POST', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    // The dynamic card mirrors the server form, including the CSRF token when
+    // the page exposes one; the SSE transport must drop it and use the header.
+    let meta = document.createElement('meta')
+    meta.name = 'csrf-token'
+    meta.content = 'test-token'
+    document.head.appendChild(meta)
+
+    let calls: Array<{ url: string; headers: Record<string, string>; body: unknown }> = []
+    let originalFetch = window.fetch
+    window.fetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+      let u = String(url)
+      calls.push({
+        url: u,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body,
+      })
+      if (u === '/chat') {
+        return sseResponse([
+          { type: 'start', data: JSON.stringify({ runId: 'run-1', threadId: 't-1' }) },
+          {
+            type: 'suspension',
+            data: JSON.stringify({
+              runId: 'run-1',
+              toolCallId: 'tc-1',
+              toolName: 'book',
+              args: { appointmentSummary: 'Morgen 10:00' },
+            }),
+          },
+        ])
+      }
+      if (u === '/chat/reconnect') return new Response('{}', { status: 200 })
+      return sseResponse([{ type: 'complete', data: JSON.stringify({}) }])
+    }
+
+    let { cleanup: c } = render(<CustomerChatStream />)
+    cleanup = c
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    textarea.value = 'Bitte stornieren'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let approval = document.getElementById('chat-approval') as HTMLFormElement | null
+    assert.ok(approval, 'the suspension should render the approval form')
+    assert.equal(approval!.tagName, 'FORM', 'the approval control must be a real form')
+    assert.equal(approval!.getAttribute('method'), 'post')
+    assert.equal(approval!.getAttribute('action'), '/chat/approve')
+    assert.equal(
+      (approval!.querySelector('input[name="runId"]') as HTMLInputElement).value,
+      'run-1',
+      'the form must carry the suspended run id',
+    )
+
+    let approveBtn = approval!.querySelector('.approve-btn') as HTMLButtonElement
+    approval!.dispatchEvent(
+      new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: approveBtn }),
+    )
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let decision = calls.find(
+      (call) => call.url === '/chat/approve' || call.url === '/chat/decline',
+    )
+    assert.ok(decision, 'the upgraded form should POST to a decision route')
+    assert.equal(decision!.url, '/chat/approve')
+    assert.equal(decision!.headers['x-sse-request'], '1', 'the stream transport keeps its header')
+    let body = decision!.body as FormData
+    assert.equal(body.get('runId'), 'run-1', 'the decision body carries the run id')
+    assert.equal(body.get('_csrf'), null, 'the native token is not sent over the SSE transport')
+    assert.equal(
+      document.getElementById('chat-approval'),
+      null,
+      'the form is removed once submitted',
+    )
+
+    meta.remove()
+    window.fetch = originalFetch
+    cleanup?.()
+  })
 })
 
 // -----------------------------------------------------------------------

@@ -40,10 +40,11 @@ export function isAllowedCsrfOrigin(
 
 const csrfMiddleware = csrf({ origin: isAllowedCsrfOrigin })
 
-// Session-cookie-authenticated browser endpoints that skip CSRF (SSE/agent
-// streams call fetch() and cannot embed a form token). Skipping CSRF opens
-// them to cross-site <form> attacks, so require a custom header that a
-// cross-site form cannot set (see the `security-gotchas` `references/security-middleware.md` learned skill).
+// Session-cookie-authenticated browser endpoints that normally skip CSRF
+// (SSE/agent streams call fetch() and cannot embed a form token). A custom
+// header a cross-site form cannot set keeps the fetch transport CSRF-free;
+// a token-bearing native form falls through to the regular csrf() check (see
+// the `security-gotchas` `references/security-middleware.md` learned skill).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
 const AGENT_PATHS = ['/admin/support-agent', '/admin/agent-events', '/chat']
@@ -70,16 +71,19 @@ export function skipCsrf(): Middleware {
     }
 
     if (isAgentPath(context.url.pathname)) {
-      // Block cross-site <form> POSTs: forms cannot set custom headers.
       // GET requests (page loads, EventSource streams) are read-only and
       // carry no CSRF risk, so they pass through.
-      if (
-        context.request.method !== 'GET' &&
-        context.request.headers.get(SSE_REQUEST_HEADER) !== '1'
-      ) {
-        return new Response('Forbidden', { status: 403 })
-      }
-      return next()
+      if (context.request.method === 'GET') return next()
+
+      // fetch()/EventSource clients set a header a cross-site <form> cannot, so
+      // the agent transport stays CSRF-free without a form token.
+      if (context.request.headers.get(SSE_REQUEST_HEADER) === '1') return next()
+
+      // A native (no-JS) form POST cannot set a header, so fall back to the
+      // regular synchronizer-token check. This lets the server-rendered
+      // approve/decline form (guide 09) submit without X-Sse-Request while a
+      // cross-site form still fails the token or origin check.
+      return csrfMiddleware(context, next)
     }
 
     return csrfMiddleware(context, next)

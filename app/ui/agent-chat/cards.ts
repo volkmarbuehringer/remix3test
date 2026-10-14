@@ -22,6 +22,7 @@ type CustomerApprovalCardOptions = {
   variant: 'customer'
   runId: string
   toolCallId?: string | undefined
+  threadId?: string | undefined
   title: string
   description: string
 }
@@ -52,30 +53,89 @@ type AgentApprovalCardOptions =
   | SupportApprovalCardOptions
   | WorkflowConfirmGateOptions
 
+function hiddenInput(name: string, value: string): HTMLInputElement {
+  let input = document.createElement('input')
+  input.type = 'hidden'
+  input.name = name
+  input.value = value
+  return input
+}
+
+function decisionButton(options: {
+  decision: 'approve' | 'decline'
+  label: string
+  className: string
+  style: string
+}): HTMLButtonElement {
+  let btn = document.createElement('button')
+  btn.type = 'submit'
+  btn.name = 'decision'
+  btn.value = options.decision
+  btn.className = options.className
+  // A real form control so a no-JS submit reaches the same route (guide 09).
+  btn.setAttribute('formaction', options.decision === 'decline' ? '/chat/decline' : '/chat/approve')
+  btn.style.cssText = options.style
+  btn.textContent = options.label
+  return btn
+}
+
 /**
- * Builds the customer tool-approval card. The caller computes the title and
- * description (booking-specific); the click handling stays on the stream's
- * delegated click listener, which reads `.approve-btn` / `.decline-btn`.
+ * Builds the customer tool-approval form.
+ *
+ * A native `<form method="post">` (not a pair of click-handled buttons) so the
+ * decision still reaches the server without JavaScript; the stream client
+ * intercepts submit and upgrades it to the SSE transport. Keep the field names,
+ * ids and classes in sync with `ChatApprovalForm` (the server-rendered gate).
  */
 function customerApprovalCard(options: CustomerApprovalCardOptions): HTMLElement {
-  let card = document.createElement('div')
-  card.id = 'chat-approval'
-  card.style.cssText =
+  let form = document.createElement('form')
+  form.id = 'chat-approval'
+  form.className = 'chat-decision-form'
+  form.method = 'post'
+  form.action = '/chat/approve'
+  form.dataset.runId = options.runId
+  form.style.cssText =
     `padding:1rem;border:2px solid ${theme.colors.action.danger.border};border-radius:12px;` +
     `background:${theme.surface.lvl0};align-self:flex-start;width:100%;`
 
-  let description = options.description
-  card.innerHTML =
-    `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.action.danger.background}">${escapeHtml(options.title)}</div>` +
-    (description
-      ? `<div style="font-size:0.875rem;color:${theme.colors.text.secondary};margin-bottom:0.75rem;white-space:pre-wrap">${escapeHtml(description)}</div>`
-      : '') +
-    `<div style="display:flex;gap:0.75rem">` +
-    `<button class="approve-btn" data-run-id="${escapeHtml(options.runId)}" data-tool-call-id="${escapeHtml(options.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.colors.action.danger.background};color:${theme.colors.action.danger.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
-    `<button class="decline-btn" data-run-id="${escapeHtml(options.runId)}" data-tool-call-id="${escapeHtml(options.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.surface.lvl1};color:inherit;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
-    `</div>`
+  let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  if (token) form.appendChild(hiddenInput('_csrf', token))
+  form.appendChild(hiddenInput('runId', options.runId))
+  if (options.toolCallId) form.appendChild(hiddenInput('toolCallId', options.toolCallId))
+  if (options.threadId) form.appendChild(hiddenInput('threadId', options.threadId))
 
-  return card
+  let title = document.createElement('div')
+  title.style.cssText = `font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.action.danger.background}`
+  title.textContent = options.title
+  form.appendChild(title)
+
+  if (options.description) {
+    let description = document.createElement('div')
+    description.style.cssText = `font-size:0.875rem;color:${theme.colors.text.secondary};margin-bottom:0.75rem;white-space:pre-wrap`
+    description.textContent = options.description
+    form.appendChild(description)
+  }
+
+  let actions = document.createElement('div')
+  actions.style.cssText = 'display:flex;gap:0.75rem'
+  actions.appendChild(
+    decisionButton({
+      decision: 'approve',
+      label: '[X] Bestätigen',
+      className: 'approve-btn',
+      style: `padding:0.5rem 1.25rem;background:${theme.colors.action.danger.background};color:${theme.colors.action.danger.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer`,
+    }),
+  )
+  actions.appendChild(
+    decisionButton({
+      decision: 'decline',
+      label: '[/] Ablehnen',
+      className: 'decline-btn',
+      style: `padding:0.5rem 1.25rem;background:${theme.surface.lvl1};color:inherit;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;cursor:pointer`,
+    }),
+  )
+  form.appendChild(actions)
+  return form
 }
 
 /** Builds the support-agent tool-approval block inside an agent bubble. */
