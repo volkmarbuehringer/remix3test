@@ -142,7 +142,16 @@ export const users = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    return { value: decodeInt8Fields(value, 'created_at', 'updated_at', 'disabled_at') }
+    return {
+      value: decodeInt8Fields(
+        value,
+        'created_at',
+        'updated_at',
+        'disabled_at',
+        'verification_expires',
+        'password_reset_expires',
+      ),
+    }
   },
 })
 
