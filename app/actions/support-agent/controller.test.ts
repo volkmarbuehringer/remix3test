@@ -1718,6 +1718,45 @@ describe('support-agent native gate forms', () => {
       await clearPendingGate(admin.id, runId)
     }
   })
+
+  it('materializes a new thread before streaming so memory-reading processors can recall it', async () => {
+    // The support agent's ToolSearchProcessor recalls the thread during
+    // prepare-tools, before Mastra lazily creates it. The controller must create
+    // the row first, or the first turn fails with "No thread found with id …".
+    let created: Array<{ threadId?: string; resourceId: string }> = []
+    let streamedThread: string | undefined
+    let agent = {
+      generate: async () => ({ text: '' }),
+      stream: async (_message: string, opts?: { memory?: { thread?: string } }) => {
+        streamedThread = opts?.memory?.thread
+        return createMockStreamOutput('')
+      },
+      resumeStream: async () => createMockStreamOutput(''),
+      getMemory: async () => ({
+        getThreadById: async () => null,
+        createThread: async (args: { threadId?: string; resourceId: string }) => {
+          created.push(args)
+          return args
+        },
+      }),
+    }
+    __setTestAgent(agent)
+
+    let response = await router.fetch(CHAT_INDEX_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: new URLSearchParams({ _csrf: admin.csrfToken, message: 'Hallo' }),
+    })
+    await response.text()
+
+    assert.equal(created.length, 1, 'the controller must create the thread before streaming')
+    assert.equal(created[0]!.resourceId, String(admin.id))
+    assert.equal(
+      created[0]!.threadId,
+      streamedThread,
+      'the created thread must be the one the stream runs on',
+    )
+  })
 })
 
 describe('support agent read-only boundary', () => {

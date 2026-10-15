@@ -2,6 +2,7 @@ import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import {
+  ensureChatThread,
   fetchChatThreadPreviews,
   getChatThread,
   listAllChatThreads,
@@ -10,6 +11,7 @@ import {
   listLatestCustomerThread,
   recallChatMessages,
 } from './mastra-memory.ts'
+import { supportAgent } from '../actions/mastra/agents/support-agent.ts'
 
 // ---------------------------------------------------------------------------
 // Conversation preview building
@@ -383,5 +385,62 @@ describe('recallChatMessages', () => {
       messages.map((m) => m.content),
       ['Erste', 'Zweite'],
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ensureChatThread — the support agent's ToolSearchProcessor (storage: 'context')
+// recalls the thread during prepare-tools, before Mastra lazily creates it on the
+// first saved message. A resource-scoped recall of a missing thread throws
+// "No thread found with id <id>", which failed the first turn of every new
+// support conversation. These exercise the real Mastra Postgres memory.
+// ---------------------------------------------------------------------------
+
+describe('ensureChatThread', () => {
+  it('creates the thread so a resource-scoped recall succeeds', async () => {
+    let memory = await supportAgent.getMemory()
+    assert.ok(memory, 'support agent must expose Memory')
+    let threadId = crypto.randomUUID()
+    let resourceId = 'ensure-thread-' + threadId
+
+    await assert.rejects(() => memory.recall({ threadId, resourceId }), /No thread found/)
+
+    try {
+      await ensureChatThread(supportAgent, threadId, resourceId)
+
+      let recalled = await memory.recall({ threadId, resourceId })
+      assert.deepEqual(recalled.messages, [], 'a fresh thread recalls no messages')
+      let stored = await memory.getThreadById({ threadId })
+      assert.equal(stored?.resourceId, resourceId, 'thread must be owned by the turn resource')
+    } finally {
+      await memory.deleteThread(threadId)
+    }
+  })
+
+  it('does not rewrite an existing thread', async () => {
+    let memory = await supportAgent.getMemory()
+    assert.ok(memory)
+    let threadId = crypto.randomUUID()
+    let resourceId = 'ensure-thread-existing-' + threadId
+
+    try {
+      await ensureChatThread(supportAgent, threadId, resourceId)
+      let first = await memory.getThreadById({ threadId })
+      await ensureChatThread(supportAgent, threadId, resourceId)
+      let second = await memory.getThreadById({ threadId })
+      assert.ok(first && second)
+      assert.equal(
+        new Date(second.createdAt).getTime(),
+        new Date(first.createdAt).getTime(),
+        'createdAt must survive a second ensure',
+      )
+    } finally {
+      await memory.deleteThread(threadId)
+    }
+  })
+
+  it('no-ops for a test double that exposes no memory', async () => {
+    await ensureChatThread({ getMemory: undefined }, 't', '1')
+    await ensureChatThread(undefined, 't', '1')
   })
 })

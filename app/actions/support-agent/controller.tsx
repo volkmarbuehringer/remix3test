@@ -8,7 +8,12 @@ import { mastra } from '../mastra/index.ts'
 import { supportGateStore, resolvePendingGate } from './run-store.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
-import { recallChatMessages, getChatThread, toAgentHandle } from '../../utils/mastra-memory.ts'
+import {
+  recallChatMessages,
+  getChatThread,
+  toAgentHandle,
+  ensureChatThread,
+} from '../../utils/mastra-memory.ts'
 import { classifyThreadSourceFor } from '../../data/chatlog-sources.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
@@ -361,6 +366,12 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       } else {
         log('continuing thread: ' + sanitizeLog(threadId))
       }
+
+      // The support agent's ToolSearchProcessor recalls the thread during
+      // prepare-tools, before Mastra lazily creates it on the first saved
+      // message. Materialize the row first so a brand-new conversation does not
+      // fail with "No thread found with id <id>".
+      await ensureChatThread(resolveAgent(), threadId, String(user.id))
 
       return engine.messageStream({
         context,

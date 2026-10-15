@@ -37,6 +37,12 @@ interface MemoryHandle {
   }) => Promise<{ threads?: unknown[] }>
   getThreadById: (args: { threadId: string; resourceId?: string }) => Promise<RawThreadRow | null>
   deleteThread: (id: string) => Promise<void>
+  createThread?: (args: {
+    threadId?: string
+    resourceId: string
+    title?: string
+    metadata?: Record<string, unknown>
+  }) => Promise<unknown>
 }
 
 // Accept any agent that has a getMemory() method returning something with the right shape
@@ -213,6 +219,40 @@ export async function getChatThread(
   let memory = await getMemory(agent)
   let thread = await memory.getThreadById({ threadId })
   return thread ? toChatThread(thread) : null
+}
+
+/**
+ * Creates a Mastra thread row up front so a memory-reading input processor can
+ * recall it before the first message is saved.
+ *
+ * Mastra normally creates the thread lazily while persisting the first message,
+ * but the support agent's `ToolSearchProcessor` (`storage: 'context'`) recalls
+ * the thread during prepare-tools — earlier in the run — and `Memory.recall`
+ * rejects a missing thread when it is called with a `resourceId`
+ * (`validateThreadIsOwnedByResource`). Without this the first turn of a
+ * brand-new conversation fails with `No thread found with id <id>`.
+ *
+ * No-op when the agent exposes no memory (the test doubles) or the thread
+ * already exists. `createThread` upserts by id, but an unconditional call would
+ * rewrite an existing thread's `createdAt`, so existence is checked first.
+ */
+export async function ensureChatThread(
+  agent: unknown,
+  threadId: string,
+  resourceId: string,
+): Promise<void> {
+  if (
+    typeof agent !== 'object' ||
+    agent === null ||
+    typeof (agent as { getMemory?: unknown }).getMemory !== 'function'
+  ) {
+    return
+  }
+  let memory = await getMemory(agent as AgentHandle)
+  let existing = await memory.getThreadById({ threadId })
+  if (existing) return
+  if (!memory.createThread) return
+  await memory.createThread({ threadId, resourceId })
 }
 
 /**
