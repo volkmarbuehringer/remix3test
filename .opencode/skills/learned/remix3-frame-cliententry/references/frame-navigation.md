@@ -91,6 +91,12 @@ Key facts (post-#11668):
 - The `resolveFrame` client resolver must forward `formData`/`method`/`encType` (see the next section).
 - The server action must return a frame fragment (or redirect) so the targeted frame renders correctly.
 
+### Detached submitters: #11987 is Chromium-only on this build (Firefox fires `formdata` at AT_TARGET)
+
+#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, guarded by `if (event.eventPhase !== Event.NONE || event.defaultPrevented) return` — the intent is to ignore `formdata` snapshots taken by user submit handlers.
+
+Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event while the `submit` event is still at **AT_TARGET (eventPhase 2)**, so the guard discards the snapshot, `pendingSubmissions` stays empty, and a detached-submitter GET form falls through to a full document navigation. Probe evidence: a `formdata` listener sees `{ phase: 2, defaultPrevented: false, submitterIsButton: true }`, `navigate` fires with `sourceElement: button, canIntercept: true`, and the document navigates anyway; the attached-submitter control stays in-frame in both engines. App impact: a Firefox form submitted through a removed/temporary submitter does a full page load. Guard: `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` (Chromium asserts the in-frame reload; Firefox is a smoke check, scoped with `isFirefox()` like `agent-events-frame-redirect.test.e2e.ts`).
+
 **Historical root cause (pre-#11668, for legacy builds only):** the Navigation API sets `event.canIntercept === false` for all non-GET navigations, and `getSourceElementNavigation` only read `data-rmx-target` from `<a>`/`<area>` — never from `<form>`. POST validation errors (`POST /admin/resource/:id → 400`) therefore did a full-page navigation, and `renderAdminPage()` without `X-Remix-Target` re-rendered `<Frame src={request.url}/>` against the POST URL → `GET /admin/resource/:id → 404`. On old builds, either render the sidebar directly on POST error paths (no frame wrapper) or use the event-delegation shim below.
 
 <details>
