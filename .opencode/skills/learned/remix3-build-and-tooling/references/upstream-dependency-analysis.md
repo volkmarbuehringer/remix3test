@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-14 (vendor facts below re-checked against the installed tree at build `2c9e033` / source `e6a63ea`; version table unchanged from the stable `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1` lines — the `3.1.0` / `1.1.0` / `0.13.0` release is staged on PR #11978 and not yet on `preview/main`)
+**Re-validated:** 2026-10-15 (vendor facts below re-checked against the installed tree at unified build `48b54a55` / source `aa2efcd`; version table unchanged from the stable `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1` lines — the `3.1.0` / `1.1.0` / `0.13.0` release is staged on PR #11978 and not yet on `preview/main`)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -64,7 +64,7 @@ Key focus areas when reviewing diffs:
 
 ## Version Lines After the Component/UI Split (#11948)
 
-As of 2026-10-14 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) now resolves to the generated installable-build commit `2c9e033` (built from `e6a63ea`, i.e. `e5ed055` plus #11988/#11989/#11990), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
+As of 2026-10-15 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) resolves to the generated installable-build commit `48b54a55` (built from `aa2efcd`, i.e. `2c9e033` plus #11987/#11992/#11999), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
 
 | package | version | notes |
 | --- | --- | --- |
@@ -93,6 +93,19 @@ App-side clearance at this bump (recorded so the next styled-removal-series bump
 - No changed/renamed exports and no new opaque types; `@remix-run/ui` is untouched.
 
 App-side clearance: the lock resolves both `path:` entries to the single `2c9e033` tarball; `npm run typecheck` clean; server/browser/e2e suites green (recorded 2026-10-14). The unrelated `oxlint`/`@oxlint/plugins` `1.87 → 1.88` float that `pnpm update` also produced is not part of this range.
+
+**Bump recorded 2026-10-15: mixed prior lock (top-level `2c9e033`/source `e6a63ea`; transitive `@remix-run/*` `c7a4572`/source `22e176d`) → unified build `48b54a55`/source `aa2efcd` (#11987 detached form submitter, #11992 HMR test flake, #11999 derive AppContext from the router).**
+
+- `pnpm update remix @remix-run/ui` re-resolved **both** top-level `path:` entries **and** every transitive `@remix-run/*` package to `48b54a55`, so the lock is now consistent (it was not before — see the branch-pin race below). A recursive diff of the installed trees `.pnpm/@remix-run+component@…c7a4572…` vs `…48b54a55…` shows the **only** changed source file in `packages/component` is `src/runtime/form-navigation.ts`; `packages/test` is byte-identical (only its `node_modules/.bin/playwright` link moved to 1.64.1).
+- #11987 (`createFormNavigationResolver`): pending submissions are now indexed by **both** form and submitter (`WeakMap<HTMLFormElement | SubmitterElement, PendingFormSubmission>`), so a submit button detached before the `navigate` event still resolves its form, method/encType (`formmethod`/`formenctype`) and `data-rmx-target`; the native POST `FormData` is preserved across later `FormData` snapshots; a later canceled/duplicate submit (same or another form) can no longer replace the pending navigation. Adds a `form` field + `clearPending()`; no exported API change. Relevant to app forms that remove/re-render their submitter on submit (`admin-uploads-dropzone`, SSE approval `formaction` buttons), but no app source change was required.
+- #11999 (template + guides + `packages/fetch-router` README; **no runtime source**): new apps use `export const router = createRouter({…})` + `export type AppContext = RouterContext<typeof router>` instead of `createRouter<AppContext>()` / `MiddlewareContext<[typeof renderMiddleware]>`, because the explicit type argument disabled middleware inference (a later-added `formData()` did not appear on `context`). This app already avoids the pitfall — `app/types/context.ts` derives `AppContext` from `ReturnType<typeof createNewappMiddleware>` and `app/router.ts` passes no explicit type argument — so no migration was required.
+- #11992 is a Windows-only timing fix in `packages/component-hmr/test/hmr.test.e2e.tsx`; no runtime change.
+- Versions unchanged: `remix` `3.0.0`, `@remix-run/ui` `0.12.1`, `@remix-run/component`/`-hmr` `1.0.0`. The guides anchor moves to `48b54a55` (see `docs/guide-skill-coverage.md`).
+- Unrelated floats from the same `pnpm update`: `playwright` `^1.64.0` → `^1.64.1` (direct) and transitive `chat` `4.41.1`→`4.42.0`, `posthog-node` `5.55.3`→`5.56.1`, `fast-copy` `4.1.2`→`4.2.0`, `electron-to-chromium` `1.5.453`→`1.5.456`, `undici-types` `8.11.2`→`8.12.1`.
+
+App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:browser` green (47 files / 740 tests, 0 fail, 2 skipped, ~59s). The single failure first blamed on the bump — the lists autosave undo assertion (`'undo is itself a mutation'`) — is the previously recorded timing flake: three isolated reruns (chromium+firefox, 14 tests each) all pass with the undo test completing in ~1.86s against its 12s budget, and the only changed runtime file in the range (`form-navigation.ts`) is unrelated to that path.
+
+**Branch-pin transitive race (why the prior lock was mixed).** A `github:…#branch&path:…` specifier is not one resolution: `pnpm` resolves the top-level `path:` entries and the transitive `@remix-run/*` packages independently, and a later install can re-resolve the transitive set to the then-current branch tip. Before this bump the lock's two top-level entries were `2c9e033` while all ~260 transitive entries were `c7a4572` (a build published between installs), so the app was already running a *newer* `@remix-run/component` than the top-level pin suggested. When auditing a branch-pinned dependency, inspect the **installed** transitive build (`.pnpm/@remix-run+component@*`), not just the importer's lock line, and prefer a full `pnpm update` to unify the set.
 
 **Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
 
