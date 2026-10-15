@@ -29,7 +29,7 @@ When you need API docs or usage examples for a `remix/*` subpath:
 - Package READMEs: `node_modules/remix/src/<package>/README.md` (installed vendor docs)
 - Vendor `remix` skill: `.agents/skills/remix/SKILL.md` (a single flat file — the installed build ships no `references/` directory). Drill into `node_modules/remix/INDEX.md` and the matching package README for API detail.
 - Installed package source (for version-pinned line refs): `node_modules/.pnpm/@remix-run+<pkg>@*/node_modules/@remix-run/<pkg>/src/...`
-- Release-day dependency versions and the post-#11948 split lines (currently installed `remix` 3.0.0, `@remix-run/ui` 0.12.1, `@remix-run/component` 1.0.0 at build `2c9e033`/source `e6a63ea`, i.e. PRs #11988/#11989/#11990 "unsafeHTML() prop diagnostics", "restore scroll/reset focus on traverse", and "component + testing docs"; prior pin was build `c93cec30`/source `e5ed055`): `.opencode/skills/learned/remix3-build-and-tooling/references/upstream-dependency-analysis.md`
+- Release-day dependency versions and the post-#11948 split lines (currently installed `remix` 3.0.0, `@remix-run/ui` 0.12.1, `@remix-run/component` 1.0.0 at build `48b54a55`/source `aa2efcd`, i.e. PRs #11987/#11992/#11999 "detached-form-submitter navigation fix", "flaky node-hmr ready count on Windows", and "derive AppContext from the router in the app template"; prior pin was build `2c9e033`/source `e6a63ea`): `.opencode/skills/learned/remix3-build-and-tooling/references/upstream-dependency-analysis.md`
 
 Do not reference `~/remix` (a separate vendor checkout) — the installed `node_modules/remix` / `node_modules/.pnpm/@remix-run+<pkg>@*/` tree and the in-project vendor skills are authoritative.
 
