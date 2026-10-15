@@ -7,15 +7,6 @@ import { theme } from '../theme/theme.ts'
 // are DOM builders rather than JSX components. Each keeps the agent-specific
 // element ids/classes that its stream queries while sharing the card styling.
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
 // ── Approval / confirmation ───────────────────────────────────────────
 
 type CustomerApprovalCardOptions = {
@@ -290,6 +281,9 @@ export function renderAgentApprovalCard(options: AgentApprovalCardOptions): HTML
 
 type CustomerQuestionCardOptions = {
   variant: 'customer'
+  runId: string
+  toolCallId?: string | undefined
+  threadId?: string | undefined
   question: string
   options?: { label: string; description?: string }[] | null | undefined
   selectionMode: string
@@ -308,57 +302,85 @@ type SupportQuestionCardOptions = {
 
 type AgentQuestionCardOptions = CustomerQuestionCardOptions | SupportQuestionCardOptions
 
+/**
+ * Builds the customer `ask_user` question form.
+ *
+ * A native `<form method="post">` (not a click-handled card) so the answer
+ * still reaches the server without JavaScript; the stream client intercepts
+ * submit and upgrades it to the SSE transport. Keep the field names, ids and
+ * classes in sync with `ChatQuestionForm` (the server-rendered gate).
+ */
 function customerQuestionCard(options: CustomerQuestionCardOptions): HTMLElement {
-  let card = document.createElement('div')
-  card.id = 'chat-question'
-  card.style.cssText =
+  let form = document.createElement('form')
+  form.id = 'chat-question'
+  form.className = 'chat-question-form'
+  form.method = 'post'
+  form.action = '/chat/answer'
+  form.dataset.runId = options.runId
+  form.style.cssText =
     `padding:1rem;border:2px solid ${theme.colors.warning.border};border-radius:12px;` +
     `background:${theme.surface.lvl0};align-self:flex-start;width:100%;margin-top:0.5rem;`
 
-  let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.warning.foreground}">${escapeHtml(options.question)}</div>`
+  let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  if (token) form.appendChild(hiddenInput('_csrf', token))
+  form.appendChild(hiddenInput('runId', options.runId))
+  if (options.toolCallId) form.appendChild(hiddenInput('toolCallId', options.toolCallId))
+  if (options.threadId) form.appendChild(hiddenInput('threadId', options.threadId))
+  form.appendChild(hiddenInput('selectionMode', options.selectionMode))
 
+  let title = document.createElement('div')
+  title.style.cssText = `font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.warning.foreground}`
+  title.textContent = options.question
+  form.appendChild(title)
+
+  let multi = options.selectionMode === 'multi_select'
   if (options.options && options.options.length > 0) {
-    if (options.selectionMode === 'multi_select') {
-      html +=
-        `<div id="q-options">` +
-        options.options
-          .map(
-            (o) =>
-              `<label style="display:block;margin:4px 0;cursor:pointer">` +
-              `<input type="checkbox" class="q-option" value="${escapeHtml(o.label)}" /> ` +
-              escapeHtml(o.label) +
-              (o.description
-                ? ` <span style="opacity:0.6;font-size:0.85em">— ${escapeHtml(o.description)}</span>`
-                : '') +
-              `</label>`,
-          )
-          .join('') +
-        `</div>`
-    } else {
-      html +=
-        `<div id="q-options">` +
-        options.options
-          .map(
-            (o, i) =>
-              `<label style="display:block;margin:4px 0;cursor:pointer">` +
-              `<input type="radio" class="q-option" name="q_option" value="${escapeHtml(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
-              escapeHtml(o.label) +
-              (o.description
-                ? ` <span style="opacity:0.6;font-size:0.85em">— ${escapeHtml(o.description)}</span>`
-                : '') +
-              `</label>`,
-          )
-          .join('') +
-        `</div>`
-    }
+    let list = document.createElement('div')
+    list.id = 'q-options'
+    options.options.forEach((option, index) => {
+      let label = document.createElement('label')
+      label.style.cssText = 'display:block;margin:4px 0;cursor:pointer'
+
+      let input = document.createElement('input')
+      input.type = multi ? 'checkbox' : 'radio'
+      input.className = 'q-option'
+      // A real named control so a no-JS submit carries the answer (guide 09).
+      input.name = 'answer'
+      input.value = option.label
+      if (!multi && index === 0) input.checked = true
+      label.appendChild(input)
+      label.appendChild(document.createTextNode(' ' + option.label))
+
+      if (option.description) {
+        let description = document.createElement('span')
+        description.style.cssText = 'opacity:0.6;font-size:0.85em'
+        description.textContent = ' — ' + option.description
+        label.appendChild(description)
+      }
+      list.appendChild(label)
+    })
+    form.appendChild(list)
   } else {
-    html += `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Antwort eingeben..." />`
+    let input = document.createElement('input')
+    input.id = 'q-free-text'
+    input.name = 'answer'
+    input.type = 'text'
+    input.placeholder = 'Antwort eingeben...'
+    input.style.cssText = `width:100%;padding:0.5rem;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;box-sizing:border-box`
+    form.appendChild(input)
   }
 
-  html += `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:${theme.colors.action.primary.background};color:${theme.colors.action.primary.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">Antworten</button></div>`
+  let actions = document.createElement('div')
+  actions.style.cssText = 'margin-top:0.75rem'
+  let answer = document.createElement('button')
+  answer.type = 'submit'
+  answer.className = 'q-answer-btn'
+  answer.textContent = 'Antworten'
+  answer.style.cssText = `padding:0.5rem 1.25rem;background:${theme.colors.action.primary.background};color:${theme.colors.action.primary.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer`
+  actions.appendChild(answer)
+  form.appendChild(actions)
 
-  card.innerHTML = html
-  return card
+  return form
 }
 
 function supportQuestionCard(options: SupportQuestionCardOptions): HTMLElement {

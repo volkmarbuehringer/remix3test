@@ -266,9 +266,9 @@ export const customerChat = createController(routes.chat, {
         resume = await resolveCustomerResume(user.id)
       }
 
-      // No-JS gate: a suspended tool decision is rendered as a native form so
-      // the customer can approve or decline without the stream client. The
-      // ownership join drops a gate whose run already settled.
+      // No-JS gate: a suspended tool decision or ask_user question is rendered
+      // as a native form so the customer can resolve it without the stream
+      // client. The ownership join drops a gate whose run already settled.
       let gate = fresh ? null : await resolvePendingGate(user.id)
       let pendingApproval =
         gate?.gateType === 'tool_decision'
@@ -279,6 +279,20 @@ export const customerChat = createController(routes.chat, {
               args: gate.args,
             }
           : null
+      let suspendPayload = gate?.suspendPayload
+      let pendingQuestion =
+        gate?.gateType === 'question'
+          ? {
+              runId: gate.runId,
+              toolCallId: gate.toolCallId,
+              threadId: gate.threadId,
+              question: String(suspendPayload?.question ?? 'Bitte beantworten Sie die Frage.'),
+              options:
+                (suspendPayload?.options as { label: string; description?: string }[] | null) ??
+                null,
+              selectionMode: String(suspendPayload?.selectionMode ?? 'single_select'),
+            }
+          : null
 
       return context.render(
         <Layout>
@@ -286,6 +300,7 @@ export const customerChat = createController(routes.chat, {
             threadId={resume.threadId}
             messages={resume.messages}
             pendingApproval={pendingApproval}
+            pendingQuestion={pendingQuestion}
           />
         </Layout>,
       )
@@ -367,14 +382,38 @@ export const customerChat = createController(routes.chat, {
 
     async answer(context) {
       let user = getCurrentUser()
-      return customerChatEngine().answer({
-        context,
-        actorId: user.id,
-        runId: context.formData.get('runId')?.toString() || undefined,
-        answer: context.formData.get('answer')?.toString() || undefined,
-        toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
-        selectionMode: context.formData.get('selectionMode')?.toString() || undefined,
-      })
+      // A real form posts one `answer` per selected option, so a multi_select
+      // answer arrives as repeated fields; the engine expects a JSON array
+      // string. Normalize here for both the SSE and the native transport.
+      let answers = context.formData
+        .getAll('answer')
+        .map((value) => String(value))
+        .filter((value) => value.length > 0)
+      let selectionMode = context.formData.get('selectionMode')?.toString() || undefined
+      let answer =
+        answers.length === 0
+          ? undefined
+          : answers.length > 1 || selectionMode === 'multi_select'
+            ? JSON.stringify(answers)
+            : answers[0]
+
+      let respond = () =>
+        customerChatEngine().answer({
+          context,
+          actorId: user.id,
+          runId: context.formData.get('runId')?.toString() || undefined,
+          answer,
+          toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
+          selectionMode,
+        })
+
+      if (!isSseRequest(context.request)) {
+        return completeDecisionForm(context, respond, {
+          success: 'Antwort gesendet.',
+          error: 'Die Antwort konnte nicht verarbeitet werden.',
+        })
+      }
+      return respond()
     },
 
     /**

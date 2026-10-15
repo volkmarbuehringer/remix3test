@@ -1,6 +1,6 @@
 ---
 name: remix-forms
-description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing, a session value mutated in place that never persists, or a native form fallback on an SSE-backed agent decision route (approve/decline without JS).'
+description: 'Use when working on Remix 3 forms/data — data-schema top-level `s.optional()`, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing, a session value mutated in place that never persists, or a native form fallback on an SSE-backed agent decision route (approve/decline and ask_user questions without JS).'
 user-invocable: false
 origin: consolidated
 ---
@@ -21,7 +21,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 | Password confirmation (cross-field), keeping passwords out of `defaultValue`, visibility toggle (`data-toggle-pw`), the `app/ui` vs `app/assets` `clientEntry` trap | `references/password-forms.md` |
 | One-shot UI state after a POST (routing card) that must self-clear on refresh — `session.flash()` vs `session.set()` | `references/session-flash-routing.md` |
 | A session value you mutated in place is missing on the next request — storing a map/array/set in the session | `references/session-value-persistence.md` |
-| An agent tool decision must be approvable without JS; a native `<form>` must post to an SSE-backed route — resolving the pending gate, per-button `formaction`, the `skipCsrf()` token fallback, draining the stream to `303` + flash | `references/native-form-on-sse-decision.md` |
+| An agent tool decision or `ask_user` question must be resolvable without JS; a native `<form>` must post to an SSE-backed route — resolving the pending gate, per-button `formaction`, repeated `answer` fields for multi-select, the `skipCsrf()` token fallback, draining the stream to `303` + flash | `references/native-form-on-sse-decision.md` |
 
 ## Core Rules
 
@@ -33,6 +33,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - Use `session.flash()` (not `session.set()`) for UI state that should render once and disappear on refresh.
 - Session values persist only through `session.set()`/`unset()`: both stores' `save()` write only when `session.dirty`, which in-place mutation never sets. Read-modify-write a **fresh** container and call `set()`; never mutate the object returned by `get()`.
 - An SSE-backed decision endpoint can also accept a native form: render the resolved gate as `<form method="post">` (one form, per-button `formaction`), let a token-bearing form fall through `skipCsrf()` to the regular `csrf()` check, drain the SSE response server-side, then `303` + `session.flash()`. Enhance by intercepting `submit` and reusing the stream — never a click handler on a bare button.
+- An `ask_user` question gate takes the same form: a hidden `selectionMode` plus named `answer` control(s). A multi-select posts the name repeatedly, so normalize `formData.getAll('answer')` to a JSON array in the controller for **both** transports — the engine parses a leading `[`.
 
 ## Related Skills
 

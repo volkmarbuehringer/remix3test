@@ -5,7 +5,8 @@
 `requireApproval` tool. Approve/decline was JS-only: the stream `clientEntry` built
 buttons and `fetch()`ed `/chat/approve` with `X-Sse-Request: 1`. Vendor guide 09
 (`node_modules/remix/guides/09-forms-and-mutations.md`) requires the form to submit
-before JS enhances it.
+before JS enhances it. The `ask_user` question gate (`/chat/answer`) was later
+given the same treatment — see §5.
 
 ## Problem
 
@@ -104,11 +105,35 @@ chatArea.addEventListener('submit', (e) => {
 - `handleApproval` posts `new FormData(form)` over SSE and deletes `_csrf` (the
   header is the auth on that transport).
 
+### 5. The same form for `ask_user` question gates
+
+The question gate is the same shape — one form instead of two buttons:
+
+- `GET /chat` resolves `gateType === 'question'` and renders `ChatQuestionForm`
+  (`app/ui/agent-chat/question-form.tsx`) with hidden `runId`, `toolCallId`,
+  `threadId` and `selectionMode`, plus the named `answer` control(s): radios for
+  `single_select`, checkboxes for `multi_select`, a text input when `options` is
+  empty.
+- A real form repeats the field name, so a multi-select posts one `answer` per
+  checked box. The engine expects a single JSON array string for `multi_select`,
+  so the controller reads `context.formData.getAll('answer')` and stringifies the
+  list before calling it (the engine then parses the leading `[`). Normalizing in
+  the controller fixes the SSE transport too, because the streamed card now posts
+  the same repeated fields.
+- The streamed card (`customerQuestionCard` in `app/ui/agent-chat/cards.ts`) is
+  the same `<form id="chat-question" method="post" action="/chat/answer">`; the
+  stream intercepts its `submit`, drops `_csrf`, and posts over SSE.
+  `showQuestion` early-returns when `#chat-question` already exists so a
+  reconnect does not duplicate the server form.
+- Reuse `tryGetCsrfToken()` (`app/ui/csrf-token-input.tsx`) instead of a private
+  copy; the token is only needed on the native transport.
+
 ## Scope
 
-Only the decision is no-JS: the message composer still returns SSE, so sending a
-turn still needs JS, and `ask_user` question gates have no native form. Any future
-native branch must preserve the route's `runId`/`toolCallId` field names.
+Only the gates are no-JS: the message composer still returns SSE, so sending a
+turn still needs JS, and the support-agent gates have no native form. Any future
+native branch must preserve the route's field names (`runId`/`toolCallId`, and
+`selectionMode`/`answer` for the question gate).
 
 ## Tests
 
@@ -118,6 +143,9 @@ native branch must preserve the route's `runId`/`toolCallId` field names.
 - Browser (`app/assets/streams/streams.test.browser.tsx`): dispatch `submit` with a
   `SubmitEvent` submitter, assert the fetch URL, `X-Sse-Request`, and that `_csrf`
   was dropped.
+- Question gate: native `POST /chat/answer` → `303` + flash, a `multi_select` body
+  of repeated `answer` fields arrives as an array, and `GET /chat` renders
+  `id="chat-question"` with `name="answer"`/`name="selectionMode"`.
 
 ## When to Use
 

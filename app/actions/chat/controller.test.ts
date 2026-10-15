@@ -1011,6 +1011,138 @@ describe('Customer Chat controller', () => {
     }
   })
 
+  // ── Native (no-JS) ask_user answer form ─────────────────
+  //
+  // The question gate gets the same treatment as approve/decline: the answer
+  // form is a real form post, the action drains the SSE resume and answers with
+  // a 303 + flash when X-Sse-Request is absent.
+
+  it('POST /chat/answer without X-Sse-Request drains the answer and 303s with a success flash', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        runId,
+        answer: 'ja',
+        selectionMode: 'single_select',
+        toolCallId: 'tc',
+      }),
+    })
+
+    assert.equal(response.status, 303, 'native answer must redirect after saving')
+    assert.equal(response.headers.get('Location'), routes.chat.index.href())
+
+    let cookie = extractCookie(response) || session.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: cookie } })
+    let html = await page.text()
+    assert.ok(
+      html.includes('Antwort gesendet.'),
+      'success flash should render on the redirected page',
+    )
+  })
+
+  it('POST /chat/answer without a CSRF token is rejected on the native path', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ runId: 'x', answer: 'ja' }),
+    })
+
+    assert.equal(response.status, 403, 'a token-less agent-path form post must not pass')
+  })
+
+  it('POST /chat/answer native multi_select combines checked options into a JSON array', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let seenData: unknown
+    mockAgent = makeMockAgent({
+      resumeStream: async (data) => {
+        seenData = data
+        return createMockStreamOutput('Fortsetzung.')
+      },
+    })
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams([
+        ['_csrf', session.csrfToken],
+        ['runId', runId],
+        ['selectionMode', 'multi_select'],
+        ['answer', 'Email'],
+        ['answer', 'SMS'],
+      ]),
+    })
+
+    assert.equal(response.status, 303, 'native multi_select answer must redirect')
+    assert.deepEqual(seenData, ['Email', 'SMS'], 'repeated answer fields become a JSON array')
+  })
+
+  it('GET /chat renders a native question form for a suspended ask_user gate', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    let runId = crypto.randomUUID()
+    let threadId = crypto.randomUUID()
+
+    await recordChatRun({ runId, userId: adminId, threadId })
+    await markGateSuspended(adminId, {
+      runId,
+      threadId,
+      gateType: 'question',
+      toolCallId: 'tc-question',
+      toolName: 'ask_user',
+      suspendPayload: {
+        question: 'Welcher Termin passt?',
+        options: [{ label: 'Mo. 10:00', description: 'Vormittag' }, { label: 'Di. 15:00' }],
+        selectionMode: 'single_select',
+      },
+    })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    try {
+      let response = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: session.cookie } })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+
+      assert.ok(html.includes('id="chat-question"'), 'server should render the question form')
+      assert.ok(html.includes('action="/chat/answer"'), 'form should post to the answer route')
+      assert.ok(html.includes(`value="${runId}"`), 'form should carry the suspended run id')
+      assert.ok(html.includes('name="answer"'), 'form should submit an answer')
+      assert.ok(html.includes('name="selectionMode"'), 'form should carry the selection mode')
+      assert.ok(html.includes('name="_csrf"'), 'native form must carry a CSRF token')
+      assert.ok(html.includes('Welcher Termin passt?'), 'form should show the question')
+      assert.ok(html.includes('Mo. 10:00'), 'form should render the options')
+      assert.ok(html.includes(' checked'), 'the first option should be preselected without JS')
+    } finally {
+      await clearPendingGate(adminId, runId)
+    }
+  })
+
   // ── Decline (POST) ──────────────────────────────────────
 
   it('POST /chat/decline with missing runId returns 400 SSE agent-error', async () => {

@@ -7,6 +7,7 @@ import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 import type { ChatMessage } from '../types/chatlog.ts'
 import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.tsx'
 import { ChatApprovalForm } from './agent-chat/approval-form.tsx'
+import { ChatQuestionForm } from './agent-chat/question-form.tsx'
 
 const headingStyle = css({
   fontSize: '1.5rem',
@@ -52,6 +53,15 @@ interface PendingApproval {
   args?: Record<string, unknown> | null | undefined
 }
 
+interface PendingQuestion {
+  runId: string
+  toolCallId?: string | null | undefined
+  threadId?: string | null | undefined
+  question: string
+  options?: { label: string; description?: string }[] | null | undefined
+  selectionMode: string
+}
+
 interface CustomerChatPageProps {
   threadId?: string | undefined
   messages?: ChatMessage[]
@@ -61,11 +71,16 @@ interface CustomerChatPageProps {
    * on the stream client; the client still upgrades that form to SSE.
    */
   pendingApproval?: PendingApproval | null | undefined
+  /**
+   * A suspended `ask_user` question resolved server-side (the no-JS gate), with
+   * the same native-form treatment as `pendingApproval`.
+   */
+  pendingQuestion?: PendingQuestion | null | undefined
 }
 
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
-    let { threadId, messages = [], pendingApproval } = handle.props
+    let { threadId, messages = [], pendingApproval, pendingQuestion } = handle.props
     return (
       <AgentChatShell
         variant="centered"
@@ -125,6 +140,16 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
               toolCallId={pendingApproval.toolCallId}
               threadId={pendingApproval.threadId ?? threadId}
               args={pendingApproval.args}
+            />
+          ) : null}
+          {pendingQuestion ? (
+            <ChatQuestionForm
+              runId={pendingQuestion.runId}
+              toolCallId={pendingQuestion.toolCallId}
+              threadId={pendingQuestion.threadId ?? threadId}
+              question={pendingQuestion.question}
+              options={pendingQuestion.options}
+              selectionMode={pendingQuestion.selectionMode}
             />
           ) : null}
           <div id="chat-end" />

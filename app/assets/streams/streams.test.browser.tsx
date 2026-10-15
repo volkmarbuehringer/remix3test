@@ -220,6 +220,96 @@ describe('SSE stream EventSource lifecycle', () => {
     window.fetch = originalFetch
     cleanup?.()
   })
+
+  it('CustomerChatStream upgrades the native question form to an SSE /chat/answer POST', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    // The dynamic card mirrors the server form, including the CSRF token when
+    // the page exposes one; the SSE transport must drop it and use the header.
+    let meta = document.createElement('meta')
+    meta.name = 'csrf-token'
+    meta.content = 'test-token'
+    document.head.appendChild(meta)
+
+    let calls: Array<{ url: string; headers: Record<string, string>; body: unknown }> = []
+    let originalFetch = window.fetch
+    window.fetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+      let u = String(url)
+      calls.push({
+        url: u,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body,
+      })
+      if (u === '/chat') {
+        return sseResponse([
+          { type: 'start', data: JSON.stringify({ runId: 'run-q', threadId: 't-q' }) },
+          {
+            type: 'question',
+            data: JSON.stringify({
+              runId: 'run-q',
+              toolCallId: 'tc-q',
+              question: 'Welcher Termin?',
+              options: [{ label: 'Mo. 10:00' }, { label: 'Di. 15:00' }],
+              selectionMode: 'single_select',
+            }),
+          },
+        ])
+      }
+      if (u === '/chat/reconnect') return new Response('{}', { status: 200 })
+      return sseResponse([{ type: 'complete', data: JSON.stringify({}) }])
+    }
+
+    let { cleanup: c } = render(<CustomerChatStream />)
+    cleanup = c
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    textarea.value = 'Frage'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let question = document.getElementById('chat-question') as HTMLFormElement | null
+    assert.ok(question, 'the question event should render the question form')
+    assert.equal(question!.tagName, 'FORM', 'the question control must be a real form')
+    assert.equal(question!.getAttribute('method'), 'post')
+    assert.equal(question!.getAttribute('action'), '/chat/answer')
+    assert.equal(
+      (question!.querySelector('input[name="runId"]') as HTMLInputElement).value,
+      'run-q',
+      'the form must carry the suspended run id',
+    )
+    assert.ok(
+      question!.querySelector('input[name="answer"][value="Mo. 10:00"]'),
+      'the options must be real named answer controls',
+    )
+
+    let answerBtn = question!.querySelector('.q-answer-btn') as HTMLButtonElement
+    question!.dispatchEvent(
+      new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: answerBtn }),
+    )
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let answerCall = calls.find((call) => call.url === '/chat/answer')
+    assert.ok(answerCall, 'the upgraded form should POST to /chat/answer')
+    assert.equal(answerCall!.headers['x-sse-request'], '1', 'the stream transport keeps its header')
+    let body = answerCall!.body as FormData
+    assert.equal(body.get('runId'), 'run-q', 'the answer body carries the run id')
+    assert.equal(body.get('answer'), 'Mo. 10:00', 'the answer body carries the selected option')
+    assert.equal(body.get('_csrf'), null, 'the native token is not sent over the SSE transport')
+    assert.equal(
+      document.getElementById('chat-question'),
+      null,
+      'the form is removed once submitted',
+    )
+
+    meta.remove()
+    window.fetch = originalFetch
+    cleanup?.()
+  })
 })
 
 // -----------------------------------------------------------------------
@@ -1363,14 +1453,17 @@ describe('Customer chat resume + theme + busy state', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await new Promise((r) => setTimeout(r, 50))
 
-    let card = document.getElementById('chat-question')
+    let card = document.getElementById('chat-question') as HTMLFormElement
     assert.ok(card, 'the question card should render for a question event')
+    assert.equal(card.tagName, 'FORM', 'the question control must be a real form')
     let free = document.getElementById('q-free-text') as HTMLInputElement
     assert.ok(free, 'a no-options question should render a free-text input')
 
     free.value = 'Mittwoch, 16.09. um 10:00'
     let answerBtn = document.querySelector('.q-answer-btn') as HTMLButtonElement
-    answerBtn.click()
+    card.dispatchEvent(
+      new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: answerBtn }),
+    )
     await new Promise((r) => setTimeout(r, 50))
 
     assert.ok(

@@ -532,12 +532,6 @@ export const CustomerChatStream = clientEntry(
 
     // ── Question UI ───────────────────────────────────────────
 
-    let pendingQuestion: {
-      runId: string
-      toolCallId?: string | undefined
-      selectionMode: string
-    } | null = null
-
     function showQuestion(data: {
       runId: string
       toolCallId?: string | undefined
@@ -545,18 +539,18 @@ export const CustomerChatStream = clientEntry(
       options?: { label: string; description?: string }[] | null
       selectionMode: string
     }) {
-      pendingQuestion = {
-        runId: data.runId,
-        toolCallId: data.toolCallId,
-        selectionMode: data.selectionMode,
-      }
-
       let container = getChatArea()
       if (!container) return
+      // A server-rendered no-JS gate may already be on the page; a stream
+      // question would otherwise duplicate the same answer form.
+      if (document.getElementById('chat-question')) return
 
       container.appendChild(
         renderAgentQuestionCard({
           variant: 'customer',
+          runId: data.runId,
+          toolCallId: data.toolCallId,
+          threadId: currentThreadId ?? undefined,
           question: data.question,
           options: data.options,
           selectionMode: data.selectionMode,
@@ -566,29 +560,8 @@ export const CustomerChatStream = clientEntry(
     }
 
     function hideQuestion() {
-      pendingQuestion = null
       let card = document.getElementById('chat-question')
       if (card) card.remove()
-    }
-
-    function getAnswer(): string {
-      let optionsEl = document.getElementById('q-options')
-      let freeText = document.getElementById('q-free-text') as HTMLInputElement | null
-      if (freeText) return freeText.value
-
-      if (!optionsEl) return ''
-
-      let checked = optionsEl.querySelectorAll(
-        'input[type="checkbox"]:checked',
-      ) as NodeListOf<HTMLInputElement>
-      if (checked.length > 0) {
-        return JSON.stringify(Array.from(checked).map((cb) => cb.value))
-      }
-
-      let selected = optionsEl.querySelector(
-        'input[type="radio"]:checked',
-      ) as HTMLInputElement | null
-      return selected?.value || ''
     }
 
     // ── Stream lifecycle ──────────────────────────────────────
@@ -907,25 +880,18 @@ export const CustomerChatStream = clientEntry(
       await submitAndStream('/chat/' + action, body)
     }
 
-    async function handleAnswer() {
-      if (!pendingQuestion) return
-      let answer = getAnswer()
-      if (!answer) return
+    async function handleAnswer(form: HTMLFormElement) {
+      // Carry the form's hidden runId/toolCallId/selectionMode and the named
+      // answer control(s) into the streamed request. The SSE path authenticates
+      // with the X-Sse-Request header, so the native CSRF token is dropped.
+      let body = new FormData(form)
+      body.delete('_csrf')
+      let answers = body
+        .getAll('answer')
+        .map(String)
+        .filter((value) => value.length > 0)
+      if (answers.length === 0) return
 
-      let btn = document.getElementById('q-answer-btn') as HTMLButtonElement | null
-      if (btn) {
-        btn.disabled = true
-        btn.textContent = 'Sende...'
-      }
-
-      let body = new FormData()
-      body.set('runId', pendingQuestion.runId)
-      body.set('answer', answer)
-      body.set('selectionMode', pendingQuestion.selectionMode)
-      if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-      if (currentThreadId) body.set('threadId', currentThreadId)
-
-      hideQuestion()
       beginStream()
 
       await submitAndStream('/chat/answer', body)
@@ -964,8 +930,6 @@ export const CustomerChatStream = clientEntry(
                     handleCancel()
                   } else if (target.classList.contains('slot-btn')) {
                     void handleSlotClick(e)
-                  } else if (target.classList.contains('q-answer-btn')) {
-                    void handleAnswer()
                   } else if (target.classList.contains('slot-other-resource-btn')) {
                     void handleOtherResource()
                   } else if (target.classList.contains('slot-close-btn')) {
@@ -975,24 +939,25 @@ export const CustomerChatStream = clientEntry(
                 { signal: lifecycleSignal },
               )
 
-              // Upgrade the native approve/decline form to the SSE transport.
-              // The element stays a real form, so a no-JS submit still posts to
-              // /chat/approve or /chat/decline via the buttons' formaction.
+              // Upgrade the native gate forms to the SSE transport. The
+              // elements stay real forms, so a no-JS submit still posts to
+              // /chat/approve, /chat/decline or /chat/answer via the form action.
               chatArea.addEventListener(
                 'submit',
                 (e) => {
-                  let decisionForm = e.target
-                  if (
-                    !(decisionForm instanceof HTMLFormElement) ||
-                    decisionForm.id !== 'chat-approval'
-                  )
-                    return
-                  e.preventDefault()
-                  let submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null
-                  void handleApproval(
-                    submitter?.value === 'decline' ? 'decline' : 'approve',
-                    decisionForm,
-                  )
+                  let gateForm = e.target
+                  if (!(gateForm instanceof HTMLFormElement)) return
+                  if (gateForm.id === 'chat-approval') {
+                    e.preventDefault()
+                    let submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null
+                    void handleApproval(
+                      submitter?.value === 'decline' ? 'decline' : 'approve',
+                      gateForm,
+                    )
+                  } else if (gateForm.id === 'chat-question') {
+                    e.preventDefault()
+                    void handleAnswer(gateForm)
+                  }
                 },
                 { signal: lifecycleSignal },
               )

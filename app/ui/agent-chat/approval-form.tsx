@@ -1,9 +1,8 @@
 import type { Handle } from 'remix/component'
-import { getContext } from 'remix/middleware/async-context'
-import { getCsrfToken } from 'remix/middleware/csrf'
 
 import { routes } from '../../routes.ts'
 import { theme } from '../theme/theme.ts'
+import { tryGetCsrfToken } from '../csrf-token-input.tsx'
 import { describeToolApproval } from './approval-copy.ts'
 
 export interface ChatApprovalFormProps {
@@ -61,15 +60,6 @@ const declineStyle = {
   cursor: 'pointer',
 } as const
 
-function csrfToken(): string | undefined {
-  try {
-    return getCsrfToken(getContext())
-  } catch {
-    /* csrf middleware may be inactive outside a request render */
-    return undefined
-  }
-}
-
 /**
  * The no-JS approval control for a suspended customer tool call.
  *
@@ -85,7 +75,7 @@ export function ChatApprovalForm(handle: Handle<ChatApprovalFormProps>) {
     let copy = describeToolApproval(args)
     let title = handle.props.title ?? copy.title
     let description = handle.props.description ?? copy.description
-    let token = csrfToken()
+    let token = tryGetCsrfToken()
 
     return (
       <form
