@@ -121,6 +121,14 @@ The question gate is the same shape — one form instead of two buttons:
   list before calling it (the engine then parses the leading `[`). Normalizing in
   the controller fixes the SSE transport too, because the streamed card now posts
   the same repeated fields.
+- Guard the normalizer against double-encoding: the SSE transport may send one
+  `answer` field holding an already-encoded JSON array, while a native
+  multi-select with one checked box is also a single field. `normalizeAnswerFields`
+  wraps a lone multi-select value only when it does not start with `[`; a
+  pre-encoded array passes through untouched. A blanket
+  `JSON.stringify(getAll('answer'))` resumes with `["[\"a\",\"b\"]"]` — caught by
+  `app/actions/support-agent/controller.test.ts` ("passes multi-select answer as a
+  JSON array").
 - The streamed card (`customerQuestionCard` in `app/ui/agent-chat/cards.ts`) is
   the same `<form id="chat-question" method="post" action="/chat/answer">`; the
   stream intercepts its `submit`, drops `_csrf`, and posts over SSE.
