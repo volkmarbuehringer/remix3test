@@ -6,6 +6,8 @@ import { SupportAgentStream } from '../assets/streams/public/support-agent-strea
 import { MarkdownText } from './markdown-text.tsx'
 import type { ChatMessage } from '../types/chatlog.ts'
 import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.tsx'
+import { SupportApprovalForm } from './agent-chat/support-approval-form.tsx'
+import { SupportQuestionForm } from './agent-chat/support-question-form.tsx'
 
 const headerStyle = css({
   display: 'flex',
@@ -262,6 +264,22 @@ export function SupportAgentEmptyState(handle: Handle<{}>) {
 
 export type SupportRecentThread = { threadId: string; title: string }
 
+interface PendingApproval {
+  runId: string
+  toolCallId?: string | null | undefined
+  threadId?: string | null | undefined
+  toolName?: string | null | undefined
+}
+
+interface PendingQuestion {
+  runId: string
+  toolCallId?: string | null | undefined
+  threadId?: string | null | undefined
+  question: string
+  options?: { label: string; description?: string }[] | null | undefined
+  selectionMode: string
+}
+
 interface SupportAgentPageProps {
   /** Thread whose transcript is open, when resumed from the chatlog. */
   threadId?: string | undefined
@@ -269,11 +287,28 @@ interface SupportAgentPageProps {
   messages?: ChatMessage[]
   /** This admin's most recent support conversations, for quick resume. */
   recentThreads?: SupportRecentThread[]
+  /**
+   * A suspended tool call resolved server-side (the no-JS gate). When set, the
+   * page renders a native approve/decline form so the decision does not depend
+   * on the stream client; the client still upgrades that form to SSE.
+   */
+  pendingApproval?: PendingApproval | null | undefined
+  /**
+   * A suspended ask_user question resolved server-side (the no-JS gate), with
+   * the same native-form treatment as pendingApproval.
+   */
+  pendingQuestion?: PendingQuestion | null | undefined
 }
 
 export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
   return () => {
-    let { threadId, messages = [], recentThreads = [] } = handle.props
+    let {
+      threadId,
+      messages = [],
+      recentThreads = [],
+      pendingApproval,
+      pendingQuestion,
+    } = handle.props
     let hasMessages = messages.length > 0
     return (
       <AgentChatShell
@@ -378,6 +413,24 @@ export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
                   </a>
                 ))}
               </div>
+            ) : null}
+            {pendingApproval ? (
+              <SupportApprovalForm
+                runId={pendingApproval.runId}
+                toolCallId={pendingApproval.toolCallId}
+                threadId={pendingApproval.threadId ?? threadId}
+                toolName={pendingApproval.toolName}
+              />
+            ) : null}
+            {pendingQuestion ? (
+              <SupportQuestionForm
+                runId={pendingQuestion.runId}
+                toolCallId={pendingQuestion.toolCallId}
+                threadId={pendingQuestion.threadId ?? threadId}
+                question={pendingQuestion.question}
+                options={pendingQuestion.options}
+                selectionMode={pendingQuestion.selectionMode}
+              />
             ) : null}
           </div>
         </div>

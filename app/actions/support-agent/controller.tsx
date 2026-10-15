@@ -1,4 +1,5 @@
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes, frames } from '../../routes.ts'
@@ -12,7 +13,13 @@ import { classifyThreadSourceFor } from '../../data/chatlog-sources.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
-import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
+import {
+  createAgentChat,
+  validationErrorResponse,
+  isSseRequest,
+  completeDecisionForm,
+  normalizeAnswerFields,
+} from '../../utils/agent-chat.ts'
 import { sanitizeLog, validateMessage } from '../mastra/shared-agent.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
@@ -228,6 +235,20 @@ function logFor(
     )
 }
 
+/**
+ * A native (no-JS) gate request that cannot be processed — a rate limit or an
+ * invalid decision. The SSE transport gets an agent-error frame, but a real
+ * form must not paint raw SSE, so it flashes the message and returns to the
+ * panel.
+ */
+function nativeGateError(
+  context: { session: { flash(key: 'error', value: string): void } },
+  message: string,
+): Response {
+  context.session.flash('error', message)
+  return redirect(routes.admin.supportAgent.index.href(), 303)
+}
+
 export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
@@ -253,6 +274,36 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
         if (!resume) recentThreads = await resolveRecentSupportThreads(user.id, log)
       }
 
+      // No-JS gate: a suspended tool decision or ask_user question is rendered
+      // as a native form so the admin can resolve it without the stream client.
+      // The durable row is a pointer; a started (running) run has nothing to
+      // render, so only a suspended gate becomes a form.
+      let gate = isFrameRequest ? await resolvePendingGate(user.id) : null
+      let suspended = gate?.status === 'suspended' ? gate : null
+      let pendingApproval =
+        suspended?.gateType === 'tool_decision'
+          ? {
+              runId: suspended.runId,
+              toolCallId: suspended.toolCallId,
+              threadId: suspended.threadId,
+              toolName: suspended.toolName,
+            }
+          : null
+      let suspendPayload = suspended?.suspendPayload
+      let pendingQuestion =
+        suspended?.gateType === 'question'
+          ? {
+              runId: suspended.runId,
+              toolCallId: suspended.toolCallId,
+              threadId: suspended.threadId,
+              question: String(suspendPayload?.question ?? 'Bitte antworte auf die Frage.'),
+              options:
+                (suspendPayload?.options as { label: string; description?: string }[] | null) ??
+                null,
+              selectionMode: String(suspendPayload?.selectionMode ?? 'single_select'),
+            }
+          : null
+
       return renderAdminPage(
         context.render,
         'support',
@@ -260,6 +311,8 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
           threadId={resume?.threadId}
           messages={resume?.messages ?? []}
           recentThreads={recentThreads}
+          pendingApproval={pendingApproval}
+          pendingQuestion={pendingQuestion}
         />,
       )
     },
@@ -326,57 +379,86 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
     async toolDecision(context) {
       let user = getCurrentUser()
       let log = logFor(context.logger, user.id, 'toolDecision')
+      let native = !isSseRequest(context.request)
 
       if (!chatRateLimiter.attempt(user.id)) {
         log('rate limited')
+        if (native) return nativeGateError(context, 'Bitte warte einen Moment.')
         return sseErrorResponse('Bitte warte einen Moment.', 429)
       }
 
       let decision = context.formData.get('decision')?.toString()
       if (decision !== 'approve' && decision !== 'decline') {
+        if (native) return nativeGateError(context, 'Ungültige Entscheidung.')
         return sseErrorResponse('decision muss "approve" oder "decline" sein', 400)
       }
+      let confirmedDecision: 'approve' | 'decline' = decision
 
-      log('tool decision: ' + decision)
+      log('tool decision: ' + confirmedDecision)
 
-      return engine.toolDecision({
-        context,
-        actorId: user.id,
-        decision,
-        runId: context.formData.get('runId')?.toString() || undefined,
-        toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
-        threadId: context.formData.get('threadId')?.toString() || undefined,
-        onDecision: (runId) => {
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            void logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'support_tool_approval',
-              target_type: 'mastra_tool_call',
-              target_id: runId,
-            })
-          }
-        },
-      })
+      let decide = () =>
+        engine.toolDecision({
+          context,
+          actorId: user.id,
+          decision: confirmedDecision,
+          runId: context.formData.get('runId')?.toString() || undefined,
+          toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
+          threadId: context.formData.get('threadId')?.toString() || undefined,
+          onDecision: (runId) => {
+            let authIdentity = getAdminIdentity(context.auth)
+            if (authIdentity) {
+              void logAdminAction(context.db, {
+                admin_user_id: authIdentity.id,
+                admin_email: authIdentity.email,
+                action_type: 'support_tool_approval',
+                target_type: 'mastra_tool_call',
+                target_id: runId,
+              })
+            }
+          },
+        })
+
+      if (native) {
+        return completeDecisionForm(context, decide, {
+          success: confirmedDecision === 'approve' ? 'Aktion genehmigt.' : 'Aktion abgelehnt.',
+          error: 'Die Entscheidung konnte nicht verarbeitet werden.',
+          redirectTo: routes.admin.supportAgent.index.href(),
+        })
+      }
+      return decide()
     },
 
     async answer(context) {
       let user = getCurrentUser()
+      let native = !isSseRequest(context.request)
 
       if (!chatRateLimiter.attempt(user.id)) {
+        if (native) return nativeGateError(context, 'Bitte warte einen Moment.')
         return sseErrorResponse('Bitte warte einen Moment.', 429)
       }
 
-      return engine.answer({
-        context,
-        actorId: user.id,
-        runId: context.formData.get('runId')?.toString() || undefined,
-        answer: context.formData.get('answer')?.toString() || undefined,
-        toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
-        selectionMode: context.formData.get('selectionMode')?.toString() || undefined,
-        threadId: context.formData.get('threadId')?.toString() || undefined,
-      })
+      // A real form posts one answer per selected option, so a multi_select
+      // answer arrives as repeated fields; normalize for both transports.
+      let { answer, selectionMode } = normalizeAnswerFields(context.formData)
+      let respond = () =>
+        engine.answer({
+          context,
+          actorId: user.id,
+          runId: context.formData.get('runId')?.toString() || undefined,
+          answer,
+          toolCallId: context.formData.get('toolCallId')?.toString() || undefined,
+          selectionMode,
+          threadId: context.formData.get('threadId')?.toString() || undefined,
+        })
+
+      if (native) {
+        return completeDecisionForm(context, respond, {
+          success: 'Antwort gesendet.',
+          error: 'Die Antwort konnte nicht verarbeitet werden.',
+          redirectTo: routes.admin.supportAgent.index.href(),
+        })
+      }
+      return respond()
     },
 
     async reconnect(context) {

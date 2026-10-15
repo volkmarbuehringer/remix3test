@@ -1,12 +1,17 @@
 import { createController } from 'remix/router'
-import { redirect } from 'remix/response/redirect'
 import { requireAuth } from '../../middleware/auth.ts'
 import { mastra, getDurableCustomerAgent } from '../mastra/index.ts'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
-import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
+import {
+  createAgentChat,
+  validationErrorResponse,
+  isSseRequest,
+  completeDecisionForm,
+  normalizeAnswerFields,
+} from '../../utils/agent-chat.ts'
 import {
   createDurableAgentChat,
   toDurableChatAgent,
@@ -208,49 +213,6 @@ function customerChatEngine() {
   return useDurableCustomerChat() ? durableEngine : engine
 }
 
-function isSseRequest(request: Request): boolean {
-  return request.headers.get('X-Sse-Request') === '1'
-}
-
-interface DecisionFormContext {
-  session: { flash(key: 'success' | 'error', value: string): void }
-}
-
-/**
- * Runs a native (no-JS) decision form submission.
- *
- * The engine always answers with an SSE stream, so drain it — which runs the
- * decision to completion or to the next suspension — then redirect back to the
- * chat page with a flash result (the guide 09 form-mutation shape). A drained
- * `agent-error` frame, a non-200 status or a thrown error becomes the error
- * flash rather than a silently dropped decision.
- */
-async function completeDecisionForm(
-  context: DecisionFormContext,
-  run: () => Promise<Response>,
-  message: { success: string; error: string },
-): Promise<Response> {
-  let failed = false
-  try {
-    let response = await run()
-    if (response.status !== 200) {
-      failed = true
-    } else {
-      let body = await response.text()
-      failed = body.includes('event: agent-error')
-    }
-  } catch (err) {
-    chatLog.error('decision form failed:', sanitizeLog(String(err)))
-    failed = true
-  }
-  try {
-    context.session.flash(failed ? 'error' : 'success', failed ? message.error : message.success)
-  } catch (err) {
-    chatLog.error('decision flash failed:', sanitizeLog(String(err)))
-  }
-  return redirect(routes.chat.index.href(), 303)
-}
-
 export const customerChat = createController(routes.chat, {
   middleware: [requireAuth()],
 
@@ -355,6 +317,7 @@ export const customerChat = createController(routes.chat, {
         return completeDecisionForm(context, decide, {
           success: 'Aktion bestätigt.',
           error: 'Die Bestätigung konnte nicht verarbeitet werden.',
+          redirectTo: routes.chat.index.href(),
         })
       }
       return decide()
@@ -375,6 +338,7 @@ export const customerChat = createController(routes.chat, {
         return completeDecisionForm(context, decide, {
           success: 'Aktion abgelehnt.',
           error: 'Die Entscheidung konnte nicht verarbeitet werden.',
+          redirectTo: routes.chat.index.href(),
         })
       }
       return decide()
@@ -383,19 +347,8 @@ export const customerChat = createController(routes.chat, {
     async answer(context) {
       let user = getCurrentUser()
       // A real form posts one `answer` per selected option, so a multi_select
-      // answer arrives as repeated fields; the engine expects a JSON array
-      // string. Normalize here for both the SSE and the native transport.
-      let answers = context.formData
-        .getAll('answer')
-        .map((value) => String(value))
-        .filter((value) => value.length > 0)
-      let selectionMode = context.formData.get('selectionMode')?.toString() || undefined
-      let answer =
-        answers.length === 0
-          ? undefined
-          : answers.length > 1 || selectionMode === 'multi_select'
-            ? JSON.stringify(answers)
-            : answers[0]
+      // answer arrives as repeated fields; normalize for both transports.
+      let { answer, selectionMode } = normalizeAnswerFields(context.formData)
 
       let respond = () =>
         customerChatEngine().answer({
@@ -411,6 +364,7 @@ export const customerChat = createController(routes.chat, {
         return completeDecisionForm(context, respond, {
           success: 'Antwort gesendet.',
           error: 'Die Antwort konnte nicht verarbeitet werden.',
+          redirectTo: routes.chat.index.href(),
         })
       }
       return respond()

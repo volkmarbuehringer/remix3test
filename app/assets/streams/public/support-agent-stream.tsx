@@ -372,44 +372,51 @@ export const SupportAgentStream = clientEntry(
       options?: { label: string; description?: string }[] | null
       selectionMode: string
     }) {
+      let runId = data.runId || currentRunId || ''
       pendingQuestion = {
-        runId: data.runId || currentRunId || '',
+        runId,
         toolCallId: data.toolCallId,
         selectionMode: data.selectionMode,
       }
       hideThinking()
+      // A server-rendered no-JS gate may already be on the page; a stream
+      // question would otherwise duplicate the same answer form.
+      if (document.getElementById('support-agent-question')) return
       let el = appendAgentMessage()
 
       renderAgentQuestionCard({
         variant: 'support',
         mount: el,
+        runId,
+        toolCallId: data.toolCallId,
+        threadId: currentThreadId ?? undefined,
         question: data.question,
         options: data.options,
         selectionMode: data.selectionMode,
-        onAnswer: (answer) => handleAnswer(answer),
-        onError: (err) => {
-          pendingQuestion = null
-          appendStatusMessage('Fehler beim Anzeigen der Frage: ' + String(err), true)
-        },
       })
     }
 
     // ── Suspension rendering (fresh bubble, never clobbers streamed text) ──
 
     function showSuspension(data: {
+      runId?: string
       toolCallId?: string
       toolName?: string
       args?: Record<string, unknown>
     }) {
       hideThinking()
+      // A server-rendered no-JS gate may already be on the page; a stream
+      // suspension would otherwise duplicate the same decision form.
+      if (document.getElementById('support-agent-approval')) return
       let el = appendAgentMessage()
 
       renderAgentApprovalCard({
         variant: 'support',
         mount: el,
+        runId: data.runId || currentRunId || '',
+        toolCallId: data.toolCallId,
+        threadId: currentThreadId ?? undefined,
         toolName: data.toolName,
-        onApprove: () => handleToolDecision('approve', data.toolCallId),
-        onDecline: () => handleToolDecision('decline', data.toolCallId),
       })
     }
 
@@ -566,37 +573,47 @@ export const SupportAgentStream = clientEntry(
 
     // ── Tool decision / Answer handlers ───────────────────────────────
 
-    async function handleToolDecision(decision: string, toolCallId?: string) {
-      if (!currentRunId) return
+    function handleToolDecision(decision: 'approve' | 'decline', form: HTMLFormElement) {
       setFormEnabled(false)
 
       let label = decision === 'approve' ? 'Aktion genehmigt' : 'Aktion abgelehnt'
       appendUserMessage(label)
 
-      let body = new FormData()
-      body.set('runId', currentRunId)
-      body.set('decision', decision)
-      if (toolCallId) body.set('toolCallId', toolCallId)
-      if (currentThreadId) body.set('threadId', currentThreadId)
+      // Carry the form's hidden runId/toolCallId/threadId and the submitter's
+      // decision into the streamed request. The SSE path authenticates with the
+      // X-Sse-Request header, so the native CSRF token is dropped.
+      let body = new FormData(form)
+      body.delete('_csrf')
+      if (!body.get('runId') && currentRunId) body.set('runId', currentRunId)
+      if (!body.get('decision')) body.set('decision', decision)
+      if (!body.get('threadId') && currentThreadId) body.set('threadId', currentThreadId)
 
+      let card = document.getElementById('support-agent-approval')
+      if (card) card.remove()
       currentAgentMessageEl = null
       void startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
     }
 
-    async function handleAnswer(answer: string) {
-      if (!pendingQuestion || !answer) return
-      let pq = pendingQuestion
+    function handleAnswer(form: HTMLFormElement) {
       setFormEnabled(false)
 
-      appendUserMessage(answer)
+      // Carry the form's hidden fields and the named answer control(s) into the
+      // streamed request. The SSE path authenticates with the X-Sse-Request
+      // header, so the native CSRF token is dropped.
+      let body = new FormData(form)
+      body.delete('_csrf')
+      let answers = body
+        .getAll('answer')
+        .map(String)
+        .filter((value) => value.length > 0)
+      if (answers.length === 0) return
+      if (!body.get('runId') && currentRunId) body.set('runId', currentRunId)
+      if (!body.get('threadId') && currentThreadId) body.set('threadId', currentThreadId)
 
-      let body = new FormData()
-      body.set('runId', pq.runId)
-      body.set('answer', answer)
-      body.set('selectionMode', pq.selectionMode)
-      if (pq.toolCallId) body.set('toolCallId', pq.toolCallId)
-      if (currentThreadId) body.set('threadId', currentThreadId)
+      appendUserMessage(answers.join(', '))
 
+      let card = document.getElementById('support-agent-question')
+      if (card) card.remove()
       currentAgentMessageEl = null
       void startStream('/admin/support-agent/answer', { method: 'POST', body })
     }
@@ -619,7 +636,14 @@ export const SupportAgentStream = clientEntry(
           startedChatEl = getChat()
         }
         currentAgentMessageEl = null
-        appendAgentMessage()
+        // A server-rendered no-JS gate is already on the page; appending an
+        // empty bubble for it would be noise (show* early-returns below).
+        if (
+          !document.getElementById('support-agent-approval') &&
+          !document.getElementById('support-agent-question')
+        ) {
+          appendAgentMessage()
+        }
         // Disable the message input until the re-surfaced gate is resolved, so
         // the admin can't start a new query on top of a pending decision.
         setFormEnabled(false)
@@ -639,6 +663,7 @@ export const SupportAgentStream = clientEntry(
           })
         } else {
           showSuspension({
+            runId: data.runId,
             toolCallId: data.toolCallId,
             toolName: data.toolName,
             args: data.args,
@@ -905,6 +930,32 @@ export const SupportAgentStream = clientEntry(
               container.addEventListener('click', handlePanelClick, {
                 signal: handle.signal,
               })
+            }
+
+            let chat = getChat()
+            if (chat) {
+              // Upgrade the native gate forms to the SSE transport. The elements
+              // stay real forms, so a no-JS submit still posts to
+              // /admin/support-agent/tool-decision or /answer via the form action.
+              chat.addEventListener(
+                'submit',
+                (e) => {
+                  let gateForm = e.target
+                  if (!(gateForm instanceof HTMLFormElement)) return
+                  if (gateForm.id === 'support-agent-approval') {
+                    e.preventDefault()
+                    let submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null
+                    void handleToolDecision(
+                      submitter?.value === 'decline' ? 'decline' : 'approve',
+                      gateForm,
+                    )
+                  } else if (gateForm.id === 'support-agent-question') {
+                    e.preventDefault()
+                    void handleAnswer(gateForm)
+                  }
+                },
+                { signal: handle.signal },
+              )
             }
 
             let closeBtn = document.getElementById('support-agent-preview-close')

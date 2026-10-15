@@ -1,4 +1,5 @@
 import type { TestAgent } from '../actions/mastra/shared-agent.ts'
+import { redirect } from 'remix/response/redirect'
 import {
   AGENT_TIMEOUT_MS,
   MAX_MESSAGE_LENGTH,
@@ -605,4 +606,98 @@ export function createAgentChat(config: AgentChatConfig) {
   }
 
   return { messageStream, toolDecision, answer, reconnect }
+}
+
+// ── Native (no-JS) gate forms ──────────────────────────────────
+//
+// The gate endpoints always answer with an SSE stream. A real HTML form cannot
+// read SSE, so a native submit drains the stream server-side and redirects to
+// the surface with a flash. These helpers are shared by the customer and
+// support controllers so the two mirrors cannot drift.
+
+const nativeFormLog = createLogger('[AgentChat]')
+
+/** Whether the request arrived over the fetch/SSE transport. */
+export function isSseRequest(request: Request): boolean {
+  return request.headers.get('X-Sse-Request') === '1'
+}
+
+interface DecisionFormContext {
+  session: { flash(key: 'success' | 'error', value: string): void }
+}
+
+/**
+ * Drains an SSE decision response for a native (no-JS) form, then redirects
+ * back to the surface with a flash result (the guide 09 form-mutation shape).
+ *
+ * The engine always answers with text/event-stream, so it must be consumed
+ * for the decision to run to completion — or to the next suspension — even
+ * though the form response is only a redirect. A drained agent-error frame,
+ * a non-200 status or a thrown error becomes the error flash rather than a
+ * silently dropped decision.
+ */
+export async function completeDecisionForm(
+  context: DecisionFormContext,
+  run: () => Promise<Response>,
+  message: { success: string; error: string; redirectTo: string },
+): Promise<Response> {
+  let failed = false
+  try {
+    let response = await run()
+    if (response.status !== 200) {
+      failed = true
+    } else {
+      let body = await response.text()
+      failed = body.includes('event: agent-error')
+    }
+  } catch (err) {
+    nativeFormLog.error('decision form failed:', sanitizeLog(String(err)))
+    failed = true
+  }
+  try {
+    context.session.flash(failed ? 'error' : 'success', failed ? message.error : message.success)
+  } catch (err) {
+    nativeFormLog.error('decision flash failed:', sanitizeLog(String(err)))
+  }
+  return redirect(message.redirectTo, 303)
+}
+
+/**
+ * Normalizes the answer field(s) of a question-gate form for both transports.
+ *
+ * A real form repeats its field name, so a multi_select posts one answer per
+ * checked box while a single_select posts exactly one. The engine expects a
+ * single JSON-array string for multi_select (it parses a leading open bracket),
+ * so repeated fields — and a lone multi-select value — are stringified here.
+ *
+ * An SSE client may still send an already-encoded JSON array in one answer
+ * field; that value is passed through rather than double-encoded.
+ */
+export function normalizeAnswerFields(formData: FormData): {
+  answer?: string | undefined
+  selectionMode?: string | undefined
+} {
+  let selectionMode = formData.get('selectionMode')?.toString() || undefined
+  let answers = formData
+    .getAll('answer')
+    .map((value) => String(value))
+    .filter((value) => value.length > 0)
+
+  let answer: string | undefined
+  if (answers.length === 0) {
+    answer = undefined
+  } else if (answers.length === 1) {
+    let only = answers[0]!
+    if (selectionMode === 'multi_select') {
+      // A single checked box still needs the array wrapper the engine parses,
+      // unless the client already sent a JSON array.
+      answer = only.startsWith('[') ? only : JSON.stringify(answers)
+    } else {
+      answer = only
+    }
+  } else {
+    answer = JSON.stringify(answers)
+  }
+
+  return { answer, selectionMode }
 }

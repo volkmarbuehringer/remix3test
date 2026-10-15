@@ -2017,8 +2017,172 @@ describe('Support agent chat UX', () => {
       'streamed text before the question must be preserved',
     )
     assert.ok(chat.textContent?.includes('Welcher Benutzer?'), 'the question should be shown')
-    assert.ok(chat.querySelector('fieldset'), 'the question options should be a fieldset')
+    let question = document.getElementById('support-agent-question') as HTMLFormElement | null
+    assert.ok(question, 'the question should render as a native form')
+    assert.equal(question!.tagName, 'FORM', 'the question control must be a real form')
+    assert.equal(question!.getAttribute('action'), '/admin/support-agent/answer')
+    assert.ok(
+      question!.querySelector('input[name="answer"]'),
+      'the options should be named answer controls',
+    )
 
+    window.fetch = originalFetch
+  })
+
+  it('upgrades the native approval form to an SSE tool-decision POST', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    // The dynamic card mirrors the server form, including the CSRF token when
+    // the page exposes one; the SSE transport must drop it and use the header.
+    let meta = document.createElement('meta')
+    meta.name = 'csrf-token'
+    meta.content = 'test-token'
+    document.head.appendChild(meta)
+
+    let calls: Array<{ url: string; headers: Record<string, string>; body: unknown }> = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      let u = String(url)
+      calls.push({
+        url: u,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body,
+      })
+      if (u === '/admin/support-agent') {
+        return sse([
+          { type: 'start', data: JSON.stringify({ runId: 'r-approval', threadId: 't-approval' }) },
+          {
+            type: 'suspension',
+            data: JSON.stringify({
+              runId: 'r-approval',
+              toolCallId: 'tc-1',
+              toolName: 'lookup_user',
+              args: { id: 5 },
+            }),
+          },
+        ])
+      }
+      if (u === '/admin/support-agent/reconnect') return new Response('{}', { status: 200 })
+      return sse([{ type: 'complete', data: JSON.stringify({}) }])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Suche')
+    await new Promise((r) => setTimeout(r, 60))
+
+    let approval = document.getElementById('support-agent-approval') as HTMLFormElement | null
+    assert.ok(approval, 'the suspension should render the approval form')
+    assert.equal(approval!.tagName, 'FORM', 'the approval control must be a real form')
+    assert.equal(approval!.getAttribute('method'), 'post')
+    assert.equal(approval!.getAttribute('action'), '/admin/support-agent/tool-decision')
+    assert.equal(
+      (approval!.querySelector('input[name="runId"]') as HTMLInputElement).value,
+      'r-approval',
+      'the form must carry the suspended run id',
+    )
+
+    let approveBtn = approval!.querySelector('.approve-btn') as HTMLButtonElement
+    approval!.dispatchEvent(
+      new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: approveBtn }),
+    )
+    await new Promise((r) => setTimeout(r, 60))
+
+    let call = calls.find((c) => c.url === '/admin/support-agent/tool-decision')
+    assert.ok(call, 'the upgraded form should POST to tool-decision')
+    assert.equal(call!.headers['x-sse-request'], '1', 'the stream transport keeps its header')
+    let body = call!.body as FormData
+    assert.equal(body.get('runId'), 'r-approval', 'the body carries the run id')
+    assert.equal(body.get('decision'), 'approve', 'the body carries the submitter decision')
+    assert.equal(body.get('_csrf'), null, 'the native token is not sent over the SSE transport')
+    assert.equal(
+      document.getElementById('support-agent-approval'),
+      null,
+      'the form is removed once submitted',
+    )
+
+    meta.remove()
+    window.fetch = originalFetch
+  })
+
+  it('upgrades the native question form to an SSE /answer POST', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let meta = document.createElement('meta')
+    meta.name = 'csrf-token'
+    meta.content = 'test-token'
+    document.head.appendChild(meta)
+
+    let calls: Array<{ url: string; headers: Record<string, string>; body: unknown }> = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      let u = String(url)
+      calls.push({
+        url: u,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        body: init?.body,
+      })
+      if (u === '/admin/support-agent') {
+        return sse([
+          { type: 'start', data: JSON.stringify({ runId: 'r-question', threadId: 't-question' }) },
+          {
+            type: 'question',
+            data: JSON.stringify({
+              runId: 'r-question',
+              toolCallId: 'tc-q',
+              question: 'Welcher Benutzer?',
+              options: [{ label: 'Alice' }, { label: 'Bob' }],
+              selectionMode: 'single_select',
+            }),
+          },
+        ])
+      }
+      if (u === '/admin/support-agent/reconnect') return new Response('{}', { status: 200 })
+      return sse([{ type: 'complete', data: JSON.stringify({}) }])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Suche')
+    await new Promise((r) => setTimeout(r, 60))
+
+    let question = document.getElementById('support-agent-question') as HTMLFormElement | null
+    assert.ok(question, 'the question event should render the question form')
+    assert.equal(question!.tagName, 'FORM', 'the question control must be a real form')
+    assert.equal(question!.getAttribute('action'), '/admin/support-agent/answer')
+    assert.ok(
+      question!.querySelector('input[name="answer"][value="Alice"]'),
+      'the options must be real named answer controls',
+    )
+
+    let answerBtn = question!.querySelector('.q-answer-btn') as HTMLButtonElement
+    question!.dispatchEvent(
+      new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: answerBtn }),
+    )
+    await new Promise((r) => setTimeout(r, 60))
+
+    let call = calls.find((c) => c.url === '/admin/support-agent/answer')
+    assert.ok(call, 'the upgraded form should POST to /answer')
+    assert.equal(call!.headers['x-sse-request'], '1', 'the stream transport keeps its header')
+    let body = call!.body as FormData
+    assert.equal(body.get('runId'), 'r-question', 'the body carries the run id')
+    assert.equal(body.get('answer'), 'Alice', 'the body carries the selected option')
+    assert.equal(body.get('_csrf'), null, 'the native token is not sent over the SSE transport')
+    assert.equal(
+      document.getElementById('support-agent-question'),
+      null,
+      'the form is removed once submitted',
+    )
+
+    meta.remove()
     window.fetch = originalFetch
   })
 

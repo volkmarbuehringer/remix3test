@@ -8,6 +8,7 @@ import {
   createAuthCookieWithCsrf,
   createAuthCookieWithCsrfForUser,
   createTestUser,
+  extractCookie,
 } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import {
@@ -21,6 +22,7 @@ import {
   upsertPendingGate,
   markGateSuspended,
   resolvePendingGate,
+  clearPendingGate,
 } from './run-store.ts'
 import { mastra } from '../mastra/index.ts'
 import { deleteChatThread, listChatThreads } from '../../utils/mastra-memory.ts'
@@ -1448,6 +1450,239 @@ describe('support-agent durable resume', () => {
     let old = await resolvePendingGate(admin.id, runId)
     assert.equal(old, null, 'the original run id should be superseded')
     __setTestAgent(undefined)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Native (no-JS) support-agent gates
+//
+// The approval and ask_user gates get the same treatment as /chat: the index
+// renders a real form, and the action drains the SSE resume and answers with a
+// 303 + flash when X-Sse-Request is absent.
+// ---------------------------------------------------------------------------
+
+describe('support-agent native gate forms', () => {
+  let admin: { id: number; cookie: string; csrfToken: string }
+
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  beforeEach(async () => {
+    __setRunStatusResolver(undefined)
+    let email = `support-native-${Date.now()}-${Math.random()}@example.com`
+    let res = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, 'SupportNative', 'admin', 1, 1, $3) RETURNING id`,
+      [email, 'hashed-password-for-testing', Date.now()],
+    )
+    let id = res.rows[0].id as number
+    let session = await createAuthCookieWithCsrfForUser(email)
+    admin = { id, cookie: session?.cookie ?? '', csrfToken: session?.csrfToken ?? '' }
+    chatRateLimiter.reset(id)
+  })
+
+  afterEach(async () => {
+    await pool.query('DELETE FROM users WHERE id = $1', [admin.id])
+    __setTestAgent(undefined)
+    __setRunStatusResolver(undefined)
+  })
+
+  it('POST /tool-decision without X-Sse-Request drains the decision and 303s with a success flash', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-native',
+      toolName: 'lookup_user',
+      args: { id: 5 },
+    })
+    __setTestAgent({
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    })
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: new URLSearchParams({ _csrf: admin.csrfToken, runId, decision: 'approve' }),
+    })
+
+    assert.equal(response.status, 303, 'native decision must redirect')
+    assert.equal(response.headers.get('Location'), routes.admin.supportAgent.index.href())
+
+    let cookie = extractCookie(response) || admin.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, {
+      headers: { Cookie: cookie, 'X-Remix-Target': 'admin-content' },
+    })
+    let html = await page.text()
+    assert.ok(html.includes('Aktion genehmigt.'), 'success flash should render after the redirect')
+  })
+
+  it('POST /tool-decision without a CSRF token is rejected on the native path', async () => {
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: new URLSearchParams({ runId: 'x', decision: 'approve' }),
+    })
+    assert.equal(response.status, 403, 'a token-less agent-path form post must not pass')
+  })
+
+  it('POST /answer native multi_select combines repeated answer fields into a JSON array', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'question',
+      toolCallId: 'call-q',
+      suspendPayload: {
+        question: 'Which?',
+        options: [{ label: 'Email' }, { label: 'SMS' }],
+        selectionMode: 'multi_select',
+      },
+    })
+
+    let seenData: unknown
+    __setTestAgent({
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async (data: unknown) => {
+        seenData = data
+        return createMockStreamOutput('Fortsetzung.')
+      },
+    })
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: new URLSearchParams([
+        ['_csrf', admin.csrfToken],
+        ['runId', runId],
+        ['selectionMode', 'multi_select'],
+        ['answer', 'Email'],
+        ['answer', 'SMS'],
+      ]),
+    })
+
+    assert.equal(response.status, 303, 'native answer must redirect')
+    assert.deepEqual(seenData, ['Email', 'SMS'], 'repeated answer fields become a JSON array')
+  })
+
+  it('POST /answer without X-Sse-Request drains the answer and 303s with a success flash', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'question',
+      toolCallId: 'call-q2',
+      suspendPayload: { question: 'Which?', selectionMode: 'single_select' },
+    })
+    __setTestAgent({
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput('Fortsetzung.'),
+    })
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: new URLSearchParams({
+        _csrf: admin.csrfToken,
+        runId,
+        answer: 'ja',
+        selectionMode: 'single_select',
+      }),
+    })
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), routes.admin.supportAgent.index.href())
+
+    let cookie = extractCookie(response) || admin.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, {
+      headers: { Cookie: cookie, 'X-Remix-Target': 'admin-content' },
+    })
+    let html = await page.text()
+    assert.ok(html.includes('Antwort gesendet.'), 'success flash should render after the redirect')
+  })
+
+  it('GET /admin/support-agent renders a native approval form for a suspended tool decision', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-native-view',
+      toolName: 'lookup_user',
+      args: { id: 5 },
+    })
+    try {
+      let response = await router.fetch(CHAT_INDEX_URL, {
+        headers: { Cookie: admin.cookie, 'X-Remix-Target': 'admin-content' },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('id="support-agent-approval"'),
+        'server should render the approval form',
+      )
+      assert.ok(
+        html.includes('action="/admin/support-agent/tool-decision"'),
+        'form should post to the decision route',
+      )
+      assert.ok(html.includes(`value="${runId}"`), 'form should carry the suspended run id')
+      assert.ok(html.includes('name="decision"'), 'form should submit a decision')
+      assert.ok(html.includes('name="_csrf"'), 'native form must carry a CSRF token')
+      assert.ok(html.includes('lookup_user'), 'form should name the pending tool')
+    } finally {
+      await clearPendingGate(admin.id, runId)
+    }
+  })
+
+  it('GET /admin/support-agent renders a native question form for a suspended ask_user gate', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'question',
+      toolCallId: 'call-q-view',
+      suspendPayload: {
+        question: 'Welcher Benutzer?',
+        options: [{ label: 'Alice', description: 'alice@example.com' }, { label: 'Bob' }],
+        selectionMode: 'single_select',
+      },
+    })
+    try {
+      let response = await router.fetch(CHAT_INDEX_URL, {
+        headers: { Cookie: admin.cookie, 'X-Remix-Target': 'admin-content' },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('id="support-agent-question"'),
+        'server should render the question form',
+      )
+      assert.ok(
+        html.includes('action="/admin/support-agent/answer"'),
+        'form should post to the answer route',
+      )
+      assert.ok(html.includes(`value="${runId}"`), 'form should carry the suspended run id')
+      assert.ok(html.includes('name="answer"'), 'form should submit an answer')
+      assert.ok(html.includes('name="selectionMode"'), 'form should carry the selection mode')
+      assert.ok(html.includes('name="_csrf"'), 'native form must carry a CSRF token')
+      assert.ok(html.includes('Welcher Benutzer?'), 'form should show the question')
+      assert.ok(html.includes('Alice'), 'form should render the options')
+      assert.ok(html.includes(' checked'), 'the first option should be preselected without JS')
+    } finally {
+      await clearPendingGate(admin.id, runId)
+    }
   })
 })
 

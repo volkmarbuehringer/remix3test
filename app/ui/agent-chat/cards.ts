@@ -22,9 +22,10 @@ type SupportApprovalCardOptions = {
   variant: 'support'
   /** The agent bubble the card is appended to. */
   mount: HTMLElement
+  runId: string
+  toolCallId?: string | undefined
+  threadId?: string | undefined
   toolName?: string | undefined
-  onApprove: () => void
-  onDecline: () => void
 }
 
 type WorkflowConfirmGateOptions = {
@@ -129,22 +130,52 @@ function customerApprovalCard(options: CustomerApprovalCardOptions): HTMLElement
   return form
 }
 
-/** Builds the support-agent tool-approval block inside an agent bubble. */
+/**
+ * Builds the support-agent tool-approval form inside an agent bubble.
+ *
+ * A native form method="post" (not a pair of click-handled buttons) so the
+ * decision still reaches the server without JavaScript; the stream client
+ * intercepts submit and upgrades it to the SSE transport. Keep the field names,
+ * ids and classes in sync with SupportApprovalForm (the server-rendered gate).
+ */
 function supportApprovalCard(options: SupportApprovalCardOptions): HTMLElement {
   let { mount } = options
+  let form = document.createElement('form')
+  form.id = 'support-agent-approval'
+  form.className = 'support-agent-decision-form'
+  form.method = 'post'
+  form.action = '/admin/support-agent/tool-decision'
+  form.dataset.runId = options.runId
+  form.style.cssText =
+    'padding:0.75rem;border:2px solid ' +
+    theme.colors.action.danger.border +
+    ';border-radius:12px;background:' +
+    theme.surface.lvl0 +
+    ';align-self:flex-start;width:100%;'
+
+  let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  if (token) form.appendChild(hiddenInput('_csrf', token))
+  form.appendChild(hiddenInput('runId', options.runId))
+  if (options.toolCallId) form.appendChild(hiddenInput('toolCallId', options.toolCallId))
+  if (options.threadId) form.appendChild(hiddenInput('threadId', options.threadId))
+
   let warning = document.createElement('div')
   warning.textContent = 'Tool erfordert Bestätigung: ' + (options.toolName || 'unbekannt')
   warning.style.fontWeight = '600'
   warning.style.marginBottom = '8px'
   warning.style.fontSize = '0.875rem'
-  mount.appendChild(warning)
+  warning.style.color = theme.colors.action.danger.background
+  form.appendChild(warning)
 
   let actions = document.createElement('div')
   actions.style.display = 'flex'
   actions.style.gap = '8px'
 
   let approveBtn = document.createElement('button')
-  approveBtn.type = 'button'
+  approveBtn.type = 'submit'
+  approveBtn.name = 'decision'
+  approveBtn.value = 'approve'
+  approveBtn.className = 'approve-btn'
   approveBtn.textContent = '✔ Zulassen'
   approveBtn.style.padding = '4px 14px'
   approveBtn.style.border = 'none'
@@ -153,11 +184,13 @@ function supportApprovalCard(options: SupportApprovalCardOptions): HTMLElement {
   approveBtn.style.background = theme.colors.action.primary.background
   approveBtn.style.color = theme.colors.action.primary.foreground
   approveBtn.style.fontSize = '0.8125rem'
-  approveBtn.onclick = () => options.onApprove()
   actions.appendChild(approveBtn)
 
   let declineBtn = document.createElement('button')
-  declineBtn.type = 'button'
+  declineBtn.type = 'submit'
+  declineBtn.name = 'decision'
+  declineBtn.value = 'decline'
+  declineBtn.className = 'decline-btn'
   declineBtn.textContent = '✖ Ablehnen'
   declineBtn.style.padding = '4px 14px'
   declineBtn.style.border = '1px solid ' + theme.colors.border.default
@@ -166,10 +199,10 @@ function supportApprovalCard(options: SupportApprovalCardOptions): HTMLElement {
   declineBtn.style.background = theme.surface.lvl1
   declineBtn.style.color = theme.colors.text.primary
   declineBtn.style.fontSize = '0.8125rem'
-  declineBtn.onclick = () => options.onDecline()
   actions.appendChild(declineBtn)
 
-  mount.appendChild(actions)
+  form.appendChild(actions)
+  mount.appendChild(form)
   return mount
 }
 
@@ -293,11 +326,12 @@ type SupportQuestionCardOptions = {
   variant: 'support'
   /** The agent bubble the question is appended to. */
   mount: HTMLElement
+  runId: string
+  toolCallId?: string | undefined
+  threadId?: string | undefined
   question: string
   options?: { label: string; description?: string }[] | null | undefined
   selectionMode: string
-  onAnswer: (answer: string) => void
-  onError?: (error: unknown) => void
 }
 
 type AgentQuestionCardOptions = CustomerQuestionCardOptions | SupportQuestionCardOptions
@@ -383,70 +417,78 @@ function customerQuestionCard(options: CustomerQuestionCardOptions): HTMLElement
   return form
 }
 
+/**
+ * Builds the support-agent ask_user question form inside an agent bubble.
+ *
+ * A native form method="post" (not a click-handled fieldset) so the answer
+ * still reaches the server without JavaScript; the stream client intercepts
+ * submit and upgrades it to the SSE transport. A multi_select posts the answer
+ * field repeatedly. Keep the field names, ids and classes in sync with
+ * SupportQuestionForm (the server-rendered gate).
+ */
 function supportQuestionCard(options: SupportQuestionCardOptions): HTMLElement {
   let { mount } = options
-  try {
-    if (!options.options || options.options.length === 0) {
-      let fieldset = document.createElement('fieldset')
-      fieldset.style.cssText =
-        'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;'
-      let legend = document.createElement('legend')
-      legend.textContent = options.question
-      legend.style.cssText = 'font-weight:600;margin-bottom:4px;font-size:0.875rem;'
-      fieldset.appendChild(legend)
+  let form = document.createElement('form')
+  form.id = 'support-agent-question'
+  form.className = 'support-agent-question-form'
+  form.method = 'post'
+  form.action = '/admin/support-agent/answer'
+  form.dataset.runId = options.runId
+  form.style.cssText =
+    'padding:0.75rem;border:2px solid ' +
+    theme.colors.warning.border +
+    ';border-radius:12px;background:' +
+    theme.surface.lvl0 +
+    ';align-self:flex-start;width:100%;margin-top:0.5rem;'
 
-      let input = document.createElement('input')
-      input.type = 'text'
-      input.placeholder = 'Antwort...'
-      input.setAttribute('aria-label', options.question)
-      input.style.cssText =
-        `padding:6px 10px;border:1px solid ${theme.colors.border.default};` +
-        `border-radius:4px;font-size:0.8125rem;width:100%;box-sizing:border-box;` +
-        `background:${theme.surface.lvl0};color:${theme.colors.text.primary};`
-      fieldset.appendChild(input)
+  let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  if (token) form.appendChild(hiddenInput('_csrf', token))
+  form.appendChild(hiddenInput('runId', options.runId))
+  if (options.toolCallId) form.appendChild(hiddenInput('toolCallId', options.toolCallId))
+  if (options.threadId) form.appendChild(hiddenInput('threadId', options.threadId))
+  form.appendChild(hiddenInput('selectionMode', options.selectionMode))
 
-      let btn = document.createElement('button')
-      btn.type = 'button'
-      btn.textContent = 'Antworten'
-      btn.style.cssText =
-        `padding:4px 14px;border:1px solid ${theme.colors.border.default};` +
-        `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
-        `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
-      let submit = () => {
-        let answer = input.value.trim()
-        if (answer) options.onAnswer(answer)
-      }
-      btn.onclick = submit
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') submit()
-      })
-      fieldset.appendChild(btn)
-      mount.appendChild(fieldset)
-      return mount
-    }
+  let title = document.createElement('div')
+  title.textContent = options.question
+  title.style.fontWeight = '600'
+  title.style.marginBottom = '0.75rem'
+  title.style.fontSize = '0.875rem'
+  title.style.color = theme.colors.warning.foreground
+  form.appendChild(title)
 
-    let isMulti = options.selectionMode === 'multi_select'
-    let inputType = isMulti ? 'checkbox' : 'radio'
-    let MAX_OPTIONS = 50
-    let optionList = options.options.slice(0, MAX_OPTIONS)
+  let isMulti = options.selectionMode === 'multi_select'
+  let optionList = (options.options ?? []).slice(0, 50)
 
-    let fieldset = document.createElement('fieldset')
-    fieldset.style.cssText =
-      'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;'
-    let legend = document.createElement('legend')
-    legend.textContent = options.question
-    legend.style.cssText = 'font-weight:600;margin-bottom:6px;font-size:0.875rem;'
-    fieldset.appendChild(legend)
-
-    for (let opt of optionList) {
+  if (optionList.length === 0) {
+    let input = document.createElement('input')
+    input.id = 'q-free-text'
+    input.name = 'answer'
+    input.type = 'text'
+    input.placeholder = 'Antwort eingeben...'
+    input.style.cssText =
+      'width:100%;padding:6px 10px;border:1px solid ' +
+      theme.colors.border.default +
+      ';border-radius:4px;font-size:0.8125rem;box-sizing:border-box;background:' +
+      theme.surface.lvl0 +
+      ';color:' +
+      theme.colors.text.primary +
+      ';'
+    form.appendChild(input)
+  } else {
+    let list = document.createElement('div')
+    list.id = 'q-options'
+    optionList.forEach((opt, index) => {
       let label = document.createElement('label')
       label.style.cssText =
         'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8125rem;padding:2px 0;'
 
       let input = document.createElement('input')
-      input.type = inputType
-      input.name = 'q-option'
+      input.type = isMulti ? 'checkbox' : 'radio'
+      input.className = 'q-option'
+      // A real named control so a no-JS submit carries the answer (guide 09).
+      input.name = 'answer'
       input.value = opt.label
+      if (!isMulti && index === 0) input.checked = true
 
       let span = document.createElement('span')
       span.textContent = opt.label
@@ -457,39 +499,32 @@ function supportQuestionCard(options: SupportQuestionCardOptions): HTMLElement {
       if (opt.description) {
         let desc = document.createElement('span')
         desc.textContent = '— ' + opt.description
-        desc.style.cssText = `color:${theme.colors.text.muted};font-size:0.75rem;`
+        desc.style.cssText = 'color:' + theme.colors.text.muted + ';font-size:0.75rem;'
         label.appendChild(desc)
       }
 
-      fieldset.appendChild(label)
-    }
-
-    let btn = document.createElement('button')
-    btn.type = 'button'
-    btn.textContent = 'Bestätigen'
-    btn.style.cssText =
-      `padding:4px 14px;margin-top:6px;border:1px solid ${theme.colors.border.default};` +
-      `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
-      `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
-    btn.onclick = () => {
-      let checked = fieldset.querySelectorAll(
-        'input[name="q-option"]:checked',
-      ) as NodeListOf<HTMLInputElement>
-      if (checked.length === 0) return
-
-      let selected = [...checked].map((el) => el.value)
-      let answer = isMulti ? JSON.stringify(selected) : selected[0]!
-
-      mount.textContent = ''
-      options.onAnswer(answer)
-    }
-    fieldset.appendChild(btn)
-    mount.appendChild(fieldset)
-    return mount
-  } catch (err) {
-    options.onError?.(err)
-    return mount
+      list.appendChild(label)
+    })
+    form.appendChild(list)
   }
+
+  let actions = document.createElement('div')
+  actions.style.marginTop = '0.75rem'
+  let btn = document.createElement('button')
+  btn.type = 'submit'
+  btn.className = 'q-answer-btn'
+  btn.textContent = 'Antworten'
+  btn.style.cssText =
+    'padding:4px 14px;border:none;border-radius:4px;cursor:pointer;background:' +
+    theme.colors.action.primary.background +
+    ';color:' +
+    theme.colors.action.primary.foreground +
+    ';font-size:0.8125rem'
+  actions.appendChild(btn)
+  form.appendChild(actions)
+
+  mount.appendChild(form)
+  return mount
 }
 
 /** Renders an agent clarification question. */

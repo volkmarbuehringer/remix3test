@@ -6,7 +6,8 @@
 buttons and `fetch()`ed `/chat/approve` with `X-Sse-Request: 1`. Vendor guide 09
 (`node_modules/remix/guides/09-forms-and-mutations.md`) requires the form to submit
 before JS enhances it. The `ask_user` question gate (`/chat/answer`) was later
-given the same treatment — see §5.
+given the same treatment — see §5 — and the admin `/admin/support-agent` gates
+follow in §6.
 
 ## Problem
 
@@ -128,12 +129,37 @@ The question gate is the same shape — one form instead of two buttons:
 - Reuse `tryGetCsrfToken()` (`app/ui/csrf-token-input.tsx`) instead of a private
   copy; the token is only needed on the native transport.
 
+### 6. The support-agent gates (same pattern, one decision route)
+
+The admin `/admin/support-agent` surface mirrors the customer treatment:
+
+- `GET` renders `SupportApprovalForm` / `SupportQuestionForm`
+  (`app/ui/agent-chat/support-approval-form.tsx`,
+  `support-question-form.tsx`) when the durable gate row is
+  `status = 'suspended'`. The support store has no `suspendedOnly` filter
+  (unlike `chatGateStore`), so the index checks the status itself.
+- The approval route is a single `tool-decision` action, not per-button
+  `formaction`: both buttons share the form action and submit
+  `decision=approve|decline`, and the controller validates that field.
+- `toolDecision` and `answer` accept the native transport. A rate limit or an
+  invalid decision flashes + `303`s instead of painting raw SSE (the SSE
+  transport still gets its `agent-error` frame).
+- The streamed cards (`supportApprovalCard` / `supportQuestionCard` in
+  `cards.ts`) are the same forms. `support-agent-stream.tsx` intercepts
+  `submit` on `#chat-messages` — the panel frame's `handleFrameFormSubmit`
+  listener does not see the chat area — drops `_csrf`, and reuses the stream.
+- Shared helpers live in `app/utils/agent-chat.ts`: `isSseRequest`,
+  `completeDecisionForm(context, run, { success, error, redirectTo })` (the
+  redirect target is now a parameter so both surfaces share it), and
+  `normalizeAnswerFields(formData)`.
+
 ## Scope
 
 Only the gates are no-JS: the message composer still returns SSE, so sending a
-turn still needs JS, and the support-agent gates have no native form. Any future
-native branch must preserve the route's field names (`runId`/`toolCallId`, and
-`selectionMode`/`answer` for the question gate).
+turn still needs JS. Both surfaces are covered — the customer `/chat` gates and
+the admin `/admin/support-agent` gates. Any future native branch must preserve
+the route's field names (`runId`/`toolCallId`, and `selectionMode`/`answer` for
+the question gate).
 
 ## Tests
 
@@ -146,6 +172,11 @@ native branch must preserve the route's field names (`runId`/`toolCallId`, and
 - Question gate: native `POST /chat/answer` → `303` + flash, a `multi_select` body
   of repeated `answer` fields arrives as an array, and `GET /chat` renders
   `id="chat-question"` with `name="answer"`/`name="selectionMode"`.
+- Support gates (`app/actions/support-agent/controller.test.ts`): the same native
+  `303` + flash for `POST /tool-decision` and `POST /answer`, repeated `answer`
+  fields become a JSON array, and `GET /admin/support-agent` (frame target
+  `admin-content`) renders `id="support-agent-approval"` /
+  `id="support-agent-question"`.
 
 ## When to Use
 
