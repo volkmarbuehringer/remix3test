@@ -106,15 +106,20 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     activeItem: ID
     /** Per-render full-height override; falls back to `fullHeightTargets`. */
     fullHeight?: boolean | undefined
+    /** Opt the self-relay frame out of streaming so its content renders inline. */
+    blockingFrame?: boolean | undefined
     children?: RemixNode
   }
 
   /** `ResponseInit` plus app-only render options that must not reach the response. */
-  type RenderInit = ResponseInit & { fullHeight?: boolean | undefined }
+  type RenderInit = ResponseInit & {
+    fullHeight?: boolean | undefined
+    blockingFrame?: boolean | undefined
+  }
 
   function ShellOrFragment(handle: Handle<PageProps>) {
     return () => {
-      let { activeItem, fullHeight, children } = handle.props
+      let { activeItem, fullHeight, blockingFrame, children } = handle.props
       let target = currentFrameTarget()
       if (target != null && contentOnlyTargetSet.has(target)) {
         return children
@@ -135,7 +140,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
           </Layout>
         )
       }
-      return <FrameShell name={frameTarget} />
+      return <FrameShell name={frameTarget} blocking={blockingFrame} />
     }
   }
 
@@ -235,9 +240,13 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     content: RemixNode,
     init?: RenderInit,
   ) {
-    let { fullHeight, ...responseInit } = init ?? {}
+    let { fullHeight, blockingFrame, ...responseInit } = init ?? {}
     return render(
-      <ShellOrFragment activeItem={activeItem} fullHeight={fullHeight}>
+      <ShellOrFragment
+        activeItem={activeItem}
+        fullHeight={fullHeight}
+        blockingFrame={blockingFrame}
+      >
         {content}
       </ShellOrFragment>,
       responseInit,

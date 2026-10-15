@@ -4,8 +4,9 @@ import { theme } from '../ui/theme/theme.ts'
 import { Layout } from './layout.tsx'
 
 /**
- * Slot content for the shell's self-relay frame. Without a fallback the frame
- * is blocking: a non-HTML frame response would fail the whole page render.
+ * Slot content for the shell's self-relay frame. It makes the frame
+ * non-blocking: the fallback streams first and the resolved content follows in
+ * a `<template>` that only the client runtime swaps in.
  */
 const frameFallbackStyle = css({
   padding: '1.5rem',
@@ -25,14 +26,22 @@ const frameFallbackStyle = css({
  * Callers must only render this on the full-document GET path; frame requests
  * must return the fragment directly and non-GET responses must render inline
  * (POST validation state is lost to the frame's separate GET).
+ *
+ * `blocking` drops the fallback: the frame awaits its content and renders it
+ * inline, so a JavaScript-disabled browser sees the page (no `<template>` swap
+ * and no client runtime). A blocking frame must render HTML on every response,
+ * including error paths, or the whole outer page render fails — only opt in for
+ * a page whose frame GET is guaranteed to answer HTML.
  */
-export function FrameShell(handle: Handle<{ name: string }>) {
+export function FrameShell(handle: Handle<{ name: string; blocking?: boolean | undefined }>) {
   return () => (
     <Layout>
       <Frame
         name={handle.props.name}
         src={getContext().request.url}
-        fallback={<div mix={frameFallbackStyle}>Inhalt wird geladen…</div>}
+        {...(handle.props.blocking
+          ? {}
+          : { fallback: <div mix={frameFallbackStyle}>Inhalt wird geladen…</div> })}
       />
     </Layout>
   )

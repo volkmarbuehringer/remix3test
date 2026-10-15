@@ -160,19 +160,23 @@ The admin `/admin/support-agent` surface mirrors the customer treatment:
   `completeDecisionForm(context, run, { success, error, redirectTo })` (the
   redirect target is now a parameter so both surfaces share it), and
   `normalizeAnswerFields(formData)`.
-- Caveat, verified by `app/actions/support-agent/no-js-gate.test.e2e.ts`: the
-  admin shell delivers page content through the **non-blocking** self-relay frame
-  in `app/ui/frame-shell.tsx`. A full-document GET ships the fallback
+- The admin shell's self-relay frame (`app/ui/frame-shell.tsx`) is
+  **non-blocking by default**: a full-document GET ships the fallback
   ("Inhalt wird geladen…") inline and the resolved fragment in a `<template>`
-  that only the client runtime swaps in, so a genuinely JS-disabled browser never
-  reaches the admin form (the whole admin app needs the client runtime). The
-  native form is still reachable over the no-JS *transport* — the frame fragment
-  renders it, a form-encoded POST without `X-Sse-Request` answers `303`, and
-  the follow-up GET renders the flash — which the e2e proves over the real
-  server. Reaching the form from a JS-disabled browser needs a **blocking**
-  self-relay frame (the README's "without `fallback`" mode), a structural shell
-  change rather than a gate change. `/chat` has no such frame, so its gate is
-  driven by a real `javaScriptEnabled: false` Playwright context.
+  the client runtime swaps in. `FrameShell` takes a `blocking` prop that drops
+  the fallback (the vendor README's "without `fallback`" mode), and
+  `createSidebarLayout` threads a per-render `blockingFrame` option to it:
+  `renderPage(render, activeItem, content, { blockingFrame: true })`. The
+  support-agent index opts in, so its full-document GET inlines the frame
+  content — including the native gate form — and a JS-disabled browser reaches
+  it. Keep the opt-in scoped: a blocking frame must render HTML on every
+  response (AGENTS.md frame invariant), so only opt in for a self-relay page
+  whose frame GET always answers HTML. The lists shell shares `FrameShell` and
+  stays non-blocking. The non-blocking native form is still reachable over the
+  no-JS *transport* (fragment renders it, a form-encoded POST without
+  `X-Sse-Request` answers `303`, the follow-up GET renders the flash).
+  `/chat` has no self-relay frame, so its gate was already JS-disabled
+  reachable.
 
 ## Scope
 
@@ -198,17 +202,20 @@ the question gate).
   fields become a JSON array, and `GET /admin/support-agent` (frame target
   `admin-content`) renders `id="support-agent-approval"` /
   `id="support-agent-question"`.
-- E2E (`app/actions/support-agent/no-js-gate.test.e2e.ts`): drives `/chat` in a
-  Playwright context with `javaScriptEnabled: false` — the server-rendered form
-  is clicked, the POST answers `303`, and the flash renders after the redirect;
-  the admin gate is driven over the native HTTP transport (frame fragment must
-  render the form, then a form POST with the rendered `_csrf` + follow-up GET)
-  because the non-blocking frame needs JS to appear. Post the fragment's
-  rendered `_csrf` value: the e2e's first cut posted the token returned by
-  `createAuthCookieWithCsrfForUser` and got a 403, while the rendered token
-  reached the 303. (The server tests' `router.fetch` POSTs do accept the helper
-  token, so the discrepancy is specific to the real-HTTP/Playwright request
-  path; parse the rendered token rather than assume they match.)
+- E2E (`app/actions/support-agent/no-js-gate.test.e2e.ts`): drives **both**
+  `/chat` and `/admin/support-agent` in a Playwright context with
+  `javaScriptEnabled: false` — the server-rendered form is clicked, the POST
+  answers `303`, and the flash renders after the redirect. The admin page needs
+  the blocking-shell opt-in (above) for its form to reach the JS-disabled DOM.
+  Regression guard: `app/actions/support-agent/controller.test.ts` asserts the
+  full-document (no `X-Remix-Target`) admin GET inlines
+  `#support-agent-approval` and does not ship "Inhalt wird geladen…". If you
+  ever post a token by hand, use the rendered `_csrf` value: an earlier cut
+  posted the token returned by `createAuthCookieWithCsrfForUser` and got a 403,
+  while the rendered token reached the 303. (The server tests' `router.fetch`
+  POSTs do accept the helper token, so the discrepancy is specific to the
+  real-HTTP/Playwright request path; parse the rendered token rather than assume
+  they match.)
 
 ## When to Use
 

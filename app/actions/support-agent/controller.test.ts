@@ -1645,6 +1645,40 @@ describe('support-agent native gate forms', () => {
     }
   })
 
+  it('GET /admin/support-agent inlines the native approval form on the blocking full-document shell', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-blocking-shell',
+      toolName: 'lookup_user',
+      args: { id: 5 },
+    })
+    try {
+      // No X-Remix-Target: this is the full-document shell GET. The support-agent
+      // page opts its self-relay frame into blocking mode, so the frame content —
+      // including the gate form — is inlined for a JavaScript-disabled browser
+      // instead of trailing in a client-swapped <template>.
+      let response = await router.fetch(CHAT_INDEX_URL, {
+        headers: { Cookie: admin.cookie },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('id="support-agent-approval"'),
+        'blocking shell must inline the approval form in the full document',
+      )
+      assert.ok(
+        !html.includes('Inhalt wird geladen…'),
+        'the blocking shell must not ship the non-blocking loading fallback',
+      )
+    } finally {
+      await clearPendingGate(admin.id, runId)
+    }
+  })
+
   it('GET /admin/support-agent renders a native question form for a suspended ask_user gate', async () => {
     let runId = crypto.randomUUID()
     await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })

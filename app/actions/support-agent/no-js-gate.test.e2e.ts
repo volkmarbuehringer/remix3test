@@ -7,7 +7,7 @@ import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
-import { routes, frames } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AgentStreamOutput, TestAgent } from '../mastra/shared-agent.ts'
 
 import {
@@ -36,17 +36,12 @@ import {
 // page whose server-rendered flash proves the round trip. The first test drives
 // that with the browser's JavaScript actually disabled.
 //
-// The admin /admin/support-agent gate is the same native form, but the admin
-// shell delivers its page content through a *non-blocking* self-relay frame
-// (app/ui/frame-shell.tsx): the full document carries the fallback plus a
-// <template> with the real content, and only the client runtime swaps the
-// template in. A JS-disabled browser therefore never reaches the form (it sees
-// "Inhalt wird geladen…"), so the second test proves the same no-JS*transport*
-// over HTTP: the frame fragment renders the form, a form-encoded POST without
-// the X-Sse-Request header answers 303, and the follow-up GET renders the
-// flash. Making the admin gate reachable from a JS-disabled browser would
-// require making the shell's self-relay frame blocking — a structural change
-// tracked separately, not a gate bug.
+// The admin /admin/support-agent gate is the same native form. Its shell renders
+// the self-relay frame blocking (app/ui/frame-shell.tsx `blocking`, opted in by
+// the support-agent controller): the frame content is awaited and inlined rather
+// than shipped as a client-swapped <template>, so a JS-disabled browser reaches
+// the form too. The second test drives the admin gate in a real
+// javaScriptEnabled:false context exactly like /chat.
 // ---------------------------------------------------------------------------
 
 function createMockStreamOutput(text: string): AgentStreamOutput {
@@ -191,7 +186,7 @@ describe('no-JS agent gate forms', () => {
     }
   })
 
-  it('submits the support-agent approval gate over the native no-JS transport', async (t) => {
+  it('submits the suspended /admin/support-agent approval gate without JS and shows the 303 flash', async (t) => {
     let admin = await createUser('admin')
     let runId = crypto.randomUUID()
     __setSupportTestAgent(makeMockAgent())
@@ -209,52 +204,27 @@ describe('no-JS agent gate forms', () => {
 
     try {
       let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: admin.cookie.slice(8), url: server.baseUrl }])
-      // The request context shares the browser context's cookie jar and runs no
-      // page JavaScript, so it is the native (no-JS) form transport.
-      let request = page.context().request
+      let page = await openNoJsPage(t, server, admin.cookie)
 
-      // The gate lives in the admin-content frame fragment; confirm the fragment
-      // server-renders the native form before posting its fields.
-      let fragment = await request.get(routes.admin.supportAgent.index.href(), {
-        headers: { 'X-Remix-Target': frames.adminContent },
-      })
-      assert.equal(fragment.status(), 200)
-      let fragmentHtml = await fragment.text()
-      assert.ok(
-        fragmentHtml.includes('id="support-agent-approval"'),
-        'the frame fragment must render the native approval form',
-      )
-      assert.ok(
-        fragmentHtml.includes('action="/admin/support-agent/tool-decision"'),
-        'the form must post to the decision route',
-      )
-      // Submit exactly the token the rendered form carries.
-      let token = fragmentHtml.match(/name="_csrf" value="([^"]+)"/)?.[1]
-      assert.ok(token, 'the native form must carry a CSRF token')
+      await page.goto(routes.admin.supportAgent.index.href())
+      let form = page.locator('#support-agent-approval')
+      await form.waitFor({ timeout: 15_000 })
+      // The blocking shell inlines the form (not the loading fallback), with the
+      // CSRF token already present for a JS-disabled native submit.
+      assert.equal(await form.locator('input[name="_csrf"]').count(), 1)
 
-      let response = await request.post(routes.admin.supportAgent.toolDecision.href(), {
-        form: { _csrf: token, runId, decision: 'approve' },
-        maxRedirects: 0,
-      })
-      if (response.status() !== 303) {
-        assert.equal(
-          response.status(),
-          303,
-          'the native decision POST must redirect: ' + (await response.text()),
-        )
-      }
-      assert.equal(response.headers()['location'], routes.admin.supportAgent.index.href())
-
-      let flashed = await request.get(routes.admin.supportAgent.index.href())
-      assert.equal(flashed.status(), 200)
-      assert.ok(
-        (await flashed.text()).includes('Aktion genehmigt.'),
-        'the follow-up GET must render the decision flash',
+      let statuses = await clickCapturingPostStatus(
+        page,
+        routes.admin.supportAgent.toolDecision.href(),
+        () => form.locator('button.approve-btn').click(),
       )
+
+      await page.locator('text=Aktion genehmigt.').waitFor({ timeout: 15_000 })
+      assert.ok(
+        statuses.includes(303),
+        `the native form POST must answer 303; saw ${statuses.join(', ') || 'no POST response'}`,
+      )
+      assert.equal(new URL(page.url()).pathname, routes.admin.supportAgent.index.href())
     } finally {
       __setSupportTestAgent(undefined)
       await pool.query('DELETE FROM users WHERE id = $1', [admin.id])

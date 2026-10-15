@@ -304,6 +304,11 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
             }
           : null
 
+      // The admin gate must be reachable without JavaScript, so this page renders
+      // its self-relay frame blocking: the frame content (including the native
+      // approval/question form) is awaited and inlined instead of shipped as a
+      // client-swapped `<template>`. The full-GET pass runs no gate read; the
+      // blocking frame's own GET is what resolves and renders the gate.
       return renderAdminPage(
         context.render,
         'support',
@@ -314,6 +319,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
           pendingApproval={pendingApproval}
           pendingQuestion={pendingQuestion}
         />,
+        { blockingFrame: true },
       )
     },
 
