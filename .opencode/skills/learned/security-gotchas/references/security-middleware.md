@@ -44,7 +44,7 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 When `csrf()` is installed globally, external callers (webhooks, API integrations) cannot provide a CSRF token, and SSE/agent streams call `fetch()` which cannot embed a form token. The repo wraps `csrf()` in a path-checking conditional — see `app/middleware/skip-csrf.ts`:
 
 - `isExternalPath()` — webhook/API/callback paths bypass CSRF entirely (server-to-server, no browser header possible).
-- `isAgentPath()` — SSE/agent paths bypass CSRF **only for GET** (EventSource is read-only) and require a custom header on non-GET (`X-Sse-Request: 1`). A cross-site `<form>` cannot set custom headers, so this blocks form CSRF while letting `fetch()` streams through.
+- `isAgentPath()` — GET (EventSource is read-only) and non-GET requests carrying `X-Sse-Request: 1` pass through unvalidated; a cross-site `<form>` cannot set that header. Any other non-GET now **falls through to the regular `csrf()` synchronizer-token check** instead of a blanket 403, so a server-rendered form can submit with a hidden `_csrf` input while a cross-site form still fails the token/origin check. See `remix-forms` → `references/native-form-on-sse-decision.md`.
 
 The client sends the header on the streaming POST:
 
