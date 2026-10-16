@@ -82,6 +82,18 @@ only browser tests could reach, and what regresses silently.
   gate-render path early-returns when `getPipelineFrame()` is null) need the
   stub to return a dummy object — parameterize the test helper instead of
   asserting a vacuously-empty recording.
+- A fetch stub for aborted-path controller tests must **honor the passed
+  `init.signal` like a real fetch**: reject with `{ name: 'AbortError' }`
+  when the signal aborts, and check `signal.aborted` *first* for a
+  pre-aborted signal (`addEventListener` on an already-aborted signal never
+  fires). Build the error via a factory that **returns** it —
+  `reject(thrower())` where `thrower` throws crashes the worker as an
+  uncaught dispatch error instead of rejecting the promise.
+- Node-type controller tests have no DOM: `new FormData(form)` throws
+  `FormData constructor: Argument 1 could not be converted` even for a plain
+  object standing in for a form. Stub `globalThis.FormData` with a minimal
+  `class { set(_n, _v) {} }` when only the constructor runs (aborted paths);
+  restore it in `finally`.
 
 ## When to Use
 
@@ -97,4 +109,6 @@ only browser tests could reach, and what regresses silently.
 - `remix3-testing` — browser-side clientEntry test harnesses (the controller
   tests are *server*-type; the component keeps its browser tests unchanged)
 - `typescript-gotchas` — `exactOptionalPropertyTypes`: copied optional props
-  need explicit `| undefined` (TS2379)
+  need explicit `| undefined` (TS2379); normalizing an optional signal for
+  `fetch` needs `?? null`, not `?? undefined` (`RequestInit.signal` accepts
+  `AbortSignal | null` — TS2769)
