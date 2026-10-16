@@ -192,4 +192,39 @@ describe('AgentEventsStreamController', () => {
       globalThis.fetch = originalFetch
     }
   })
+
+  it('reconnect swallows an abort of the given signal', async () => {
+    let state = make()
+    let requests: string[] = []
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(String(url))
+      return new Promise<Response>((_, reject) => {
+        if (init?.signal?.aborted) {
+          reject(new DOMException('The operation was aborted', 'AbortError'))
+          return
+        }
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('The operation was aborted', 'AbortError')),
+        )
+      })
+    }) as typeof fetch
+    try {
+      let probe = new AbortController()
+      let pending = state.controller.reconnect(probe.signal)
+      await new Promise((r) => setTimeout(r, 5))
+      assert.deepEqual(requests, ['/admin/agent-events/reconnect'])
+
+      probe.abort()
+      await pending
+
+      assert.equal(
+        calls(state, 'renderConfirmGate').length,
+        0,
+        'an aborted probe renders no gate',
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })

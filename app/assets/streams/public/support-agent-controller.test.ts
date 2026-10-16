@@ -9,7 +9,10 @@ import {
 
 /** Pure state-machine tests, no DOM: the delegate records every call. */
 describe('SupportAgentStreamController', () => {
-  function make() {
+  function make({
+    signal = new AbortController().signal,
+    panelFrame = null,
+  }: { signal?: AbortSignal; panelFrame?: SupportAgentFrame | null } = {}) {
     let recorded: Array<Record<string, unknown>> = []
     let delegate: SupportAgentUiDelegate = {
       showThinking: () => recorded.push({ op: 'showThinking' }),
@@ -39,19 +42,42 @@ describe('SupportAgentStreamController', () => {
     let framesRequested: Array<string | null> = []
     let getActivePanelFrame = (): SupportAgentFrame | null => {
       framesRequested.push('panel')
-      return null
+      return panelFrame
     }
     let getFrame = (): SupportAgentFrame | null => {
       framesRequested.push('named')
       return null
     }
     let controller = createSupportAgentStreamController(delegate, {
-      signal: new AbortController().signal,
+      signal,
       getActivePanelFrame,
       getFrame,
       reconnectHref: '/admin/support-agent/reconnect',
     })
     return { delegate, controller, framesRequested, calls: recorded }
+  }
+
+  /**
+   * A fetch stub that honors the passed `signal` like a real fetch: rejects
+   * with an `AbortError` when the signal aborts (or is already aborted), and
+   * otherwise stays pending — so a test controls when the request settles.
+   */
+  function abortableFetch(requests: string[]): typeof fetch {
+    let abortError = () => {
+      let err = new Error('The operation was aborted')
+      err.name = 'AbortError'
+      return err
+    }
+    return (async (url: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(String(url))
+      return new Promise<Response>((_, reject) => {
+        if (init?.signal?.aborted) {
+          reject(abortError())
+          return
+        }
+        init?.signal?.addEventListener('abort', () => reject(abortError()))
+      })
+    }) as typeof fetch
   }
 
   function calls(
@@ -139,5 +165,110 @@ describe('SupportAgentStreamController', () => {
       calls(state, 'setFormEnabled').map((c) => c.enabled),
       [true],
     )
+  })
+
+  /**
+   * Node has no HTMLFormElement: `new FormData(fakeForm)` throws, so tests
+   * that drive `frameFormSubmit` stub the constructor. The aborted paths only
+   * construct the FormData — they never mutate it.
+   */
+  function stubFormData(): () => void {
+    let original = globalThis.FormData
+    globalThis.FormData = class {
+      set(_name: string, _value: unknown) {}
+    } as unknown as typeof FormData
+    return () => {
+      globalThis.FormData = original
+    }
+  }
+
+  it('frameFormSubmit aborts with the component signal: marker cleared, no error row, no reload', async () => {
+    let component = new AbortController()
+    let reloaded = 0
+    let state = make({
+      signal: component.signal,
+      panelFrame: {
+        reload: async () => {
+          reloaded++
+        },
+      },
+    })
+    let requests: string[] = []
+    let originalFetch = globalThis.fetch
+    let restoreFormData = stubFormData()
+    globalThis.fetch = abortableFetch(requests)
+    try {
+      let form = { method: 'POST', action: '/admin/support-agent/panel-action' } as HTMLFormElement
+
+      let pending = state.controller.frameFormSubmit(form)
+      await new Promise((r) => setTimeout(r, 5))
+      assert.equal(state.controller.frameFormBusy(), true, 'in-flight marker set while pending')
+      assert.deepEqual(requests, ['/admin/support-agent/panel-action'])
+
+      component.abort()
+      await pending
+
+      assert.equal(state.controller.frameFormBusy(), false, 'in-flight marker cleared after abort')
+      assert.equal(reloaded, 0, 'no panel reload after an aborted submission')
+      assert.deepEqual(
+        calls(state, 'appendStatusMessage').filter((c) => c.isError),
+        [],
+        'an intentional abort is not reported as a failed submission',
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+      restoreFormData()
+    }
+  })
+
+  it('frameFormSubmit with an already-aborted component signal settles without an error row', async () => {
+    let component = new AbortController()
+    component.abort()
+    let state = make({ signal: component.signal })
+    let requests: string[] = []
+    let originalFetch = globalThis.fetch
+    let restoreFormData = stubFormData()
+    globalThis.fetch = abortableFetch(requests)
+    try {
+      let form = { method: 'POST', action: '/admin/support-agent/panel-action' } as HTMLFormElement
+
+      await state.controller.frameFormSubmit(form)
+
+      assert.equal(state.controller.frameFormBusy(), false, 'in-flight marker cleared')
+      assert.deepEqual(
+        calls(state, 'appendStatusMessage').filter((c) => c.isError),
+        [],
+        'no error row when the component was already torn down',
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+      restoreFormData()
+    }
+  })
+
+  it('reconnect aborts with the component signal and renders no gate', async () => {
+    let component = new AbortController()
+    let state = make({ signal: component.signal })
+    let requests: string[] = []
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = abortableFetch(requests)
+    try {
+      let pending = state.controller.reconnect()
+      await new Promise((r) => setTimeout(r, 5))
+      assert.deepEqual(requests, ['/admin/support-agent/reconnect'])
+
+      component.abort()
+      await pending
+
+      assert.deepEqual(calls(state, 'renderQuestionCard'), [], 'no question gate after abort')
+      assert.deepEqual(calls(state, 'renderApprovalCard'), [], 'no approval gate after abort')
+      assert.deepEqual(
+        calls(state, 'setFormEnabled'),
+        [],
+        'the composer is left untouched after an aborted probe',
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })

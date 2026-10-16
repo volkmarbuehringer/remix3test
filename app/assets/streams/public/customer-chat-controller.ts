@@ -321,7 +321,13 @@ export function createCustomerChatController(
    */
   async function reconnect(): Promise<void> {
     try {
-      let res = await fetch(reconnectHref, { headers: { 'X-Sse-Request': '1' } })
+      // Bounded by the component's lifetime: a torn-down entry's probe must
+      // not outlive it (support-agent/agent-events reconnect probes share
+      // the component signal for the same reason).
+      let res = await fetch(reconnectHref, {
+        headers: { 'X-Sse-Request': '1' },
+        signal: lifecycleSignal ?? null,
+      })
       if (!res.ok) return
       let data = (await res.json()) as CustomerChatReconnectPayload
       if (!data || data.status !== 'suspended' || !data.runId) return

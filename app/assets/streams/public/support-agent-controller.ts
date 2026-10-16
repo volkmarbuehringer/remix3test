@@ -340,8 +340,12 @@ export function createSupportAgentStreamController(
 
   async function reconnect() {
     try {
+      // Bounded by the component's lifetime: a torn-down entry's probe must
+      // not outlive it (agent-events-controller's reconnect takes the
+      // component signal for the same reason).
       let res = await fetch(reconnectHref, {
         headers: { 'X-Sse-Request': '1' },
+        signal,
       })
       if (!res.ok) return
       let data = (await res.json()) as SupportAgentReconnectPayload
@@ -521,6 +525,15 @@ export function createSupportAgentStreamController(
 
     ui.appendStatusMessage('Formular wird gesendet...')
 
+    // The component's lifetime signal bounds this fetch: a torn-down entry
+    // must not keep the replay POST (or its follow-up reads) alive past its
+    // component — same contract as startStream, same wiring as
+    // customer-chat-controller's submit().
+    let requestAbort = new AbortController()
+    let onComponentAbort = () => requestAbort.abort()
+    if (signal.aborted) requestAbort.abort()
+    else signal.addEventListener('abort', onComponentAbort, { once: true })
+
     try {
       let headers: Record<string, string> = { 'X-Sse-Request': '1' }
       if (currentThreadId) headers['X-Agent-Thread'] = currentThreadId
@@ -528,7 +541,9 @@ export function createSupportAgentStreamController(
         method: form.method || 'POST',
         headers,
         body: new FormData(form),
+        signal: requestAbort.signal,
       })
+      if (signal.aborted) return
 
       if (
         res.ok &&
@@ -537,6 +552,7 @@ export function createSupportAgentStreamController(
         res.headers.get('Content-Type')?.includes('json')
       ) {
         let data = await res.json()
+        if (signal.aborted) return
         let body = new FormData()
         body.set('runId', currentRunId)
         body.set('answer', JSON.stringify(data))
@@ -547,10 +563,15 @@ export function createSupportAgentStreamController(
         return
       }
     } catch (err) {
+      // An abort is an intentional cancellation, not a failed submission.
+      if (isAbortError(err)) return
       ui.appendStatusMessage('Fehler: ' + String(err), true)
     } finally {
+      signal.removeEventListener('abort', onComponentAbort)
       submitting = false
     }
+
+    if (signal.aborted) return
 
     if (frame) {
       await frame.reload().catch((err) => {
