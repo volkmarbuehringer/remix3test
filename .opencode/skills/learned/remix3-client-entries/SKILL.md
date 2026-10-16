@@ -26,6 +26,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | A `clientEntry` / `.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX and must be split without behavior change | `references/client-entry-decomposition.md` |
 | The clientEntry's fetch/SSE turn state machine (retry, reconnect, thread adoption, suspend gates) must become independently testable / stop touching DOM | `references/stream-controller-extraction.md` |
 | Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration | `references/client-entry-factory-extraction.md` |
+| An enhancer clientEntry renders `null`/a hidden div, scans server DOM, and registers module-scoped document listeners; converting it to component-owned DOM (or its `on(...)` can't hear a sibling input's events) | `references/component-owned-dom-conversion.md` |
 | Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/textarea-bulk-clear-wipe-history.md` |
 
 ## Core Rules
