@@ -5,82 +5,25 @@ import { frames, routes } from '../../../routes.ts'
 import { activeFrameName } from '../../../utils/frame-utils.ts'
 import { renderMarkdownToDom } from './markdown-dom.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
-import { readEventStream } from './read-sse.ts'
-
-/** Host element carrying `data-active-frame`; its value outranks the default panel name. */
-const PANEL_CONTAINER_ID = 'support-agent-frame-container'
+import {
+  PANEL_CONTAINER_ID,
+  type SupportAgentUiDelegate,
+  type SupportAgentFrame,
+  createSupportAgentStreamController,
+} from './support-agent-controller.ts'
 
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
   function SupportAgentStream(handle: Handle) {
-    let abortController: AbortController | null = null
-    let currentRunId: string | null = null
-    let currentThreadId: string | null = null
-    // The page key and chat element that produced `currentThreadId`, so a value
-    // the entry captured itself is only reused while that same page is on screen.
-    let startedOnPage: string = ''
-    let startedChatEl: HTMLElement | null = null
-    let didNavigate: boolean = false
     let autoGrowReset: (() => void) | null = null
 
-    let submitting: boolean = false
-
     let currentAgentMessageEl: HTMLElement | null = null
-
-    // The most recent submit, so a failed turn can be retried with one click.
-    let lastSubmission: { url: string; init: RequestInit } | null = null
     let thinkingEl: HTMLElement | null = null
 
-    let pendingQuestion: {
-      runId: string
-      toolCallId?: string | undefined
-      selectionMode: string
-    } | null = null
-
-    // ── Helpers ──────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────
 
     function getChat() {
       return document.getElementById('chat-messages')
-    }
-
-    function currentPageKey(): string {
-      try {
-        let url = new URL(window.location.href)
-        return url.pathname + url.search
-      } catch {
-        return ''
-      }
-    }
-
-    /**
-     * Which conversation the next turn belongs to, decided by the page on
-     * screen rather than by this entry's closure.
-     *
-     * The server-rendered `data-thread-id` is the only adoption signal: the
-     * server renders it exactly when it validated and opened the requested
-     * thread. A `?threadId=` that appears only in the URL was therefore not
-     * adopted (unknown, foreign, or rejected) and must not be posted — doing so
-     * would target a conversation the page never opened. The id this entry
-     * captured is reused only while the page and chat element that produced it
-     * are still on screen — an in-app navigation or a frame reload can otherwise
-     * leave a stale thread in the closure and silently continue a conversation
-     * the admin has left.
-     */
-    function resolveThreadId(): string | null {
-      let fromDom = getChat()?.getAttribute('data-thread-id') ?? ''
-      if (fromDom) return fromDom
-
-      if (
-        currentThreadId &&
-        startedOnPage !== '' &&
-        startedOnPage === currentPageKey() &&
-        startedChatEl !== null &&
-        getChat() === startedChatEl
-      ) {
-        return currentThreadId
-      }
-
-      return null
     }
 
     function scrollToBottom(force?: boolean) {
@@ -92,13 +35,6 @@ export const SupportAgentStream = clientEntry(
         if (!atBottom) return
       }
       chat.scrollTop = chat.scrollHeight
-    }
-
-    function abortStream() {
-      if (abortController) {
-        abortController.abort()
-        abortController = null
-      }
     }
 
     function setFormEnabled(enabled: boolean) {
@@ -116,7 +52,7 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    // ── Thinking indicator ─────────────────────────────────────────
+    // ── Thinking indicator ────────────────────────────────────────
 
     let THINKING_ID = 'support-agent-thinking'
 
@@ -160,28 +96,7 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    // ── URL / thread reflection ────────────────────────────────────
-
-    /**
-     * Adopts a thread id the server created or resumed into the page state and
-     * the address bar, so a reload restores the conversation instead of
-     * starting empty.
-     */
-    function reflectThreadInUrl(threadId: string) {
-      let chat = getChat()
-      if (chat) chat.setAttribute('data-thread-id', threadId)
-      try {
-        let url = new URL(window.location.href)
-        if (url.searchParams.get('threadId') !== threadId) {
-          url.searchParams.set('threadId', threadId)
-          window.history.replaceState({}, '', url.pathname + url.search)
-        }
-      } catch {
-        /* best-effort */
-      }
-    }
-
-    // ── Preview pane ───────────────────────────────────────────────
+    // ── Preview pane ─────────────────────────────────────────────
 
     function setPreviewVisible(visible: boolean, path?: string) {
       let pane = document.getElementById('support-agent-preview')
@@ -202,25 +117,83 @@ export const SupportAgentStream = clientEntry(
       let frame = handle.frames.get(frames.supportAgentPanel)
       if (frame) {
         frame.reload({ src: routes.admin.supportAgent.panel.href() }).catch((err) => {
-          appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
+          delegate.appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
         })
       }
     }
 
-    // ── Active panel frame ─────────────────────────────────────────
+    // ── Active panel frame ───────────────────────────────────────
 
     /**
      * The frame the panel content currently lives in: resolved through the
      * container's `data-active-frame`, exactly like agent-events-stream's
      * `getPipelineFrame()`, so the container-id/fallback pair cannot drift.
      */
-    function getActivePanelFrame() {
-      return handle.frames.get(activeFrameName(PANEL_CONTAINER_ID, frames.supportAgentPanel))
+    function getActivePanelFrame(): SupportAgentFrame | null {
+      return (
+        handle.frames.get(activeFrameName(PANEL_CONTAINER_ID, frames.supportAgentPanel)) ?? null
+      )
     }
 
-    // ── Error + retry ──────────────────────────────────────────────
+    let delegate: SupportAgentUiDelegate = {
+      showThinking,
+      hideThinking,
+      appendAgentMessage,
+      updateLastAgentMessage,
+      finalizeAgentMessage,
+      clearAgentMessageEl: () => {
+        currentAgentMessageEl = null
+      },
+      appendStatusMessage,
+      appendUserMessage,
+      setFormEnabled,
+      showErrorWithRetry,
+      setPreviewVisible,
+      renderQuestionCard: (mount, data) => {
+        renderAgentQuestionCard({
+          variant: 'support',
+          mount,
+          runId: data.runId ?? '',
+          toolCallId: data.toolCallId,
+          threadId: data.threadId,
+          question: data.question,
+          options: data.options,
+          selectionMode: data.selectionMode,
+        })
+      },
+      renderApprovalCard: (mount, data) => {
+        renderAgentApprovalCard({
+          variant: 'support',
+          mount,
+          runId: data.runId ?? '',
+          toolCallId: data.toolCallId,
+          threadId: data.threadId,
+          toolName: data.toolName,
+        })
+      },
+      renderToolResult,
+      hasQuestionGate: () => document.getElementById('support-agent-question') !== null,
+      hasApprovalGate: () => document.getElementById('support-agent-approval') !== null,
+      removeQuestionGate: () => {
+        let card = document.getElementById('support-agent-question')
+        if (card) card.remove()
+      },
+      removeApprovalGate: () => {
+        let card = document.getElementById('support-agent-approval')
+        if (card) card.remove()
+      },
+    }
 
-    function showErrorWithRetry(message: string, retryDelayMs = 2000) {
+    let controller = createSupportAgentStreamController(delegate, {
+      signal: handle.signal,
+      getActivePanelFrame,
+      getFrame: (target) => (target ? (handle.frames.get(target) ?? null) : (handle.frame ?? null)),
+      reconnectHref: '/admin/support-agent/reconnect',
+    })
+
+    // ── Error + retry ────────────────────────────────────────────
+
+    function showErrorWithRetry(message: string, retry: () => void, retryDelayMs = 2000) {
       let chat = getChat()
       if (!chat) return
 
@@ -273,14 +246,11 @@ export const SupportAgentStream = clientEntry(
       retryBtn.onclick = () => {
         clearTimer()
         row.remove()
-        if (lastSubmission) {
-          setFormEnabled(false)
-          void startStream(lastSubmission.url, lastSubmission.init)
-        }
+        retry()
       }
     }
 
-    // ── Message rendering ────────────────────────────────────────────
+    // ── Message rendering ────────────────────────────────────────
 
     function appendUserMessage(text: string) {
       let chat = getChat()
@@ -303,7 +273,7 @@ export const SupportAgentStream = clientEntry(
       scrollToBottom(true)
     }
 
-    function appendAgentMessage(text?: string): HTMLElement {
+    function appendAgentMessage(): HTMLElement {
       let chat = getChat()
       if (!chat) throw new Error('chat-messages container not found')
 
@@ -318,10 +288,6 @@ export const SupportAgentStream = clientEntry(
       bubble.style.lineHeight = '1.4'
       bubble.style.whiteSpace = 'pre-wrap'
       bubble.style.wordBreak = 'break-word'
-      if (text) {
-        bubble.textContent = text
-        bubble.dataset.kind = 'text'
-      }
 
       chat.appendChild(bubble)
       currentAgentMessageEl = bubble
@@ -363,64 +329,7 @@ export const SupportAgentStream = clientEntry(
       scrollToBottom(true)
     }
 
-    // ── Question rendering (fresh bubble, never clobbers streamed text) ──
-
-    function showQuestion(data: {
-      runId?: string
-      toolCallId?: string
-      question: string
-      options?: { label: string; description?: string }[] | null
-      selectionMode: string
-    }) {
-      let runId = data.runId || currentRunId || ''
-      pendingQuestion = {
-        runId,
-        toolCallId: data.toolCallId,
-        selectionMode: data.selectionMode,
-      }
-      hideThinking()
-      // A server-rendered no-JS gate may already be on the page; a stream
-      // question would otherwise duplicate the same answer form.
-      if (document.getElementById('support-agent-question')) return
-      let el = appendAgentMessage()
-
-      renderAgentQuestionCard({
-        variant: 'support',
-        mount: el,
-        runId,
-        toolCallId: data.toolCallId,
-        threadId: currentThreadId ?? undefined,
-        question: data.question,
-        options: data.options,
-        selectionMode: data.selectionMode,
-      })
-    }
-
-    // ── Suspension rendering (fresh bubble, never clobbers streamed text) ──
-
-    function showSuspension(data: {
-      runId?: string
-      toolCallId?: string
-      toolName?: string
-      args?: Record<string, unknown>
-    }) {
-      hideThinking()
-      // A server-rendered no-JS gate may already be on the page; a stream
-      // suspension would otherwise duplicate the same decision form.
-      if (document.getElementById('support-agent-approval')) return
-      let el = appendAgentMessage()
-
-      renderAgentApprovalCard({
-        variant: 'support',
-        mount: el,
-        runId: data.runId || currentRunId || '',
-        toolCallId: data.toolCallId,
-        threadId: currentThreadId ?? undefined,
-        toolName: data.toolName,
-      })
-    }
-
-    // ── Structured tool-result rendering ─────────────────────────────
+    // ── Structured tool-result rendering ─────────────────────────
 
     function renderToolResult(result: Record<string, unknown>) {
       let chat = getChat()
@@ -544,304 +453,7 @@ export const SupportAgentStream = clientEntry(
       scrollToBottom(true)
     }
 
-    // ── Navigation ───────────────────────────────────────────────────
-
-    function handleNavigate(data: { href: string; target?: string; history?: string }) {
-      let { href, target, history: historyMode } = data
-      if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
-        appendStatusMessage('Ungültiger Navigationspfad: ' + href)
-        return
-      }
-
-      let frame = target ? handle.frames.get(target) : handle.frame
-      if (frame) {
-        frame.reload({ src: href }).catch((err) => {
-          appendStatusMessage('Navigation fehlgeschlagen: ' + String(err), true)
-        })
-        setPreviewVisible(true, href)
-        if (!historyMode || historyMode !== 'skip') {
-          if (historyMode === 'replace') {
-            window.history.replaceState({}, '', href)
-          } else {
-            window.history.pushState({}, '', href)
-          }
-        }
-      } else {
-        appendStatusMessage('Fehler: Frame nicht gefunden', true)
-      }
-    }
-
-    // ── Tool decision / Answer handlers ───────────────────────────────
-
-    function handleToolDecision(decision: 'approve' | 'decline', form: HTMLFormElement) {
-      setFormEnabled(false)
-
-      let label = decision === 'approve' ? 'Aktion genehmigt' : 'Aktion abgelehnt'
-      appendUserMessage(label)
-
-      // Carry the form's hidden runId/toolCallId/threadId and the submitter's
-      // decision into the streamed request. The SSE path authenticates with the
-      // X-Sse-Request header, so the native CSRF token is dropped.
-      let body = new FormData(form)
-      body.delete('_csrf')
-      if (!body.get('runId') && currentRunId) body.set('runId', currentRunId)
-      if (!body.get('decision')) body.set('decision', decision)
-      if (!body.get('threadId') && currentThreadId) body.set('threadId', currentThreadId)
-
-      let card = document.getElementById('support-agent-approval')
-      if (card) card.remove()
-      currentAgentMessageEl = null
-      void startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
-    }
-
-    function handleAnswer(form: HTMLFormElement) {
-      setFormEnabled(false)
-
-      // Carry the form's hidden fields and the named answer control(s) into the
-      // streamed request. The SSE path authenticates with the X-Sse-Request
-      // header, so the native CSRF token is dropped.
-      let body = new FormData(form)
-      body.delete('_csrf')
-      let answers = body
-        .getAll('answer')
-        .map(String)
-        .filter((value) => value.length > 0)
-      if (answers.length === 0) return
-      if (!body.get('runId') && currentRunId) body.set('runId', currentRunId)
-      if (!body.get('threadId') && currentThreadId) body.set('threadId', currentThreadId)
-
-      appendUserMessage(answers.join(', '))
-
-      let card = document.getElementById('support-agent-question')
-      if (card) card.remove()
-      currentAgentMessageEl = null
-      void startStream('/admin/support-agent/answer', { method: 'POST', body })
-    }
-
-    // ── Reconnect: re-surface a pending gate after a reload ───────────
-
-    async function checkReconnect() {
-      try {
-        let res = await fetch('/admin/support-agent/reconnect', {
-          headers: { 'X-Sse-Request': '1' },
-        })
-        if (!res.ok) return
-        let data = await res.json()
-        if (!data || data.status !== 'suspended') return
-
-        currentRunId = data.runId
-        currentThreadId = data.threadId
-        if (data.threadId) {
-          startedOnPage = currentPageKey()
-          startedChatEl = getChat()
-        }
-        currentAgentMessageEl = null
-        // A server-rendered no-JS gate is already on the page; appending an
-        // empty bubble for it would be noise (show* early-returns below).
-        if (
-          !document.getElementById('support-agent-approval') &&
-          !document.getElementById('support-agent-question')
-        ) {
-          appendAgentMessage()
-        }
-        // Disable the message input until the re-surfaced gate is resolved, so
-        // the admin can't start a new query on top of a pending decision.
-        setFormEnabled(false)
-
-        if (data.gateType === 'question') {
-          let sp = (data.suspendPayload || {}) as {
-            question?: string
-            options?: { label: string; description?: string }[]
-            selectionMode?: string
-          }
-          showQuestion({
-            runId: data.runId,
-            toolCallId: data.toolCallId,
-            question: sp.question || 'Bitte beantworte die Frage.',
-            options: sp.options ?? null,
-            selectionMode: sp.selectionMode || 'single_select',
-          })
-        } else {
-          showSuspension({
-            runId: data.runId,
-            toolCallId: data.toolCallId,
-            toolName: data.toolName,
-            args: data.args,
-          })
-        }
-      } catch {
-        /* reconnect is best-effort; ignore connection errors */
-      }
-    }
-
-    // ── SSE Stream ───────────────────────────────────────────────────
-
-    async function startStream(url: string, init: RequestInit) {
-      pendingQuestion = null
-      abortStream()
-      abortController = new AbortController()
-      let signal = abortController.signal
-      let streamingText = ''
-      lastSubmission = { url, init }
-      showThinking()
-
-      try {
-        let res = await fetch(url, {
-          ...init,
-          signal,
-          headers: { 'X-Sse-Request': '1', ...(init.headers ?? {}) },
-        })
-        if (!res.ok) {
-          let text = await res.text().catch(() => '')
-          let match = text.match(/data: (.*)\n/)
-          let msg = match ? (JSON.parse(match[1]!).error ?? res.statusText) : res.statusText
-          hideThinking()
-          showErrorWithRetry('Fehler: ' + msg)
-          setFormEnabled(true)
-          return
-        }
-
-        let stopped = await readEventStream(
-          res,
-          (eventType, data) => {
-            try {
-              let parsed = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
-
-              if (eventType === 'start') {
-                didNavigate = false
-                hideThinking()
-                if (parsed.runId) currentRunId = String(parsed.runId)
-                if (parsed.threadId) {
-                  currentThreadId = String(parsed.threadId)
-                  startedOnPage = currentPageKey()
-                  startedChatEl = getChat()
-                  reflectThreadInUrl(String(parsed.threadId))
-                }
-                appendAgentMessage()
-                streamingText = ''
-              } else if (eventType === 'message') {
-                streamingText += String(parsed.text ?? '')
-                updateLastAgentMessage(streamingText)
-              } else if (eventType === 'navigate') {
-                didNavigate = true
-                appendStatusMessage('Navigiere zu ' + String(parsed.href) + '...')
-                handleNavigate({
-                  href: String(parsed.href),
-                  ...(parsed.target !== undefined ? { target: String(parsed.target) } : {}),
-                  ...(parsed.history !== undefined ? { history: String(parsed.history) } : {}),
-                })
-              } else if (eventType === 'question') {
-                showQuestion(parsed as unknown as Parameters<typeof showQuestion>[0])
-                return false
-              } else if (eventType === 'suspension') {
-                showSuspension(parsed as unknown as Parameters<typeof showSuspension>[0])
-                return false
-              } else if (eventType === 'tool-error') {
-                appendStatusMessage('Tool-Fehler: ' + String(parsed.error ?? 'unbekannt'), true)
-              } else if (eventType === 'tool-result') {
-                renderToolResult((parsed.result as Record<string, unknown>) ?? {})
-              } else if (eventType === 'stream-error') {
-                hideThinking()
-                showErrorWithRetry('Stream-Fehler: ' + String(parsed.error ?? 'unbekannt'))
-              } else if (eventType === 'complete') {
-                if (pendingQuestion) return false
-                hideThinking()
-                finalizeAgentMessage()
-                lastSubmission = null
-                currentRunId = null
-                // Keep the active thread so the next message continues it; only
-                // remove it once the page itself changes (see resolveThreadId).
-                currentAgentMessageEl = null
-                if (!didNavigate) {
-                  let theFrame = getActivePanelFrame()
-                  if (theFrame) {
-                    theFrame.reload().catch((err) => {
-                      appendStatusMessage('Panel-Reload fehlgeschlagen: ' + String(err), true)
-                    })
-                  }
-                }
-              } else if (eventType === 'agent-error') {
-                hideThinking()
-                showErrorWithRetry('Fehler: ' + String(parsed.error ?? 'unbekannt'))
-              }
-            } catch {
-              if (eventType === 'message') {
-                streamingText += typeof data === 'string' ? data : ''
-                updateLastAgentMessage(streamingText)
-              }
-            }
-            return undefined
-          },
-          { signal },
-        )
-
-        if (!stopped && !pendingQuestion) {
-          hideThinking()
-          setFormEnabled(true)
-        }
-      } catch (err) {
-        hideThinking()
-        if ((err as Error)?.name === 'AbortError') return
-        showErrorWithRetry('Fehler: ' + String(err))
-        setFormEnabled(true)
-      }
-    }
-
-    // ── Frame form submit ─────────────────────────────────────────────
-
-    async function handleFrameFormSubmit(e: Event) {
-      let form = (e.target as HTMLElement).closest('form')
-      if (!form || form.id === 'support-agent-form') return
-
-      if ((form.method || 'GET').toUpperCase() === 'GET') return
-
-      if (submitting) return
-      submitting = true
-      e.preventDefault()
-
-      let frame = getActivePanelFrame()
-
-      appendStatusMessage('Formular wird gesendet...')
-
-      try {
-        let headers: Record<string, string> = { 'X-Sse-Request': '1' }
-        if (currentThreadId) headers['X-Agent-Thread'] = currentThreadId
-        let res = await fetch(form.action, {
-          method: form.method || 'POST',
-          headers,
-          body: new FormData(form),
-        })
-
-        if (
-          res.ok &&
-          pendingQuestion &&
-          currentRunId &&
-          res.headers.get('Content-Type')?.includes('json')
-        ) {
-          let data = await res.json()
-          let body = new FormData()
-          body.set('runId', currentRunId)
-          body.set('answer', JSON.stringify(data))
-          body.set('selectionMode', 'single_select')
-          if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-          if (currentThreadId) body.set('threadId', currentThreadId)
-          void startStream('/admin/support-agent/answer', { method: 'POST', body })
-          return
-        }
-      } catch (err) {
-        appendStatusMessage('Fehler: ' + String(err), true)
-      } finally {
-        submitting = false
-      }
-
-      if (frame) {
-        await frame.reload().catch((err) => {
-          appendStatusMessage('Panel-Reload nach Formular fehlgeschlagen: ' + String(err), true)
-        })
-      }
-    }
-
-    // ── Main form submit ──────────────────────────────────────────────
+    // ── Event handlers ───────────────────────────────────────────
 
     async function handleFormSubmit(e: Event) {
       e.preventDefault()
@@ -850,7 +462,7 @@ export const SupportAgentStream = clientEntry(
       let message = formData.get('message')?.toString().trim()
       if (!message) return
 
-      let threadId = resolveThreadId()
+      let threadId = controller.resolveThreadId()
       if (threadId) formData.set('threadId', threadId)
 
       appendUserMessage(message)
@@ -864,7 +476,7 @@ export const SupportAgentStream = clientEntry(
       setFormEnabled(false)
       currentAgentMessageEl = null
 
-      void startStream('/admin/support-agent', { method: 'POST', body: formData })
+      void controller.startStream('/admin/support-agent', { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {
@@ -875,7 +487,17 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    // ── Empty-state prompts / controls ────────────────────────────────
+    async function handleFrameFormSubmit(e: Event) {
+      let form = (e.target as HTMLElement).closest('form')
+      if (!form || form.id === 'support-agent-form') return
+      if ((form.method || 'GET').toUpperCase() === 'GET') return
+      if (controller.frameFormBusy()) return
+
+      e.preventDefault()
+      await controller.frameFormSubmit(form)
+    }
+
+    // ── Empty-state prompts / controls ──────────────────────────
 
     function handleNewConversation() {
       window.location.assign(routes.admin.supportAgent.index.href())
@@ -896,7 +518,7 @@ export const SupportAgentStream = clientEntry(
       form?.requestSubmit()
     }
 
-    // ── Return (lifecycle) ───────────────────────────────────────────
+    // ── Return (lifecycle) ───────────────────────────────────────
 
     return () => (
       <div
@@ -945,13 +567,13 @@ export const SupportAgentStream = clientEntry(
                   if (gateForm.id === 'support-agent-approval') {
                     e.preventDefault()
                     let submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null
-                    void handleToolDecision(
+                    void controller.toolDecision(
                       submitter?.value === 'decline' ? 'decline' : 'approve',
                       gateForm,
                     )
                   } else if (gateForm.id === 'support-agent-question') {
                     e.preventDefault()
-                    void handleAnswer(gateForm)
+                    void controller.answer(gateForm)
                   }
                 },
                 { signal: handle.signal },
@@ -974,7 +596,7 @@ export const SupportAgentStream = clientEntry(
 
             // Surface any pending gate (tool decision or question) that survived
             // a reload / tab switch / server restart.
-            void checkReconnect()
+            void controller.reconnect()
           }),
         ]}
       />

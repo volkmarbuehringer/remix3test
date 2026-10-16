@@ -2,9 +2,12 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
-import { readEventStream } from './read-sse.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
 import { describeToolApproval } from '../../../ui/agent-chat/approval-copy.ts'
+import {
+  type CustomerChatUiDelegate,
+  createCustomerChatController,
+} from './customer-chat-controller.ts'
 
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
@@ -15,24 +18,13 @@ export const CustomerChatStream = clientEntry(
       handle.signal.addEventListener('abort', () => ac.abort(), { once: true })
     }
 
-    let currentRunId: string | null = null
-    let currentThreadId: string | null = null
-    let currentAbort: AbortController | null = null
     let streamingAssistant: HTMLDivElement | null = null
-    let suspended = false
     let autoGrowReset: (() => void) | null = null
 
     let toolCards: Record<string, HTMLDivElement> = {}
     let toolArgsAcc: Record<string, string> = {}
     let reasoningBlock: HTMLDetailsElement | null = null
     let reasoningBody: HTMLDivElement | null = null
-
-    function abortStream() {
-      if (currentAbort) {
-        currentAbort.abort()
-        currentAbort = null
-      }
-    }
 
     function esc(s: string): string {
       return s
@@ -461,49 +453,20 @@ export const CustomerChatStream = clientEntry(
     }
 
     function handleCancel() {
-      abortStream()
+      controller.abort()
       setBusy(false)
       setFormEnabled(true)
       focusComposer()
     }
 
-    // Once the customer sends a message (or continues an existing conversation)
-    // the one-shot fresh-state marker is no longer wanted: otherwise a page
-    // refresh keeps serving an empty conversation for /chat?new=1. Drop the
-    // query param so the resumed conversation wins on the next load.
-    /**
-     * Whether the page on screen is in fresh-conversation mode.
-     *
-     * `/chat?new=1` is the server's instruction to skip the resume, so it must
-     * outrank any thread id this entry captured from an earlier page — an in-app
-     * navigation reuses this entry's listener while swapping the page under it.
-     */
-    function isStartingFresh(): boolean {
-      try {
-        return new URL(window.location.href).searchParams.has('new')
-      } catch {
-        return false
-      }
-    }
-
-    function clearFreshParam() {
-      try {
-        let url = new URL(window.location.href)
-        if (!url.searchParams.has('new')) return
-        url.searchParams.delete('new')
-        window.history.replaceState({}, '', url.pathname + url.search)
-      } catch {
-        /* best-effort */
-      }
-    }
-
-    // ── Approval UI ───────────────────────────────────────────
+    // ── Approval / question card rendering (pure DOM) ─────────
 
     function showApproval(data: {
       runId: string
       toolCallId?: string | undefined
       toolName?: string | undefined
       args?: Record<string, unknown> | undefined
+      threadId?: string | undefined
     }) {
       let container = getChatArea()
       if (!container) return
@@ -517,7 +480,7 @@ export const CustomerChatStream = clientEntry(
           variant: 'customer',
           runId: data.runId,
           toolCallId: data.toolCallId,
-          threadId: currentThreadId ?? undefined,
+          threadId: data.threadId,
           title: copy.title,
           description: copy.description,
         }),
@@ -530,11 +493,10 @@ export const CustomerChatStream = clientEntry(
       if (card) card.remove()
     }
 
-    // ── Question UI ───────────────────────────────────────────
-
     function showQuestion(data: {
       runId: string
       toolCallId?: string | undefined
+      threadId?: string | undefined
       question: string
       options?: { label: string; description?: string }[] | null
       selectionMode: string
@@ -550,7 +512,7 @@ export const CustomerChatStream = clientEntry(
           variant: 'customer',
           runId: data.runId,
           toolCallId: data.toolCallId,
-          threadId: currentThreadId ?? undefined,
+          threadId: data.threadId,
           question: data.question,
           options: data.options,
           selectionMode: data.selectionMode,
@@ -564,213 +526,53 @@ export const CustomerChatStream = clientEntry(
       if (card) card.remove()
     }
 
-    // ── Stream lifecycle ──────────────────────────────────────
-
-    function beginStream() {
+    /** Per-turn DOM reset (state parts live in the controller). */
+    function beginTurnDom() {
       streamingAssistant = null
-      suspended = false
       toolCards = {}
       toolArgsAcc = {}
       reasoningBlock = null
       reasoningBody = null
-      hideQuestion()
     }
 
-    function handleEvent(type: string, raw: unknown) {
-      let d = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-
-      if (type === 'start') {
-        if (d.threadId != null) currentThreadId = String(d.threadId)
-        if (d.runId != null) currentRunId = String(d.runId)
-        beginStream()
-      } else if (type === 'message') {
-        let text = String(d.text ?? '')
-        if (text) {
-          appendMessage(text, 'assistant', true)
-          setBusy(false)
-        }
-      } else if (type === 'suspension') {
-        suspended = true
-        showApproval({
-          runId: String(d.runId ?? currentRunId ?? ''),
-          toolCallId: d.toolCallId as string | undefined,
-          toolName: d.toolName as string | undefined,
-          args: d.args as Record<string, unknown> | undefined,
-        })
+    let delegate: CustomerChatUiDelegate = {
+      appendMessage(text, role, accumulate) {
+        appendMessage(text, role, accumulate)
+      },
+      setBusy,
+      setFormEnabled,
+      focusComposer,
+      beginTurn: beginTurnDom,
+      endStreamingBubble: finalizeAssistantBubble,
+      showApproval,
+      hideApproval,
+      showQuestion,
+      hideQuestion,
+      focusApprovalButton: () => {
         let approveBtn = getChatArea()?.querySelector('.approve-btn') as HTMLButtonElement | null
         if (approveBtn) approveBtn.focus()
-        finalizeAssistantBubble()
-      } else if (type === 'question') {
-        suspended = true
-        showQuestion({
-          runId: String(d.runId ?? currentRunId ?? ''),
-          toolCallId: d.toolCallId as string | undefined,
-          question: String(d.question ?? ''),
-          options:
-            (d.options as { label: string; description?: string }[] | null | undefined) ?? null,
-          selectionMode: String(d.selectionMode ?? 'single_select'),
-        })
+      },
+      focusQuestionOption: () => {
         let firstOpt = getChatArea()?.querySelector('.q-option') as HTMLInputElement | null
         let freeText = document.getElementById('q-free-text') as HTMLInputElement | null
         if (firstOpt) firstOpt.focus()
         else if (freeText) freeText.focus()
-        finalizeAssistantBubble()
-      } else if (type === 'agent-error') {
-        appendMessage('Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
-      } else if (type === 'stream-error') {
-        appendMessage('Stream-Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
-      } else if (type === 'tool-call-input-streaming-start') {
-        appendToolCard(String(d.toolName ?? 'unbekannt'), String(d.toolCallId ?? ''))
-        setBusy(false)
-      } else if (type === 'tool-call-delta') {
-        if (d.toolCallId != null && d.argsTextDelta != null) {
-          updateToolArgs(String(d.toolCallId), String(d.argsTextDelta))
-        }
-      } else if (type === 'tool-call') {
-        if (d.toolCallId != null && d.args != null) {
-          finalizeToolArgs(String(d.toolCallId), d.args as Record<string, unknown>)
-        }
-      } else if (type === 'tool-result') {
-        if (d.toolCallId != null)
-          appendToolResult(
-            String(d.toolCallId),
-            d.result,
-            d.isError as boolean,
-            d.toolName as string | undefined,
-          )
-      } else if (type === 'tool-error') {
-        if (d.toolCallId != null)
-          appendToolResult(String(d.toolCallId), d.error, true, d.toolName as string | undefined)
-      } else if (type === 'step-finish') {
-        if (d.usage != null || d.reason != null) {
-          appendStepStats(
-            String(d.reason ?? ''),
-            (d.usage as Record<string, never> | undefined) ?? {},
-          )
-        }
-      } else if (type === 'reasoning-start') {
-        startReasoning()
-        setBusy(false)
-      } else if (type === 'reasoning-delta') {
-        if (d.text != null) appendReasoning(String(d.text))
-      } else if (type === 'reasoning-end') {
-        endReasoning()
-      }
+      },
+      appendToolCard,
+      updateToolArgs,
+      finalizeToolArgs,
+      appendToolResult,
+      appendStepStats,
+      startReasoning,
+      appendReasoning,
+      endReasoning,
+      getThreadIdFromDom: () => getChatArea()?.getAttribute('data-thread-id') ?? null,
     }
 
-    async function submitAndStream(url: string, formData: FormData) {
-      abortStream()
-      let requestAbort = new AbortController()
-      currentAbort = requestAbort
-      if (lifecycleSignal) {
-        lifecycleSignal.addEventListener('abort', () => requestAbort.abort(), { once: true })
-      }
-
-      // The `?new=1` marker is what keeps a refresh on the fresh conversation
-      // instead of resuming the previous one, so it may only be dropped once a
-      // turn has actually been accepted by the server. Dropping it up front
-      // meant a failed first turn — or one still in flight when the customer hit
-      // refresh — silently resumed the old thread, so a "new" conversation
-      // looked like it was continuing the previous one.
-      let turnAccepted = false
-      setFormEnabled(false)
-      setBusy(true)
-      try {
-        let res = await fetch(url, {
-          method: 'POST',
-          headers: { 'X-Sse-Request': '1' },
-          body: formData,
-          signal: requestAbort.signal,
-        })
-
-        let isSse = (res.headers.get('Content-Type') || '').includes('text/event-stream')
-
-        if (!res.ok && !isSse) {
-          let text = await res.text()
-          appendMessage('Fehler: ' + (text || res.statusText), 'error')
-          return
-        }
-
-        // Anything past this point has persisted the turn: the conversation
-        // exists even if the stream then breaks, so the marker is spent.
-        turnAccepted = true
-
-        if (isSse) {
-          await readEventStream(res, handleEvent)
-        } else {
-          await res.text()
-        }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return
-        appendMessage('Fehler: ' + String(err), 'error')
-      } finally {
-        if (turnAccepted) clearFreshParam()
-        currentAbort = null
-        setBusy(false)
-        if (!suspended) {
-          finalizeAssistantBubble()
-          focusComposer()
-        }
-        setFormEnabled(true)
-      }
-    }
-
-    // ── Reconnect: re-surface a pending gate after a reload ───
-
-    /**
-     * Restores a still-suspended `ask_user` question or tool approval after a
-     * reload. The transcript rehydration only restores text, so without this
-     * the card would be lost and the composer would start a new turn instead of
-     * resuming the run.
-     */
-    async function checkReconnect() {
-      try {
-        let res = await fetch('/chat/reconnect', { headers: { 'X-Sse-Request': '1' } })
-        if (!res.ok) return
-        let data = (await res.json()) as {
-          status?: string
-          runId?: string
-          threadId?: string
-          gateType?: string
-          toolCallId?: string
-          toolName?: string
-          args?: Record<string, unknown>
-          suspendPayload?: Record<string, unknown>
-        }
-        if (!data || data.status !== 'suspended' || !data.runId) return
-
-        currentRunId = data.runId
-        if (data.threadId) currentThreadId = data.threadId
-        suspended = true
-        // Block the composer until the re-surfaced gate is resolved, so a new
-        // turn can't be started on top of a pending decision.
-        setFormEnabled(false)
-
-        if (data.gateType === 'question') {
-          let sp = (data.suspendPayload ?? {}) as {
-            question?: string
-            options?: { label: string; description?: string }[]
-            selectionMode?: string
-          }
-          showQuestion({
-            runId: data.runId,
-            toolCallId: data.toolCallId,
-            question: sp.question ?? 'Bitte beantworten Sie die Frage.',
-            options: sp.options ?? null,
-            selectionMode: sp.selectionMode ?? 'single_select',
-          })
-        } else {
-          showApproval({
-            runId: data.runId,
-            toolCallId: data.toolCallId,
-            toolName: data.toolName,
-            args: data.args,
-          })
-        }
-      } catch {
-        /* reconnect is best-effort */
-      }
-    }
+    let controller = createCustomerChatController(delegate, {
+      lifecycleSignal,
+      reconnectHref: '/chat/reconnect',
+    })
 
     // ── Event handlers ────────────────────────────────────────
 
@@ -786,29 +588,24 @@ export const CustomerChatStream = clientEntry(
       // Which conversation a turn belongs to is decided by the page that is on
       // screen, not by this entry's captured state. "Neue Unterhaltung" is an
       // in-app navigation: the runtime reconciles the page and REUSES the form
-      // element, so this listener — with the previous page's `currentThreadId`
-      // still in its closure — can serve the fresh page. Posting that id
-      // continued the old conversation even though the URL said `?new=1`.
-      //
-      // The URL wins over the closure: `?new=1` always starts a new thread, and
-      // otherwise the rendered chat area is the source of truth.
-      let startingFresh = isStartingFresh()
-      if (!startingFresh && !currentThreadId) {
-        currentThreadId = getChatArea()?.getAttribute('data-thread-id') ?? null
-      }
-      if (currentThreadId && !startingFresh) formData.set('threadId', currentThreadId)
+      // element, so this listener — with the previous page's thread still in
+      // its closure — can serve the fresh page. The URL wins over the closure:
+      // `?new=1` always starts a new thread, and otherwise the rendered chat
+      // area is the source of truth.
+      let startingFresh = controller.threadFromPageWins()
+      if (!startingFresh) controller.setThreadOnForm(formData)
 
       appendMessage(message, 'user')
       let textarea = document.getElementById('msg') as HTMLTextAreaElement | null
       if (textarea) textarea.value = ''
       autoGrowReset?.()
       updateCounter()
-      beginStream()
-      await submitAndStream('/chat', formData)
+      controller.beginTurn()
+      await controller.submit('/chat', formData)
     }
 
     function handleSlotCancel() {
-      abortStream()
+      controller.abort()
       let picker = document.getElementById('chat-slot-picker')
       if (picker) picker.remove()
       setBusy(false)
@@ -843,11 +640,11 @@ export const CustomerChatStream = clientEntry(
       appendMessage(message, 'user')
 
       let formData = new FormData()
-      if (currentThreadId) formData.set('threadId', currentThreadId)
+      controller.setThreadOnForm(formData)
       formData.set('message', message)
 
-      beginStream()
-      await submitAndStream('/chat', formData)
+      controller.beginTurn()
+      await controller.submit('/chat', formData)
     }
 
     let submittingOtherResource = false
@@ -859,11 +656,11 @@ export const CustomerChatStream = clientEntry(
       appendMessage(message, 'user')
 
       let formData = new FormData()
-      if (currentThreadId) formData.set('threadId', currentThreadId)
+      controller.setThreadOnForm(formData)
       formData.set('message', message)
 
-      beginStream()
-      await submitAndStream('/chat', formData)
+      controller.beginTurn()
+      await controller.submit('/chat', formData)
       submittingOtherResource = false
     }
 
@@ -875,9 +672,9 @@ export const CustomerChatStream = clientEntry(
       body.delete('_csrf')
 
       hideApproval()
-      beginStream()
+      controller.beginTurn()
 
-      await submitAndStream('/chat/' + action, body)
+      await controller.submit('/chat/' + action, body)
     }
 
     async function handleAnswer(form: HTMLFormElement) {
@@ -892,9 +689,9 @@ export const CustomerChatStream = clientEntry(
         .filter((value) => value.length > 0)
       if (answers.length === 0) return
 
-      beginStream()
+      controller.beginTurn()
 
-      await submitAndStream('/chat/answer', body)
+      await controller.submit('/chat/answer', body)
     }
 
     return () => (
@@ -920,7 +717,7 @@ export const CustomerChatStream = clientEntry(
             let chatArea = document.getElementById('chat-messages')
             // Adopt the resumed thread id that the server rendered (see
             // customer-chat-page.tsx data-thread-id), or null for a fresh thread.
-            currentThreadId = chatArea?.getAttribute('data-thread-id') ?? null
+            controller.adoptThreadFromDom()
             if (chatArea) {
               chatArea.addEventListener(
                 'click',
@@ -964,7 +761,7 @@ export const CustomerChatStream = clientEntry(
             }
 
             // Re-surface a gate that survived a reload / dropped stream.
-            void checkReconnect()
+            void controller.reconnect()
           }),
         ]}
       />

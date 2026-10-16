@@ -9,20 +9,18 @@ import {
   inferKind,
   kindGlyph,
   kindColor,
-  pipelineLogHtml,
-  type PipelineRow,
   type RowKind,
 } from '../../../ui/agent-events-log.ts'
 import { renderAgentApprovalCard } from '../../../ui/agent-chat/cards.ts'
-import { readEventStream } from './read-sse.ts'
+import {
+  type AgentEventsUiDelegate,
+  type AgentEventsFrame,
+  createAgentEventsStreamController,
+} from './agent-events-controller.ts'
 
 export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',
   function AgentEventsStream(handle: Handle) {
-    let abortController: AbortController | null = null
-    let didNavigate = false
-    let currentRunId: string | null = null
-    let currentWorkflowId: string | null = null
     let autoGrowReset: (() => void) | null = null
 
     function getStatusBar() {
@@ -65,39 +63,12 @@ export const AgentEventsStream = clientEntry(
       if (gate) gate.style.display = 'none'
     }
 
-    // ── Live pipeline rendered into the main frame ──────────────
-
-    let pipelineRows: PipelineRow[] = []
-
-    function getPipelineFrame() {
-      return handle.frames.get(
-        activeFrameName('agent-events-frame-container', frames.agentEventsPanel),
+    function getPipelineFrame(): AgentEventsFrame | null {
+      return (
+        handle.frames.get(
+          activeFrameName('agent-events-frame-container', frames.agentEventsPanel),
+        ) ?? null
       )
-    }
-
-    function renderPipeline() {
-      let frame = getPipelineFrame()
-      if (!frame || pipelineRows.length === 0) return
-      frame
-        .replace(String(pipelineLogHtml(pipelineRows)))
-        .then(() => {
-          let logEl = document.getElementById('ae-pipeline-log')
-          if (logEl) logEl.scrollTop = logEl.scrollHeight
-        })
-        .catch(() => {})
-    }
-
-    function pushRow(text: string, kind: RowKind) {
-      pipelineRows.push({ kind, text, time: formatTime(Date.now()) })
-      if (didNavigate || !getPipelineFrame()) {
-        showInfo(text, { kind })
-      } else {
-        renderPipeline()
-      }
-    }
-
-    function resetPipeline() {
-      pipelineRows = []
     }
 
     function showInfo(text: string, opts?: { kind?: RowKind }) {
@@ -142,7 +113,11 @@ export const AgentEventsStream = clientEntry(
       bar.scrollTop = bar.scrollHeight
     }
 
-    function showConfirmGate(suspendPayload: Record<string, unknown>) {
+    function showConfirmGate(
+      suspendPayload: Record<string, unknown>,
+      onConfirm: () => void,
+      onCancel: () => void,
+    ) {
       let container = document.getElementById('ae-confirm-gate') as HTMLElement | null
       if (!container) {
         // Fallback for hosts without the dedicated container (tests): render
@@ -161,145 +136,29 @@ export const AgentEventsStream = clientEntry(
         actionType: String(suspendPayload.actionType || ''),
         targetUserName: String(suspendPayload.targetUserName || ''),
         pendingCount: Number(suspendPayload.pendingCount || 0),
-        onConfirm: () => handleResume(true),
-        onCancel: () => handleResume(false),
+        onConfirm,
+        onCancel,
       })
-
-      // The workflow is not streaming anything while it waits at the gate, so
-      // "Sending…" is misleading. Keep the composer disabled (a run is pending)
-      // but say so honestly.
-      let submit = document.getElementById('agent-events-submit') as HTMLButtonElement | null
-      if (submit && submit.disabled) submit.textContent = 'Waiting…'
     }
 
-    function abortStream() {
-      if (abortController) {
-        abortController.abort()
-        abortController = null
-      }
+    // ── Delegate + controller ──────────────────────────────────
+
+    let delegate: AgentEventsUiDelegate = {
+      showInfo,
+      hideConfirmGate,
+      renderConfirmGate: showConfirmGate,
+      setFormEnabled,
+      clearStatusBar,
     }
 
-    async function handleResume(confirmed: boolean) {
-      if (!currentRunId) return
-      setFormEnabled(false)
+    let controller = createAgentEventsStreamController(delegate, {
+      getPipelineFrame,
+      getFrame: (target) => (target ? (handle.frames.get(target) ?? null) : (handle.frame ?? null)),
+      resumeHref: routes.admin.agentEvents.resume.href(),
+      reconnectHref: routes.admin.agentEvents.reconnect.href(),
+    })
 
-      let body = new FormData()
-      body.set('runId', currentRunId)
-      body.set('confirmed', String(confirmed))
-      if (currentWorkflowId) body.set('workflowId', currentWorkflowId)
-      void startStream(routes.admin.agentEvents.resume.href(), { method: 'POST', body })
-    }
-
-    function restoreFilterValue(url: string) {
-      let filterValue = new URL(url, window.location.origin).searchParams.get('filter')
-      if (filterValue !== null && filterValue !== 'enabled' && filterValue !== 'disabled') {
-        for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
-          input.value = filterValue
-        }
-      }
-    }
-
-    async function startStream(url: string, init: RequestInit) {
-      abortStream()
-      abortController = new AbortController()
-      let signal = abortController.signal
-
-      try {
-        let res = await fetch(url, {
-          ...init,
-          signal,
-          headers: { 'X-Sse-Request': '1', ...(init.headers ?? {}) },
-        })
-        if (!res.ok) {
-          let text = await res.text().catch(() => '')
-          let match = text.match(/data: (.*)\n/)
-          let msg = match ? (JSON.parse(match[1]!).error ?? res.statusText) : res.statusText
-          showInfo('Error: ' + msg, { kind: 'error' })
-          setFormEnabled(true)
-          return
-        }
-
-        await readEventStream(
-          res,
-          (eventType, data) => {
-            try {
-              let parsed = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
-
-              if (eventType === 'status') {
-                let text = String(parsed.text ?? '')
-                pushRow(text, (parsed.kind as RowKind) ?? inferKind(text))
-              } else if (eventType === 'start') {
-                currentRunId = (parsed.runId as string) || null
-                currentWorkflowId = (parsed.workflowId as string) || null
-              } else if (eventType === 'workflow-step-suspended') {
-                showConfirmGate((parsed.suspendPayload as Record<string, unknown>) || {})
-              } else if (eventType === 'workflow-finish') {
-                currentRunId = null
-                hideConfirmGate()
-                if (parsed.success) {
-                  showInfo('Action completed', { kind: 'success' })
-                  let theFrame = getPipelineFrame()
-                  if (theFrame) {
-                    theFrame.reload().catch((err) => {
-                      showInfo('Panel reload failed: ' + String(err), { kind: 'error' })
-                    })
-                  } else {
-                    showInfo('Panel reload failed: frame not found', { kind: 'error' })
-                  }
-                } else {
-                  showInfo('Action failed: ' + String(parsed.error ?? 'unknown'), { kind: 'error' })
-                }
-              } else if (eventType === 'workflow-error') {
-                currentRunId = null
-                hideConfirmGate()
-                showInfo('Action failed: ' + String(parsed.error ?? 'unknown'), { kind: 'error' })
-              } else if (eventType === 'navigate') {
-                didNavigate = true
-                let href = String(parsed.href)
-                let target = (parsed.target as string) || frames.agentEventsPanel
-                showInfo('Navigating to ' + href + '...', { kind: 'info' })
-                let frame = target ? handle.frames.get(target) : handle.frame
-                if (frame) {
-                  frame.reload({ src: href }).then(
-                    () => restoreFilterValue(href),
-                    (err) => showInfo('Navigation failed: ' + String(err), { kind: 'error' }),
-                  )
-                  let historyMode = parsed.history as string | undefined
-                  if (!historyMode || historyMode !== 'skip') {
-                    if (historyMode === 'replace') {
-                      window.history.replaceState({}, '', href)
-                    } else {
-                      window.history.pushState({}, '', href)
-                    }
-                  }
-                }
-              } else if (eventType === 'message') {
-                pushRow(String(parsed.text ?? ''), 'info')
-              } else if (eventType === 'complete') {
-                currentRunId = null
-                hideConfirmGate()
-                setFormEnabled(true)
-              } else if (eventType === 'agent-error') {
-                let msg = 'Error: ' + String(parsed.error ?? 'unknown')
-                hideConfirmGate()
-                pushRow(msg, 'error')
-                showInfo(msg, { kind: 'error' })
-                setFormEnabled(true)
-              }
-            } catch {
-              // ignore parse errors
-            }
-          },
-          { signal },
-        )
-
-        setFormEnabled(true)
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') return
-        showInfo('Error: ' + String(err), { kind: 'error' })
-        setFormEnabled(true)
-      }
-    }
+    // ── Event handlers ─────────────────────────────────────────
 
     async function handleFormSubmit(e: Event) {
       e.preventDefault()
@@ -313,17 +172,11 @@ export const AgentEventsStream = clientEntry(
         textarea.value = ''
         autoGrowReset?.()
       }
-      setFormEnabled(false)
-      didNavigate = false
-      currentRunId = null
-      currentWorkflowId = null
-      hideConfirmGate()
-      clearStatusBar()
-      resetPipeline()
       updateCharCount()
-      pushRow('Processing…', 'active')
 
-      void startStream(routes.admin.agentEvents.index.href(), { method: 'POST', body: formData })
+      // beginCommand owns the gate/status/pipeline reset (hideConfirmGate,
+      // clearStatusBar, resetPipeline, 'Processing…' row) and the run state.
+      controller.beginCommand(routes.admin.agentEvents.index.href(), formData)
     }
 
     function prefillFromChip(command: string) {
@@ -342,10 +195,10 @@ export const AgentEventsStream = clientEntry(
       // A run may still be suspended server-side awaiting confirmation; hiding
       // the gate would make a pending destructive action invisible. Keep the
       // log/gate intact until the run reaches a terminal state.
-      if (currentRunId) return
+      if (controller.hasRunPending()) return
       hideConfirmGate()
       clearStatusBar()
-      resetPipeline()
+      controller.resetPipelineRows()
       let frame = getPipelineFrame()
       if (frame) {
         frame.reload().catch((err) => {
@@ -363,38 +216,7 @@ export const AgentEventsStream = clientEntry(
     }
 
     async function checkReconnect(componentHandle: Handle) {
-      try {
-        let res = await fetch(routes.admin.agentEvents.reconnect.href(), {
-          signal: componentHandle.signal,
-        })
-        if (!res.ok) return
-        let body = (await res.json()) as {
-          status: string
-          runId?: string
-          workflowId?: string
-          suspendPayload?: Record<string, unknown>
-        }
-        if (body.status !== 'suspended' || !body.runId || !body.suspendPayload) return
-
-        // A stream (submit or resume) is already active: the admin submitted a
-        // new command while the reconnect probe was in flight. Applying the
-        // stale gate now would clobber the new run's state — drop it.
-        if (abortController) return
-
-        let frame = getPipelineFrame()
-        if (!frame) return
-
-        // Re-attach the stream closures to the suspended run so confirm/cancel
-        // resume the correct run, then render the gate.
-        currentRunId = body.runId
-        currentWorkflowId = body.workflowId ?? null
-        didNavigate = false
-        clearStatusBar()
-        resetPipeline()
-        showConfirmGate(body.suspendPayload)
-      } catch {
-        // ignore — reconnect is best-effort
-      }
+      await controller.reconnect(componentHandle.signal)
     }
 
     return () => (
