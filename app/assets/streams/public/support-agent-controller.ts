@@ -566,6 +566,15 @@ export function createSupportAgentStreamController(
 
     try {
       let headers: Record<string, string> = { 'X-Sse-Request': '1' }
+      // Only the client replay carries `X-Agent-Thread` — a runtime frame
+      // fetch never does (that asymmetry is why the `AGENT_FORM_ATTRIBUTE`
+      // forms above must stay on the replay). The value itself originates
+      // from the server side of the same conversation (the rendered page's
+      // thread anchor DOM, or the stream's own SSE `start`/reconnect
+      // payloads), never from user input, but it is still reflected back as
+      // a request header: an origin-validated source would be the
+      // header-injection-safe ideal (review note, intentionally not reworked
+      // here — would need a server-issued, signed thread-token mechanism).
       if (currentThreadId) headers['X-Agent-Thread'] = currentThreadId
       let res = await fetch(form.action, {
         method: form.method || 'POST',

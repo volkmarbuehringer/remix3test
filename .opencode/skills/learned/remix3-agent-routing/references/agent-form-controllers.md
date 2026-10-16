@@ -155,3 +155,15 @@ if (!agentRateLimiter.attempt(ip)) {
 ### Path validation (defense in depth)
 
 Validate paths on both server (tool `execute`) and client (before `frame.src = href`) to prevent prompt injection navigation to malicious URLs.
+
+### Header provenance of `X-Agent-Thread` (review note)
+
+Only the client SSE replay carries `X-Agent-Thread` — a runtime frame fetch
+never does (the `data-agent-form` marker exists because of that asymmetry). The
+header value originates from the server side of the same conversation: the
+rendered page's thread anchor DOM or the stream's own SSE `start`/reconnect
+payloads, never user input. It is still reflected back as a request header, so
+an origin-validated (signed thread-token) source would be the
+header-injection-safe ideal. Recorded as a note in
+`app/assets/streams/public/support-agent-controller.ts` (`frameFormSubmit`);
+intentionally not reworked — the fix needs a server-issued token mechanism.

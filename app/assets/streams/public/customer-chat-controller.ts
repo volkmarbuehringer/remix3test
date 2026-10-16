@@ -9,9 +9,9 @@ import { readEventStream, isAbortError } from './sse-post.ts'
  * controller, the suspended flag, and the mapping of SSE event types to
  * delegate calls.
  *
- * The delegate (the client entry) owns all DOM: bubbles, tool cards, the busy
- * indicator, gate forms, focus. Read-only document access stays in the
- * delegate too — the controller never asserts on page structure.
+ * The delegate (`customer-chat-render.ts`) owns all DOM: bubbles, tool
+ * cards, the busy indicator, gate forms, focus. Read-only document access
+ * stays in the delegate too — the controller never asserts on page structure.
  */
 
 export interface CustomerChatApprovalData {
