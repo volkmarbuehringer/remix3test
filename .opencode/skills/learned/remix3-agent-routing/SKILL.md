@@ -16,6 +16,7 @@ This skill is the **index** for the agent-routing pipeline. For the SSE transpor
 | --- | --- |
 | An agent `navigate` tool; translating a `tool-result` into a `navigate` SSE event; client frame reload + `history.pushState`; prefilling a form via the `X-Agent-Prefill` header | `references/navigate-and-prefill.md` |
 | An `X-Agent-Thread` JSON branch in a form controller; client frame-form intercept; multi-form chaining; CSRF/rate-limit/path-validation for agent endpoints | `references/agent-form-controllers.md` |
+| Which support-agent panel POST forms may defer to the runtime's `data-rmx-target` interception and which must stay on the client replay | `references/support-panel-form-targets.md` |
 
 ## Core Rules
 
