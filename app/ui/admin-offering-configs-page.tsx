@@ -729,7 +729,16 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offeringConfigs.create.href()}>
+        {/* Agent-aware create form: the support-agent panel's SSE replay must
+            keep owning this submit (its controller answers the agent's
+            ask_user gate with JSON), so it carries the data-agent-form marker
+            even though its corrected data-rmx-target names the panel. */}
+        <RestfulForm
+          method="POST"
+          action={routes.verwaltung.offeringConfigs.create.href()}
+          data-rmx-target={getSelfFrameTarget()}
+          data-agent-form="true"
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
           <FormErrorFocus />
 

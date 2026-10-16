@@ -8,6 +8,7 @@ import {
   getSelfFrameTarget,
   isFrameTargeted,
   requestFrameTarget,
+  selfFrameTarget,
 } from './frame-target.ts'
 
 function requestWithTarget(target: string | null): Pick<Request, 'headers'> {
@@ -44,6 +45,29 @@ describe('isFrameTargeted', () => {
       false,
     )
     assert.equal(isFrameTargeted(requestWithTarget(null), frames.adminContent), false)
+  })
+})
+
+describe('selfFrameTarget', () => {
+  it('passes the agent-events panel through', () => {
+    assert.equal(selfFrameTarget(frames.agentEventsPanel), frames.agentEventsPanel)
+  })
+
+  it('passes the support-agent panel through', () => {
+    // Grid pages render their CRUD forms with this helper; when the page is
+    // navigated into the support-agent panel the forms must stay inside it
+    // instead of tearing down the host page.
+    assert.equal(selfFrameTarget(frames.supportAgentPanel), frames.supportAgentPanel)
+  })
+
+  it('falls back to the admin content frame for other targets', () => {
+    assert.equal(selfFrameTarget(frames.adminContent), frames.adminContent)
+    assert.equal(selfFrameTarget(frames.listsContent), frames.adminContent)
+    assert.equal(selfFrameTarget(frames.settingsPanel), frames.adminContent)
+  })
+
+  it('falls back to the admin content frame for a plain document request', () => {
+    assert.equal(selfFrameTarget(null), frames.adminContent)
   })
 })
 

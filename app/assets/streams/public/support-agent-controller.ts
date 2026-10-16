@@ -17,6 +17,36 @@ import { readEventStream, isAbortError, fetchSseStream, type SseInit } from './s
 /** Host element carrying `data-active-frame`; its value outranks the default panel name. */
 export const PANEL_CONTAINER_ID = 'support-agent-frame-container'
 
+/**
+ * Server-rendered marker on POST forms whose controller has an `X-Agent-Thread`
+ * JSON branch (resources create, offering-configs create). A runtime frame
+ * fetch never carries `X-Agent-Thread`, so deferring such a form would strand a
+ * pending `ask_user` gate — the client replay must keep owning them even when
+ * their `data-rmx-target` names the panel.
+ */
+export const AGENT_FORM_ATTRIBUTE = 'data-agent-form'
+
+/**
+ * Per-form ownership decision for a POST form submitted inside the panel
+ * container: should it be left to the runtime's native `data-rmx-target`
+ * interception (`true`, the submit proceeds uncanceled) or replayed by the
+ * client SSE transport (`false`, the intercept preventDefaults it)?
+ *
+ * Deferral is only safe when the form already targets the support panel itself
+ * (its frame fetch swaps the panel in place) and its controller takes no part
+ * in agent flows. Anything else — a wrong/outside target, or an agent-aware
+ * form — is replayed.
+ *
+ * See `.opencode/skills/learned/remix3-agent-routing/references/support-panel-form-targets.md`.
+ */
+export function deferPanelFormToRuntime(
+  formTarget: string | null,
+  agentAwareForm: boolean,
+  panelTarget: string,
+): boolean {
+  return formTarget === panelTarget && !agentAwareForm
+}
+
 export interface SupportAgentFrame {
   reload(options?: { src?: string }): Promise<unknown>
 }

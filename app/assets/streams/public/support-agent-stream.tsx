@@ -6,7 +6,9 @@ import { activeFrameName } from '../../../utils/frame-utils.ts'
 import { renderMarkdownToDom } from './markdown-dom.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
 import {
+  AGENT_FORM_ATTRIBUTE,
   PANEL_CONTAINER_ID,
+  deferPanelFormToRuntime,
   type SupportAgentUiDelegate,
   type SupportAgentFrame,
   createSupportAgentStreamController,
@@ -492,6 +494,25 @@ export const SupportAgentStream = clientEntry(
       if (!form || form.id === 'support-agent-form') return
       if ((form.method || 'GET').toUpperCase() === 'GET') return
       if (controller.frameFormBusy()) return
+
+      // Defer to the runtime's native frame interception only when the form
+      // already targets the support panel itself and its controller takes no
+      // part in agent flows: the submission then proceeds uncanceled and the
+      // runtime frame-fetches the panel in place (with the real FormData and
+      // CSRF token, but without X-Agent-Thread). Everything else is replayed —
+      // a wrong/outside target would swap the outer admin-content frame and
+      // tear down the host page, and an agent-aware create form deferred here
+      // could never answer a pending ask_user gate.
+      let agentAwareForm = form.hasAttribute(AGENT_FORM_ATTRIBUTE)
+      if (
+        deferPanelFormToRuntime(
+          form.getAttribute('data-rmx-target'),
+          agentAwareForm,
+          frames.supportAgentPanel,
+        )
+      ) {
+        return
+      }
 
       e.preventDefault()
       await controller.frameFormSubmit(form)

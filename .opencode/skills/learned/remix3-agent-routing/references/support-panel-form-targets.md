@@ -1,28 +1,27 @@
 # Support-Agent Panel POST Forms: data-rmx-target Evaluation
 
-**Source:** session 2026-10-16 (interactivity item #3 research; decision recorded,
-implementation intentionally deferred). Verified against install build
-`7f900151` (`@remix-run/component` `src/runtime/form-navigation.ts`,
-`src/runtime/navigation.ts`).
+**Source:** session 2026-10-16 (interactivity item #3 research; implemented the
+same day). Verified against install build `7f900151`
+(`@remix-run/component` `src/runtime/form-navigation.ts`, `src/runtime/navigation.ts`).
 
 ## Problem
 
-`support-agent-stream.tsx`'s `handleFrameFormSubmit` intercepts **every** POST
-form submitted inside `#support-agent-frame-container` (`PANEL_CONTAINER_ID`)
-and replays it over the plain fetch transport
+`support-agent-stream.tsx`'s `handleFrameFormSubmit` originally intercepted
+**every** POST form submitted inside `#support-agent-frame-container`
+(`PANEL_CONTAINER_ID`) and replayed it over the plain fetch transport
 (`support-agent-controller.ts` → `frameFormSubmit`, with `X-Agent-Thread`).
-It never reads the form's `data-rmx-target`, and the blanket intercept hides a
-real attribute bug:
+It never read the form's `data-rmx-target`, and the blanket intercept hid a
+real attribute bug (fixed in item #3):
 
-- `app/utils/frame-target.ts` `getSelfFrameTarget()` returns the agent panel
-  only for `frames.agentEventsPanel`; for a `support-agent-panel` render it
-  falls back to `frames.adminContent` (its doc comment names only
-  "agent-events-panel", and `frame-target.test.ts` only asserts the fallback).
-- So a resources create form loaded into the support panel emits
+- `app/utils/frame-target.ts` `getSelfFrameTarget()` used to resolve only
+  `frames.agentEventsPanel`; a `support-agent-panel` render fell back to
+  `frames.adminContent`, so grid forms loaded into the support panel emitted
   `data-rmx-target="admin-content"` — pointing at the **outer** frame. A
   deferred-to-runtime submit would swap the outer `admin-content` frame and
   tear down the host support page: the exact "agent dialog disappears" bug
   `getSelfFrameTarget()` was written to fix for the agent-events panel.
+  `selfFrameTarget()` now passes both panels through (unit cases in
+  `frame-target.test.ts`, integration case in `resources.test.ts`).
 
 ## Runtime mechanics (why ownership is a real decision)
 
@@ -50,21 +49,32 @@ the agent's `routeNavigate` to any admin route):
 
 | Form | `data-rmx-target` emitted | Agent JSON branch | Decision |
 | --- | --- | --- | --- |
-| Resources create | `getSelfFrameTarget()` → `admin-content` (wrong inside panel) | yes (`resources/controller.tsx:218`) | **Client replay owns it.** A runtime fetch cannot carry `X-Agent-Thread`, so the pending `ask_user` gate would stall; and the attribute is wrong anyway. `preventDefault` must stay. |
-| Offering-configs create/update (two-form chain) | same helper → `admin-content` | yes (`offering-configs/controller.tsx:371`) | **Client replay owns it** — same reasoning; this is the chain's second form. |
-| Resources/others DELETE forms (`RestfulForm`), page-size control, misc admin POST forms | `getSelfFrameTarget()` or hardcoded → wrong/outside targets | no | **Replay until the attribute is fixed.** Deferring today swaps the outer frame. The replay posts with `X-Sse-Request: 1` (safe: only chat/support-agent controllers branch on `isSseRequest`) and keeps `_csrf` in the `FormData`. |
+| Resources create | `getSelfFrameTarget()` → `support-agent-panel` (post-fix) | yes (`resources/controller.tsx:218`) | **Client replay owns it** (carries `data-agent-form="true"`). A runtime fetch cannot carry `X-Agent-Thread`, so the pending `ask_user` gate would stall. |
+| Offering-configs create (`admin-offering-configs-page.tsx`) | `getSelfFrameTarget()` → `support-agent-panel` (the form had **no** target before item #3) | yes (`offering-configs/controller.tsx:371`) — only the `create` handler; `update` has none | **Client replay owns it** (carries `data-agent-form="true"`); this is the chain's second form. |
+| Resources/others DELETE forms (`RestfulForm`), page-size control, misc admin POST forms | `getSelfFrameTarget()` or hardcoded → now panel-correct for grid pages | no | **Deferred to the runtime** once the target names the panel: the submit proceeds uncanceled and the runtime frame-navigates the panel in place (real `FormData`, CSRF token intact, but no `X-Agent-Thread`). |
 | Gate forms (`support-agent-approval` / `-question`) | none; rendered in the chat area, **not** the panel container | yes (SSE transport) | Out of scope — owned by the chat-level submit upgrade. |
 
-## Implementation shape for item #3
+## Resolution of the target/marker collision (recorded decision, user-confirmed)
 
-1. Evaluate the form's `data-rmx-target` in the intercept: defer to the runtime
-   when it names the support panel (submission proceeds uncanceled and the
-   runtime frame-navigates the panel correctly), replay otherwise.
-2. Prerequisite for actually deferring the non-agent forms:
-   `getSelfFrameTarget()` must learn `frames.supportAgentPanel` (mirror the
-   agent-events branch, update `frame-target.test.ts`).
-3. The agent-aware create forms never defer, regardless of a corrected
-   attribute — ownership stays with the replay in all cases.
+After `getSelfFrameTarget()` learned `supportAgentPanel`, the agent-aware
+create forms emit the **same** target as the defer-able non-agent forms, so the
+target alone cannot express ownership. The intercept therefore needs a second
+signal, chosen as a server-rendered marker:
+
+- `support-agent-controller.ts` exports `AGENT_FORM_ATTRIBUTE`
+  (`data-agent-form`) and the pure `deferPanelFormToRuntime(formTarget,
+  agentAwareForm, panelTarget)` decision.
+- The agent-aware create forms (`AdminResourcesCreatePanel`,
+  offering-configs create panel) render `data-agent-form="true"`.
+- `support-agent-stream.tsx` `handleFrameFormSubmit` defers only when
+  `deferPanelFormToRuntime(...)` is true — i.e. the form targets the panel AND
+  is not agent-marked — and replays everything else
+  (`preventDefault` + `frameFormSubmit`).
+
+Alternatives considered (rejected): gating deferral on agent state
+(`resolveThreadId()`/pending gate) — weakens the "never defer" guarantee and
+couples the intercept to thread lifecycle; literal target-only deferral —
+strands a pending `ask_user` gate on every create submission.
 
 ## Related
 

@@ -3,9 +3,11 @@ import * as assert from 'remix/assert'
 
 import {
   createSupportAgentStreamController,
+  deferPanelFormToRuntime,
   type SupportAgentUiDelegate,
   type SupportAgentFrame,
 } from './support-agent-controller.ts'
+import { frames } from '../../../routes.ts'
 
 /** Pure state-machine tests, no DOM: the delegate records every call. */
 describe('SupportAgentStreamController', () => {
@@ -270,5 +272,29 @@ describe('SupportAgentStreamController', () => {
     } finally {
       globalThis.fetch = originalFetch
     }
+  })
+})
+
+describe('deferPanelFormToRuntime', () => {
+  let PANEL = frames.supportAgentPanel
+
+  it('defers when the form targets the support panel and is not agent-aware', () => {
+    assert.equal(deferPanelFormToRuntime(PANEL, false, PANEL), true)
+  })
+
+  it('replays when the emitted target is not the support panel', () => {
+    // admin-content etc. would frame-swap the OUTER admin content frame and
+    // tear down the host page — the pre-fix grid-page attribute.
+    assert.equal(deferPanelFormToRuntime(frames.adminContent, false, PANEL), false)
+  })
+
+  it('replays when the form carries no data-rmx-target', () => {
+    assert.equal(deferPanelFormToRuntime(null, false, PANEL), false)
+  })
+
+  it('replays an agent-aware create form even when it targets the panel', () => {
+    // A runtime frame fetch carries no X-Agent-Thread, so the controller's
+    // JSON branch could never answer a pending ask_user gate.
+    assert.equal(deferPanelFormToRuntime(PANEL, true, PANEL), false)
   })
 })

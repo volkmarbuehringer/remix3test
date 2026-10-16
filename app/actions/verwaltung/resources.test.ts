@@ -96,6 +96,30 @@ describe('Admin Resources Controller', () => {
       assert.equal(count, 1, 'empty-state CTA should be hidden while a form panel is active')
     })
 
+    it('the create form targets the support-agent panel and carries the agent form marker', async () => {
+      // Rendered inside the support-agent panel (agent-driven prefill), the
+      // create form must address the panel itself (a hardcoded admin-content
+      // target would tear down the host page) and carry data-agent-form so the
+      // panel's SSE replay keeps owning the submit — a runtime frame fetch
+      // carries no X-Agent-Thread, so the agent's ask_user gate could never be
+      // answered. See frame-target's selfFrameTarget and
+      // support-agent-controller's deferPanelFormToRuntime.
+      let response = await router.fetch(
+        `${RESOURCES_URL}?creating=true&filter=zzz-no-such-resource-${Date.now()}`,
+        {
+          headers: { Cookie: adminCookie, 'X-Remix-Target': 'support-agent-panel' },
+        },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      let formMatch = text.match(/<form[^>]*data-agent-form="true"[^>]*>[\s\S]*?<\/form>/)
+      assert.ok(formMatch, 'the agent-aware create form renders with the data-agent-form marker')
+      assert.ok(
+        formMatch![0].includes('data-rmx-target="support-agent-panel"'),
+        'the agent-aware create form targets the support-agent panel it is rendered into',
+      )
+    })
+
     it('returns 403 for non-admin users', async () => {
       let response = await router.fetch(RESOURCES_URL, {
         headers: { Cookie: userCookie },

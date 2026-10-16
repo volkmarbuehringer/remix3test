@@ -35,23 +35,34 @@ export function currentRequestTargetsFrame(...names: string[]): boolean {
 }
 
 /**
+ * Pure decision behind `getSelfFrameTarget()`, split out so the per-panel
+ * branches are unit-testable without a request context.
+ *
+ * Returns `currentTarget` when it names an agent panel the page may be nested
+ * in, otherwise the admin content frame (the existing default).
+ */
+export function selfFrameTarget(currentTarget: string | null): string {
+  if (currentTarget === frames.agentEventsPanel || currentTarget === frames.supportAgentPanel) {
+    return currentTarget
+  }
+  return frames.adminContent
+}
+
+/**
  * Frame that the currently-rendered page is embedded in.
  *
  * Grid pages (users, appointments, …) hardcode `data-rmx-target={frames.adminContent}`
  * for their sidebar CRUD navigation. That is correct when the page lives directly
  * in the admin content frame, but when such a page is loaded into a nested agent
- * panel frame (agent-events-panel) the hardcoded target would
- * reload the OUTER admin-content frame — tearing down the host agent page (the
- * "agent dialog disappears" bug). When rendering inside an agent panel frame, the
- * page's own links/forms must instead target that panel so they stay put.
+ * panel frame (agent-events-panel or support-agent-panel) the hardcoded target
+ * would reload the OUTER admin-content frame — tearing down the host agent page
+ * (the "agent dialog disappears" bug). When rendering inside an agent panel
+ * frame, the page's own links/forms must instead target that panel so they stay
+ * put.
  *
  * Returns the active agent-panel target when the request was rendered into one,
  * otherwise the admin content frame (the existing default).
  */
 export function getSelfFrameTarget(): string {
-  let target = currentFrameTarget()
-  if (target === frames.agentEventsPanel) {
-    return target
-  }
-  return frames.adminContent
+  return selfFrameTarget(currentFrameTarget())
 }
