@@ -7,7 +7,7 @@ origin: consolidated
 
 # Remix 3 Client Entry Browser Behaviors
 
-**Consolidated from:** `remix3-queuetask-over-raf`, `remix3-firefox-single-import-map`, `remix3-aria-tabs`, `roving-tabindex-keyboard-lists`, `maxlength-programmatic-value-bypass`, `streamed-chat-markdown-finalize`, `remix3-textarea-bulk-clear-wipe`, `remix3-client-entry-decomposition`, `remix3-client-entry-factory-extraction`
+**Consolidated from:** `remix3-queuetask-over-raf`, `remix3-firefox-single-import-map`, `remix3-aria-tabs`, `roving-tabindex-keyboard-lists`, `maxlength-programmatic-value-bypass`, `streamed-chat-markdown-finalize`, `remix3-textarea-bulk-clear-wipe`, `remix3-client-entry-decomposition`, `remix3-client-entry-factory-extraction`, `remix3-stream-controller-extraction`
 
 This skill is the **index** for browser-side deltas that live in a Remix 3 `clientEntry`. For the Frame/entry runtime and `remix/component` component-model APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -24,6 +24,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | Setting an input/textarea value programmatically (chip, autofill, URL prefill) and the `maxLength` cap must still hold | `references/maxlength-programmatic-value-bypass.md` |
 | Streaming agent/LLM text into a chat bubble and rendering markdown only once the stream settles, without `innerHTML` | `references/streamed-chat-markdown-finalize.md` |
 | A `clientEntry` / `.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX and must be split without behavior change | `references/client-entry-decomposition.md` |
+| The clientEntry's fetch/SSE turn state machine (retry, reconnect, thread adoption, suspend gates) must become independently testable / stop touching DOM | `references/stream-controller-extraction.md` |
 | Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration | `references/client-entry-factory-extraction.md` |
 | Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/textarea-bulk-clear-wipe-history.md` |
 
