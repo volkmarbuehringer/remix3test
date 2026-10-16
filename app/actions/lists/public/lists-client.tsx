@@ -3,7 +3,8 @@ import { theme } from '../../../ui/theme/theme.ts'
 import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
 
 import { sidebarRowLabel, syncSidebarRow, UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
-import { createListsDrag } from './lists-drag.ts'
+import type { ListsDragContext } from './lists-drag.ts'
+import { drag } from './lists-drag-mixin.ts'
 import {
   type ItemPriority,
   type SortMode,
@@ -736,8 +737,11 @@ export const ListsClient = clientEntry(
     }
 
     // Drag-and-drop (item reorder, cross-list item move, list merge) lives in
-    // its own module; these callbacks bridge it to the editor's state.
-    let drag = createListsDrag({
+    // its own module and is applied to the element-list container through the
+    // browser-only `drag()` mixin (see lists-drag-mixin.ts). These callbacks
+    // bridge it to the editor's state; the object is built once so the mixin's
+    // controller keeps the same stable context on every render.
+    let dragContext: ListsDragContext = {
       getItems: () => items,
       getLoadedListId: () => loadedListId,
       getLoadedUpdatedAt: () => loadedUpdatedAt,
@@ -759,7 +763,7 @@ export const ListsClient = clientEntry(
       reloadFrame: () => handle.frame.reload().catch(() => {}),
       update: () => handle.update(),
       signal: handle.signal,
-    })
+    }
 
     let clearAll = () => {
       if (!clearArmed) {
@@ -1307,7 +1311,7 @@ export const ListsClient = clientEntry(
       copyNotice,
       clearArmed,
       grabbedId,
-      drag,
+      drag: drag(dragContext),
       visibleItems,
       showDescription,
       statusColor,

@@ -4,7 +4,7 @@ import { frames } from '../../../routes.ts'
 import button from '../../../ui/theme/button.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 
-import type { ListsDragController } from './lists-drag.ts'
+import type { ListsDragMixinDescriptor } from './lists-drag-mixin.ts'
 import {
   type ItemPriority,
   type ListConflictState,
@@ -103,7 +103,7 @@ export type ListsEditorView = {
   copyNotice: string
   clearArmed: boolean
   grabbedId: string | null
-  drag: ListsDragController
+  drag: ListsDragMixinDescriptor
 
   visibleItems: () => ListItem[]
   showDescription: () => boolean
@@ -1068,23 +1068,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   scrollbarColor: `${theme.colors.border.strong} ${theme.surface.lvl2}`,
                 }),
                 ref((el) => view.onListRef(el)),
+                // Browser-only `drag()` mixin: binds the delegated
+                // drag-and-drop wiring (row reorder, cross-list move, merge)
+                // to this container; see lists-drag-mixin.ts.
+                view.drag,
                 ref((el) => {
                   let ac = new AbortController()
-                  el.addEventListener(
-                    'dragover',
-                    (e) => drag.handleContainerDragOver(e as DragEvent),
-                    { signal: ac.signal },
-                  )
-                  // Capture-phase so it fires even while over a row (rows
-                  // stop the bubble-phase dragover), enabling edge auto-scroll.
-                  el.addEventListener(
-                    'dragover',
-                    (e) => drag.autoScrollList((e as DragEvent).clientY),
-                    { capture: true, signal: ac.signal },
-                  )
-                  el.addEventListener('drop', (e) => drag.handleDrop(e as DragEvent), {
-                    signal: ac.signal,
-                  })
 
                   // Reveal/hide a row's action cluster on hover or focus.
                   // Delegated on the container so it survives re-renders.
@@ -1173,38 +1162,6 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       ...(item.id === grabbedId
                         ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
                         : []),
-                      ref((el) => {
-                        let ac = new AbortController()
-                        el.addEventListener(
-                          'dragstart',
-                          (e) => {
-                            let idx = parseInt(
-                              (e.currentTarget as HTMLElement).dataset.index || '0',
-                              10,
-                            )
-                            drag.handleDragStart(e as DragEvent, idx)
-                          },
-                          { signal: ac.signal },
-                        )
-                        el.addEventListener(
-                          'dragover',
-                          (e) => {
-                            let idx = parseInt(
-                              (e.currentTarget as HTMLElement).dataset.index || '0',
-                              10,
-                            )
-                            drag.handleDragOver(e as DragEvent, idx)
-                          },
-                          { signal: ac.signal },
-                        )
-                        el.addEventListener('drop', (e) => drag.handleDrop(e as DragEvent), {
-                          signal: ac.signal,
-                        })
-                        el.addEventListener('dragend', () => drag.handleDragEnd(), {
-                          signal: ac.signal,
-                        })
-                        return () => ac.abort()
-                      }),
                       on('keydown', (e) => handleRowKeyDown(e, index)),
                       on('click', () => {
                         view.setFocusedId(item.id)

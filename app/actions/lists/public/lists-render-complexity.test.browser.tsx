@@ -2,6 +2,8 @@ import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { renderListsEditor, type ListsEditorView } from './lists-view.tsx'
+import { drag } from './lists-drag-mixin.ts'
+import type { ListsDragContext } from './lists-drag.ts'
 import type { ListItem } from './lists-state.ts'
 
 // ---------------------------------------------------------------------------
@@ -69,14 +71,10 @@ function renderWithSpy(items: ListItem[]): Counts {
     copyNotice: '',
     clearArmed: false,
     grabbedId: null,
-    drag: {
-      handleDragStart: noop,
-      handleDragOver: noop,
-      handleContainerDragOver: noop,
-      autoScrollList: noop,
-      handleDrop: noop,
-      handleDragEnd: noop,
-    },
+    // The drag wiring is a browser-only mixin descriptor. The JSX is only
+    // built here (never mounted), so the context is never invoked; the cast
+    // just satisfies the descriptor's factory argument.
+    drag: drag({} as ListsDragContext),
     visibleItems: () => {
       counts.visibleItems++
       return items

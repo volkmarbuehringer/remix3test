@@ -1,18 +1,20 @@
 import { describe, it, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { createListsDrag, type ListsDragContext } from './lists-drag.ts'
+import { createListsDrag, wireListsDragHost, type ListsDragContext } from './lists-drag.ts'
 import type { ListItem } from './lists-state.ts'
 
 // ---------------------------------------------------------------------------
-// ListsDrag — the drag-and-drop controller behind /lists.
+// ListsDrag — the drag-and-drop behavior behind /lists.
 //
-// The controller is driven directly against real DOM fixtures: it registers the
-// sidebar drop wiring on `document` and the rows when a drag starts, so a
-// dragstart/dragover/drop dispatch reaches the same merge/move handlers the page
-// uses. fetch and window.confirm are stubbed, so this asserts the client half
-// (gesture -> confirmation -> request shape/order -> reload) without a server;
-// the real server round trip stays in lists-client-ops.test.e2e.ts.
+// The controller is driven directly against real DOM fixtures through
+// `wireListsDragHost` — the same delegated wiring the browser-only `drag()`
+// mixin installs on the element-list container in production. Native
+// dragstart/dragover/drop dispatch on a row therefore reaches the same
+// merge/move/reorder handlers the page uses. fetch and window.confirm are
+// stubbed, so this asserts the client half (gesture -> confirmation ->
+// request shape/order -> reload) without a server; the real server round trip
+// stays in lists-client-ops.test.e2e.ts.
 // ---------------------------------------------------------------------------
 
 const originalFetch = window.fetch
@@ -78,7 +80,10 @@ function setup(options: { items?: ListItem[] } = {}) {
   let editor = document.createElement('div')
   editor.setAttribute('data-editor', '')
   editor.innerHTML = (options.items ?? items)
-    .map((_, index) => `<div data-editor-row="${index}"></div>`)
+    .map(
+      (_, index) =>
+        `<div role="listitem" data-index="${index}" data-editor-row="${index}"></div>`,
+    )
     .join('')
   fixture.appendChild(editor)
   document.body.appendChild(fixture)
@@ -112,6 +117,9 @@ function setup(options: { items?: ListItem[] } = {}) {
     signal: ac.signal,
   }
   controller = createListsDrag(ctx)
+  // Bind the delegated wiring to the container, exactly as the drag() mixin
+  // does on insert.
+  wireListsDragHost(listRef!, controller, ac.signal)
 }
 
 function dragListTo(sourceId: number, targetId: number) {
@@ -126,9 +134,10 @@ function dragListTo(sourceId: number, targetId: number) {
   target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
 }
 
+// The dragstart on an editor row flows through the container's delegated
+// wiring: the row resolves via [role="listitem"] and its data-index attribute.
 function dragItemTo(index: number, targetId: number) {
   let row = fixture!.querySelector<HTMLElement>(`[data-editor-row="${index}"]`)!
-  row.addEventListener('dragstart', (e) => controller!.handleDragStart(e as DragEvent, index))
   let dt = new DataTransfer()
   row.dispatchEvent(
     new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
@@ -263,14 +272,16 @@ describe('ListsDrag item drop', () => {
       { id: 'b', label: 'B' },
     ]
     setup({ items })
-    let row = fixture!.querySelector<HTMLElement>('[data-editor-row="0"]')!
-    row.addEventListener('dragstart', (e) => controller!.handleDragStart(e as DragEvent, 0))
+    let editor = fixture!.querySelector<HTMLElement>('[data-editor]')!
+    let row = editor.querySelector<HTMLElement>('[data-editor-row="0"]')!
     let dt = new DataTransfer()
     row.dispatchEvent(
       new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
     )
 
-    controller!.handleContainerDragOver(
+    // Past the last row: the delegated container dragover (no [role="listitem"]
+    // under the pointer) resolves the drop to the end of the list.
+    editor.dispatchEvent(
       new DragEvent('dragover', {
         bubbles: true,
         cancelable: true,
@@ -278,7 +289,7 @@ describe('ListsDrag item drop', () => {
         clientY: 10_000,
       }),
     )
-    controller!.handleDrop(
+    editor.dispatchEvent(
       new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }),
     )
 

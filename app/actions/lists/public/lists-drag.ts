@@ -27,9 +27,12 @@ export type ListsDragContext = {
   signal: AbortSignal
 }
 
+// Row-scoped handlers receive the row element explicitly: the browser-only
+// `drag()` mixin wires them through event delegation on the list container,
+// so `e.currentTarget` is the container, never the row.
 export type ListsDragController = {
-  handleDragStart: (e: DragEvent, index: number) => void
-  handleDragOver: (e: DragEvent, index: number) => void
+  handleDragStart: (e: DragEvent, index: number, row: HTMLElement) => void
+  handleDragOver: (e: DragEvent, index: number, row: HTMLElement) => void
   handleContainerDragOver: (e: DragEvent) => void
   autoScrollList: (clientY: number) => void
   handleDrop: (e: DragEvent) => void
@@ -65,7 +68,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
     }
   }
 
-  let handleDragStart = (e: DragEvent, index: number) => {
+  let handleDragStart = (e: DragEvent, index: number, row: HTMLElement) => {
     let target = e.target as HTMLElement
     if (target.closest('button, input, textarea, [contenteditable]')) {
       e.preventDefault()
@@ -80,9 +83,8 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
     dropIndex = null
     e.dataTransfer!.effectAllowed = 'move'
     e.dataTransfer!.setData('text/plain', index.toString())
-    let el = e.currentTarget as HTMLElement
-    draggedEl = el
-    el.style.opacity = '0.4'
+    draggedEl = row
+    row.style.opacity = '0.4'
     clearSidebarHighlight()
     measureDropZones()
     startSidebarDragWiring()
@@ -117,11 +119,11 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
     }
   }
 
-  let handleDragOver = (e: DragEvent, index: number) => {
+  let handleDragOver = (e: DragEvent, index: number, row: HTMLElement) => {
     e.preventDefault()
     e.stopPropagation()
     if (dragIndex === null) return
-    let rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    let rect = row.getBoundingClientRect()
     let midY = rect.top + rect.height / 2
     let newDropIndex = e.clientY < midY ? index : index + 1
     let isNoop = newDropIndex === dragIndex || newDropIndex === dragIndex + 1
@@ -537,4 +539,55 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
     handleDrop,
     handleDragEnd,
   }
+}
+
+/**
+ * Delegated drag wiring for the element-list container: one set of listeners
+ * on the container survives re-renders and covers every row via event
+ * delegation (rows resolve through their `[role="listitem"]` ancestor and the
+ * row's `data-index` attribute — the same attributes the per-row `ref()`
+ * wiring previously read). Container-level dragover/drop handlers keep their
+ * original phase semantics: auto-scroll stays capture-phase so it fires even
+ * while the pointer is over a row (rows stop the bubble-phase dragover).
+ *
+ * This is the wiring the browser-only `drag()` mixin installs on its host; it
+ * is exported so the browser tests drive the exact production path.
+ */
+export function wireListsDragHost(
+  host: HTMLElement,
+  controller: ListsDragController,
+  signal: AbortSignal,
+): void {
+  let rowOf = (target: EventTarget | null): HTMLElement | null => {
+    if (!(target instanceof Element)) return null
+    return target.closest<HTMLElement>('[role="listitem"]')
+  }
+  let rowIndexOf = (row: HTMLElement): number => parseInt(row.dataset.index || '0', 10)
+
+  // Capture-phase so it fires even while over a row (rows stop the
+  // bubble-phase dragover), enabling edge auto-scroll.
+  host.addEventListener('dragover', (e) => controller.autoScrollList(e.clientY), {
+    capture: true,
+    signal,
+  })
+  host.addEventListener(
+    'dragover',
+    (e) => {
+      let row = rowOf(e.target)
+      if (row) controller.handleDragOver(e, rowIndexOf(row), row)
+      else controller.handleContainerDragOver(e)
+    },
+    { signal },
+  )
+  host.addEventListener('drop', (e) => controller.handleDrop(e), { signal })
+  host.addEventListener(
+    'dragstart',
+    (e) => {
+      let row = rowOf(e.target)
+      if (!row) return
+      controller.handleDragStart(e, rowIndexOf(row), row)
+    },
+    { signal },
+  )
+  host.addEventListener('dragend', () => controller.handleDragEnd(), { signal })
 }
