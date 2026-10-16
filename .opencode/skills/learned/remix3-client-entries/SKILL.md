@@ -1,6 +1,6 @@
 ---
 name: remix3-client-entries
-description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`), and the interactivity runtime: `createRoot`/`run()` lifecycle, custom event mixins, `on(...)`/`handle.update()` cancellation, `navigate`/`link`/`attrs`, optimistic UI, enhanced form submission, keyboard-navigable rich lists, programmatic `maxLength` clamping, finalize-on-complete markdown for streamed chat, and decomposing an over-1,000-line `clientEntry`/`.browser.tsx` into styles/state/API/drag/view modules without behavior change, and deduplicating several similar `clientEntry`s behind one shared factory while keeping `clientEntry(...)` at each call site."
+description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`), and the interactivity runtime: `createRoot`/`run()` lifecycle, custom event mixins, `on(...)`/`handle.update()` cancellation, browser-only behavior mixins (`createMixin(type, { ssr: false })`) replacing per-element `ref()` listeners, `navigate`/`link`/`attrs`, optimistic UI, enhanced form submission, keyboard-navigable rich lists, programmatic `maxLength` clamping, finalize-on-complete markdown for streamed chat, and decomposing an over-1,000-line `clientEntry`/`.browser.tsx` into styles/state/API/drag/view modules without behavior change, and deduplicating several similar `clientEntry`s behind one shared factory while keeping `clientEntry(...)` at each call site."
 user-invocable: false
 origin: consolidated
 ---
@@ -27,6 +27,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | The clientEntry's fetch/SSE turn state machine (retry, reconnect, thread adoption, suspend gates) must become independently testable / stop touching DOM | `references/stream-controller-extraction.md` |
 | Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration | `references/client-entry-factory-extraction.md` |
 | An enhancer clientEntry renders `null`/a hidden div, scans server DOM, and registers module-scoped document listeners; converting it to component-owned DOM (or its `on(...)` can't hear a sibling input's events) | `references/component-owned-dom-conversion.md` |
+| Per-element `ref()` event wiring for a DOM behavior that contributes no server HTML should become one delegated browser-only `createMixin(type, { ssr: false })` on a container (or its handlers must stop reading `e.currentTarget` as the row) | `references/browser-only-behavior-mixin.md` |
 | Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/textarea-bulk-clear-wipe-history.md` |
 
 ## Core Rules
@@ -80,6 +81,11 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 **Deduplicating similar `clientEntry`s with a shared factory (`references/client-entry-factory-extraction.md`)**
 
 - `clientEntry(entryId, component)` only tags the function (`$entry`/`$entryId`); hydration resolves from the id's `#ExportName`, not function identity. Extract the body into a factory but keep `clientEntry(import.meta.url + '#Name', factory({...}))` at each call site — a factory calling `clientEntry` itself points `href` at the wrong module and the export name is absent there. The shared module must be under an allowFiles path. Preserve the select guard, and only `handle.update()` on capture when rendered items depend on the captured row. Direct-render browser tests bypass hydration — verify with an e2e that waits for a hydration marker (`state: 'attached'`; the trigger is invisible).
+
+**Browser-only behavior mixin over delegated listeners (`references/browser-only-behavior-mixin.md`)**
+
+- A DOM behavior that contributes no server HTML (drag-and-drop, pointer menus) belongs in `createMixin(setup, { ssr: false })` applied to its container, not in per-element `ref()` listeners re-created every render. Follow the vendor `on()` mixin's lifecycle: capture `handle.signal` in setup, bind on `insert` (`event.node`), rebind when a different node is inserted, let the scope signal own teardown. First application: `app/actions/lists/public/lists-drag-mixin.ts` (`drag(ctx)`) replacing the per-row drag `ref()`s in `lists-view.tsx`; commit `868aa6c`.
+- The delegation trap: `e.currentTarget` becomes the container, so row-scoped handlers must take the row explicitly (`handleDragStart(e, index, row)`); keep capture-phase listeners (edge auto-scroll) capture-phase, branch the single bubble-phase delegated handler on `target.closest('[role="listitem"]')`, and export the wiring function (`wireListsDragHost`) so the browser test drives the exact production path against a fixture.
 
 ## When to Use
 
