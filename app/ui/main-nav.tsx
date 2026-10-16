@@ -8,6 +8,7 @@ import { routes } from '../routes.ts'
 import { MOBILE_ITEMS, navSectionsForRole } from './nav.ts'
 import { NavToggle } from '../ui/layout/nav-toggle.browser.tsx'
 import { NotificationBell } from './notification-bell.browser.tsx'
+import { ThemeToggle } from './theme-toggle.browser.tsx'
 
 const indigo = {
   500: '#6366f1',
@@ -161,15 +162,7 @@ export function MainNav() {
             </button>
           </div>
 
-          <button
-            id="theme-toggle"
-            aria-label="Design umschalten"
-            title="Design umschalten"
-            mix={themeBtnCss}
-            type="button"
-          >
-            <Glyph name="moon" width={16} height={16} />
-          </button>
+          <ThemeToggle />
         </div>
 
         <NavToggle />
@@ -384,22 +377,6 @@ const iconLinkCss = css({
   borderRadius: theme.radius.md,
   transition: 'color 150ms ease, background-color 150ms ease',
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl3 },
-})
-
-const themeBtnCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: theme.colors.text.secondary,
-  minWidth: '2.75rem',
-  minHeight: '2.75rem',
-  borderRadius: theme.radius.md,
-  marginLeft: theme.space.xs,
-  transition: 'all 150ms ease',
-  '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
 })
 
 const desktopOnlyCss = css({

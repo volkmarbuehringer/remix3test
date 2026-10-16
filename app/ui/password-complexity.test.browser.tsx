@@ -1,40 +1,42 @@
-import { describe, it, before, afterEach } from 'remix/test'
+import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { render } from 'remix/component/test'
 
-import { passwordComplexityScript } from './password-complexity-script.browser.tsx'
+import { PasswordComplexityChecklist } from './password-complexity.browser.tsx'
 
 // ---------------------------------------------------------------------------
-// passwordComplexityScript — the live checklist under the password inputs.
+// PasswordComplexityChecklist — the live checklist under the password inputs.
 //
-// Like PasswordToggle this is an inline <script>, not a clientEntry: the
-// auth/settings pages render it server-side with a CSP nonce. The browser
-// test injects the generated string once per file (a per-test injection would
-// stack document input listeners and multiply the rewrites) against the same
-// form shape the register form ships (auth pages.tsx: input[name=password] +
-// div[data-pw-complexity] in the enclosing form).
+// The checklist is component-owned DOM: one hydrated container per password
+// form; the password `input` events bubble into it and refresh the three rule
+// rows via textContent (never innerHTML). Tests mount a form fixture with the
+// input shape the register form ships (auth pages.tsx:
+// input[name=password] inside the same form) and render the checklist into it.
 // ---------------------------------------------------------------------------
 
-let injected: HTMLScriptElement | null = null
-let fixture: HTMLElement | null = null
-
-function installScriptOnce() {
-  let script = document.createElement('script')
-  script.textContent = passwordComplexityScript('password')
-  document.body.appendChild(script)
-  injected = script
-}
+let fixture: HTMLFormElement | null = null
+let mount: HTMLElement | null = null
+let cleanup: (() => void) | null = null
 
 function mountForm(): void {
-  let host = document.createElement('div')
+  let host = document.createElement('form')
+  host.setAttribute('action', '#')
+  host.setAttribute('method', 'post')
   host.innerHTML = `
-    <form action="#" method="post">
-      <input type="password" name="password" id="pw" />
-      <div data-pw-complexity></div>
-      <input type="text" name="email" id="email" />
-    </form>
+    <input type="password" name="password" id="pw" />
+    <input type="text" name="email" id="email" />
   `
+  mount = document.createElement('div')
+  host.appendChild(mount)
   document.body.appendChild(host)
   fixture = host
+}
+
+function renderChecklist(fieldName = 'password'): void {
+  let result = render(<PasswordComplexityChecklist fieldName={fieldName} />, {
+    container: mount!,
+  })
+  cleanup = result.cleanup
 }
 
 function type(fieldId: string, value: string): void {
@@ -55,18 +57,18 @@ function ruleTexts(): string[] {
   return [...feedback().querySelectorAll('span')].map((span) => span.textContent ?? '')
 }
 
-describe('passwordComplexityScript', () => {
-  before(() => {
-    installScriptOnce()
-  })
+afterEach(() => {
+  cleanup?.()
+  cleanup = null
+  fixture?.remove()
+  fixture = null
+  mount = null
+})
 
-  afterEach(() => {
-    fixture?.remove()
-    fixture = null
-  })
-
+describe('PasswordComplexityChecklist', () => {
   it('renders the three unmet rules for an empty password', () => {
     mountForm()
+    renderChecklist()
     type('pw', '')
 
     assert.equal(feedback().querySelectorAll('span').length, 3, 'three rules always visible')
@@ -80,6 +82,7 @@ describe('passwordComplexityScript', () => {
 
   it('ticks the length rule at ten characters', () => {
     mountForm()
+    renderChecklist()
     type('pw', 'abcdefghij')
 
     assert.match(ruleTexts()[0]!, /^✓/)
@@ -90,6 +93,7 @@ describe('passwordComplexityScript', () => {
 
   it('ticks digits and special characters independently', () => {
     mountForm()
+    renderChecklist()
     type('pw', 'abcdefghij1')
     assert.match(ruleTexts()[1]!, /^✓/, 'digit met')
     assert.match(ruleTexts()[2]!, /^○/, 'no special char yet')
@@ -105,6 +109,7 @@ describe('passwordComplexityScript', () => {
 
   it('ignores input events from other fields in the form', () => {
     mountForm()
+    renderChecklist()
     type('pw', 'abcdefghij1$')
     let snapshot = feedback().innerHTML
 
@@ -113,20 +118,21 @@ describe('passwordComplexityScript', () => {
     assert.equal(feedback().innerHTML, snapshot, 'only the watched field refreshes it')
   })
 
-  it('does nothing when no feedback element sits in the form', () => {
-    let host = document.createElement('div')
-    host.innerHTML = `<form><input type="password" name="password" id="pw" /></form>`
-    document.body.appendChild(host)
-    fixture = host
+  it('stays empty until the watched field emits its first input event', () => {
+    mountForm()
+    renderChecklist()
 
-    type('pw', 'abcdefghij1$') // must not throw
+    assert.equal(feedback().children.length, 0, 'no rules before any input')
 
-    assert.equal(host.querySelectorAll('[data-pw-complexity]').length, 0)
+    type('pw', 'a')
+    assert.equal(feedback().children.length, 3, 'rules appear on first input')
   })
 
-  it('rejects field names that are not safe identifiers', () => {
-    assert.throws(() => passwordComplexityScript('1bad'))
-    assert.throws(() => passwordComplexityScript("a'; alert(1); //"))
-    assert.doesNotThrow(() => passwordComplexityScript('newPassword'))
+  it('only reacts to the configured field name', () => {
+    mountForm()
+    renderChecklist('newPassword')
+    type('pw', 'abcdefghij1$')
+
+    assert.equal(feedback().children.length, 0, 'a different name does not match')
   })
 })

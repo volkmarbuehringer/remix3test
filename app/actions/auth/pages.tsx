@@ -19,8 +19,7 @@ import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 import { PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
-import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
-import { getCspNonce } from '../../middleware/security-headers.ts'
+import { PasswordComplexityChecklist } from '../../ui/password-complexity.browser.tsx'
 
 // ── Login ──
 
@@ -245,8 +244,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                   {errors.password}
                 </span>
               ) : null}
-              <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script nonce={getCspNonce()}>{passwordComplexityScript('password')}</script>
+              <PasswordComplexityChecklist fieldName="password" />
             </label>
 
             <label mix={fieldLabelCss}>
@@ -441,8 +439,7 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   {errors.password}
                 </span>
               ) : null}
-              <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script nonce={getCspNonce()}>{passwordComplexityScript('password')}</script>
+              <PasswordComplexityChecklist fieldName="password" />
             </label>
 
             <label mix={fieldLabelCss}>
@@ -527,13 +524,6 @@ const hintCss = css({
   margin: '0 0 0.25rem',
   fontSize: theme.fontSize.sm,
   color: theme.colors.text.secondary,
-})
-
-const complexityFeedbackCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '2px',
-  marginTop: theme.space.xs,
 })
 
 const footerLinkCss = css({

@@ -1,7 +1,12 @@
-import { clientEntry, css, type Handle } from 'remix/component'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
+
+import { input } from './mixins/input.ts'
+import { theme } from './theme/theme.ts'
 
 /**
- * Compose-box enhancement for /admin/messages.
+ * Compose textarea + live meta for /admin/messages (server-rendered, then
+ * hydrated — the textarea and its counter/warning meta are component-owned
+ * DOM, so all listeners clean up with the element's signal on frame swap).
  *
  * Three jobs the server render cannot do on its own:
  *
@@ -11,18 +16,27 @@ import { clientEntry, css, type Handle } from 'remix/component'
  *    are typing silently wipes your in-progress text. The draft is kept in
  *    sessionStorage, cleared on submit, and re-saved from the server-rendered
  *    value when a rejected POST re-renders the page with the submitted text.
- * 2. A live character counter for the 1000-char limit.
+ *    At bind time the DOM value is the server-rendered one and wins over the
+ *    draft (see `app/actions/admin/messages` for the re-render flow).
+ * 2. A live character counter for the maxLength limit.
  * 3. A warning when the text contains characters the server strips
  *    (< > ' " &), so sanitization is never silent.
- *
- * A single document-level submit/click pair is registered once per page load
- * (module-scoped guard, matching message-expand), so it survives frame swaps.
  */
 const DRAFT_KEY = 'admin-messages-compose-draft'
-const MAX_LENGTH = 1000
 const STRIPPED_PATTERN = /[<>'"&]/
 
-let listenersRegistered = false
+interface MessageComposeProps {
+  /** Hard character limit mirrored on the textarea and the live counter. */
+  maxLength: number
+  /** Live-warn when the text contains characters the server strips. */
+  strippableWarning?: boolean
+  /** Server-rendered value; a rejected POST re-render resubmits the text. */
+  value?: string | undefined
+  /** Per-field validation error shown under the textarea. */
+  contentError?: string | undefined
+  /** Form-level validation error shown under the textarea. */
+  formError?: string | undefined
+}
 
 function saveDraft(value: string): void {
   try {
@@ -49,73 +63,160 @@ function clearDraft(): void {
   }
 }
 
-function updateMeta(textarea: HTMLTextAreaElement): void {
+function updateMeta(textarea: HTMLTextAreaElement, maxLength: number): void {
   let value = textarea.value
-  let counter = document.querySelector<HTMLElement>('[data-compose-counter]')
+  // Scope the meta lookups to the compose form instead of the document: the
+  // counter and warning render next to the textarea inside the same form.
+  let counter = textarea.form?.querySelector<HTMLElement>('[data-compose-counter]')
   if (counter) {
-    counter.textContent = value.length + '/' + MAX_LENGTH
-    counter.setAttribute('data-over-limit', value.length >= MAX_LENGTH ? 'true' : 'false')
+    counter.textContent = value.length + '/' + maxLength
+    counter.setAttribute('data-over-limit', value.length >= maxLength ? 'true' : 'false')
   }
-  let warning = document.querySelector<HTMLElement>('[data-compose-warning]')
+  let warning = textarea.form?.querySelector<HTMLElement>('[data-compose-warning]')
   if (warning) {
     warning.hidden = !STRIPPED_PATTERN.test(value)
   }
 }
 
-function bindTextarea(textarea: HTMLTextAreaElement): void {
-  if (textarea.dataset.composeBound === 'true') return
-  textarea.dataset.composeBound = 'true'
-
-  // At bind time the DOM value is the server-rendered one: a rejected POST
-  // re-renders with the submitted text, a successful/plain render is empty.
-  let serverValue = textarea.value
-  if (serverValue) {
-    saveDraft(serverValue)
-  } else {
-    let draft = readDraft()
-    if (draft) textarea.value = draft
-  }
-
-  textarea.addEventListener('input', () => {
-    saveDraft(textarea.value)
-    updateMeta(textarea)
-  })
-
-  updateMeta(textarea)
-}
-
-function onDocumentSubmit(event: Event): void {
-  let form = event.target as HTMLElement | null
-  if (!form || form.id !== 'messages-compose-form') return
-  clearDraft()
-}
-
-function onDocumentClick(event: Event): void {
-  let target = event.target as HTMLElement | null
-  if (target && target.closest('[data-compose-submit]')) clearDraft()
-}
-
-function registerListeners(): void {
-  if (listenersRegistered || typeof document === 'undefined') return
-  listenersRegistered = true
-  document.addEventListener('submit', onDocumentSubmit, { capture: true })
-  document.addEventListener('click', onDocumentClick, { capture: true })
-}
-
-function scan(): void {
-  if (typeof document === 'undefined') return
-  document
-    .querySelectorAll<HTMLTextAreaElement>('#messages-content')
-    .forEach((textarea) => bindTextarea(textarea))
-}
-
 export const MessageCompose = clientEntry(
   import.meta.url + '#MessageCompose',
-  function MessageCompose(handle: Handle) {
+  function MessageCompose(handle: Handle<MessageComposeProps>) {
     return () => {
-      registerListeners()
-      handle.queueTask(scan)
-      return <div mix={css({ display: 'none' })} />
+      let { maxLength, strippableWarning, value = '', contentError, formError } = handle.props
+
+      return (
+        <>
+          <textarea
+            id="messages-content"
+            name="content"
+            required
+            maxLength={maxLength}
+            placeholder="Nachricht schreiben…"
+            defaultValue={value}
+            aria-invalid={contentError ? true : undefined}
+            aria-describedby="messages-content-meta"
+            mix={[
+              input.base,
+              input.focus,
+              textareaStyle,
+              ...(contentError ? [input.error] : []),
+              ref((node, signal) => {
+                let textarea = node as HTMLTextAreaElement
+
+                // At bind time the DOM value is the server-rendered one: a
+                // rejected POST re-renders with the submitted text, a
+                // successful/plain render is empty.
+                let serverValue = textarea.value
+                if (serverValue) {
+                  saveDraft(serverValue)
+                } else {
+                  let draft = readDraft()
+                  if (draft) textarea.value = draft
+                }
+
+                textarea.addEventListener(
+                  'input',
+                  () => {
+                    saveDraft(textarea.value)
+                    updateMeta(textarea, maxLength)
+                  },
+                  { signal },
+                )
+
+                // The draft clears when the compose form submits and when its
+                // submit button is clicked (pre-clears even when native
+                // validation cancels the submission). Both listeners are bound
+                // to the textarea's signal so a frame swap unbinds them.
+                let form = textarea.form
+                if (form) {
+                  form.addEventListener('submit', () => clearDraft(), { capture: true, signal })
+                  form.addEventListener(
+                    'click',
+                    (event) => {
+                      let target = event.target as HTMLElement | null
+                      if (target && target.closest('[data-compose-submit]')) clearDraft()
+                    },
+                    { capture: true, signal },
+                  )
+                }
+
+                updateMeta(textarea, maxLength)
+              }),
+            ]}
+          />
+          {contentError ? <div mix={fieldErrorStyle}>{contentError}</div> : null}
+          {formError ? (
+            <div role="alert" mix={formErrorStyle}>
+              {formError}
+            </div>
+          ) : null}
+          <div id="messages-content-meta" mix={composeMetaStyle}>
+            <span
+              data-compose-counter
+              data-over-limit={value.length >= maxLength ? 'true' : 'false'}
+              mix={composeCounterStyle}
+            >
+              {value.length + '/' + maxLength}
+            </span>
+            {strippableWarning ? (
+              <span data-compose-warning hidden mix={composeWarningStyle}>
+                {'Zeichen wie < > & \' " werden beim Senden entfernt.'}
+              </span>
+            ) : null}
+          </div>
+        </>
+      )
     }
   },
 )
+
+// ── Styles (moved from admin-messages-page.tsx with the markup) ──
+
+const textareaStyle = css({
+  resize: 'vertical',
+  minHeight: '40px',
+  maxHeight: '240px',
+})
+
+/** Live character counter + strip warning sit under the textarea. */
+const composeMetaStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
+  flexWrap: 'wrap',
+  marginTop: theme.space.xs,
+})
+
+const composeCounterStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  fontVariantNumeric: 'tabular-nums',
+  '&[data-over-limit="true"]': {
+    color: theme.colors.action.danger.background,
+    fontWeight: theme.fontWeight.semibold,
+  },
+})
+
+const composeWarningStyle = css({
+  padding: '2px ' + theme.space.sm,
+  borderRadius: theme.radius.full,
+  background: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
+  fontSize: theme.fontSize.xs,
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  color: theme.colors.action.danger.background,
+  fontSize: theme.fontSize.xs,
+})
+
+const formErrorStyle = css({
+  marginTop: theme.space.sm,
+  padding: theme.space.xs + ' ' + theme.space.sm,
+  borderRadius: theme.radius.md,
+  background: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
+  fontSize: theme.fontSize.sm,
+})

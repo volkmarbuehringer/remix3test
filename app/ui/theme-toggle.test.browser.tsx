@@ -1,4 +1,4 @@
-import { describe, it, before, afterEach } from 'remix/test'
+import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
@@ -7,26 +7,21 @@ import { ThemeToggle } from './theme-toggle.browser.tsx'
 // ---------------------------------------------------------------------------
 // ThemeToggle — dark/light switcher state propagation.
 //
-// The entry flips data-theme on <html> and mirrors the choice into
-// localStorage (no-flash inline script on next load) and a `theme` cookie (the
-// server reads it for the first paint). Its document click listener is
-// registered WITHOUT a signal — it survives cleanup() and would accumulate a
-// toggle per render — so this file renders the entry exactly once and reuses
-// that live listener across tests.
+// The toggle button is component-owned DOM: the click handler is bound via
+// on('click') to the rendered button, so each test can render its own toggle
+// and cleanup() removes the listener with it. The entry flips data-theme on
+// <html> and mirrors the choice into localStorage (no-flash inline script on
+// next load) and a `theme` cookie (the server reads it for the first paint).
 // ---------------------------------------------------------------------------
 
+let cleanup: (() => void) | null = null
 let fixture: HTMLElement | null = null
 
-function mountButton(): HTMLElement {
-  let host = document.createElement('div')
-  host.innerHTML = `
-    <button id="theme-toggle" type="button" aria-label="Design umschalten">
-      <span id="glyph-inner">moon</span>
-    </button>
-  `
-  document.body.appendChild(host)
-  fixture = host
-  return host.querySelector('#theme-toggle') as HTMLElement
+function mountToggle(): HTMLElement {
+  let result = render(<ThemeToggle />)
+  cleanup = result.cleanup
+  let btn = result.$('#theme-toggle') as HTMLElement
+  return btn
 }
 
 function resetThemeState() {
@@ -36,20 +31,17 @@ function resetThemeState() {
 }
 
 afterEach(() => {
+  cleanup?.()
+  cleanup = null
   fixture?.remove()
   fixture = null
   resetThemeState()
 })
 
 describe('ThemeToggle', () => {
-  before(() => {
-    // One entry render for the whole suite; its listener stays attached.
-    render(<ThemeToggle />)
-  })
-
   it('switches to dark: data-theme, localStorage, and cookie all updated', () => {
     resetThemeState()
-    let btn = mountButton()
+    let btn = mountToggle()
 
     btn.click()
 
@@ -62,7 +54,7 @@ describe('ThemeToggle', () => {
     resetThemeState()
     document.documentElement.setAttribute('data-theme', 'dark')
     localStorage.setItem('theme', 'dark')
-    let btn = mountButton()
+    let btn = mountToggle()
 
     btn.click()
 
@@ -71,10 +63,11 @@ describe('ThemeToggle', () => {
     assert.ok(document.cookie.includes('theme=light'))
   })
 
-  it('toggles on a click that lands on a child of the button (closest)', () => {
+  it('toggles on a click that lands on a child of the button (bubbles)', () => {
     resetThemeState()
-    let host = mountButton()
-    let inner = host.querySelector('#glyph-inner') as HTMLElement
+    let btn = mountToggle()
+    let inner = document.createElement('span')
+    btn.appendChild(inner)
 
     inner.click()
 
@@ -83,13 +76,13 @@ describe('ThemeToggle', () => {
 
   it('ignores clicks anywhere else', () => {
     resetThemeState()
-    mountButton()
+    mountToggle()
     let other = document.createElement('button')
     other.textContent = 'anderswo'
     document.body.appendChild(other)
+    fixture = other
 
     other.click()
-    other.remove()
 
     assert.equal(document.documentElement.hasAttribute('data-theme'), false)
     assert.equal(localStorage.getItem('theme'), null)
@@ -97,7 +90,7 @@ describe('ThemeToggle', () => {
 
   it('cycles dark → light → dark with repeated clicks', () => {
     resetThemeState()
-    let btn = mountButton()
+    let btn = mountToggle()
 
     btn.click()
     btn.click()

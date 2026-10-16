@@ -46,20 +46,26 @@ describe('Auth Register controller', () => {
     assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
   })
 
-  it('renders the password-complexity script with the per-request CSP nonce', async () => {
+  it('renders the password-complexity checklist as a hydrated client entry', async () => {
+    // The checklist used to be an inline <script> carrying the per-request CSP
+    // nonce; it is now component-owned DOM hydrated from the client module, so
+    // the register page only renders the (empty) container plus the hydration
+    // mount — no criteria text and no inline script in the document.
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`)
-    let csp = response.headers.get('Content-Security-Policy')!
-    let nonceMatch = csp.match(/'nonce-([^']+)'/)
-    assert.ok(nonceMatch, 'CSP should carry a nonce')
-
     let html = await response.text()
-    let complexityIndex = html.indexOf('Mindestens 10 Zeichen')
-    assert.ok(complexityIndex !== -1, 'password-complexity script should render')
-    let scriptOpen = html.lastIndexOf('<script', complexityIndex)
-    let scriptTag = html.slice(scriptOpen, html.indexOf('>', scriptOpen) + 1)
+
+    assert.ok(html.includes('data-pw-complexity'), 'the checklist container should server-render')
     assert.ok(
-      scriptTag.includes(`nonce="${nonceMatch![1]}"`),
-      'password-complexity script should carry the CSP nonce',
+      html.includes('PasswordComplexityChecklist'),
+      'the checklist hydration mount should reference the client entry',
+    )
+    assert.ok(
+      html.includes('"fieldName":"password"'),
+      'the checklist should be hydrated with the watched field name',
+    )
+    assert.ok(
+      !html.includes('Mindestens 10 Zeichen'),
+      'the criteria list belongs to the client module, not the document',
     )
   })
 

@@ -3,7 +3,6 @@ import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { rotatedGlyphCss } from './mixins/icon.ts'
-import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import button from '../ui/theme/button.ts'
 import {
@@ -143,55 +142,6 @@ const expandBtnStyle = css({
   '&:hover': { textDecorationColor: theme.colors.action.primary.background },
 })
 
-const textareaStyle = css({
-  resize: 'vertical',
-  minHeight: '40px',
-  maxHeight: '240px',
-})
-
-/** Live character counter + strip warning sit under the textarea. */
-const composeMetaStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: theme.space.sm,
-  flexWrap: 'wrap',
-  marginTop: theme.space.xs,
-})
-
-const composeCounterStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-  fontVariantNumeric: 'tabular-nums',
-  '&[data-over-limit="true"]': {
-    color: theme.colors.action.danger.background,
-    fontWeight: theme.fontWeight.semibold,
-  },
-})
-
-const composeWarningStyle = css({
-  padding: '2px ' + theme.space.sm,
-  borderRadius: theme.radius.full,
-  background: theme.colors.warning.background,
-  color: theme.colors.warning.foreground,
-  fontSize: theme.fontSize.xs,
-})
-
-const fieldErrorStyle = css({
-  marginTop: theme.space.xs,
-  color: theme.colors.action.danger.background,
-  fontSize: theme.fontSize.xs,
-})
-
-const formErrorStyle = css({
-  marginTop: theme.space.sm,
-  padding: theme.space.xs + ' ' + theme.space.sm,
-  borderRadius: theme.radius.md,
-  background: theme.colors.warning.background,
-  color: theme.colors.warning.foreground,
-  fontSize: theme.fontSize.sm,
-})
-
 /** Right-aligned action row inside the compose panel. */
 const composeFooterStyle = css({
   display: 'flex',
@@ -265,7 +215,6 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       <div mix={[table.page, dataGridFill]}>
         <ConfirmDelete />
         <MessageExpand />
-        <MessageCompose />
         <div mix={headerRowStyle}>
           <h2 mix={table.title}>Nachrichten</h2>
           <ConnectionIndicator url={routes.admin.messages.subscribe.href()} />
@@ -297,42 +246,13 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                 <label mix={table.label} htmlFor="messages-content">
                   Nachricht
                 </label>
-                <textarea
-                  id="messages-content"
-                  name="content"
-                  required
+                <MessageCompose
                   maxLength={1000}
-                  placeholder="Nachricht schreiben…"
-                  defaultValue={contentValue}
-                  aria-invalid={fieldErrors?.content ? true : undefined}
-                  aria-describedby="messages-content-meta"
-                  mix={[
-                    input.base,
-                    input.focus,
-                    textareaStyle,
-                    ...(fieldErrors?.content ? [input.error] : []),
-                  ]}
+                  strippableWarning
+                  value={contentValue}
+                  contentError={fieldErrors?.content}
+                  formError={formError}
                 />
-                {fieldErrors?.content ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.content}</div>
-                ) : null}
-                {formError ? (
-                  <div role="alert" mix={formErrorStyle}>
-                    {formError}
-                  </div>
-                ) : null}
-                <div id="messages-content-meta" mix={composeMetaStyle}>
-                  <span
-                    data-compose-counter
-                    data-over-limit={contentValue.length >= 1000 ? 'true' : 'false'}
-                    mix={composeCounterStyle}
-                  >
-                    {contentValue.length + '/1000'}
-                  </span>
-                  <span data-compose-warning hidden mix={composeWarningStyle}>
-                    Zeichen wie &lt; &gt; &amp; &apos; &quot; werden beim Senden entfernt.
-                  </span>
-                </div>
               </div>
               <div mix={composeFooterStyle}>
                 <button type="submit" data-compose-submit="true" mix={button({ tone: 'primary' })}>

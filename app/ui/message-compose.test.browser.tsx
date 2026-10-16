@@ -7,39 +7,40 @@ import { MessageCompose } from './message-compose.browser.tsx'
 // ---------------------------------------------------------------------------
 // MessageCompose — draft persistence, char counter, sanitization warning.
 //
-// The compose textarea (server id `messages-content`) is bound by a
-// module-guarded document listener pair (submit/click clear the draft) plus a
-// post-render queueTask scan. Tests mount a fresh form fixture per case and
-// render the entry to trigger the scan; sessionStorage is the store, so every
-// case starts and ends with the draft key cleared.
+// The compose textarea, counter, and strip warning are component-owned DOM:
+// the entry server-renders them and hydrates with a `ref` on the textarea, so
+// the draft/counter wiring (and the draft-clearing form listeners) follow the
+// element's signal. Tests mount a form fixture and render the entry into an
+// inner mount so cleanup() removes only the component, not the form.
+// sessionStorage is the store, so every case starts and ends with the draft
+// key cleared.
 // ---------------------------------------------------------------------------
 
 const DRAFT_KEY = 'admin-messages-compose-draft'
 
-let fixture: HTMLElement | null = null
+let fixture: HTMLFormElement | null = null
+let mount: HTMLElement | null = null
 let cleanup: (() => void) | null = null
 
-function mountForm(serverValue = ''): void {
-  let host = document.createElement('div')
-  host.innerHTML = `
-    <form id="messages-compose-form" action="#" method="post">
-      <textarea id="messages-content" name="body" rows="4">${serverValue}</textarea>
-      <div id="messages-content-meta">
-        <span data-compose-counter>0/1000</span>
-        <span data-compose-warning hidden>Achtung: Diese Zeichen werden entfernt.</span>
-      </div>
-      <button type="submit" data-compose-submit="true">Senden</button>
-    </form>
-  `
+function mountForm(): void {
+  let host = document.createElement('form')
+  host.id = 'messages-compose-form'
+  host.setAttribute('action', '#')
+  host.setAttribute('method', 'post')
+  host.innerHTML = `<button type="submit" data-compose-submit="true">Senden</button>`
+  mount = document.createElement('div')
+  host.appendChild(mount)
   document.body.appendChild(host)
   fixture = host
-  host.querySelector('form')!.addEventListener('submit', (e) => e.preventDefault())
+  host.addEventListener('submit', (e) => e.preventDefault())
 }
 
 async function renderEntry(): Promise<RenderResult> {
-  let result = render(<MessageCompose />)
+  let result = render(<MessageCompose maxLength={1000} strippableWarning />, {
+    container: mount!,
+  })
   cleanup = result.cleanup
-  await result.act(() => undefined) // flush the queued scan()
+  await result.act(() => undefined) // flush the initial commit / ref binding
   return result
 }
 
@@ -66,13 +67,14 @@ afterEach(() => {
   cleanup = null
   fixture?.remove()
   fixture = null
+  mount = null
   sessionStorage.removeItem(DRAFT_KEY)
 })
 
 describe('MessageCompose', () => {
   it('restores a saved draft into an empty server-rendered textarea', async () => {
     sessionStorage.setItem(DRAFT_KEY, 'weitergeschriebener Entwurf')
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     assert.equal(textarea().value, 'weitergeschriebener Entwurf', 'draft survives the reload')
@@ -81,15 +83,18 @@ describe('MessageCompose', () => {
 
   it('a server-rendered value (rejected POST) re-saves as the draft', async () => {
     sessionStorage.setItem(DRAFT_KEY, 'alter Kram')
-    mountForm('<eingereichter Text>')
-    await renderEntry()
+    mountForm()
+    cleanup = render(
+      <MessageCompose maxLength={1000} strippableWarning value="<eingereichter Text>" />,
+      { container: mount! },
+    ).cleanup
 
     assert.equal(sessionStorage.getItem(DRAFT_KEY), '<eingereichter Text>')
     assert.equal(textarea().value, '<eingereichter Text>')
   })
 
   it('typing saves the draft; clearing it removes the key', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('Hallo')
@@ -100,7 +105,7 @@ describe('MessageCompose', () => {
   })
 
   it('the counter tracks length and flags the limit', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('12345')
@@ -113,7 +118,7 @@ describe('MessageCompose', () => {
   })
 
   it('warns only when the text contains characters the server strips', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('ganz normaler text')
@@ -127,20 +132,18 @@ describe('MessageCompose', () => {
   })
 
   it('submitting clears the draft so the next visit starts empty', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('sende das jetzt')
     assert.equal(sessionStorage.getItem(DRAFT_KEY), 'sende das jetzt')
 
-    document
-      .getElementById('messages-compose-form')!
-      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    fixture!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     assert.equal(sessionStorage.getItem(DRAFT_KEY), null)
   })
 
   it('a click on the compose submit button also clears the draft', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('noch im Entwurf')
@@ -151,13 +154,15 @@ describe('MessageCompose', () => {
   })
 
   it('binding is idempotent across entry re-renders', async () => {
-    mountForm('')
+    mountForm()
     await renderEntry()
 
     typeBody('erster Text')
     cleanup?.()
     cleanup = null
-    await renderEntry() // simulate a frame re-render with the same DOM
+    mount = document.createElement('div')
+    fixture!.appendChild(mount)
+    await renderEntry() // simulate a frame re-render with the same form DOM
 
     typeBody('zweiter Text')
     assert.equal(sessionStorage.getItem(DRAFT_KEY), 'zweiter Text', 'one input → one save')
