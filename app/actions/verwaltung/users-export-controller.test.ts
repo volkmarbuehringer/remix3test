@@ -2,9 +2,9 @@ import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 import { BASE, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 
 const EXPORT_URL = `${BASE}/verwaltung/users-export`
 

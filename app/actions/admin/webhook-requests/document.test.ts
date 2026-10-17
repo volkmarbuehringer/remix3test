@@ -3,8 +3,11 @@ import { describe, it, before, afterEach } from 'remix/test'
 
 import { router } from '../../../test-router.ts'
 import { db, initializeAppDatabase } from '../../../db.ts'
-import { pool } from '../../../data/test-pool.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
+import { pool } from '../../../../test/pool.ts'
+import {
+  createAuthCookieWithCsrf,
+  createAuthCookieWithCsrfForUser,
+} from '../../../../test/utils.ts'
 import { readSessionId, sessionStorage } from '../../../middleware/session.ts'
 import { routes } from '../../../routes.ts'
 import { getWebhookRequest, insertWebhookRequest } from '../../../data/webhook-requests.ts'

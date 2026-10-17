@@ -8,7 +8,7 @@ import {
   uninstallSseMock,
   getCreatedEventSources,
   resetCreatedEventSources,
-} from '../test-utils/sse-mock.ts'
+} from '../../test/sse-mock.ts'
 
 function stubFetchCount(count: number): () => void {
   let original = window.fetch

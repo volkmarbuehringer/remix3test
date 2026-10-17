@@ -1,6 +1,6 @@
 import { Pool } from 'pg'
 
-import { envString } from '../config.ts'
+import { envString } from '../app/config.ts'
 
 const url = envString('DATABASE_URL') ?? ''
 const localeUrl = url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'

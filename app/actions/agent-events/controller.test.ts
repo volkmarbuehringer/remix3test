@@ -17,7 +17,7 @@ import {
   findRunById,
 } from './active-run-store.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'

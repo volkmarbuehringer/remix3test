@@ -1,8 +1,8 @@
 import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
-import { serializeSessionCookie, sessionStorage } from './middleware/session.ts'
-import { db } from './db.ts'
-import { router } from './test-router.ts'
+import { serializeSessionCookie, sessionStorage } from '../app/middleware/session.ts'
+import { db } from '../app/db.ts'
+import { router } from '../app/test-router.ts'
 
 /**
  * Generate a CSRF token matching the format used by remix/csrf-middleware.
@@ -144,6 +144,8 @@ export function extractCookie(response: Response): string {
  * still keep the page-load smoke coverage in Firefox (Chromium runs the full
  * flow). Accepts the page returned by `t.serve()`.
  */
-export function isFirefox(page: { context: () => { browser: () => { browserType: () => { name: () => string } } | null } }): boolean {
+export function isFirefox(page: {
+  context: () => { browser: () => { browserType: () => { name: () => string } } | null }
+}): boolean {
   return page.context().browser()?.browserType().name() === 'firefox'
 }

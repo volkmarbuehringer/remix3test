@@ -13,7 +13,7 @@ import {
   getCreatedEventSources,
   resetCreatedEventSources,
   type MockEventSource,
-} from '../../test-utils/sse-mock.ts'
+} from '../../../test/sse-mock.ts'
 
 // -----------------------------------------------------------------------
 // Setup: create the DOM structure expected by the stream components

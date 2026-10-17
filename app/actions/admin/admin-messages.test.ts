@@ -3,9 +3,9 @@ import * as assert from 'remix/assert'
 import { CacheControl, ContentType } from 'remix/headers'
 
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------

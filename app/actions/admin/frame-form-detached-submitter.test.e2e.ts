@@ -4,7 +4,7 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
-import { createAuthCookieWithCsrfForUser, isFirefox } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser, isFirefox } from '../../../test/utils.ts'
 import { initializeAppDatabase } from '../../db.ts'
 
 // ---------------------------------------------------------------------------
@@ -41,8 +41,7 @@ const FILTER = `${FORM} input[name="filter"]`
 function hydrated() {
   let indicator = document.querySelector('[aria-label^="SSE connection:"]')
   return (
-    indicator != null &&
-    indicator.getAttribute('aria-label') !== 'SSE connection: Connecting...'
+    indicator != null && indicator.getAttribute('aria-label') !== 'SSE connection: Connecting...'
   )
 }
 

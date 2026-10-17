@@ -4,7 +4,7 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 
 // ---------------------------------------------------------------------------
 // /appointments/new period/status frame navigation (client e2e).

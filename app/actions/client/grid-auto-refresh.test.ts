@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { createAuthCookieWithCsrf } from '../../test-utils.ts'
+import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
 
 // ---------------------------------------------------------------------------
 // Client Grid integration tests

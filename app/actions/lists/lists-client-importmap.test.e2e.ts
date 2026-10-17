@@ -4,8 +4,8 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { pool } from '../../../test/pool.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 
 // ---------------------------------------------------------------------------
 // /lists deferred client-entry regression (Firefox single import map).

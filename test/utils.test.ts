@@ -1,8 +1,8 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { generateCsrfToken, extractCookie, createCsrfSession } from './test-utils.ts'
-import { routes } from './routes.ts'
+import { generateCsrfToken, extractCookie, createCsrfSession } from './utils.ts'
+import { routes } from '../app/routes.ts'
 
 const BASE = 'https://remix.run'
 

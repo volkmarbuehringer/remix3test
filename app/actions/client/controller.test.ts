@@ -3,8 +3,8 @@ import { describe, it, before } from 'remix/test'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { createAuthCookieWithCsrf } from '../../test-utils.ts'
-import { pool } from '../../data/test-pool.ts'
+import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
+import { pool } from '../../../test/pool.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'

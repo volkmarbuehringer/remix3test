@@ -5,10 +5,10 @@ import { createSession } from 'remix/session'
 import { createSidebarLayout } from './sidebar-layout.tsx'
 import { renderAdminPage, AdminLayout } from './admin-layout.tsx'
 import { router } from '../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { serializeSessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase } from '../db.ts'
-import { pool } from '../data/test-pool.ts'
+import { pool } from '../../test/pool.ts'
 import { routes } from '../routes.ts'
 
 // ---------------------------------------------------------------------------

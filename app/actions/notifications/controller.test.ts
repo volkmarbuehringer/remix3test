@@ -2,10 +2,10 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser, createTestUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser, createTestUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 
 const BASE = 'https://remix.run'
 

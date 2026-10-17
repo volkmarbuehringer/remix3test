@@ -4,10 +4,10 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../../test-router.ts'
 import { routes } from '../../../routes.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../../test/utils.ts'
 import { claimUploads, insertUpload } from '../../../data/uploads.ts'
 import { db, initializeAppDatabase } from '../../../db.ts'
-import { pool } from '../../../data/test-pool.ts'
+import { pool } from '../../../../test/pool.ts'
 
 // ---------------------------------------------------------------------------
 // Row context menu — real clientEntry hydration.
@@ -64,7 +64,9 @@ describe('admin uploads: row context menu hydrates', () => {
     // The factory sets this from its ref callback once the hydrated entry has
     // attached the delegated listener. The trigger is intentionally invisible,
     // so wait for it to be attached rather than visible.
-    await page.locator('[data-row-context-menu-ready]').waitFor({ state: 'attached', timeout: 15_000 })
+    await page
+      .locator('[data-row-context-menu-ready]')
+      .waitFor({ state: 'attached', timeout: 15_000 })
 
     await row.click({ button: 'right' })
 

@@ -1,12 +1,12 @@
 import { describe, it, before, beforeEach, after } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
-import { pool } from '../data/test-pool.ts'
+import { pool } from '../../test/pool.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../test-router.ts'
 import { listResources } from '../data/resources.ts'
 import { appointments, appointofferings, appointtypes } from '../data/schema.ts'
-import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { routes } from '../routes.ts'
 
 // ---------------------------------------------------------------------------

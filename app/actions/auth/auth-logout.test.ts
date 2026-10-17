@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 import { SetCookie } from 'remix/headers'
 
 import { router } from '../../test-router.ts'
-import { createCsrfSession } from '../../test-utils.ts'
+import { createCsrfSession } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'

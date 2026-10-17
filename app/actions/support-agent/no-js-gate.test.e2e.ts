@@ -4,9 +4,9 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 import type { Page, Response } from 'playwright'
 
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 import type { AgentStreamOutput, TestAgent } from '../mastra/shared-agent.ts'
 

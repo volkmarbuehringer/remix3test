@@ -6,7 +6,7 @@ import { FileSystemConfigLoader, HtmlValidate } from 'html-validate'
 
 import { db, initializeAppDatabase } from './db.ts'
 import { router } from './test-router.ts'
-import { createAuthCookieWithCsrfForUser } from './test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../test/utils.ts'
 
 /**
  * HTML content-model conformance over the real server-rendered responses.

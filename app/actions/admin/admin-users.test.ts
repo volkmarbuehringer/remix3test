@@ -3,8 +3,8 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
-import { createAuthCookieWithCsrfForUser, createTestUser } from '../../test-utils.ts'
+import { pool } from '../../../test/pool.ts'
+import { createAuthCookieWithCsrfForUser, createTestUser } from '../../../test/utils.ts'
 import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'

@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { system } from '../../routes.ts'
 import { initializeAppDatabase, db } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'
 import { users } from '../../data/schema.ts'
 

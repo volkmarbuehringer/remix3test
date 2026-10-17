@@ -4,7 +4,7 @@ import { describe, it } from 'remix/test'
 
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
-import { isFirefox } from '../../test-utils.ts'
+import { isFirefox } from '../../../test/utils.ts'
 
 // ---------------------------------------------------------------------------
 // Frame traversal scroll-restoration E2E

@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from './test-router.ts'
 import { initializeAppDatabase } from './db.ts'
-import { createAuthCookieWithCsrfForUser, createCsrfSession } from './test-utils.ts'
+import { createAuthCookieWithCsrfForUser, createCsrfSession } from '../test/utils.ts'
 import { routes } from './routes.ts'
 
 // ---------------------------------------------------------------------------

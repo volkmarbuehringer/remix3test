@@ -2,13 +2,13 @@ import { describe, it, before, afterEach, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 import { router } from '../../test-router.ts'
 import {
   createAuthCookieWithCsrf,
   createAuthCookieWithCsrfForUser,
   extractCookie,
-} from '../../test-utils.ts'
+} from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 import {
   __setTestAgent,

@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../../test-router.ts'
 import { initializeAppDatabase } from '../../../db.ts'
-import { pool } from '../../../data/test-pool.ts'
+import { pool } from '../../../../test/pool.ts'
 import { hashToken } from '../../../utils/api-token.ts'
 
 const BASE = 'https://remix.run'

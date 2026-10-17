@@ -4,9 +4,9 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../../test-router.ts'
 import { routes } from '../../../routes.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../../test/utils.ts'
 import { db, initializeAppDatabase } from '../../../db.ts'
-import { pool } from '../../../data/test-pool.ts'
+import { pool } from '../../../../test/pool.ts'
 import { insertUpload, claimUploads } from '../../../data/uploads.ts'
 
 // ---------------------------------------------------------------------------

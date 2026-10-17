@@ -6,7 +6,7 @@ import { router } from '../test-router.ts'
 import { serializeSessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase } from '../db.ts'
 
-import { pool } from '../data/test-pool.ts'
+import { pool } from '../../test/pool.ts'
 // ---------------------------------------------------------------------------
 // Layout flash message tests
 // Verifies that values stored in the session via session.set() are rendered

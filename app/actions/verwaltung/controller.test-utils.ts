@@ -1,6 +1,6 @@
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { pool } from '../../../test/pool.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 
 export const BASE = 'https://remix.run'
 export const ADMIN_APPT_URL = `${BASE}/verwaltung/appointments`

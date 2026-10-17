@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
-import { pool } from './test-pool.ts'
+import { pool } from '../../test/pool.ts'
 import { updateCallbackResponse, checkWebhookRequestExists } from './callback.ts'
 
 const testId = '00000000-0000-0000-0000-000000000002'

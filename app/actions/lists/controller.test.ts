@@ -5,7 +5,7 @@ import { db, initializeAppDatabase } from '../../db.ts'
 import { sql } from 'remix/data-table'
 import { lists } from '../../data/schema.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------

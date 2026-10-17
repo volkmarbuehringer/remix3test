@@ -3,8 +3,8 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { db, initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { pool } from '../../../test/pool.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { listResources } from '../../data/resources.ts'
 import { frames, routes } from '../../routes.ts'
 

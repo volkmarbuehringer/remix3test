@@ -4,9 +4,9 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { initializeAppDatabase } from '../../db.ts'
-import { pool } from '../../data/test-pool.ts'
+import { pool } from '../../../test/pool.ts'
 
 // /admin/messages is a bounded grid: the shell fills the page, the compose
 // toolbar and pagination stay put, and only the row region (`data-grid-scroll`)

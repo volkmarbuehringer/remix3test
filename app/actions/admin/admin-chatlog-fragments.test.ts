@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../db.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf } from '../../test-utils.ts'
+import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Chatlog Fragments Controller integration tests
