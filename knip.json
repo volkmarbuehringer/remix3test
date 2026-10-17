@@ -17,12 +17,8 @@
     "docker.sh",
     "Dockerfile"
   ],
-  "project": [
-    "app/**/*.{ts,tsx}",
-    "test/**/*.{ts,tsx}",
-    "scripts/**/*.{ts,mjs}"
-  ],
-  "ignoreDependencies": [],
+  "project": ["app/**/*.{ts,tsx}", "test/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
+  "ignoreDependencies": ["@fission-ai/openspec"],
   "typescript": {
     "config": "tsconfig.json"
   }

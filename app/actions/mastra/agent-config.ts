@@ -39,10 +39,7 @@ export function createModel() {
   }
 }
 
-function createMemory(options?: {
-  workingMemory?: { enabled: boolean }
-  lastMessages?: number
-}) {
+function createMemory(options?: { workingMemory?: { enabled: boolean }; lastMessages?: number }) {
   return new Memory({
     storage: mastraStorage,
     options: options ?? { workingMemory: { enabled: true } },

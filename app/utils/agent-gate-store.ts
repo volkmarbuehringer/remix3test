@@ -4,7 +4,7 @@ type GateType = 'tool_decision' | 'question'
 type PendingGateStatus = 'running' | 'suspended'
 
 /** A durable per-actor pointer to a suspended agent run. */
-export interface PendingGateRow {
+interface PendingGateRow {
   ownerId: number
   runId: string
   threadId: string

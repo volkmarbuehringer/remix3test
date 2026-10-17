@@ -1,5 +1,67 @@
 # Code Deletion Log
 
+## [2026-10-17] knip-configured cleanup pass (`refactor/dead-code-cleanup` branch)
+
+For the first time with a proper `knip.json` (knip now understands the `remix test`
+runner — `app/**/*.test{,.browser,.e2e}.{ts,tsx}` are entries — and the browser
+entry files wired via `remix.json` `allowFiles`), so the earlier 218 "unused
+files" were all test/entry false positives and export findings were
+test-aware out of the box.
+
+### Unused Dependencies Removed
+
+- `openspec@latest` (devDependencies) — an unrelated placeholder npm package
+  (`openspecio/openspec@0.0.0`, ~name collision) that contributed nothing. The
+  real CLI is `@fission-ai/openspec` (kept; invoked as `openspec …` by the
+  `.opencode/commands/opsx-*.md` runbooks, which is also why knip flags it —
+  binary use in markdown is invisible to it, so it is now in knip's
+  `ignoreDependencies`).
+
+### Unused Exports Unexported / Removed
+
+- `app/ui/forbidden-page.tsx` — `ForbiddenPage` component DELETED (5 lines + its
+  JSDoc): zero callers anywhere; `renderForbiddenPage` is the only consumed API
+  (by `app/middleware/admin.ts`). `Handle` import dropped with it.
+- `app/actions/chat/controller.tsx` — `useDurableCustomerChat` unexported (internal call site at line 213).
+- `app/actions/mastra/agent-config.ts` — `createMemory` unexported (internal call at line 100).
+- `app/config.ts` — `currentNodeEnv` unexported (internal call at line 31).
+- `app/ui/sidebar-layout.tsx` — `sidebarHeaderStyle` unexported (internal `mix` at line 184; the same-named const in `appointment-sidebar.tsx` is a private, visually different style — not a duplicate).
+- `app/ui/theme/menu/index.tsx` — `listStyle`, `itemStyle` unexported (internal-only).
+- `app/ui/row-context-menu.tsx` — `RowMenuTarget` unexported (internal-only).
+- `app/ui/theme/upstream-button.ts` — named `button` export removed (duplicate of the default export; `button.ts` imports default only) and `ButtonSize`/`ButtonTone`/`ButtonOptions` unexported (internal-only).
+
+### Unused Re-exports Removed
+
+- `app/actions/chat/gate-store.ts`, `app/actions/support-agent/run-store.ts` —
+  `export type { PendingGateRow }` deleted from both (the canonical export in
+  `app/utils/agent-gate-store.ts` is the only imported one; knip then flagged
+  that export as unused too, so it was unexported there as well).
+
+### Consolidated
+
+- None this pass: the flagged "duplicates" were (a) `button|default` — resolved
+  by removing the named export, and (b) `int8|int8Aggregate` in
+  `app/data/rows.ts` — the same zod schema under two _intentional_ semantic
+  names (`int8` = single-row BIGINT decode, `int8Aggregate` = aggregate
+  `count/sum/min/max` decode). Left in place; flagging for future review only.
+
+### Impact
+
+- Files deleted: 0
+- Exports unexported: 10 (+1 component deleted, +2 type re-exports deleted)
+- Dependencies removed: 1 (plus 1 knip false positive documented)
+- Lines of code removed: ~20
+- TypeScript: clean (`npm run typecheck`, both tsconfig targets)
+- Lint: oxlint `--max-warnings=0` + theme conformance pass
+- Tests: server 1753 pass / 0 fail · browser 738 pass / 0 fail (2 skipped) · e2e 54 pass / 0 fail
+
+### Remaining (manual review needed)
+
+- `app/data/rows.ts` `int8|int8Aggregate` duplicate-export flag: intentional
+  semantic alias, kept deliberately.
+- `check` "unlisted binary": that is `bun check` inside the `typecheck:bun`
+  script — a Bun builtin, not an npm dependency.
+
 ## [2026-10-14] Re-verification Pass — zero deletions (b8c2de1 → 6de97f8 window)
 
 Fresh tool run after the 2026-10-08 audit's commit (`b8c2de1`): knip 6.41.0,
@@ -38,12 +100,12 @@ list found all consumers intact (e.g. `serializeSessionCookie`,
   `app/html-conformance.test.ts` — knip's report on it is the entry-graph blind
   spot, matching the 2026-10-08 note).
 - Duplicate scan re-measured: context-menu `clientEntry` family still below the
-  >80% merge bar (offerings↔offering-configs: 25 diff-lines of 45; the shared
-  machinery is already extracted in `app/ui/row-context-menu.tsx`'s
-  `createRowContextMenu` factory); `dangerStyle` still a deliberate
-  partial-drift vendored copy; `MAX_MESSAGE_LENGTH` still single-sourced;
-  `sidebarHeaderStyle` name collision in `appointment-sidebar.tsx` still a
-  coincidental ~3-line overlap, not a merge candidate.
+  > 80% merge bar (offerings↔offering-configs: 25 diff-lines of 45; the shared
+  > machinery is already extracted in `app/ui/row-context-menu.tsx`'s
+  > `createRowContextMenu` factory); `dangerStyle` still a deliberate
+  > partial-drift vendored copy; `MAX_MESSAGE_LENGTH` still single-sourced;
+  > `sidebarHeaderStyle` name collision in `appointment-sidebar.tsx` still a
+  > coincidental ~3-line overlap, not a merge candidate.
 
 ### Environment note
 
