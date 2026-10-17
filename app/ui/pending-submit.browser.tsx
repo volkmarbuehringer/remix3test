@@ -17,7 +17,7 @@ interface PendingSubmitButtonProps {
  * after a native form submit. Frame reload events only fire in the browser, so
  * listeners are registered behind `typeof document` — registering during SSR
  * passes the frozen AbortSignal-shaped `handle.signal` stub to native
- * `addEventListener`, which Bun rejects (see remix3-bun-runtime).
+ * `addEventListener`, which Bun rejects (see remix3-tooling § Bun Runtime).
  */
 export const PendingSubmitButton = clientEntry(
   import.meta.url + '#PendingSubmitButton',

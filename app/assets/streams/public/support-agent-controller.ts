@@ -37,7 +37,7 @@ export const AGENT_FORM_ATTRIBUTE = 'data-agent-form'
  * in agent flows. Anything else — a wrong/outside target, or an agent-aware
  * form — is replayed.
  *
- * See `.opencode/skills/learned/remix3-agent-routing/references/support-panel-form-targets.md`.
+ * See `.opencode/skills/learned/mastra-deltas/references/remix3-agent-routing/support-panel-form-targets.md`.
  */
 export function deferPanelFormToRuntime(
   formTarget: string | null,

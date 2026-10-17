@@ -2,7 +2,7 @@
 
 The chatlog and the two chat surfaces share one Mastra memory store keyed by `mastra_threads.resourceId`. `/admin/chatlog` lists every thread and reads a transcript; `/admin/support-agent` scopes its threads to the admin's user id (`resourceId = String(user.id)`); `/chat` scopes to the customer. See `proposal.md` for motivation.
 
-Two constraints from earlier work shape this design. First, a nested `<Frame>` inside a frame that hydrates from a fetched fragment never registers with the runtime, so a link carrying `data-rmx-target` for the nested transcript frame silently falls back to the top frame (recorded in `.opencode/skills/learned/remix3-frame-cliententry/references/frame-layout-and-testing.md`). Second, an in-app navigation reuses the client entry's form element, so a captured thread id can serve the wrong page — f2c59a5 fixed exactly that for `/chat?new=1` by making the URL outrank the closure.
+Two constraints from earlier work shape this design. First, a nested `<Frame>` inside a frame that hydrates from a fetched fragment never registers with the runtime, so a link carrying `data-rmx-target` for the nested transcript frame silently falls back to the top frame (recorded in `.opencode/skills/learned/remix3-ui/references/remix3-frame-cliententry/frame-layout-and-testing.md`). Second, an in-app navigation reuses the client entry's form element, so a captured thread id can serve the wrong page — f2c59a5 fixed exactly that for `/chat?new=1` by making the URL outrank the closure.
 
 ## Goals / Non-Goals
 

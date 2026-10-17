@@ -35,7 +35,7 @@ import type { ChatMessage } from '../../types/chatlog.ts'
 // Anti-spam throttle: allow a normal multi-turn conversation (a couple of
 // messages plus approve/decline/answer steps) per minute, while capping abuse.
 // maxAttempts MUST be set explicitly — the default of 1 would block the second
-// message of a normal conversation within the window (see rate-limiter-pitfalls).
+// message of a normal conversation within the window (see dev-gotchas § Rate Limiter).
 export const chatRateLimiter = createRateLimiter({
   windowMs: 60_000,
   perUser: true,

@@ -192,7 +192,7 @@ export default createController(routes.verwaltung.report1, {
       // A framed request must not receive the binary (the frame runtime would try
       // to mount it as HTML). Redirect ONCE to a marker URL whose request renders
       // HTML, terminating the chain. See
-      // remix3-frame-cliententry/references/frame-navigation.md.
+      // remix3-ui (§ Frames) — references/remix3-frame-cliententry/frame-navigation.md.
       if (context.request.headers.get('X-Remix-Frame') === 'true') {
         let url = new URL(context.url)
         if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {

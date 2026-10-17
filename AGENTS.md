@@ -20,7 +20,7 @@ at .opencode/skills/ are skills for Remix 3 development
 
 ## Working Sessions
 
-Load the `session-checkpoint-handoff` skill before winding down a session, when context is already high, or when an unrelated request arrives mid-task — it defines this workspace's checkpoint, artifact-isolation, and follow-up-prompt rules.
+Load the `agent-ops` skill (§ Checkpoint Handoff) before winding down a session, when context is already high, or when an unrelated request arrives mid-task — it defines this workspace's checkpoint, artifact-isolation, and follow-up-prompt rules.
 
 ## Remix Source References
 
@@ -29,13 +29,13 @@ When you need API docs or usage examples for a `remix/*` subpath:
 - Package READMEs: `node_modules/remix/src/<package>/README.md` (installed vendor docs)
 - Vendor `remix` skill: `.agents/skills/remix/SKILL.md` (a single flat file — the installed build ships no `references/` directory). Drill into `node_modules/remix/INDEX.md` and the matching package README for API detail.
 - Installed package source (for version-pinned line refs): `node_modules/.pnpm/@remix-run+<pkg>@*/node_modules/@remix-run/<pkg>/src/...`
-- Release-day dependency versions and the post-#11948 split lines (currently installed `remix` 3.0.0, `@remix-run/ui` 0.12.1, `@remix-run/component` 1.0.0 at build `7f900151`/source `b65325d`, i.e. the Oct 16 2026 SSR perf wave #12005–#12016/#12018 plus #12019 "browser-only mixins" (`createMixin(type, { ssr: false })`; minor changesets for `component`/`remix` staged but not released); prior pin was build `48b54a55`/source `aa2efcd` (PRs #11987/#11992/#11999), before that `2c9e033`/source `e6a63ea`): `.opencode/skills/learned/remix3-build-and-tooling/references/upstream-dependency-analysis.md`
+- Release-day dependency versions and the post-#11948 split lines (currently installed `remix` 3.0.0, `@remix-run/ui` 0.12.1, `@remix-run/component` 1.0.0 at build `7f900151`/source `b65325d`, i.e. the Oct 16 2026 SSR perf wave #12005–#12016/#12018 plus #12019 "browser-only mixins" (`createMixin(type, { ssr: false })`; minor changesets for `component`/`remix` staged but not released); prior pin was build `48b54a55`/source `aa2efcd` (PRs #11987/#11992/#11999), before that `2c9e033`/source `e6a63ea`): `.opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md`
 
 Do not reference `~/remix` (a separate vendor checkout) — the installed `node_modules/remix` / `node_modules/.pnpm/@remix-run+<pkg>@*/` tree and the in-project vendor skills are authoritative.
 
 ## Building Features
 
-Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix3-build-and-tooling, remix-file-uploads, remix-controllers, remix3-rendering-ui, security-gotchas). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
+Refer to `.opencode/skills/remix/SKILL.md` (plus the consolidated learned skills — `remix3-server` for controllers/routes/uploads/security, `remix3-tooling` for build/tooling, `remix3-ui` for rendering/frames/client-entries). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
 
 ## Maintaining Learned Deltas
 
@@ -47,7 +47,7 @@ Learned deltas encode hard-won, often **version-pinned** facts (file/line refere
 - API claims: check the package README or source for the named function/operator (e.g. an `inList()` operator may now exist where a raw-SQL workaround was recorded)
 - Release milestones: treat "as of beta.N" / "since vX" statements as stale unless re-confirmed against the current version
 
-When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Audit runbooks: `remix3-data-table`, `security-gotchas`, `remix-controllers` (`references/routepattern-opaque-access.md`), `remix3-frame-cliententry` are the highest-drift-risk skills.
+When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Highest-drift-risk sections: `remix3-data` (§ Data-Table, § Database), `remix3-server` (§ Security, § Controllers — incl. `references/remix-controllers/routepattern-opaque-access.md`), `remix3-ui` (§ Frames).
 
 ### Guide ↔ skill coverage
 

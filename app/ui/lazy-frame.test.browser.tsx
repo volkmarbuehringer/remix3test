@@ -13,7 +13,7 @@ import { LazyFrame } from './lazy-frame.browser.tsx'
 // host intersecting, must mount exactly once, and a later report must never
 // remount or refetch (that is the reopen/scroll retention guarantee). Real IO
 // delivery is timing-based, so this test stubs IntersectionObserver and drives
-// the callbacks directly — the geometry-stub pattern from the remix3-testing
+// the callbacks directly — the geometry-stub pattern from the remix3-tooling (§ Testing)
 // skill, with result.act() to flush the update the callback schedules.
 // ---------------------------------------------------------------------------
 

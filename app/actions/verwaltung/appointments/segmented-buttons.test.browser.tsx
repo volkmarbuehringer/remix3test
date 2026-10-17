@@ -15,7 +15,7 @@ import { theme } from '../../../ui/theme/theme.ts'
 // submitted the surrounding GET filter form): one themed 1px divider per gap,
 // square inner corners, rounded outer edges. `segmentedButton` has to win a
 // cascade-layer contest with the mixin's own non-important `border` shorthand —
-// see the learned delta `remix3-css-and-layout`
+// see the learned delta `remix3-styling` (§ CSS & Layout)
 // (`references/cascade-layer-overrides.md`). When that override loses, the
 // segments silently fall back to the mixin's border: two 1px lines per gap (a
 // doubled divider) in the wrong colour.
