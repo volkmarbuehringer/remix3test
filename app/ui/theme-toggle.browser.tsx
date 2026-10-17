@@ -63,6 +63,6 @@ const themeBtnCss = css({
   minHeight: '2.75rem',
   borderRadius: theme.radius.md,
   marginLeft: theme.space.xs,
-  transition: 'all 150ms ease',
+  transition: 'color 150ms ease, background-color 150ms ease',
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
 })

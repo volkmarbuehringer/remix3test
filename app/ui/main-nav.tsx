@@ -318,7 +318,7 @@ const navLinkCss = css({
   fontWeight: 500,
   padding: '0.375rem 0.75rem',
   borderRadius: theme.radius.md,
-  transition: 'all 150ms ease',
+  transition: 'color 150ms ease, background-color 150ms ease',
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -364,7 +364,7 @@ const navBtnCss = css({
   borderRadius: theme.radius.md,
   background: indigo[600],
   marginLeft: theme.space.sm,
-  transition: 'all 200ms ease',
+  transition: 'background-color 200ms ease, transform 200ms ease',
   '&:hover': { background: indigo[700], transform: 'translateY(-1px)' },
 })
 

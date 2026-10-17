@@ -49,6 +49,20 @@ function dialog(): HTMLElement | null {
   return result!.container.querySelector<HTMLElement>('[data-confirm-dialog]')
 }
 
+/**
+ * The dialog animates out with animateExit, so it lingers in the DOM until
+ * the WAAPI teardown finishes — and the exit animations are created
+ * asynchronously, so a single getAnimations() snapshot is not enough. Poll
+ * until the runtime actually removes the node.
+ */
+async function waitDialogGone() {
+  for (let i = 0; i < 200; i++) {
+    if (!dialog()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.fail('dialog did not close (exit animation never finished)')
+}
+
 afterEach(() => {
   result?.cleanup()
   result = null
@@ -79,6 +93,7 @@ describe('ConfirmDelete', () => {
 
     let accept = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
     await result!.act(() => accept.click())
+    await waitDialogGone()
 
     assert.equal(dialog(), null, 'the dialog closes on confirm')
     assert.deepEqual(submitted, ['Wirklich löschen?'], 'the form submits exactly once')
@@ -91,6 +106,7 @@ describe('ConfirmDelete', () => {
 
     let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
     await result!.act(() => cancel.click())
+    await waitDialogGone()
 
     assert.equal(dialog(), null, 'the dialog closes on cancel')
     assert.deepEqual(submitted, [], 'a cancelled confirm must not submit the form')

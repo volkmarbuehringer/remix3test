@@ -75,8 +75,15 @@ export function Document(handle: Handle<DocumentProps>) {
               0%, 100% { opacity: 1; }
               50% { opacity: 0.4; }
             }
+            /* Global reduced-motion guard: component-level CSS transitions
+               (hover lifts, nav fades) have no local prefers-reduced-motion
+               rule of their own, so kill movement in the shell. */
             @media (prefers-reduced-motion: reduce) {
               body { transition: none !important; }
+              *, *::before, *::after {
+                transition: none !important;
+                animation-duration: 0.01ms !important;
+              }
             }
           `}</style>
           <script nonce={getCspNonce()}>{`

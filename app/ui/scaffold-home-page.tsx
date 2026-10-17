@@ -424,7 +424,7 @@ const heroBtnCss = css({
   textDecoration: 'none',
   fontSize: '0.875rem',
   fontWeight: 600,
-  transition: 'all 200ms ease',
+  transition: 'transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease',
   boxShadow: `0 4px 14px ${indigo[500]}40`,
   '&:hover': {
     transform: 'translateY(-2px)',
@@ -444,7 +444,7 @@ const heroGhostBtnCss = css({
   fontSize: '0.875rem',
   fontWeight: 500,
   border: `1px solid ${theme.colors.border.default}`,
-  transition: 'all 150ms ease',
+  transition: 'color 150ms ease, border-color 150ms ease, background-color 150ms ease',
   '&:hover': {
     color: theme.colors.text.primary,
     borderColor: theme.colors.border.strong,

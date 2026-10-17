@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { css, Frame } from 'remix/component'
 import { Glyph, type GlyphName } from './theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
+import { cardLift } from './mixins/card-lift.ts'
 
 import { frames, routes } from '../routes.ts'
 import type { DashboardStats } from '../data/admin-dashboard.ts'
@@ -34,16 +35,11 @@ const cardBaseCss = {
 /** Whole-card navigation link — the entire card is the hit target. */
 const cardLinkStyle = css({
   ...cardBaseCss,
+  ...cardLift,
   display: 'flex',
   flexDirection: 'column',
   color: 'inherit',
   textDecoration: 'none',
-  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadow.md,
-    borderColor: theme.colors.action.primary.background,
-  },
   '&:focus-visible': {
     outline: `2px solid ${theme.colors.action.primary.background}`,
     outlineOffset: '2px',

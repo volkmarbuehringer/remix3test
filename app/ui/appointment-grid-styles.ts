@@ -1,4 +1,5 @@
 import { css } from 'remix/component'
+import { spring } from '@remix-run/ui/animation'
 import { theme } from '../ui/theme/theme.ts'
 import { LABEL_WIDTH, HOURS, SLOT_HEIGHT, SUB_SLOT_HEIGHT } from './appointment-grid-types.ts'
 
@@ -147,7 +148,7 @@ export const blockBoxStyle = css({
   textAlign: 'center',
   touchAction: 'none',
   zIndex: 1,
-  transition: 'box-shadow 0.15s ease',
+  transition: `box-shadow ${spring('snappy')}`,
 })
 
 export const foreignBlockStyle = css({
@@ -202,7 +203,7 @@ export const adminEmailStyle = css({
 export const hoveredBlockStyle = css({
   boxShadow: theme.shadow.md,
   overflow: 'visible',
-  transition: 'box-shadow 0.15s ease, overflow 0.15s ease',
+  transition: `box-shadow ${spring('snappy')}`,
   zIndex: 10,
 })
 

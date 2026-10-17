@@ -37,15 +37,29 @@ export function showToast(message: string, type: 'error' | 'success' = 'error') 
   toast.style.textAlign = 'center'
   toast.style.border = `1px solid ${type === 'error' ? surface.dangerBorder : surface.successBorder}`
   toast.style.opacity = '0'
-  toast.style.transition = 'opacity 0.2s ease-out'
+  toast.style.transform = 'translateY(-4px)'
+  toast.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out'
   container.appendChild(toast)
 
   requestAnimationFrame(() => {
     toast.style.opacity = '1'
+    toast.style.transform = 'translateY(0)'
   })
 
   setTimeout(() => {
     toast.style.opacity = '0'
-    setTimeout(() => toast.remove(), 300)
+    toast.style.transform = 'translateY(-4px)'
+    // Remove on the transition's own end instead of a hard-coded timer. The
+    // fallback covers prefers-reduced-motion (the document shell's global
+    // `transition: none !important` beats the inline style, so transitionend
+    // never fires there) and elements that somehow never transition.
+    let removed = false
+    let finish = () => {
+      if (removed) return
+      removed = true
+      toast.remove()
+    }
+    toast.addEventListener('transitionend', finish, { once: true })
+    setTimeout(finish, 300)
   }, TOAST_DURATION)
 }

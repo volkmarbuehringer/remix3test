@@ -979,7 +979,7 @@ const submitButton = css({
   border: 'none',
   borderRadius: theme.radius.md,
   cursor: 'pointer',
-  transition: 'all 150ms ease',
+  transition: 'opacity 150ms ease',
   '&:hover': {
     opacity: 0.9,
   },
@@ -1012,7 +1012,7 @@ const deleteButtonCss = css({
   border: 'none',
   borderRadius: theme.radius.md,
   cursor: 'pointer',
-  transition: 'all 150ms ease',
+  transition: 'opacity 150ms ease',
   '&:hover': {
     opacity: 0.9,
   },

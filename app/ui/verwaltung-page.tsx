@@ -1,6 +1,7 @@
 import { css, type Handle } from 'remix/component'
 import { Glyph, type GlyphName } from '../ui/theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
+import { cardLift } from './mixins/card-lift.ts'
 import { PageSection } from './page-primitives.tsx'
 
 import { routes } from '../routes.ts'
@@ -43,15 +44,10 @@ const cardStyle = css(cardBaseCss)
  */
 const cardNavStyle = css({
   ...cardBaseCss,
+  ...cardLift,
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: theme.shadow.md,
-    borderColor: theme.colors.action.primary.background,
-  },
 })
 
 const cardOverlayStyle = css({

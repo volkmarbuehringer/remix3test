@@ -1,6 +1,8 @@
 import { clientEntry, css, on, ref, type Handle } from 'remix/component'
+import { animateEntrance, animateExit, spring } from '@remix-run/ui/animation'
 import { theme } from './theme/theme.ts'
 import button from './theme/button.ts'
+import { entrance, exit } from '../utils/motion.ts'
 
 interface PendingConfirm {
   message: string
@@ -52,6 +54,17 @@ const dialogStyle = css({
   boxShadow: theme.shadow.md,
   padding: theme.space.lg,
 })
+
+// Entrance/exit for the overlay + dialog (guides.remix.run/animation).
+// Keys on the conditional elements let the runtime track enter/exit identity.
+const overlayEntrance = animateEntrance(entrance({ opacity: 0, ...spring('snappy') }))
+const overlayExit = animateExit(exit({ opacity: 0, ...spring('snappy') }))
+const dialogEntrance = animateEntrance(
+  entrance({ opacity: 0, transform: 'scale(0.97) translateY(4px)', ...spring('snappy') }),
+)
+const dialogExit = animateExit(
+  exit({ opacity: 0, transform: 'scale(0.97) translateY(4px)', ...spring('snappy') }),
+)
 
 const titleStyle = css({
   margin: 0,
@@ -139,15 +152,19 @@ export const ConfirmDelete = clientEntry(
       let current = pending
       return (
         <div
+          key="confirm-dialog"
           data-confirm-overlay="true"
           mix={[
             overlayStyle,
+            overlayEntrance,
+            overlayExit,
             on('click', (event) => {
               if (event.target === event.currentTarget) close()
             }),
           ]}
         >
           <div
+            key="confirm-card"
             data-confirm-dialog="true"
             role="alertdialog"
             aria-modal="true"
@@ -155,6 +172,8 @@ export const ConfirmDelete = clientEntry(
             aria-describedby="confirm-delete-message"
             mix={[
               dialogStyle,
+              dialogEntrance,
+              dialogExit,
               on('keydown', (event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault()
