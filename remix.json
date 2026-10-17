@@ -34,6 +34,24 @@
     },
     "reporter": "spec",
     "setup": "./test/setup.ts",
+    "coverage": {
+      // Local runs stay fast; `npm test -- --coverage` enables these settings
+      // (CI runs that same command). Shared test helpers live in test/, so
+      // app/** is production code only.
+      "enabled": false,
+      "dir": ".coverage",
+      "include": ["app/**/*.{ts,tsx}"],
+      "exclude": [
+        "app/**/*.test{,.browser,.e2e}.{ts,tsx}",
+        // Test-only helper colocated with the verwaltung controller; the
+        // *.test.* exclude glob does not match its .test-utils. name.
+        "app/actions/verwaltung/controller.test-utils.ts"
+      ],
+      "statements": 80,
+      "lines": 80,
+      "branches": 70,
+      "functions": 80
+    },
     "type": ["server", "browser", "e2e"],
     "watch": false
   }
