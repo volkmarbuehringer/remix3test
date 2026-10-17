@@ -204,7 +204,7 @@ This skill is the **pointer/delta index** for guide `node_modules/remix/guides/0
 - `animateEntrance(...)` runs on insert; `animateExit(...)` keeps a removed node in the DOM until its exit finishes. Both are mixins, composed into a `mix` array with `css()`/`on()`/`ref()`.
 - Pass `true`/`false` to enable/disable without reshaping the array; `animateEntrance({ initial: false })` skips the first insertion for a key; a keyed element that returns before its exit ends is reclaimed and animated back.
 - Stable `key`s are required for enter/exit/replace and for `animateLayout(...)` in lists. `animateLayout` measures before/after and animates the delta; size projects by default, `size: false` animates position only.
-- The app already gates entrance motion: `app/utils/motion.ts` exports `entrance(config)` returning `false` under reduced motion; server-rendered pages wrap as `animateEntrance(entrance({...}))`. Use that helper; do not add a second gate.
+- The app already gates presence motion: `app/utils/motion.ts` exports `entrance(config)` and `exit(config)` returning `false` under reduced motion; wrap as `animateEntrance(entrance({...}))` / `animateExit(exit({...}))`. Reduced motion is otherwise handled globally by the shell rule in `app/ui/document.tsx` — but WAAPI (`element.animate()`) is *not* covered and must check `prefersReducedMotion()`. Exit-animation teardowns are created asynchronously: in browser tests, poll for DOM removal rather than awaiting one `getAnimations()` snapshot.
 
 **Motion values (`references/remix3-animation/motion-values.md`)**
 

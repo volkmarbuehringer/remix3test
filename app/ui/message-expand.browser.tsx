@@ -1,4 +1,6 @@
 import { clientEntry, css, type Handle } from 'remix/component'
+import { spring } from '@remix-run/ui/animation'
+import { prefersReducedMotion } from '../utils/motion.ts'
 
 /**
  * Click-to-expand for the /admin/messages content column.
@@ -40,17 +42,53 @@ function syncButton(btn: HTMLButtonElement, expanded: boolean): void {
     : (btn.getAttribute('data-label-more') ?? 'Mehr')
 }
 
+// Current height animation per span — cancelled before the next toggle so a
+// fast double-toggle retargets instead of stacking animations (guide:
+// "Interruptible interactions").
+const spanAnimations = new WeakMap<HTMLElement, Animation>()
+
+/**
+ * FLIP the clamp toggle's height delta with a spring: measure the span before
+ * and after applying the state change, then WAAPI-animate the height from the
+ * pre-toggle value. Overflow is hidden while animating so the revealed text
+ * doesn't spill past the animating box. (animateLayout() doesn't apply here —
+ * the expand toggle is DOM-only state, so no render fires to measure.)
+ */
+function animateHeightDelta(span: HTMLElement, toggle: () => void): void {
+  let before = span.getBoundingClientRect().height
+  toggle()
+  let target = span.getBoundingClientRect().height
+  if (Math.abs(target - before) < 1) return
+  spanAnimations.get(span)?.cancel()
+  span.style.overflow = 'hidden'
+  let animation = span.animate(
+    [{ height: `${before.toFixed(1)}px` }, { height: `${target.toFixed(1)}px` }],
+    { ...spring('smooth') },
+  )
+  spanAnimations.set(span, animation)
+  animation.finished
+    .catch(() => {})
+    .finally(() => {
+      if (spanAnimations.get(span) === animation) spanAnimations.delete(span)
+      span.style.height = ''
+      // Expanded state must keep overflow visible (the stylesheet clamps it).
+      span.style.overflow = span.getAttribute('data-expanded') === 'true' ? 'visible' : ''
+    })
+}
+
 function toggleMessage(btn: HTMLButtonElement): void {
   let cell = btn.closest<HTMLElement>('[data-message-cell]')
   let span = cell?.querySelector<HTMLElement>('[data-message-text]')
   if (!cell || !span) return
 
   let expanded = span.getAttribute('data-expanded') === 'true'
-  if (expanded) {
-    setCollapsed(span)
-  } else {
-    setExpanded(span)
+  let apply = () => {
+    if (expanded) setCollapsed(span)
+    else setExpanded(span)
   }
+  // The CSS reduced-motion guard can't stop a WAAPI animation — gate here.
+  if (prefersReducedMotion()) apply()
+  else animateHeightDelta(span, apply)
   syncButton(btn, !expanded)
 }
 
@@ -71,6 +109,12 @@ function scanCells(): void {
       .closest<HTMLElement>('[data-message-cell]')
       ?.querySelector<HTMLButtonElement>('button[data-expand-msg]')
     if (!btn) return
+
+    // An interrupted height animation can leave inline styles behind.
+    spanAnimations.get(span)?.cancel()
+    spanAnimations.delete(span)
+    span.style.overflow = ''
+    span.style.height = ''
 
     setCollapsed(span)
     // scrollHeight measures the full wrapped text; clientHeight is the visible

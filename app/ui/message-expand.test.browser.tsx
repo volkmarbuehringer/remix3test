@@ -97,8 +97,11 @@ describe('MessageExpand', () => {
 
     let span = textSpan('1')
     assert.equal(span.getAttribute('data-expanded'), 'true')
+    // The height spring keeps overflow hidden while it plays; wait it out.
+    await Promise.allSettled(document.getAnimations().map((a) => a.finished))
     assert.equal(span.style.overflow, 'visible')
     assert.equal(span.style.getPropertyValue('-webkit-line-clamp'), 'unset')
+    assert.equal(span.style.height, '', 'the animation clears its inline height')
     assert.equal(toggleBtn('1').getAttribute('aria-expanded'), 'true')
     assert.equal(toggleBtn('1').textContent, 'Weniger')
   })

@@ -1,4 +1,5 @@
 import { clientEntry, on, ref, type Handle } from 'remix/component'
+import { spring } from '@remix-run/ui/animation'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import {
@@ -15,6 +16,7 @@ import {
 import { interactionState } from './appointment-interaction-state.ts'
 import { showToast } from './toast.ts'
 import { clamp } from '../utils/math.ts'
+import { prefersReducedMotion } from '../utils/motion.ts'
 
 import {
   HOURS,
@@ -116,6 +118,12 @@ export const AppointmentGrid = clientEntry(
     }
     let gridBodyElement: HTMLElement | null = null
     let draggedBlockOffset = { x: 0, y: 0 }
+    // Release-velocity samples for the drop settle animation (guides.remix.run/
+    // animation drag-release pattern): rate of change of the dragged block
+    // offset in px/ms. Sampled at ≥8ms intervals so pointer-event jitter
+    // between coalesced moves doesn't produce wild velocities.
+    let dragVelocity = { x: 0, y: 0 }
+    let lastOffsetSample = { x: 0, y: 0, t: 0 }
     let isOverTrashcan = false
     let isOverTypesPanel = false
     let sidebarColElement: HTMLElement | null = null
@@ -749,6 +757,9 @@ export const AppointmentGrid = clientEntry(
       }
       activeGesture = 'drag'
       syncInteractionState()
+      // Reset release-velocity sampling for this gesture.
+      dragVelocity = { x: 0, y: 0 }
+      lastOffsetSample = { x: draggedBlockOffset.x, y: draggedBlockOffset.y, t: performance.now() }
       bindWindowEvents()
       void handle.update()
     }
@@ -811,6 +822,7 @@ export const AppointmentGrid = clientEntry(
           let snappedBlockTop = gs.grid.top + (gs.placement.startMinute / 60) * gs.grid.rowHeight
           draggedBlockOffset.x = event.clientX - gs.offsetX - snappedBlockLeft
           draggedBlockOffset.y = event.clientY - gs.offsetY - snappedBlockTop
+          recordDragVelocity(draggedBlockOffset.x, draggedBlockOffset.y)
           void handle.update()
         }
         return
@@ -828,6 +840,7 @@ export const AppointmentGrid = clientEntry(
         dragState.grid.top + (nextPlacement.startMinute / 60) * dragState.grid.rowHeight
       draggedBlockOffset.x = event.clientX - dragState.offsetX - snappedBlockLeft
       draggedBlockOffset.y = event.clientY - dragState.offsetY - snappedBlockTop
+      recordDragVelocity(draggedBlockOffset.x, draggedBlockOffset.y)
 
       // Check if placement actually changed
       if (
@@ -859,8 +872,54 @@ export const AppointmentGrid = clientEntry(
       }
     }
 
+    function recordDragVelocity(x: number, y: number) {
+      let now = performance.now()
+      let dt = now - lastOffsetSample.t
+      if (dt < 8) return
+      dragVelocity.x = (x - lastOffsetSample.x) / dt
+      dragVelocity.y = (y - lastOffsetSample.y) / dt
+      lastOffsetSample = { x, y, t: now }
+    }
+
+    /**
+     * Spring velocity (progress units per second, clamped to ±20 like the
+     * guide's drag-release demo) along the offset axis with the larger
+     * distance. The spring runs from the drop offset toward 0, so a shrinking
+     * offset means positive velocity.
+     */
+    function settleVelocity(fromX: number, fromY: number): number {
+      let useX = Math.abs(fromX) >= Math.abs(fromY)
+      let distance = Math.max(useX ? Math.abs(fromX) : Math.abs(fromY), 1)
+      let velocity = useX ? dragVelocity.x : dragVelocity.y
+      return clamp((-velocity * 1000) / distance, -20, 20)
+    }
+
+    /**
+     * Animate a dropped block from its last drag offset into its committed
+     * slot with a spring. WAAPI overrides the inline transform during play;
+     * the rendered inline value is already `none`, so the block rests in its
+     * slot when the animation ends. Degradation is graceful: if a refresh
+     * rebuilds the node mid-animation, the block just appears in place.
+     */
+    function startSettleAnimation(blockId: number) {
+      if (prefersReducedMotion()) return
+      let fromX = draggedBlockOffset.x
+      let fromY = draggedBlockOffset.y
+      if (fromX === 0 && fromY === 0) return
+      let node = gridBodyElement?.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
+      if (!node) return
+      node.animate(
+        [
+          { transform: `translate(${fromX.toFixed(1)}px, ${fromY.toFixed(1)}px)` },
+          { transform: 'none' },
+        ],
+        { ...spring('snappy', { velocity: settleVelocity(fromX, fromY) }) },
+      )
+    }
+
     function cancelDrag() {
       unbindWindowEvents()
+      if (dragState?.blockId) startSettleAnimation(dragState.blockId)
       draggedBlockOffset.x = 0
       draggedBlockOffset.y = 0
       preview = null
@@ -886,6 +945,9 @@ export const AppointmentGrid = clientEntry(
       // Capture title before dragState is nulled (used in types panel drop)
       let draggedTitle = dragState.originalBlocks.find((b) => b.id === blockId)?.title
 
+      // Settle the block into its committed slot — except on trashcan or
+      // types-panel drops, where the block is deleted or replaced.
+      if (!(wasOverTrashcan || wasOverTypesPanel)) startSettleAnimation(blockId)
       draggedBlockOffset.x = 0
       draggedBlockOffset.y = 0
       dragState = null

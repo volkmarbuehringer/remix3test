@@ -1,6 +1,6 @@
 import type { animateEntrance } from '@remix-run/ui/animation'
 
-function prefersReducedMotion(): boolean {
+export function prefersReducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 

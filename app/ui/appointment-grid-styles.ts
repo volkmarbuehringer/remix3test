@@ -166,6 +166,8 @@ export const draggingBlockStyle = css({
   opacity: 0.6,
   zIndex: 4,
   transition: 'none !important',
+  // Promote the layer before the first drag frame instead of mid-gesture.
+  willChange: 'transform',
   pointerEvents: 'none',
 })
 

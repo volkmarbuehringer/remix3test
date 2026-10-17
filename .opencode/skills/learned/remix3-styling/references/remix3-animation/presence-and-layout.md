@@ -18,9 +18,23 @@ No skill indexes `@remix-run/ui/animation`; the presence and layout mixins are g
 - Keep `key`s stable when toggling related elements or reordering a list: the key is how the runtime knows which node is entering, exiting, or being replaced.
 - `animateLayout(config)` measures a host node before and after a render and animates the visual delta — sorted lists, expanding cards, and layout-shift elements. `key` is not optional in lists. Size projects by default; pass `size: false` when scaling contents would look wrong.
 
+**App delta (2026-10-17, tested): exit-teardown timing in browser tests.** The `animateExit` teardown is *created asynchronously*: `prepareMixinRemoval` runs teardowns through `Promise.resolve().then(...)`, so a single `document.getAnimations()` snapshot taken right after a close-click races the teardown and misses the animation (observed: 1 running animation at t=0, 2 at t≈100ms). In `remix test --type browser`, poll for DOM removal instead:
+
+```ts
+async function waitDialogGone() {
+  for (let i = 0; i < 200; i++) {
+    if (!dialog()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.fail('dialog did not close (exit animation never finished)')
+}
+```
+
+The runtime removes the node itself once the teardown settles (`reconcile.ts` `remove()` → `performHostNodeRemoval`), so no manual cleanup is needed. Live reference: `app/ui/confirm-delete.browser.tsx` (overlay+dialog entrance/exit with keys `confirm-dialog`/`confirm-card`) and its test's `waitDialogGone()`.
+
 **This app's seams:**
 
-- `app/utils/motion.ts` exports `entrance(config)` that returns `false` when `matchMedia('(prefers-reduced-motion: reduce)').matches`, else the config. Server-rendered page modules apply motion as `animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))` (about fifteen admin/client pages do this). Reuse `entrance()` rather than adding another gate.
+- `app/utils/motion.ts` exports `entrance(config)` and `exit(config)` that return `false` when `matchMedia('(prefers-reduced-motion: reduce)').matches`, else the config. Server-rendered page modules apply motion as `animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))` (about fifteen admin/client pages do this). Reuse these helpers rather than adding another gate.
 - `app/assets/error-card.browser.tsx` spreads `spring('smooth')` into an `animateEntrance` config; `app/assets/entry.tsx` uses `spring('snappy')` imperatively.
 - These mixins run on server-rendered markup, not only inside a `clientEntry` — the app's page components apply them directly.
 
@@ -33,5 +47,5 @@ No skill indexes `@remix-run/ui/animation`; the presence and layout mixins are g
 ## Reference
 
 - `node_modules/remix/guides/07-animation.md` §"Entrance and exit animations", §"Layout animations"
-- `node_modules/.pnpm/@remix-run+ui@*2c9e033*/node_modules/@remix-run/ui/src/animation/README.md`
-- `app/utils/motion.ts`, `app/assets/error-card.browser.tsx`
+- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/README.md`
+- `app/utils/motion.ts`, `app/assets/error-card.browser.tsx`, `app/ui/confirm-delete.browser.tsx`
