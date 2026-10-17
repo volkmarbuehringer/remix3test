@@ -221,26 +221,44 @@ function AgentEventsEmptyState(_handle: Handle) {
 // ── Prompt validation ────────────────────────────────────────────────
 
 /**
- * The agent-prompt message field. Length is checked against the untrimmed
- * value first, then the value is trimmed and the required check runs, so the
- * two failure messages surface in the same order as the original hand-rolled
- * checks — which are re-hydrated verbatim via `parseSafe` issue messages.
+ * The agent-prompt message field.
+ *
+ * There is deliberately no `s.defaulted` fallback: `s.defaulted` returns its
+ * default without running the wrapped schema, so a *missing* field would parse
+ * as `''` and fall into the SSE pipeline instead of failing fast like the
+ * pre-schema code did. Without it, a missing field fails the `s.string()` type
+ * check, which `promptIssueMessage` maps back to "Message is required".
+ *
+ * Length is checked against the untrimmed value first, then the value is
+ * trimmed — so the two canonical failure messages surface in the same order as
+ * the original hand-rolled checks. Exported for the schema's regression tests
+ * (`prompt-schema.test.ts`).
  */
-const promptSchema = f.object({
+export const promptSchema = f.object({
   message: f.field(
-    s.defaulted(
-      s
-        .string()
-        .refine(
-          (value) => value.length <= MAX_MESSAGE_LENGTH,
-          `Message too long (max ${MAX_MESSAGE_LENGTH})`,
-        )
-        .transform((value) => value.trim())
-        .refine((value) => value.length > 0, 'Message is required'),
-      '',
-    ),
+    s
+      .string()
+      .refine(
+        (value) => value.length <= MAX_MESSAGE_LENGTH,
+        `Message too long (max ${MAX_MESSAGE_LENGTH})`,
+      )
+      .transform((value) => value.trim())
+      .refine((value) => value.length > 0, 'Message is required'),
   ),
 })
+
+/**
+ * Maps a `promptSchema` issue to one of the two canonical messages the
+ * documented error contract promises. Schema-level type failures (a missing or
+ * non-string `message` field) surface their generic messages ("Expected
+ * string", "Expected text field") to admins, so they are folded into
+ * "Message is required" here instead.
+ */
+export function promptIssueMessage(first: string | undefined): string {
+  return first === 'Message is required' || first?.startsWith('Message too long')
+    ? first
+    : 'Message is required'
+}
 
 export default createController(routes.admin.agentEvents, {
   middleware: [requireAdmin()],
@@ -257,7 +275,7 @@ export default createController(routes.admin.agentEvents, {
     async action(context) {
       let parsed = s.parseSafe(promptSchema, context.formData)
       if (!parsed.success) {
-        return sseErrorResponse(parsed.issues[0]?.message ?? 'Message is required', 400)
+        return sseErrorResponse(promptIssueMessage(parsed.issues[0]?.message), 400)
       }
       let message = parsed.value.message
 
