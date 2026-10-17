@@ -63,6 +63,13 @@ export function frameRedirects(): Middleware {
     let cookie = context.request.headers.get('Cookie')
     if (cookie) headers.set('Cookie', cookie)
 
+    // The server boundary stamps X-Client-Ip from the TCP socket address;
+    // forward it so this internal re-entry keeps its real client attribution
+    // (rate limiting, localhost guards) instead of collapsing into the
+    // headerless 'unknown' bucket. See app/utils/request-ip.ts.
+    let clientIp = context.request.headers.get('X-Client-Ip')
+    if (clientIp) headers.set('X-Client-Ip', clientIp)
+
     let frameResponse = await context.router.fetch(
       new Request(destination, {
         method: 'GET',

@@ -45,8 +45,11 @@ export default createAction(routes.api.login, {
       return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
     }
 
-    let ip = connectionIp(context.request)
-    if (ip && !ipLimiter.attempt(ip)) {
+    // The server boundary always stamps X-Client-Ip from the TCP socket; the
+    // 'unknown' fallback only catches internal re-entries that skip the
+    // boundary (shared bucket — fails toward lockout, never toward bypass).
+    let ip = connectionIp(context.request) || 'unknown'
+    if (!ipLimiter.attempt(ip)) {
       return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
     }
 
