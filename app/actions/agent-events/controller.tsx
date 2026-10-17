@@ -90,10 +90,10 @@ const defaultRunStatusResolver: RunStatusResolver = async (workflowId, runId) =>
   let stepId: string | undefined
   let suspendPayload: Record<string, unknown> | undefined
   for (let [id, step] of Object.entries((run.steps as Record<string, unknown>) ?? {})) {
-    let s = step as { status?: string; suspendPayload?: Record<string, unknown> }
-    if (s?.status === 'suspended') {
+    let st = step as { status?: string; suspendPayload?: Record<string, unknown> }
+    if (st?.status === 'suspended') {
       stepId = id
-      suspendPayload = s.suspendPayload
+      suspendPayload = st.suspendPayload
       break
     }
   }
