@@ -73,7 +73,7 @@ export function __setTestDurableChat(enabled: boolean | undefined) {
   }
 }
 
-export function useDurableCustomerChat(): boolean {
+function useDurableCustomerChat(): boolean {
   if (process.env.NODE_ENV === 'test' && _testDurableChat !== undefined) return _testDurableChat
   let flag = process.env.CUSTOMER_CHAT_DURABLE
   return flag === '1' || flag === 'true'

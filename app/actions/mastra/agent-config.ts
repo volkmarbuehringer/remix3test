@@ -39,7 +39,7 @@ export function createModel() {
   }
 }
 
-export function createMemory(options?: {
+function createMemory(options?: {
   workingMemory?: { enabled: boolean }
   lastMessages?: number
 }) {

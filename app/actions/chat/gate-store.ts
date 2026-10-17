@@ -1,6 +1,4 @@
-import { createGateStore, type PendingGateRow } from '../../utils/agent-gate-store.ts'
-
-export type { PendingGateRow }
+import { createGateStore } from '../../utils/agent-gate-store.ts'
 
 /**
  * Durable pending-gate pointer for the public /chat agent runs.

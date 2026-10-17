@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "scripts/**/*.ts",
+    "scripts/*.mjs",
+    "app/routes.ts",
+    "app/router.ts",
+    "app/assets/entry.tsx",
+    "app/assets/*.browser.tsx",
+    "app/ui/*.browser.tsx",
+    "app/**/public/**/*.{ts,tsx}",
+    "app/**/*.test.{ts,tsx}",
+    "app/**/*.test.browser.{ts,tsx}",
+    "app/**/*.test.e2e.{ts,tsx}",
+    "test/**/*.ts",
+    "playwright.config.ts",
+    "docker.sh",
+    "Dockerfile"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "test/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs}"
+  ],
+  "ignoreDependencies": [],
+  "typescript": {
+    "config": "tsconfig.json"
+  }
+}

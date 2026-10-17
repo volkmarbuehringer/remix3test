@@ -11,7 +11,7 @@ import { requestConfirm } from './confirm-delete.browser.tsx'
  * The row captured at right-click time. Passed to the menu's item renderer and
  * to its select handler, so a menu can read any per-row `data-*` attribute.
  */
-export interface RowMenuTarget {
+interface RowMenuTarget {
   /** The row's `data-row-id` (empty string when the attribute has no value). */
   rowId: string
   /** The right-clicked row element. */

@@ -1,6 +1,4 @@
-import { createGateStore, type PendingGateRow } from '../../utils/agent-gate-store.ts'
-
-export type { PendingGateRow }
+import { createGateStore } from '../../utils/agent-gate-store.ts'
 
 /**
  * Durable per-admin pointer to the support agent's currently pending gate.

@@ -49,7 +49,6 @@
     "@types/pg": "^8.23.1",
     "html-validate": "^11.16.2",
     "mastra": "^1.34.2",
-    "openspec": "latest",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",
     "oxlint-tsgolint": "^7.0.2004",

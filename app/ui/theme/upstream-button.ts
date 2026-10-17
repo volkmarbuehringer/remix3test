@@ -1,10 +1,10 @@
 import { createElement, createMixin, css } from 'remix/component'
 import type { CSSMixinDescriptor, ElementProps, MixinDescriptor } from 'remix/component'
 
-export type ButtonSize = 'md' | 'lg'
-export type ButtonTone = 'neutral' | 'primary' | 'ghost'
+type ButtonSize = 'md' | 'lg'
+type ButtonTone = 'neutral' | 'primary' | 'ghost'
 
-export interface ButtonOptions {
+interface ButtonOptions {
   size?: ButtonSize
   tone?: ButtonTone
 }
@@ -163,7 +163,7 @@ const toneStyles = {
   ghost: ghostStyle,
 } as const satisfies Record<ButtonTone, CSSMixinDescriptor>
 
-export function button(options: ButtonOptions = {}): ButtonMixin {
+function button(options: ButtonOptions = {}): ButtonMixin {
   let { size = 'md', tone = 'neutral' } = options
   return [buttonDefaultAttrs, baseStyle, sizeStyles[size], toneStyles[tone]]
 }

@@ -276,7 +276,7 @@ export const sidebarStyle = css({
   boxShadow: theme.shadow.sm,
 })
 
-export const sidebarHeaderStyle = css({
+const sidebarHeaderStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,

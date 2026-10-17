@@ -146,8 +146,8 @@ const menuItemIndicatorCss: CSSMixinDescriptor = css({
 })
 
 const popoverStyle = menuPopoverCss
-export const listStyle = menuListCss
-export const itemStyle = menuItemCss
+const listStyle = menuListCss
+const itemStyle = menuItemCss
 const itemSlotStyle = menuItemSlotCss
 const itemLabelStyle = menuItemLabelCss
 const itemIndicatorStyle = menuItemIndicatorCss

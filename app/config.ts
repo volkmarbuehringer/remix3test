@@ -22,7 +22,7 @@ export const isProduction = nodeEnv === 'production'
  * NODE_ENV read at call time, for code that must observe runtime overrides
  * (tests) or make a decision at request time rather than at module load.
  */
-export function currentNodeEnv(): NodeEnv {
+function currentNodeEnv(): NodeEnv {
   return NODE_ENV.catch('development').parse(process.env.NODE_ENV)
 }
 
