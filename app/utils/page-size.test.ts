@@ -1,5 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
+import * as s from 'remix/data-schema'
 
 import {
   clearPageSize,
@@ -7,6 +8,7 @@ import {
   getPageSizeOverride,
   isPageSizeKey,
   isValidPageSize,
+  pageSizeFormSchema,
   setPageSize,
   PAGE_SIZE_KEYS,
   PAGE_SIZE_MAX,
@@ -99,5 +101,49 @@ describe('per-page page-size overrides', () => {
     assert.ok(isPageSizeKey('notifications'))
     assert.ok(!isPageSizeKey('verwaltung.unknown'))
     assert.ok(!isPageSizeKey(''))
+  })
+})
+
+describe('pageSizeFormSchema', () => {
+  function submission(fields: Record<string, string>): FormData {
+    let data = new FormData()
+    for (let [key, value] of Object.entries(fields)) data.append(key, value)
+    return data
+  }
+
+  it('decodes numeric-text page sizes and their grid key', () => {
+    let parsed = s.parseSafe(
+      pageSizeFormSchema,
+      submission({ pageKey: 'notifications', pageSize: '50' }),
+    )
+    assert.ok(parsed.success)
+    assert.equal(parsed.value.pageKey, 'notifications')
+    assert.equal(parsed.value.pageSize, 50)
+  })
+
+  it('defaults pageKey to an empty string and fails on a missing pageSize', () => {
+    let parsed = s.parseSafe(pageSizeFormSchema, submission({}))
+    assert.ok(!parsed.success)
+  })
+
+  it('rejects out-of-range, fractional, and non-numeric page sizes', () => {
+    assert.ok(!s.parseSafe(pageSizeFormSchema, submission({ pageSize: '200' })).success)
+    assert.ok(!s.parseSafe(pageSizeFormSchema, submission({ pageSize: '17.5' })).success)
+    assert.ok(!s.parseSafe(pageSizeFormSchema, submission({ pageSize: 'too-big' })).success)
+    assert.ok(!s.parseSafe(pageSizeFormSchema, submission({ pageSize: '' })).success)
+  })
+
+  it('selects only the declared fields, ignoring extra grid-state round-trips', () => {
+    let parsed = s.parseSafe(
+      pageSizeFormSchema,
+      submission({
+        pageKey: 'admin.users',
+        pageSize: '25',
+        _offset: '10',
+        returnTo: '/admin/users',
+      }),
+    )
+    assert.ok(parsed.success)
+    assert.deepEqual(parsed.value, { pageKey: 'admin.users', pageSize: 25 })
   })
 })

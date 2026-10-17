@@ -18,7 +18,7 @@ import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import {
   getPageSize,
-  isValidPageSize,
+  pageSizeFormSchema,
   PAGE_SIZE_DEFAULT,
   PAGE_SIZE_MAX,
   PAGE_SIZE_MIN,
@@ -178,10 +178,9 @@ export default createController(routes.settings, {
       if (_action === 'set-page-size') {
         let session = context.session
         if (session) {
-          let raw = context.formData.get('pageSize')
-          let nextPageSize = typeof raw === 'string' ? Number(raw) : NaN
-          if (isValidPageSize(nextPageSize)) {
-            session.set('pageSize', nextPageSize)
+          let parsed = s.parseSafe(pageSizeFormSchema, context.formData)
+          if (parsed.success) {
+            session.set('pageSize', parsed.value.pageSize)
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }

@@ -1,5 +1,6 @@
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
+import * as s from 'remix/data-schema'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../ui/verwaltung-layout.tsx'
@@ -8,7 +9,8 @@ import { countDashboardStats } from '../../data/admin-dashboard.ts'
 import {
   clearPageSize,
   isPageSizeKey,
-  isValidPageSize,
+  pageKeyFormSchema,
+  pageSizeFormSchema,
   setPageSize,
 } from '../../utils/get-page-size.ts'
 import { routes } from '../../routes.ts'
@@ -26,16 +28,15 @@ export default createController(routes.verwaltung, {
     async pageSize(context) {
       let session = context.session
       if (session) {
-        let pageKey = context.formData.get('pageKey')
-        if (typeof pageKey === 'string' && isPageSizeKey(pageKey)) {
-          if (context.formData.get('_action') === 'reset-page-size') {
-            clearPageSize(session, pageKey)
-          } else {
-            let raw = context.formData.get('pageSize')
-            let next = typeof raw === 'string' ? Number(raw) : NaN
-            if (isValidPageSize(next)) {
-              setPageSize(session, next, pageKey)
-            }
+        if (context.formData.get('_action') === 'reset-page-size') {
+          let parsed = s.parseSafe(pageKeyFormSchema, context.formData)
+          if (parsed.success && isPageSizeKey(parsed.value.pageKey)) {
+            clearPageSize(session, parsed.value.pageKey)
+          }
+        } else {
+          let parsed = s.parseSafe(pageSizeFormSchema, context.formData)
+          if (parsed.success && isPageSizeKey(parsed.value.pageKey)) {
+            setPageSize(session, parsed.value.pageSize, parsed.value.pageKey)
           }
         }
       }

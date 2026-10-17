@@ -3,6 +3,7 @@ import { css } from 'remix/component'
 import { theme } from '../../ui/theme/theme.ts'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
+import * as s from 'remix/data-schema'
 
 import { routes } from '../../routes.ts'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -11,7 +12,7 @@ import {
   clearPageSize,
   getPageSize,
   getPageSizeOverride,
-  isValidPageSize,
+  pageSizeFormSchema,
   setPageSize,
   PAGE_SIZE_KEYS,
 } from '../../utils/get-page-size.ts'
@@ -66,10 +67,9 @@ export default createController(routes.notifications, {
         if (context.formData.get('_action') === 'reset-page-size') {
           clearPageSize(session, PAGE_SIZE_KEYS.notifications)
         } else {
-          let raw = context.formData.get('pageSize')
-          let next = typeof raw === 'string' ? Number(raw) : NaN
-          if (isValidPageSize(next)) {
-            setPageSize(session, next, PAGE_SIZE_KEYS.notifications)
+          let parsed = s.parseSafe(pageSizeFormSchema, context.formData)
+          if (parsed.success) {
+            setPageSize(session, parsed.value.pageSize, PAGE_SIZE_KEYS.notifications)
           }
         }
       }

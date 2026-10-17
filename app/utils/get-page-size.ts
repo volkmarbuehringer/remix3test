@@ -1,3 +1,7 @@
+import * as s from 'remix/data-schema'
+import * as f from 'remix/data-schema/form-data'
+import * as coerce from 'remix/data-schema/coerce'
+
 /** Lowest value the "Einträge pro Seite" slider can save. */
 export const PAGE_SIZE_MIN = 5
 
@@ -55,6 +59,31 @@ interface WritableSession extends ReadableSession {
 export function isValidPageSize(value: number): boolean {
   return Number.isInteger(value) && value >= PAGE_SIZE_MIN && value <= PAGE_SIZE_MAX
 }
+
+/** Valid page-size submit: numeric text that decodes to a whole number in range. */
+const pageSizeValue = coerce
+  .number()
+  .refine(
+    isValidPageSize,
+    `Ganze Zahl zwischen ${PAGE_SIZE_MIN} und ${PAGE_SIZE_MAX} erforderlich.`,
+  )
+
+/**
+ * Form-data schema for the "Einträge pro Seite" submissions every grid
+ * round-trips. `pageKey` is an opaque string here — whitelist it against
+ * `PAGE_SIZE_KEYS` with `isPageSizeKey` before trusting it. An invalid or
+ * missing `pageSize` fails the parse so the controller silently ignores the
+ * submission (same behavior as the previously hand-rolled field checks).
+ */
+export const pageSizeFormSchema = f.object({
+  pageKey: f.field(s.defaulted(s.string(), '')),
+  pageSize: f.field(pageSizeValue),
+})
+
+/** Form-data schema for the reset action, which carries the grid key only. */
+export const pageKeyFormSchema = f.object({
+  pageKey: f.field(s.defaulted(s.string(), '')),
+})
 
 function readOverrides(session: ReadableSession): PageSizeOverrides {
   let raw = session.get('pageSizes')

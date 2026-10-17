@@ -1,5 +1,7 @@
 import { createController } from 'remix/router'
 import { css, type Handle } from 'remix/component'
+import * as s from 'remix/data-schema'
+import * as f from 'remix/data-schema/form-data'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
@@ -216,6 +218,30 @@ function AgentEventsEmptyState(_handle: Handle) {
   )
 }
 
+// ── Prompt validation ────────────────────────────────────────────────
+
+/**
+ * The agent-prompt message field. Length is checked against the untrimmed
+ * value first, then the value is trimmed and the required check runs, so the
+ * two failure messages surface in the same order as the original hand-rolled
+ * checks — which are re-hydrated verbatim via `parseSafe` issue messages.
+ */
+const promptSchema = f.object({
+  message: f.field(
+    s.defaulted(
+      s
+        .string()
+        .refine(
+          (value) => value.length <= MAX_MESSAGE_LENGTH,
+          `Message too long (max ${MAX_MESSAGE_LENGTH})`,
+        )
+        .transform((value) => value.trim())
+        .refine((value) => value.length > 0, 'Message is required'),
+      '',
+    ),
+  ),
+})
+
 export default createController(routes.admin.agentEvents, {
   middleware: [requireAdmin()],
 
@@ -229,14 +255,11 @@ export default createController(routes.admin.agentEvents, {
     },
 
     async action(context) {
-      let rawMessage = context.formData.get('message')?.toString() ?? ''
-      if (rawMessage.length > MAX_MESSAGE_LENGTH) {
-        return sseErrorResponse(`Message too long (max ${MAX_MESSAGE_LENGTH})`, 400)
+      let parsed = s.parseSafe(promptSchema, context.formData)
+      if (!parsed.success) {
+        return sseErrorResponse(parsed.issues[0]?.message ?? 'Message is required', 400)
       }
-      let message = rawMessage.trim()
-      if (!message) {
-        return sseErrorResponse('Message is required', 400)
-      }
+      let message = parsed.value.message
 
       let user = getCurrentUser()
       let body = new ReadableStream({
