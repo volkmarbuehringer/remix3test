@@ -55,14 +55,18 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
   return createMiddleware(
     skipAssetsLogger(),
     securityHeaders(),
+    compression(),
     // Root-served static files (self-hosted fonts under `public/`). Runs after
     // `securityHeaders()` so static responses still get the CSP, and before the
     // session/database stack so a font request never touches them.
+    // compression() above wraps static responses per the request-handling guide
+    // (put a response wrapper before an early response it should transform);
+    // its own guards skip the .woff2 files (already-compressed MIME filter),
+    // while `fonts.css` benefits from compression.
     staticFiles('./public', {
       // No content hash in these URLs, so keep a bounded TTL instead of immutable.
       cacheControl: 'public, max-age=86400',
     }),
-    compression(),
     globalRateLimit({
       maxPerWindow: envPositiveNumberOrUndefined('GLOBAL_RATE_LIMIT_MAX'),
     }),
