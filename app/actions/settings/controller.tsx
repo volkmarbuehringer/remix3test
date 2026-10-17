@@ -415,6 +415,10 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                 href={`${routes.settings.index.href()}?tab=${tab.id}`}
                 aria-current={active ? 'page' : undefined}
                 data-rmx-target={frames.settingsPanel}
+                // Tab switching is view state, not a distinct document: replace
+                // the history entry so Back doesn't walk through every tab
+                // (guide ch. 6, "Navigate a frame with a form").
+                data-rmx-history="replace"
                 id={`settings-${tab.id}-tab`}
               >
                 {tab.label}

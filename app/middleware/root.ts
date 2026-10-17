@@ -77,7 +77,16 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     loadAuth(),
     mailer(),
     loadAssetEntry(),
-    render({ assets: assetServer }),
+    // Guide ch. 6: the server renderer's onError is the reporting hook for
+    // render errors on document and browser-initiated frame requests. The
+    // middleware silences onError for its own internal frame subrequests so the
+    // enclosing render reports the error exactly once.
+    render({
+      assets: assetServer,
+      onError(error) {
+        console.error(error)
+      },
+    }),
     json(),
     frameRedirects(),
   )
