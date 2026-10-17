@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from '../../test/pool.ts'
 import {
+  deleteExpiredBatched,
   deleteExpiredChatRuns,
   deleteExpiredWebhookRequests,
   deleteExpiredAuditLogs,
@@ -83,5 +84,49 @@ describe('maintenance', () => {
     assert.ok(deleted >= 1)
     let remaining = await pool.query("SELECT id FROM uploads WHERE filename LIKE 'test-maint-%'")
     assert.equal(remaining.rows.length, 0)
+  })
+
+  it('deleteExpiredBatched drains across multiple small batches', async () => {
+    let now = Date.now()
+    let runIds = ['test-maint-b1', 'test-maint-b2', 'test-maint-b3', 'test-maint-b4', 'test-maint-b5']
+    await pool.query(
+      `INSERT INTO chat_runs (run_id, user_id, thread_id, created_at)
+       VALUES ${runIds.map((_, i) => `('test-maint-b${i + 1}', $1, $2, ${now - 48 * HOUR_MS})`).join(', ')}`,
+      [userId, 'test-maint-batch-thread'],
+    )
+
+    // batchSize 2 with a 5-row backlog forces three statements: two full
+    // batches plus one short closing batch (the old single-statement sweep
+    // never exercised a second iteration).
+    let deleted = await deleteExpiredBatched(
+      db,
+      'chat_runs',
+      'run_id',
+      now - HOUR_MS,
+      2,
+    )
+    assert.equal(deleted, 5, 'every expired row must be counted exactly once')
+
+    let remaining = await pool.query(
+      "SELECT run_id FROM chat_runs WHERE run_id LIKE 'test-maint-b%'",
+    )
+    assert.equal(remaining.rows.length, 0, 'no expired row may survive a full sweep')
+  })
+
+  it('deleteExpiredBatched stops at a short first batch', async () => {
+    await pool.query(
+      `INSERT INTO chat_runs (run_id, user_id, thread_id, created_at)
+       VALUES ('test-maint-solo', $1, 'test-maint-solo-thread', $2)`,
+      [userId, Date.now() - 48 * HOUR_MS],
+    )
+    // batchSize far above the row count: one statement, no second iteration.
+    let deleted = await deleteExpiredBatched(
+      db,
+      'chat_runs',
+      'run_id',
+      Date.now() - HOUR_MS,
+      100,
+    )
+    assert.equal(deleted, 1)
   })
 })

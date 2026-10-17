@@ -14,7 +14,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
-import { logAdminAction } from '../../../data/audit-log.ts'
+import { logAdminAction, logAdminActionStrict } from '../../../data/audit-log.ts'
 import { apiTokens, users } from '../../../data/schema.ts'
 import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
@@ -534,26 +534,31 @@ export default createController(routes.admin.users, {
         changes.token_version = (currentUser?.token_version ?? 0) + 1
       }
 
-      await db.updateMany(users, changes, { where: { id } })
-      if (fields.password) {
-        await db.deleteMany(apiTokens, { where: { user_id: id } })
-      }
-
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        let safeChanges = { ...changes }
-        if ('password_hash' in safeChanges) {
-          safeChanges.password_hash = '***REDACTED***'
+      // The credential change, its API-token wipe, and the audit row are one
+      // transaction: a failure anywhere rolls the whole mutation back
+      // (logAdminActionStrict keeps the audit entry from being swallowed).
+      await db.transaction(async (tx) => {
+        await tx.updateMany(users, changes, { where: { id } })
+        if (fields.password) {
+          await tx.deleteMany(apiTokens, { where: { user_id: id } })
         }
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'update',
-          target_type: 'users',
-          target_id: id,
-          details: { changes: safeChanges },
-        })
-      }
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          let safeChanges = { ...changes }
+          if ('password_hash' in safeChanges) {
+            safeChanges.password_hash = '***REDACTED***'
+          }
+          await logAdminActionStrict(tx, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'users',
+            target_id: id,
+            details: { changes: safeChanges },
+          })
+        }
+      })
 
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
@@ -585,21 +590,33 @@ export default createController(routes.admin.users, {
       }
 
       let user = existing as User
-      if (user.role === 'admin') {
-        let adminCount = await db.count(users, { where: { role: 'admin' } })
-        if (adminCount <= 1) {
-          return context.json(
-            { ok: false, error: 'Das letzte Admin-Konto kann nicht gelöscht werden.' },
-            { status: 403 },
-          )
-        }
-      }
-
       let deletedEmail = user.email
       let deletedName = user.name
 
-      await db.deleteMany(apiTokens, { where: { user_id: id } })
-      await db.deleteMany(users, { where: { id } })
+      // The last-admin guard and the deletes run in one transaction: admin
+      // rows are locked FOR UPDATE before the count, so a concurrent role
+      // change or delete cannot slip between the check and the deletion.
+      let blocked = await db.transaction(async (tx) => {
+        if (user.role === 'admin') {
+          // Ordered acquisition prevents two concurrent destroys from locking
+          // the same admin rows in different orders.
+          await tx.exec(
+            `SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE`,
+            [],
+          )
+          let adminCount = await tx.count(users, { where: { role: 'admin' } })
+          if (adminCount <= 1) return true
+        }
+        await tx.deleteMany(apiTokens, { where: { user_id: id } })
+        await tx.deleteMany(users, { where: { id } })
+        return false
+      })
+      if (blocked) {
+        return context.json(
+          { ok: false, error: 'Das letzte Admin-Konto kann nicht gelöscht werden.' },
+          { status: 403 },
+        )
+      }
 
       if (process.env.NODE_ENV !== 'test') {
         try {

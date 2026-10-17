@@ -6,7 +6,7 @@ import { getContext } from 'remix/middleware/async-context'
 import { createAction, createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
-import { logAdminAction } from '../../data/audit-log.ts'
+import { logAdminActionStrict } from '../../data/audit-log.ts'
 import { apiTokens, users } from '../../data/schema.ts'
 import { passwordProvider } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
@@ -461,20 +461,29 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
         | { token_version: number }
         | undefined
 
-      await context.db.update(users, result.user.id, {
-        password_hash: await hashPassword(parsed.value.password),
-        token_version: (currentUser?.token_version ?? 0) + 1,
-        password_reset_token: null,
-        password_reset_expires: null,
-      })
-      await context.db.deleteMany(apiTokens, { where: { user_id: result.user.id } })
+      // Compute the hash before opening the transaction so bcrypt does not
+      // hold the transaction connection (~100 ms).
+      let passwordHash = await hashPassword(parsed.value.password)
 
-      await logAdminAction(context.db, {
-        admin_user_id: result.user.id,
-        admin_email: result.user.email,
-        action_type: 'password_reset_self',
-        target_type: 'user',
-        target_id: result.user.id,
+      // Credential rotation and session invalidation are one transaction: a
+      // failed API-token wipe must roll the password change back with it, and
+      // the audit row shares the mutation's fate (logAdminActionStrict).
+      await context.db.transaction(async (tx) => {
+        await tx.update(users, result.user.id, {
+          password_hash: passwordHash,
+          token_version: (currentUser?.token_version ?? 0) + 1,
+          password_reset_token: null,
+          password_reset_expires: null,
+        })
+        await tx.deleteMany(apiTokens, { where: { user_id: result.user.id } })
+
+        await logAdminActionStrict(tx, {
+          admin_user_id: result.user.id,
+          admin_email: result.user.email,
+          action_type: 'password_reset_self',
+          target_type: 'user',
+          target_id: result.user.id,
+        })
       })
 
       let session = context.session

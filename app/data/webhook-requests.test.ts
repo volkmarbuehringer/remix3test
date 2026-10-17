@@ -98,6 +98,21 @@ describe('webhook-requests', () => {
     assert.equal(updated, false)
   })
 
+  it('updateWebhookRequestPayload rejects invalid JSON without writing', async () => {
+    await pool.query(
+      `INSERT INTO webhook_requests (id, payload, headers, source_ip, created_at)
+       VALUES ($1, '{}'::jsonb, '{}'::jsonb, 'test-source', $2)`,
+      [testId, Date.now()],
+    )
+    await assert.rejects(
+      () => updateWebhookRequestPayload(db, testId, '{not-json'),
+      { message: /not valid JSON/ },
+      'malformed payload must not reach the jsonb column',
+    )
+    let row = await getWebhookRequestPayload(db, testId)
+    assert.deepEqual(row!.payload, {}, 'existing payload must be unchanged')
+  })
+
   it('getWebhookRequestPayload returns payload for existing id', async () => {
     await pool.query(
       `INSERT INTO webhook_requests (id, payload, headers, source_ip, created_at)

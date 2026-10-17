@@ -138,6 +138,16 @@ export async function updateWebhookRequestPayload(
   id: string,
   payload: string,
 ): Promise<boolean> {
+  // The payload column is jsonb. Rejecting non-JSON strings here keeps bad
+  // content from becoming a Postgres error deep inside the write; shaping and
+  // validating the payload belongs to the caller (parseWebhookRequestPayload),
+  // so this stays a defense-in-depth guard.
+  try {
+    JSON.parse(payload)
+  } catch {
+    throw new Error(`updateWebhookRequestPayload: payload for ${id} is not valid JSON`)
+  }
+
   let result = await db.exec('UPDATE webhook_requests SET payload = $1 WHERE id = $2', [
     payload,
     id,

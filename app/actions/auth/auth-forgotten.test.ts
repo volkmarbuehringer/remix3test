@@ -231,6 +231,69 @@ describe('Auth Forgot Password controller', () => {
       assert.equal(result.rows[0].password_reset_expires, null, 'expires should be cleared')
     })
 
+    it('deletes API tokens, bumps token_version, and audits within one transaction', async () => {
+      let email = `${TEST_PREFIX}tokens@example.com`
+      let token = 'api-token-wipe-' + Date.now()
+      let expires = Date.now() + 3600000
+
+      let insert = await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, password_reset_token, password_reset_expires)
+         VALUES ($1, $2, $3, $4, 1, 1, $5, $6, $7)
+         RETURNING id`,
+        [email, 'old-hash', 'Token Wipe User', 'customer', Date.now(), token, expires],
+      )
+      let userId = insert.rows[0].id
+
+      await pool.query(
+        `INSERT INTO api_tokens (user_id, token_hash, created_at, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, 'reset-wipe-token-hash-' + Date.now(), Date.now(), Date.now() + 86400000],
+      )
+
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgottenReset.index.href({ token })}`,
+      )
+
+      let response = await router.fetch(
+        `${BASE}${routes.auth.forgottenReset.action.href({ token })}`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookie },
+          body: new URLSearchParams({
+            password: 'wipeTokens12345!',
+            confirmPassword: 'wipeTokens12345!',
+            _csrf: csrfToken,
+          }),
+          redirect: 'manual',
+        },
+      )
+      assert.equal(response.status, 302, 'reset should succeed')
+
+      // The H1 invariant: a completed reset leaves no surviving API tokens and
+      // bumps token_version.
+      let counts = await pool.query(
+        'SELECT count(*)::int AS tokens FROM api_tokens WHERE user_id = $1',
+        [userId],
+      )
+      assert.equal(counts.rows[0].tokens, 0, 'API tokens must be deleted by the reset')
+
+      let user = await pool.query(
+        'SELECT token_version, password_reset_token FROM users WHERE id = $1',
+        [userId],
+      )
+      assert.equal(user.rows[0].token_version, 2, 'token_version must be bumped')
+      assert.equal(user.rows[0].password_reset_token, null)
+
+      let audit = await pool.query(
+        "SELECT id FROM audit_logs WHERE action_type = 'password_reset_self' AND target_type = 'user' AND admin_user_id = $1",
+        [userId],
+      )
+      assert.equal(audit.rows.length, 1, 'audit row must be written for the reset')
+
+      await pool.query(`DELETE FROM audit_logs WHERE admin_user_id = $1`, [userId])
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId])
+    })
+
     it('with short password shows validation error', async () => {
       let email = `${TEST_PREFIX}shortpw@example.com`
       let token = 'short-pw-token-' + Date.now()
