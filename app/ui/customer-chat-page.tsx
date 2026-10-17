@@ -46,6 +46,13 @@ const newButtonStyle = css({
   display: 'inline-block',
 })
 
+// Right-aligned action row above the composer in the chat header.
+const newChatRowStyle = css({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  marginBottom: '0.75rem',
+})
+
 interface PendingApproval {
   runId: string
   toolCallId?: string | null | undefined
@@ -91,7 +98,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
               Beschreibe dein Anliegen — ich finde die passende Ressource für dich.
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+            <div mix={newChatRowStyle}>
               <a id="chat-new" href={`${routes.chat.index.href()}?new=1`} mix={newButtonStyle}>
                 Neue Unterhaltung
               </a>

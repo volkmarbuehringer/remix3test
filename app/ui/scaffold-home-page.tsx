@@ -112,7 +112,7 @@ function HeroSection() {
         <ul mix={trustListCss}>
           {['KI-Assistenz inklusive', 'DSGVO-konform', 'Keine Tracker Dritter'].map((item) => (
             <li key={item} mix={trustItemCss}>
-              <Glyph name="check" width={14} height={14} style={{ color: accentText.emerald }} />
+              <Glyph name="check" width={14} height={14} mix={trustCheckGlyphCss} />
               {item}
             </li>
           ))}
@@ -123,9 +123,9 @@ function HeroSection() {
         <div mix={heroMockupCss}>
           <div mix={mockupHeaderCss}>
             <div mix={mockupDotsCss}>
-              <span mix={mockupDotCss} style={{ background: rose }} />
-              <span mix={mockupDotCss} style={{ background: amber }} />
-              <span mix={mockupDotCss} style={{ background: emerald }} />
+              <span mix={[mockupDotCss, mockupDotRoseCss]} />
+              <span mix={[mockupDotCss, mockupDotAmberCss]} />
+              <span mix={[mockupDotCss, mockupDotEmeraldCss]} />
             </div>
             <span mix={mockupTitleCss}>Dashboard</span>
           </div>
@@ -146,11 +146,11 @@ function HeroSection() {
           </div>
         </div>
         <div mix={heroFloatingBadge1Css}>
-          <Glyph name="check" width={14} height={14} style={{ color: emerald }} />
+          <Glyph name="check" width={14} height={14} mix={heroBadge1GlyphCss} />
           KI-gestützt
         </div>
         <div mix={heroFloatingBadge2Css}>
-          <Glyph name="calendar" width={14} height={14} style={{ color: indigo[500] }} />
+          <Glyph name="calendar" width={14} height={14} mix={heroBadge2GlyphCss} />
           Termine sync
         </div>
       </div>
@@ -470,6 +470,12 @@ const trustItemCss = css({
   color: theme.colors.text.secondary,
 })
 
+// The check glyph inside a trust list item. Static accent, so a css() rule
+// (collected into the head) rather than an inline style attribute.
+const trustCheckGlyphCss = css({
+  color: accentText.emerald,
+})
+
 // ── Hero visual ──
 
 const heroVisualCss = css({
@@ -516,6 +522,20 @@ const mockupDotCss = css({
   width: '8px',
   height: '8px',
   borderRadius: '50%',
+})
+
+// Static window-dot accents for the hero mockup. Combined with mockupDotCss
+// through a mix array.
+const mockupDotRoseCss = css({
+  background: rose,
+})
+
+const mockupDotAmberCss = css({
+  background: amber,
+})
+
+const mockupDotEmeraldCss = css({
+  background: emerald,
 })
 
 const mockupTitleCss = css({
@@ -620,6 +640,16 @@ const heroFloatingBadge2Css = css({
   '@media (max-width: 1024px)': {
     left: 0,
   },
+})
+
+// Decorative accent glyphs inside the hero floating badges. Static palette
+// values (not theme variables) because they are aria-hidden decoration.
+const heroBadge1GlyphCss = css({
+  color: emerald,
+})
+
+const heroBadge2GlyphCss = css({
+  color: indigo[500],
 })
 
 // ── KI-Assistenz ──
