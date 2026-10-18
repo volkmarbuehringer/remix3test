@@ -58,6 +58,11 @@ function mountWithFrame(initial: ListInitialState): Mounted {
     update: () => {
       if (resultRef && inner) resultRef.root.render(<div>{inner()}</div>)
     },
+    // The picker focuses its search field via queueTask; the synthetic handle
+    // must drain tasks or the subsequent search never starts.
+    queueTask: (task: () => void) => {
+      task()
+    },
   } as unknown as Handle<{ initialState?: ListInitialState | null }>
 
   inner = ListsClient(handle) as unknown as () => RemixNode
@@ -67,6 +72,31 @@ function mountWithFrame(initial: ListInitialState): Mounted {
     resultRef?.cleanup()
   }
   return { result: resultRef, frame }
+}
+
+function buttonByText(container: HTMLElement, text: string): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll('button')].find((button) =>
+    button.textContent?.includes(text),
+  ) as HTMLButtonElement | undefined
+}
+
+function itemIds(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('[data-item-id]')].map(
+    (el) => el.getAttribute('data-item-id') ?? '',
+  )
+}
+
+async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolean> {
+  let deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    if (predicate()) return true
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  return predicate()
+}
+
+function settle(ms = 0) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
 beforeEach(() => {
@@ -87,6 +117,36 @@ afterEach(() => {
   marker?.remove()
   marker = null
 })
+
+function stateA(): ListInitialState {
+  return {
+    id: 7,
+    title: 'A',
+    description: 'A description',
+    items: [
+      { id: 'a1', label: 'A1' },
+      { id: 'a2', label: 'A2' },
+    ],
+    updated_at: 111,
+  }
+}
+
+function stateB(): ListInitialState {
+  return {
+    id: 9,
+    title: 'B',
+    description: 'B description',
+    items: [{ id: 'b1', label: 'B1' }],
+    updated_at: 222,
+  }
+}
+
+function json(data: unknown): Response {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 describe('ListsClient loading state', () => {
   it('shows a loading state between reloadStart and reloadComplete', () => {
@@ -114,5 +174,116 @@ describe('ListsClient loading state', () => {
     mounted.frame.dispatchEvent(new Event('reloadComplete'))
     assert.ok(container.querySelector('#lists-title'), 'the editor returns after reloadComplete')
     assert.equal(container.querySelector('[data-loading-list]'), null, 'loading is cleared')
+  })
+
+  it('drops the undo snapshot when a frame switch loads another list', async () => {
+    let mounted = mountWithFrame(stateA())
+    let { container } = mounted.result
+
+    await mounted.result.act(() => {
+      ;(container.querySelector('[data-item-menu-button="a1"]') as HTMLButtonElement).click()
+    })
+    let remove = buttonByText(
+      container.querySelector('[data-item-menu="a1"]') as HTMLElement,
+      'Löschen',
+    )
+    assert.ok(remove)
+    await mounted.result.act(() => remove!.click())
+    assert.deepEqual(itemIds(container), ['a2'])
+    assert.ok(await waitFor(() => buttonByText(container, 'Rückgängig') !== undefined))
+
+    mounted.frame.dispatchEvent(new Event('reloadStart'))
+    marker = document.createElement('div')
+    marker.id = 'lists-initial-state'
+    marker.setAttribute('data-state', JSON.stringify(stateB()))
+    document.body.appendChild(marker)
+    await mounted.result.act(() => mounted.frame.dispatchEvent(new Event('reloadComplete')))
+
+    assert.deepEqual(itemIds(container), ['b1'], 'the new list is loaded')
+    assert.equal(
+      buttonByText(container, 'Rückgängig'),
+      undefined,
+      'the previous list undo must not survive navigation',
+    )
+
+    await mounted.result.act(() => {
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }),
+      )
+    })
+    assert.deepEqual(itemIds(container), ['b1'], 'Ctrl+Z must not restore the old list items')
+  })
+
+  it('ignores a move response once the frame has switched lists', async () => {
+    let resolveMove: (() => void) | null = null
+    window.fetch = (async (input: string | URL | Request) => {
+      let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url.startsWith('/lists/targets')) {
+        return json({
+          data: [{ id: 8, title: 'Ziel', description: '', count: 0, doneCount: 0, updated_at: 1 }],
+          hasMore: false,
+          offset: 0,
+        })
+      }
+      if (url === '/lists/7/move-items') {
+        return new Promise<Response>((resolve) => {
+          resolveMove = () =>
+            resolve(
+              json({
+                source: {
+                  id: 7,
+                  title: 'A',
+                  description: '',
+                  items: [{ id: 'a2', label: 'A2' }],
+                  updated_at: 333,
+                },
+                target: {
+                  id: 8,
+                  title: 'Ziel',
+                  description: '',
+                  items: [{ id: 'a1', label: 'A1' }],
+                  updated_at: 333,
+                },
+                moved: 1,
+              }),
+            )
+        })
+      }
+      return json(stateA())
+    }) as typeof window.fetch
+
+    let mounted = mountWithFrame(stateA())
+    let { container } = mounted.result
+
+    await mounted.result.act(() =>
+      (container.querySelector('[data-select-item="a1"]') as HTMLInputElement).click(),
+    )
+    let move = buttonByText(container, 'In Liste verschieben')
+    assert.ok(move, 'the bulk move action must render after selecting an item')
+    await mounted.result.act(() => move!.click())
+    assert.ok(
+      await waitFor(() => container.querySelector('[data-target-option="8"]') !== null),
+      'the target picker must list the target',
+    )
+    await mounted.result.act(() =>
+      (container.querySelector('[data-target-option="8"]') as HTMLElement).click(),
+    )
+    assert.ok(await waitFor(() => resolveMove !== null), 'the move request should start')
+
+    mounted.frame.dispatchEvent(new Event('reloadStart'))
+    marker = document.createElement('div')
+    marker.id = 'lists-initial-state'
+    marker.setAttribute('data-state', JSON.stringify(stateB()))
+    document.body.appendChild(marker)
+    await mounted.result.act(() => mounted.frame.dispatchEvent(new Event('reloadComplete')))
+    assert.deepEqual(itemIds(container), ['b1'])
+
+    await mounted.result.act(() => (resolveMove as () => void)())
+    await settle(50)
+    assert.deepEqual(itemIds(container), ['b1'], 'the stale source response must not replace B')
+    assert.ok(
+      container.textContent?.includes('Die Liste wurde gewechselt'),
+      'the stale action should be surfaced as cancelled',
+    )
   })
 })

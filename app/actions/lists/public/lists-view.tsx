@@ -1626,8 +1626,18 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         view.setFocusedId(item.id)
                         // The second click of a native double click carries
                         // detail === 2; this is the row-level edit affordance
-                        // alongside the pencil button.
-                        if (event.detail === 2) startEditing(realIndex)
+                        // alongside the pencil button. Ignore double clicks on
+                        // nested controls (checkbox, kebab, action buttons, tag
+                        // chips) so they keep their own behavior.
+                        if (event.detail !== 2) return
+                        let target = event.target
+                        if (
+                          target instanceof Element &&
+                          target.closest('input, button, a, textarea, select')
+                        ) {
+                          return
+                        }
+                        startEditing(realIndex)
                       }),
                     ]}
                     role="listitem"

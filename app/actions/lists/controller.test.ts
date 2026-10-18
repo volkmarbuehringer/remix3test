@@ -155,6 +155,41 @@ describe('Lists controller', () => {
     }
   })
 
+  it('GET /lists renders copy/delete actions with the current sidebar state', async () => {
+    let marker = 'actionstate-' + Date.now()
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: marker, items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+    try {
+      let response = await router.fetch(LISTS_URL + '?filter=' + marker + '&sort=name&size=30', {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+
+      // POST forms do not inherit the page URL. The action itself must carry the
+      // state or the controller redirect resets the sidebar.
+      let copyAction = new RegExp(
+        'action="/lists/' + id + '/copy\\?[^"]*filter=' + marker + '[^"]*sort=name[^"]*size=30',
+      )
+      let deleteAction = new RegExp(
+        'action="/lists/' + id + '/delete\\?[^"]*filter=' + marker + '[^"]*sort=name[^"]*size=30',
+      )
+      assert.ok(copyAction.test(text), 'the duplicate form action must carry filter/sort/size')
+      assert.ok(deleteAction.test(text), 'the delete form action must carry filter/sort/size')
+    } finally {
+      await db.delete(lists, { id })
+    }
+  })
+
   it('GET /lists renders an empty-state CTA for a user with no lists', async () => {
     let email = `empty-lists-${Date.now()}@example.com`
     let userId = await createTestUser(email)

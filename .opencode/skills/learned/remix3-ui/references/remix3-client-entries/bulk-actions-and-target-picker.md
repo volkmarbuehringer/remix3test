@@ -38,6 +38,7 @@ Prefer one server route over a client loop:
 - data: `moveItemsBetweenLists(db, sourceId, targetId, itemIds, userId, { expectedUpdatedAt })` in one `db.transaction`; lock both rows in id order, reject the whole request if any id is missing, remove all selected ids and append them to the target in source order.
 - route: `POST /lists/:id/move-items` with `{ targetId, itemIds }` and the same `If-Match` requirement as `/move`.
 - client API: `moveItemsRequest()` returns `{ source, target, moved }`; apply `source.items`/`source.updated_at` locally and sync the target sidebar row instead of reloading the whole frame.
+- **Pin the request to its source list:** capture `sourceId = loadedListId` before `flushNow()`, pass it to the request, and check `loadedListId === sourceId` after every await **and** before applying `outcome.source`. A frame switch during the request otherwise loads list B's editor and the stale response replaces it with A's items; `snapshotClean()` then marks B clean with the wrong content. The same rule applies to the sidebar copy-here confirm, which must capture the source at confirmation time rather than read `loadedListId` inside `run()`.
 
 Single-item moves keep using `POST /lists/:id/move`; the row menu passes that one id, so the existing endpoint stays the narrow contract.
 

@@ -304,6 +304,21 @@ function appendSidebarParams(params: URLSearchParams) {
   if (size) params.set('size', size)
 }
 
+/**
+ * Append the current sidebar state to a form action. POST forms do not pick up
+ * the page query automatically, so the copy/delete controllers otherwise see
+ * an empty URL and redirect back to an unfiltered first page.
+ */
+function withSidebarState(href: string): string {
+  let params = new URLSearchParams()
+  let offset = new URL(getContext().request.url).searchParams.get('offset')
+  if (offset) params.set('offset', offset)
+  appendSidebarParams(params)
+  let query = params.toString()
+  if (!query) return href
+  return href + (href.includes('?') ? '&' : '?') + query
+}
+
 function buildListHref(listId: number, pagination?: PaginationState): string {
   let params = new URLSearchParams()
   params.set('load', String(listId))
@@ -600,7 +615,7 @@ function ListsLayout(
                         </button>
                         <form
                           method="POST"
-                          action={routes.lists.copy.href({ id: listId })}
+                          action={withSidebarState(routes.lists.copy.href({ id: listId }))}
                           data-rmx-target={frameTarget}
                           mix={listMenuFormStyle}
                         >
@@ -617,7 +632,7 @@ function ListsLayout(
                         </form>
                         <form
                           method="POST"
-                          action={routes.lists.destroy.href({ id: listId })}
+                          action={withSidebarState(routes.lists.destroy.href({ id: listId }))}
                           data-rmx-target={frameTarget}
                           data-confirm={`"${displayName}" löschen?`}
                           mix={listMenuFormStyle}

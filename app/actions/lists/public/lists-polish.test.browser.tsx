@@ -180,7 +180,55 @@ describe('row affordances', () => {
     await result.act(() => {
       row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }))
     })
-    assert.ok(await waitFor(() => container.querySelector('textarea') !== null))
+    assert.ok(
+      await waitFor(() => container.querySelector('[data-item-id="a"] textarea') !== null),
+      'double-clicking the row opens its editor',
+    )
+  })
+
+  it('does not start editing when a double click lands on a control', async () => {
+    let result = mount()
+    let container = result.container as HTMLElement
+    let done = container.querySelector('[data-done-item="a"]') as HTMLInputElement
+    await result.act(() => {
+      done.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }))
+    })
+    assert.equal(
+      container.querySelector('[data-item-id="a"] textarea'),
+      null,
+      'the checkbox keeps its own behavior',
+    )
+  })
+
+  it('disarms the two-step clear-all when a bulk action runs', async () => {
+    let result = mount()
+    let container = result.container as HTMLElement
+    let arm = buttonByText(container, 'Alle löschen')
+    assert.ok(arm)
+    await result.act(() => arm!.click())
+    assert.ok(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Wirklich alle löschen?',
+      ),
+      'the first click arms the destructive action',
+    )
+
+    await result.act(() =>
+      (container.querySelector('[data-select-item="a"]') as HTMLInputElement).click(),
+    )
+    let markDone = buttonByText(container, 'Als erledigt')
+    assert.ok(markDone)
+    await result.act(() => markDone!.click())
+
+    assert.equal(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Wirklich alle löschen?',
+      ),
+      false,
+      'a bulk mutation must reset the armed clear-all',
+    )
+    assert.ok(buttonByText(container, 'Alle löschen'))
+    await settle(350)
   })
 
   it('uses the trash glyph for delete and keeps the manual save secondary', async () => {

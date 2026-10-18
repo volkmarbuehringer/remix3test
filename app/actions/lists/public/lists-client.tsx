@@ -164,9 +164,16 @@ export const ListsClient = clientEntry(
     let helpOpen = false
     let helpTrigger: HTMLElement | null = null
 
-    let clearUndo = () => {
+    // Drop the undo snapshot without a render. Used when the editor switches
+    // lists: an undo from list A must never be applied to list B's items.
+    let resetUndoState = () => {
       undoSnapshot = null
       undoKind = null
+      keepUndoForMutation = false
+    }
+
+    let clearUndo = () => {
+      resetUndoState()
       void handle.update()
     }
 
@@ -906,7 +913,8 @@ export const ListsClient = clientEntry(
     }
 
     let copyItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
-      if (loadedListId === null || copyBusy || itemIds.length === 0) return
+      let sourceId = loadedListId
+      if (sourceId === null || copyBusy || itemIds.length === 0) return
       // Claim the in-flight guard *before* awaiting. A pending autosave makes
       // `flushNow` span a network round-trip; without this, a second click could
       // pass the `copyBusy` guard and copy the same selection twice.
@@ -918,8 +926,16 @@ export const ListsClient = clientEntry(
         // source's `updated_at`, which a pending autosave is about to bump.
         let flushed = await flushNow()
         if (!flushed) return
-        let outcome = await copyItemsRequest(getCsrfHeaders(), loadedListId, target.id, itemIds)
+        if (loadedListId !== sourceId) {
+          copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+          return
+        }
+        let outcome = await copyItemsRequest(getCsrfHeaders(), sourceId, target.id, itemIds)
         if (outcome.status === 'ok') {
+          if (loadedListId !== sourceId) {
+            copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+            return
+          }
           let copied = outcome.copied
           selectedItemIds = new Set()
           if (outcome.target) syncSidebarState(outcome.target)
@@ -949,15 +965,26 @@ export const ListsClient = clientEntry(
     }
 
     let moveItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
-      if (loadedListId === null || copyBusy || itemIds.length === 0) return
+      let sourceId = loadedListId
+      if (sourceId === null || copyBusy || itemIds.length === 0) return
       copyBusy = true
       copyError = ''
       void handle.update()
       try {
         let flushed = await flushNow()
         if (!flushed) return
-        let outcome = await moveItemsRequest(getCsrfHeaders(), loadedListId, target.id, itemIds)
+        if (loadedListId !== sourceId) {
+          copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+          return
+        }
+        let outcome = await moveItemsRequest(getCsrfHeaders(), sourceId, target.id, itemIds)
         if (outcome.status === 'ok') {
+          // The request may outlive a frame navigation. Never apply list A's
+          // response to the editor that now shows list B.
+          if (loadedListId !== sourceId) {
+            copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+            return
+          }
           items = cloneItems(outcome.source.items)
           loadedUpdatedAt = outcome.source.updated_at
           clearSelection()
@@ -990,7 +1017,8 @@ export const ListsClient = clientEntry(
     }
 
     let moveSingleItemToTarget = async (itemId: string, target: ListTarget) => {
-      if (loadedListId === null || copyBusy) return
+      let sourceId = loadedListId
+      if (sourceId === null || copyBusy) return
       // Focus the surviving neighbour after the row leaves the editor.
       let currentIndex = items.findIndex((item) => item.id === itemId)
       let nextFocusId =
@@ -1003,8 +1031,16 @@ export const ListsClient = clientEntry(
       try {
         let flushed = await flushNow()
         if (!flushed) return
-        let outcome = await moveItemRequest(getCsrfHeaders(), loadedListId, target.id, itemId)
+        if (loadedListId !== sourceId) {
+          copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+          return
+        }
+        let outcome = await moveItemRequest(getCsrfHeaders(), sourceId, target.id, itemId)
         if (outcome.status === 'ok') {
+          if (loadedListId !== sourceId) {
+            copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+            return
+          }
           items = cloneItems(outcome.source.items)
           loadedUpdatedAt = outcome.source.updated_at
           snapshotClean()
@@ -1034,6 +1070,9 @@ export const ListsClient = clientEntry(
 
     let setDoneSelected = (done: boolean) => {
       if (selectedItemIds.size === 0) return
+      // A bulk update is a mutation like any other: drop a previously armed
+      // "Alle löschen" so the next click cannot delete without re-arming.
+      disarmClear()
       let ids = new Set(items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id))
       if (ids.size === 0) return
       showUndo(done ? 'bulkDone' : 'bulkOpen', cloneItems(items))
@@ -1065,8 +1104,9 @@ export const ListsClient = clientEntry(
     // server-side merge is atomic (source untouched, target appended), so a
     // single confirmation covers the whole operation.
     let copyOpenListInto = async (targetId: number, targetName: string) => {
-      if (copyBusy || targetId === loadedListId) return
-      if (loadedListId === null) {
+      let sourceId = loadedListId
+      if (copyBusy || targetId === sourceId) return
+      if (sourceId === null) {
         copyError = 'Bitte zuerst eine Liste öffnen'
         void handle.update()
         return
@@ -1089,10 +1129,18 @@ export const ListsClient = clientEntry(
         try {
           let flushed = await flushNow()
           if (!flushed) return
-          let outcome = await mergeListRequest(getCsrfHeaders(), loadedListId!, targetId)
+          if (loadedListId !== sourceId) {
+            copyError = 'Die Liste wurde gewechselt – Aktion abgebrochen'
+            return
+          }
+          let outcome = await mergeListRequest(getCsrfHeaders(), sourceId, targetId)
           if (outcome.status === 'ok') {
-            showTargetNotice(`Alle Einträge in „${targetName}" kopiert`)
-            handle.frame.reload().catch(() => {})
+            // The merge ran against the captured source; only refresh when the
+            // editor still shows that list, otherwise the user is elsewhere.
+            if (loadedListId === sourceId) {
+              showTargetNotice(`Alle Einträge in „${targetName}" kopiert`)
+              handle.frame.reload().catch(() => {})
+            }
           } else if (outcome.status === 'conflict') {
             conflictState = { show: true, serverState: outcome.state }
           } else if (outcome.status === 'not_found') {
@@ -1175,9 +1223,7 @@ export const ListsClient = clientEntry(
         clearTimeout(autosaveTimer)
         autosaveTimer = null
       }
-      undoSnapshot = null
-      undoKind = null
-      keepUndoForMutation = false
+      resetUndoState()
       openItemMenuId = null
       helpOpen = false
       picker = null
@@ -1204,7 +1250,7 @@ export const ListsClient = clientEntry(
       openItemMenuId = null
       helpOpen = false
       picker = null
-      keepUndoForMutation = false
+      resetUndoState()
       clearSelection()
       snapshotClean()
       saveStatus = 'saved'
@@ -1254,6 +1300,7 @@ export const ListsClient = clientEntry(
         loadedListId = null
         loadedUpdatedAt = null
         openItemMenuId = null
+        resetUndoState()
         clearSelection()
         saveStatus = 'dirty'
         saveError = ''
@@ -1272,6 +1319,7 @@ export const ListsClient = clientEntry(
       loadedListId = null
       loadedUpdatedAt = null
       openItemMenuId = null
+      resetUndoState()
       clearSelection()
       saveStatus = 'saved'
       saveError = ''

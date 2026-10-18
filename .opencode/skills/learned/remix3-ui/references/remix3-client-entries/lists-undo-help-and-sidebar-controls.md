@@ -46,7 +46,13 @@ undo()
 
 Document the policy in the chip title and the help sheet; do not add redo.
 
+**Reset undo when the editor switches lists.** A persistent snapshot outlives a frame navigation unless `hydrateFromInitialState` clears it: delete in list A, open list B, click undo, and `undo()` writes A's items into B with B's `If-Match` (silent data loss). Add one `resetUndoState()` helper (`undoSnapshot=null; undoKind=null; keepUndoForMutation=false`) and call it from `hydrateFromInitialState` **and** both no-initial-state branches (restored draft / empty new list). Do not call `clearUndo()` there if it triggers a render during hydration; reset the fields directly.
+
+**Pin async target actions to their source list.** A move/copy request can outlive a frame switch. Capture `sourceId = loadedListId` before `flushNow()`, then check `loadedListId === sourceId` after every await and again before applying `outcome.source`; otherwise list A's response replaces list B's editor and `snapshotClean()` marks the wrong content clean. Use the captured id in the request too, and do the same for the sidebar copy-here confirm (which otherwise merges whichever list is open when the user confirms).
+
 ### Focus-managed help sheet
+
+**Guard the row-level double-click.** The edit affordance lives on the row's `click` handler (`event.detail === 2`), so any nested control that bubbles a double click also opens the editor. Return early when `event.target.closest('input, button, a, textarea, select')` matches; otherwise double-clicking the completion checkbox or kebab toggles/opens it and starts editing.
 
 Keep the `?` trigger's live-region announcement, add a modal with the shortcut list, and:
 
@@ -95,6 +101,8 @@ Use **one GET form** for search + sort + size. The selects live inside the searc
 - Data: `getListSummaries` takes `sort` and returns `total` from a COUNT query with the same WHERE clause. Order aliases: `LOWER(COALESCE(NULLIF(title,''), description, ''))` for name, `item_count DESC` for count.
 - Layout: one `appendSidebarParams(params)` helper appends filter/sort/size to list links and pagination links; the controller's return/copy redirects do the same. Read the current values from the frame URL.
 - Result count: `{total} Listen` / `{total} Treffer`, with a `title` stating `N von total sichtbar` when paged.
+- POST forms do not inherit the page query: build the duplicate/delete `action` with the same `filter/sort/size/offset` helper, or the controller's redirect preservation never sees them (controller tests that call the endpoint with a query mask this).
+- Any mutation (including bulk done/open) must reset a previously armed two-step destructive action; call `disarmClear()` before changing items.
 - Empty state: keep "Keine Treffer" for a filter, and add a 44px "+ Erste Liste erstellen" link to `/lists?new=1` only when unfiltered.
 
 ### Done/total count ring
