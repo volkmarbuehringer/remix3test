@@ -71,6 +71,7 @@ function renderWithSpy(items: ListItem[]): Counts {
     copyNotice: '',
     clearArmed: false,
     grabbedId: null,
+    openItemMenuId: null,
     // The drag wiring is a browser-only mixin descriptor. The JSX is only
     // built here (never mounted), so the context is never invoked; the cast
     // just satisfies the descriptor's factory argument.
@@ -123,6 +124,9 @@ function renderWithSpy(items: ListItem[]): Counts {
     moveUp: noop,
     moveDown: noop,
     handleRowKeyDown: noop,
+    toggleItemMenu: noop,
+    closeItemMenu: noop,
+    focusItemTrigger: noop,
     setTitle: noop,
     setDescription: noop,
     setDescriptionMode: noop,

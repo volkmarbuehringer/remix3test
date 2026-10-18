@@ -48,6 +48,18 @@ export const itemMainStyle = css({
   flexDirection: 'column',
 })
 
+/**
+ * On touch the edit form spans the full row width below the row controls.
+ * Leaving it in the 100–150px column next to the two checkboxes made the
+ * textarea and the metadata fields unusably narrow.
+ */
+export const itemEditMainStyle = css({
+  '@media (hover: none)': {
+    flexBasis: '100%',
+    marginTop: theme.space.xs,
+  },
+})
+
 export const metaRowStyle = css({
   display: 'flex',
   flexWrap: 'wrap',
@@ -199,6 +211,15 @@ export const cardHeaderStyle = css({
   padding: `${theme.space.sm} ${theme.space.lg}`,
   borderBottom: `1px solid ${theme.colors.border.subtle}`,
   backgroundColor: theme.surface.lvl2,
+  // On a phone the action cluster (`flexShrink: 0`) used to compete with the
+  // title for the single header line. The title wrap then collapsed to a few
+  // pixels (the new-list title input measured 8px at 390px). Stack the two
+  // groups so the title always gets the full width and the actions wrap below.
+  '@media (max-width: 768px)': {
+    alignItems: 'stretch',
+    flexDirection: 'column',
+    gap: theme.space.sm,
+  },
 })
 
 export const cardTitleWrapStyle = css({ flex: 1, minWidth: 0 })
@@ -239,6 +260,11 @@ export const titleInputStyle = css({
     color: theme.colors.text.muted,
     fontWeight: theme.fontWeight.semibold,
   },
+  // The xl title overflowed its 292px field at 390px. A step down keeps the
+  // full title readable without changing the desktop hierarchy.
+  '@media (max-width: 768px)': {
+    fontSize: theme.fontSize.lg,
+  },
 })
 
 export const visuallyHiddenStyle = css({
@@ -255,6 +281,12 @@ export const cardHeaderActionsStyle = css({
   alignItems: 'center',
   gap: theme.space.sm,
   flexShrink: 0,
+  // Below the title on phones; let the secondary actions wrap instead of
+  // pushing the save-status pill off-screen.
+  '@media (max-width: 768px)': {
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
 })
 
 export const cardBodyStyle = css({
@@ -302,10 +334,25 @@ export const panelRightStyle = css({
   alignItems: 'center',
   gap: theme.space.xs,
   marginLeft: 'auto',
+  // The right-hand controls (sort, reorder, help, progress, count, menu) do
+  // not fit one 294px line. Give the group its own wrapped row under the
+  // filter instead of letting it overflow the card and clip the counter.
+  '@media (max-width: 768px)': {
+    flexWrap: 'wrap',
+    marginLeft: 0,
+    rowGap: theme.space.xs,
+    width: '100%',
+  },
 })
 
 export const panelFilterInputStyle = css({
   maxWidth: '260px',
+  // Let the in-list search take the remaining width next to the select-all
+  // checkbox on a phone; a fixed 260px max pushed the control row wide.
+  '@media (max-width: 768px)': {
+    flex: 1,
+    maxWidth: 'none',
+  },
 })
 
 // Compact square buttons for Umkehren / Mischen / Tastatur-Hilfe.
@@ -327,6 +374,12 @@ export const iconToolbarBtnStyle = css({
   ':hover': {
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,
+  },
+  // 26px is below the WCAG 2.2 minimum target on touch; grow the hit area
+  // without changing the glyph.
+  '@media (hover: none)': {
+    width: '44px',
+    height: '44px',
   },
 })
 
@@ -353,6 +406,10 @@ export const menuSummaryStyle = css({
   ':hover': {
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,
+  },
+  '@media (hover: none)': {
+    width: '44px',
+    height: '44px',
   },
 })
 
@@ -401,6 +458,12 @@ export const selectionCheckboxStyle = css({
   flexShrink: 0,
   cursor: 'pointer',
   accentColor: theme.colors.focus.ring,
+  // A 15px checkbox is not a viable touch target. Stay above the WCAG 2.2
+  // 24x24 minimum while keeping the completion box visibly larger.
+  '@media (hover: none)': {
+    width: '24px',
+    height: '24px',
+  },
 })
 
 // The completion toggle is the larger, green status control. Its size and
@@ -412,6 +475,10 @@ export const doneCheckboxStyle = css({
   flexShrink: 0,
   cursor: 'pointer',
   accentColor: theme.colors.success.foreground,
+  '@media (hover: none)': {
+    width: '30px',
+    height: '30px',
+  },
 })
 
 // Bulk-action bar, shown only while at least one row is selected.
@@ -473,6 +540,9 @@ export const sortSelectStyle = css({
     outline: 'none',
     borderColor: theme.colors.focus.ring,
     boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+  },
+  '@media (hover: none)': {
+    minHeight: '44px',
   },
 })
 
@@ -611,12 +681,82 @@ export const itemActionsStyle = css({
   opacity: 0,
   pointerEvents: 'none',
   transition: 'opacity 0.12s ease',
-  // On touch devices there is no hover, so the reveal-on-hover cluster would
-  // be unreachable — keep the row actions visible and interactive instead.
+  // Touch devices get the row menu (the kebab below) instead of this
+  // hover-reveal cluster. Removing it from layout keeps the row dense and
+  // lets the label use the full width.
   '@media (hover: none)': {
-    opacity: 1,
-    pointerEvents: 'auto',
+    display: 'none',
   },
+})
+
+// Edit mode has its own two-button cluster (save / cancel). It is always
+// visible while editing; on touch it sits below the editor instead of
+// overlaying it, mirroring the old touch treatment without hiding the row.
+export const itemEditActionsStyle = css({
+  position: 'absolute',
+  top: '50%',
+  right: theme.space.sm,
+  transform: 'translateY(-50%)',
+  display: 'inline-flex',
+  alignItems: 'stretch',
+  opacity: 1,
+  pointerEvents: 'auto',
+  transition: 'opacity 0.12s ease',
+  '@media (hover: none)': {
+    position: 'static',
+    transform: 'none',
+    justifyContent: 'flex-end',
+    marginTop: theme.space.xs,
+    width: '100%',
+  },
+})
+
+/**
+ * Touch-only row menu trigger. The four hover actions are replaced by one
+ * kebab so the row stays one line high; the menu itself opens inline below
+ * the row (no clipping inside the scrolling element list).
+ */
+export const itemMenuButtonStyle = css({
+  display: 'none',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '44px',
+  height: '44px',
+  padding: 0,
+  flexShrink: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  fontSize: theme.fontSize.lg,
+  lineHeight: 1,
+  '&:hover': {
+    background: theme.surface.lvl3,
+    color: theme.colors.text.primary,
+  },
+  '&[aria-expanded="true"]': {
+    background: theme.surface.lvl3,
+    color: theme.colors.text.primary,
+  },
+  '@media (hover: none)': {
+    display: 'inline-flex',
+  },
+})
+
+/** Full-width row under the item, only rendered while its menu is open. */
+export const itemMenuStyle = css({
+  flexBasis: '100%',
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: theme.space.xs,
+  paddingTop: theme.space.xs,
+})
+
+export const itemMenuItemStyle = css({
+  justifyContent: 'center',
+  minHeight: '44px',
+  width: '100%',
 })
 
 // Flat square button-group member — mirrors /admin/lists' iconActionStyle.
@@ -637,6 +777,13 @@ export const iconActionStyle = css({
   cursor: 'pointer',
   '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
   '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
+  // 30px buttons are hard to hit on a phone; 44px is the recommended touch
+  // target. On touch this only renders the edit-mode save/cancel group (the
+  // view cluster is replaced by the row menu).
+  '@media (hover: none)': {
+    width: '44px',
+    height: '44px',
+  },
 })
 
 // First button in the group gets the left radius.

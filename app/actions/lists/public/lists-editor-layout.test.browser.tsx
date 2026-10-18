@@ -38,7 +38,7 @@ function defineAccentTokens() {
   }
 }
 
-function renderEditor() {
+function renderEditorResult() {
   defineAccentTokens()
   let result = render(
     <ListsClient
@@ -55,7 +55,11 @@ function renderEditor() {
     />,
   )
   cleanup = result.cleanup
-  return result.container
+  return result
+}
+
+function renderEditor() {
+  return renderEditorResult().container
 }
 
 function buttonByText(container: HTMLElement, text: string): HTMLButtonElement | null {
@@ -130,6 +134,59 @@ describe('lists editor layout', () => {
       container.querySelector('[data-done-item="op-done"]')?.getAttribute('title'),
       'Als offen markieren',
       'the completed toggle must offer the reverse tooltip',
+    )
+  })
+
+  it('marks the select-all checkbox indeterminate for a partial selection', async () => {
+    let result = renderEditorResult()
+    let selectAllOf = () =>
+      result.container.querySelector<HTMLInputElement>(
+        'input[aria-label="Alle sichtbaren Elemente auswählen"]',
+      )!
+    let rowOf = () =>
+      result.container.querySelector<HTMLInputElement>('[data-select-item="op-open"]')!
+
+    assert.ok(selectAllOf(), 'the select-all checkbox must render')
+    assert.ok(rowOf(), 'the row selection checkbox must render')
+
+    await result.act(() => rowOf().click())
+    assert.equal(selectAllOf().indeterminate, true, 'a partial selection must be indeterminate')
+    assert.equal(selectAllOf().checked, false, 'a partial selection must not read as fully checked')
+
+    await result.act(() => rowOf().click())
+    assert.equal(
+      selectAllOf().indeterminate,
+      false,
+      'clearing the selection must clear the mixed state',
+    )
+  })
+
+  it('opens the touch action menu and starts editing', async () => {
+    let result = renderEditorResult()
+    let kebabOf = () =>
+      result.container.querySelector<HTMLButtonElement>('[data-item-menu-button="op-open"]')!
+
+    assert.ok(kebabOf(), 'the row menu trigger must render')
+
+    await result.act(() => kebabOf().click())
+    let menu = result.container.querySelector<HTMLElement>('[data-item-menu="op-open"]')
+    assert.ok(menu, 'the row menu must open')
+    assert.equal(kebabOf().getAttribute('aria-expanded'), 'true')
+
+    let edit = [...menu!.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Bearbeiten'),
+    )
+    assert.ok(edit, 'the menu must offer editing')
+
+    await result.act(() => edit.click())
+    assert.ok(
+      result.container.querySelector('[data-item-id="op-open"] textarea'),
+      "editing must open for the menu's row",
+    )
+    assert.equal(
+      result.container.querySelector('[data-item-menu="op-open"]'),
+      null,
+      'the menu must close when an action is chosen',
     )
   })
 })

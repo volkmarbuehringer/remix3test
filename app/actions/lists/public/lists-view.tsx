@@ -65,6 +65,11 @@ import {
   showDescriptionBtnStyle,
   clearFilterBtnStyle,
   itemActionsStyle,
+  itemEditActionsStyle,
+  itemEditMainStyle,
+  itemMenuButtonStyle,
+  itemMenuItemStyle,
+  itemMenuStyle,
   iconActionStyle,
   iconActionFirstStyle,
   iconActionLastStyle,
@@ -103,6 +108,7 @@ export type ListsEditorView = {
   copyNotice: string
   clearArmed: boolean
   grabbedId: string | null
+  openItemMenuId: string | null
   drag: ListsDragMixinDescriptor
 
   visibleItems: () => ListItem[]
@@ -145,6 +151,9 @@ export type ListsEditorView = {
   moveUp: (index: number) => void
   moveDown: (index: number) => void
   handleRowKeyDown: (e: KeyboardEvent, index: number) => void
+  toggleItemMenu: (id: string) => void
+  closeItemMenu: () => void
+  focusItemTrigger: (id: string | null) => void
 
   setTitle: (value: string) => void
   setDescription: (value: string) => void
@@ -236,6 +245,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     copyNotice,
     clearArmed,
     grabbedId,
+    openItemMenuId,
     drag,
     visibleItems,
     showDescription,
@@ -275,6 +285,9 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     moveUp,
     moveDown,
     handleRowKeyDown,
+    toggleItemMenu,
+    closeItemMenu,
+    focusItemTrigger,
   } = view
 
   let vis = visibleItems()
@@ -783,6 +796,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
+                    indeterminate={selectedItemIds.size > 0 && !allVisibleSelected}
                     disabled={totalCount === 0}
                     aria-label="Alle sichtbaren Elemente auswählen"
                     title="Alle sichtbaren Elemente auswählen"
@@ -890,6 +904,11 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                     borderRadius: theme.radius.full,
                     backgroundColor: theme.surface.lvl0,
                     overflow: 'hidden',
+                    // The text counter already states "X von Y erledigt"; the
+                    // bar is redundant on a phone and stole a toolbar row.
+                    '@media (max-width: 768px)': {
+                      display: 'none',
+                    },
                   })}
                 >
                   <div
@@ -1132,6 +1151,8 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 // Humanized due date for the badge (heute/morgen/überfällig);
                 // done items never read as overdue.
                 let dueInfo = item.due != null ? dueBadge(item.due, item.done === true) : null
+                let rowEditing = editingIndex === realIndex
+                let menuOpen = openItemMenuId === item.id
                 return (
                   <div
                     key={item.id}
@@ -1139,6 +1160,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       css({
                         position: 'relative',
                         display: 'flex',
+                        flexWrap: 'wrap',
                         gap: theme.space.md,
                         alignItems: 'center',
                         // Dense rows: the comfortable `md` padding cost 49px
@@ -1157,6 +1179,13 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         '&:focus-visible': {
                           outline: `2px solid ${theme.colors.focus.ring}`,
                           outlineOffset: '-2px',
+                        },
+                        // On touch the hover cluster is replaced by the
+                        // kebab + inline menu, so the right gutter is no longer
+                        // needed and the menu can wrap below the row.
+                        '@media (hover: none)': {
+                          paddingRight: theme.space.md,
+                          rowGap: theme.space.xs,
                         },
                       }),
                       ...(item.id === grabbedId
@@ -1212,8 +1241,8 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         }),
                       ]}
                     />
-                    {editingIndex === realIndex ? (
-                      <div mix={itemMainStyle}>
+                    {rowEditing ? (
+                      <div mix={[itemMainStyle, itemEditMainStyle]}>
                         <textarea
                           mix={[
                             editTextareaStyle,
@@ -1352,25 +1381,40 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       </div>
                     )}
 
+                    {!rowEditing && (
+                      <button
+                        type="button"
+                        draggable="false"
+                        data-item-menu-button={item.id}
+                        aria-label={`Weitere Aktionen für ${item.label}`}
+                        aria-expanded={menuOpen}
+                        title="Weitere Aktionen"
+                        mix={[itemMenuButtonStyle, on('click', () => toggleItemMenu(item.id))]}
+                      >
+                        ⋯
+                      </button>
+                    )}
                     <div
                       draggable="false"
                       data-item-actions
                       mix={[
-                        itemActionsStyle,
-                        editingIndex === realIndex && css({ opacity: 1, pointerEvents: 'auto' }),
+                        rowEditing ? itemEditActionsStyle : itemActionsStyle,
+                        rowEditing && css({ opacity: 1, pointerEvents: 'auto' }),
                       ].filter(Boolean)}
                     >
-                      {editingIndex === realIndex ? (
+                      {rowEditing ? (
                         <>
                           <button
                             mix={[iconActionStyle, iconActionFirstStyle, on('click', saveEdit)]}
                             title="Speichern"
+                            aria-label="Speichern"
                           >
                             <Glyph name="check" width={16} height={16} />
                           </button>
                           <button
                             mix={[iconActionStyle, iconActionLastStyle, on('click', cancelEdit)]}
                             title="Abbrechen"
+                            aria-label="Abbrechen"
                           >
                             <Glyph name="close" width={16} height={16} />
                           </button>
@@ -1384,6 +1428,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                               on('click', () => startEditing(realIndex)),
                             ]}
                             title="Bearbeiten"
+                            aria-label="Bearbeiten"
                           >
                             <Glyph name="edit" width={16} height={16} />
                           </button>
@@ -1394,6 +1439,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                               on('click', () => deleteItem(realIndex)),
                             ]}
                             title="Löschen"
+                            aria-label="Löschen"
                           >
                             <Glyph name="close" width={16} height={16} />
                           </button>
@@ -1403,6 +1449,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 mix={[iconActionStyle, on('click', () => moveUp(realIndex))]}
                                 disabled={realIndex === 0}
                                 title="Nach oben"
+                                aria-label="Nach oben"
                               >
                                 ↑
                               </button>
@@ -1414,6 +1461,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 ]}
                                 disabled={realIndex === items.length - 1}
                                 title="Nach unten"
+                                aria-label="Nach unten"
                               >
                                 ↓
                               </button>
@@ -1422,6 +1470,91 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         </>
                       )}
                     </div>
+                    {menuOpen && (
+                      <div
+                        draggable="false"
+                        data-item-menu={item.id}
+                        role="group"
+                        aria-label="Element-Aktionen"
+                        mix={[
+                          itemMenuStyle,
+                          ref((el: HTMLElement) => {
+                            // Move focus into the menu once, when it opens, so a
+                            // keyboard user on a touch device lands on an action
+                            // instead of having to re-enter the row.
+                            if (el && !el.dataset.focusReady) {
+                              el.dataset.focusReady = 'true'
+                              el.querySelector<HTMLButtonElement>('button')?.focus()
+                            }
+                          }),
+                        ]}
+                      >
+                        <button
+                          type="button"
+                          mix={[
+                            button({ tone: 'secondary' }),
+                            itemMenuItemStyle,
+                            on('click', () => startEditing(realIndex)),
+                          ]}
+                        >
+                          Bearbeiten
+                        </button>
+                        {/* Reordering is disabled while an in-list filter
+                            hides rows: moving relative to a hidden neighbour
+                            would change the saved order without a visible
+                            effect. The same guard exists on the desktop
+                            cluster (rowDraggable) and in moveItem. */}
+                        {rowDraggable && (
+                          <>
+                            <button
+                              type="button"
+                              mix={[
+                                button({ tone: 'secondary' }),
+                                itemMenuItemStyle,
+                                on('click', () => {
+                                  closeItemMenu()
+                                  moveUp(realIndex)
+                                  focusItemTrigger(item.id)
+                                }),
+                              ]}
+                              disabled={realIndex === 0}
+                            >
+                              Nach oben
+                            </button>
+                            <button
+                              type="button"
+                              mix={[
+                                button({ tone: 'secondary' }),
+                                itemMenuItemStyle,
+                                on('click', () => {
+                                  closeItemMenu()
+                                  moveDown(realIndex)
+                                  focusItemTrigger(item.id)
+                                }),
+                              ]}
+                              disabled={realIndex === items.length - 1}
+                            >
+                              Nach unten
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          mix={[
+                            button({ tone: 'dangerOutline' }),
+                            itemMenuItemStyle,
+                            on('click', () => {
+                              let nextVisibleId = vis[index + 1]?.id ?? vis[index - 1]?.id ?? null
+                              closeItemMenu()
+                              deleteItem(realIndex)
+                              focusItemTrigger(nextVisibleId)
+                            }),
+                          ]}
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}

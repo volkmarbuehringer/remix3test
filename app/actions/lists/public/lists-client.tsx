@@ -113,6 +113,10 @@ export const ListsClient = clientEntry(
     let copyNotice = ''
     let copyNoticeTimer: ReturnType<typeof setTimeout> | null = null
 
+    // Touch-only per-row action menu (the kebab). Rendering it inline below
+    // the row keeps the element list scroll container from clipping it.
+    let openItemMenuId: string | null = null
+
     let clearUndo = () => {
       if (undoTimer) clearTimeout(undoTimer)
       undoTimer = null
@@ -273,6 +277,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
+      openItemMenuId = null
       clearSelection()
       saveStatus = 'saved'
       saveError = ''
@@ -498,6 +503,41 @@ export const ListsClient = clientEntry(
       copyTargetId = ''
     }
 
+    let closeItemMenu = () => {
+      if (openItemMenuId === null) return
+      openItemMenuId = null
+      void handle.update()
+    }
+
+    let toggleItemMenu = (id: string) => {
+      openItemMenuId = openItemMenuId === id ? null : id
+      void handle.update()
+    }
+
+    // Move focus back to the row that owned the menu after it closes, or to a
+    // neighbouring row after a delete. The kebab is the intended target on
+    // touch, but it is display:none on pointer devices, so fall back to the
+    // row itself (tabindex -1 still accepts programmatic focus).
+    let focusItemTrigger = (id: string | null) => {
+      handle.queueTask(() => {
+        if (id) {
+          let trigger = document.querySelector<HTMLElement>(
+            `[data-item-menu-button="${CSS.escape(id)}"]`,
+          )
+          if (trigger && trigger.offsetParent !== null) {
+            trigger.focus()
+            return
+          }
+          let row = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`)
+          if (row) {
+            row.focus()
+            return
+          }
+        }
+        newItemRef?.focus()
+      })
+    }
+
     let toggleSelected = (id: string) => {
       selectedItemIds = toggleSelectedIn(selectedItemIds, id)
       copyError = ''
@@ -604,6 +644,7 @@ export const ListsClient = clientEntry(
       }
       undoSnapshot = null
       undoKind = null
+      openItemMenuId = null
       clearSelection()
       items = parseItemsFingerprint(cleanItemsJSON)
       title = cleanTitle
@@ -624,6 +665,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
+      openItemMenuId = null
       clearSelection()
       snapshotClean()
       saveStatus = 'saved'
@@ -672,6 +714,7 @@ export const ListsClient = clientEntry(
         descriptionMode = 'auto'
         loadedListId = null
         loadedUpdatedAt = null
+        openItemMenuId = null
         clearSelection()
         saveStatus = 'dirty'
         saveError = ''
@@ -689,6 +732,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
+      openItemMenuId = null
       clearSelection()
       saveStatus = 'saved'
       saveError = ''
@@ -719,6 +763,7 @@ export const ListsClient = clientEntry(
       // where the edit can still be attributed to the right row.
       function beginFrameReload() {
         flushWithKeepalive()
+        openItemMenuId = null
         // Real loading feedback for the frame swap (list switch, sidebar search,
         // pagination). reloadFromFrame clears it on reloadComplete.
         loadingList = true
@@ -766,6 +811,7 @@ export const ListsClient = clientEntry(
     }
 
     let clearAll = () => {
+      openItemMenuId = null
       if (!clearArmed) {
         clearArmed = true
         if (clearArmTimer) clearTimeout(clearArmTimer)
@@ -785,6 +831,7 @@ export const ListsClient = clientEntry(
     // the same undo banner as the other deletions. It is only enabled while at
     // least one item is completed.
     let clearDone = () => {
+      openItemMenuId = null
       disarmClear()
       let result = clearDoneItems(items)
       if (result.removedIds.length === 0) return
@@ -804,6 +851,7 @@ export const ListsClient = clientEntry(
     // one row is selected; clearing the selection afterwards keeps the bulk bar
     // from lingering over rows that no longer exist.
     let deleteSelected = () => {
+      openItemMenuId = null
       disarmClear()
       if (selectedItemIds.size === 0) return
       let result = removeItemsByIds(items, selectedItemIds)
@@ -875,6 +923,7 @@ export const ListsClient = clientEntry(
     }
 
     let deleteItem = (index: number) => {
+      openItemMenuId = null
       disarmClear()
       if (!items[index]) return
       let removedId = items[index].id
@@ -898,6 +947,11 @@ export const ListsClient = clientEntry(
     }
 
     let moveItem = (from: number, to: number) => {
+      // Position-based reordering is disabled while an in-list filter is
+      // active: moving relative to a hidden neighbour is ambiguous and the
+      // visible order often does not change. Hide the menu actions too, but
+      // keep the invariant enforced here as a single choke point.
+      if (filterActive()) return
       disarmClear()
       if (from < 0 || from >= items.length) return
       if (to < 0 || to >= items.length) return
@@ -932,6 +986,7 @@ export const ListsClient = clientEntry(
     }
 
     let startEditing = (index: number) => {
+      openItemMenuId = null
       editingIndex = index
       let item = items[index]!
       editText = item.label
@@ -1060,6 +1115,16 @@ export const ListsClient = clientEntry(
           let summary = target instanceof Element ? target.closest('summary') : null
           // Let the native toggle run; just dismiss any other open menu.
           closeMoreMenus(summary ?? target ?? undefined)
+
+          // The touch row menu is rendered inline (not a <details>), so it
+          // needs its own outside-pointer dismissal. A tap on any kebab is
+          // left to the button's click handler, which toggles the right menu.
+          if (openItemMenuId !== null && target instanceof Element) {
+            if (!target.closest('[data-item-menu]') && !target.closest('[data-item-menu-button]')) {
+              openItemMenuId = null
+              void handle.update()
+            }
+          }
         },
         { signal: handle.signal },
       )
@@ -1079,6 +1144,15 @@ export const ListsClient = clientEntry(
         'keydown',
         (e) => {
           if (e.key !== 'Escape') return
+          // The row menu is the topmost transient surface: close it first and
+          // return focus to the kebab that opened it.
+          if (openItemMenuId !== null) {
+            let id = openItemMenuId
+            openItemMenuId = null
+            void handle.update()
+            focusItemTrigger(id)
+            return
+          }
           let open = document.querySelector<HTMLDetailsElement>('details[data-lists-more][open]')
           if (!open) return
           open.open = false
@@ -1311,6 +1385,7 @@ export const ListsClient = clientEntry(
       copyNotice,
       clearArmed,
       grabbedId,
+      openItemMenuId,
       drag: drag(dragContext),
       visibleItems,
       showDescription,
@@ -1355,6 +1430,9 @@ export const ListsClient = clientEntry(
       moveUp,
       moveDown,
       handleRowKeyDown,
+      toggleItemMenu,
+      closeItemMenu,
+      focusItemTrigger,
       setTitle: (value) => {
         title = value
         setDirty()
@@ -1375,10 +1453,12 @@ export const ListsClient = clientEntry(
       },
       setListFilter: (value) => {
         listFilter = value
+        openItemMenuId = null
         void handle.update()
       },
       clearListFilter: () => {
         listFilter = ''
+        openItemMenuId = null
         if (filterInputRef) filterInputRef.value = ''
         void handle.update()
       },
@@ -1387,6 +1467,7 @@ export const ListsClient = clientEntry(
       // clearListFilter). Announced because the click moves focus context.
       applyTagFilter: (tag: string) => {
         listFilter = tag
+        openItemMenuId = null
         if (filterInputRef) filterInputRef.value = tag
         announce(`Nach Tag „${tag}" gefiltert`)
         void handle.update()
