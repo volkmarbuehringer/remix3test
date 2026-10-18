@@ -32,8 +32,15 @@ export const SidebarToggle = clientEntry(
           }
 
           // Choosing a destination collapses the open drawer so the content is
-          // visible immediately.
-          if (sidebar.classList.contains('is-open') && sidebar.contains(target)) {
+          // visible immediately. Only an actual link qualifies: the sidebar also
+          // contains the row action menus (rename/duplicate/delete) and the
+          // search controls, and collapsing on those would hide the menu the
+          // user just opened.
+          if (
+            sidebar.classList.contains('is-open') &&
+            sidebar.contains(target) &&
+            target.closest('a[href]')
+          ) {
             sidebar.classList.remove('is-open')
             document.getElementById(TOGGLE_ID)?.setAttribute('aria-expanded', 'false')
           }

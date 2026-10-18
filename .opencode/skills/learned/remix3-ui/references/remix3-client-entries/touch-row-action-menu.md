@@ -74,6 +74,18 @@ Use it for Escape, move actions, and delete. Outside dismissal is delegated on `
 
 `CSS.escape` matters because item ids are interpolated into attribute selectors. The pre-existing `focusItem` uses the same selector pattern; this helper avoids adding another unescaped case.
 
+### Server-rendered sidebar variant
+
+The `/lists` sidebar rows are rendered by the server (not by `ListsClient` state), so the same inline menu is static markup plus a small client-entry controller:
+
+- Render one always-visible 44px `[data-list-menu-button]` + `[data-list-menu]` group per row. Keep the row link's roving tabindex; the trigger is a separate, visible tab stop.
+- Put the trigger *after* the link (not over it) and give the row `flex-wrap: wrap` so the menu is a `flex-basis: 100%` second line. The name and count badge stay visible while closed, and the scrolling `<nav>` cannot clip the menu.
+- Keep closed menus `display: none` (not `opacity: 0`), toggle a `data-list-menu-open` attribute in the client entry, and mirror it in `aria-expanded`. Closed actions are then out of the tab order and unfocusable.
+- Attach one delegated document `pointerdown` (outside dismissal), `keydown` (Escape), and capture-phase `click` (action close) per wiring pass; abort the previous pass on `reloadComplete`. The capture phase is required when another entry (rename) calls `stopPropagation()` in its own document-capture handler.
+- Set `draggable="false"` on the trigger, menu, and menu buttons, and add `target.closest('button, input, textarea, [contenteditable]')` guards to the row `dragstart` handler.
+- **`queueTask` only drains on an update.** A client entry that mutates DOM attributes imperatively has no render of its own, so a bare `handle.queueTask(focus)` stays in the component's task queue forever. Call `void handle.update()` after queueing (as done for the post-action focus fallback), or use a timer when the entry has no render to schedule.
+- If the same sidebar sits in a phone drawer, scope the drawer's "destination chosen" collapse to `a[href]`. Collapsing on any click inside the sidebar hides the menu the trigger just opened.
+
 ### Browser tests
 
 `app/actions/lists/public/lists-item-menu.test.browser.tsx` renders `ListsClient` with `initialState`, stubs `fetch`, and uses `result.act`:
@@ -91,7 +103,7 @@ Wait ~350ms after move/delete so the fast autosave hits the stub, then assert fo
 - 390px: row 63px, label no longer 22px, no horizontal overflow.
 - Filtered list: menu has no move actions, and `moveItem` returns without reordering (defense in depth).
 - `document.activeElement` is the kebab on touch and the row on pointer devices after Escape/action; delete focuses the next/previous visible row.
-- Current suite result: 10 new tests, **128 lists browser tests pass**; typecheck, format, lint, and theme conformance pass.
+- Current suite result: **126 lists browser tests pass** (including the sidebar menu open/close/focus/tab-stop suite); `app/actions/lists/lists-sidebar-menu.test.e2e.ts` checks the real SSR markup and 44px geometry at 390x844 and 1440x900 in Chromium and Firefox. Typecheck, format, lint, theme conformance, and the full `npm test` are green.
 
 ## When to Use
 

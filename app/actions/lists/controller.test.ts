@@ -83,6 +83,40 @@ describe('Lists controller', () => {
     )
   })
 
+  it('GET /lists renders one collapsed action menu per sidebar row', async () => {
+    // Self-contained: the sidebar is empty until this user owns a list.
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Sidebar action menu markup list',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+
+    let response = await router.fetch(LISTS_URL, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    let rows = text.match(/data-list-id=/g)?.length ?? 0
+    let triggers = text.match(/data-list-menu-button/g)?.length ?? 0
+
+    assert.ok(rows > 0, 'the sidebar should render at least one saved list row')
+    assert.equal(triggers, rows, 'each saved list row has exactly one action trigger')
+    assert.equal(
+      text.includes('data-list-row-action'),
+      false,
+      'the old hover-only action cluster must not come back',
+    )
+    assert.ok(text.includes('role="group"'), 'the row menu must render as a labelled group')
+    assert.ok(text.includes('aria-expanded="false"'), 'the trigger must start collapsed')
+  })
+
   it('GET /lists sidebar scopes lists to current non-admin user', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',

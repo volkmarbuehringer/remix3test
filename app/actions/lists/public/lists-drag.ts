@@ -373,7 +373,13 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
 
   let handleListDragStart = (e: DragEvent, row: HTMLElement) => {
     let target = e.target as HTMLElement
-    if (target.closest('button, input, textarea, [contenteditable]')) {
+    // The row action menu lives inside a draggable row. Never turn a menu
+    // interaction (or a drag out of its inline panel) into a list merge.
+    if (
+      target.closest(
+        'button, input, textarea, [contenteditable], [data-list-menu], [data-list-menu-button]',
+      )
+    ) {
       e.preventDefault()
       return
     }

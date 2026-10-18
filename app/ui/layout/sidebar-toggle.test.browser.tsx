@@ -20,6 +20,7 @@ const SHELL_HTML = `
   <button id="sidebar-shell-toggle" type="button" aria-expanded="false">Bereiche</button>
   <nav id="sidebar-shell-nav">
     <a id="nav-dest" href="#">Uploads</a>
+    <button id="row-menu" type="button">Weitere Aktionen</button>
   </nav>
 `
 
@@ -93,6 +94,22 @@ describe('SidebarToggle', () => {
       'false',
       'the toggle stays in sync when the drawer self-collapses',
     )
+  })
+
+  it('keeps the drawer open when a row action control is clicked', () => {
+    mount()
+    renderEntry()
+
+    toggle().click()
+    assert.ok(sidebar().classList.contains('is-open'), 'sanity: open')
+
+    ;(document.getElementById('row-menu') as HTMLElement).click()
+
+    assert.ok(
+      sidebar().classList.contains('is-open'),
+      'opening a row action menu must not hide the drawer under it',
+    )
+    assert.equal(toggle().getAttribute('aria-expanded'), 'true')
   })
 
   it('leaves the drawer closed when a destination is clicked while it is closed', () => {

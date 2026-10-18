@@ -81,8 +81,7 @@ function setup(options: { items?: ListItem[] } = {}) {
   editor.setAttribute('data-editor', '')
   editor.innerHTML = (options.items ?? items)
     .map(
-      (_, index) =>
-        `<div role="listitem" data-index="${index}" data-editor-row="${index}"></div>`,
+      (_, index) => `<div role="listitem" data-index="${index}" data-editor-row="${index}"></div>`,
     )
     .join('')
   fixture.appendChild(editor)
@@ -220,6 +219,30 @@ describe('ListsDrag list merge', () => {
     assert.equal(calls.length, 0, 'a declined confirmation must not issue a request')
     assert.equal(reloads, 0)
     assert.ok(updates > 0, 'declining still re-renders')
+  })
+
+  it('ignores a dragstart that begins inside the row action menu', async () => {
+    setup()
+    let row = sidebarRow(1)
+    row.insertAdjacentHTML(
+      'beforeend',
+      '<button type="button" data-list-menu-button>⋯</button>' +
+        '<div data-list-menu><button type="button">Umbenennen</button></div>',
+    )
+
+    let dt = new DataTransfer()
+    for (let target of [
+      row.querySelector('[data-list-menu]')!,
+      row.querySelector('[data-list-menu-button]')!,
+    ]) {
+      target.dispatchEvent(
+        new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
+      )
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    assert.equal(confirmCalls, 0, 'a menu drag must not prompt for a merge')
+    assert.equal(calls.length, 0, 'a menu drag must not issue a request')
   })
 
   it('flushes pending edits before merging with the live source timestamp', async () => {

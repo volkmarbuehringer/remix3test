@@ -405,91 +405,81 @@ function ListsLayout(
                     </span>
                   </NavLink>
                   {listId !== null && (
-                    <div mix={rowActionsStyle} data-list-row-actions>
+                    <>
+                      {/*
+                        One visible action trigger per row. The old hover
+                        cluster overlaid the count badge and clipped the name;
+                        the menu is an inline second flex line, so it cannot be
+                        clipped by the scrolling <nav> either. The trigger is
+                        deliberately always visible (not hover-only): hover is
+                        unavailable to touch and keyboard users.
+                      */}
                       <button
                         type="button"
-                        data-list-rename-btn
-                        data-list-row-action
-                        mix={renameBtnStyle}
-                        aria-label={`Liste "${displayName}" umbenennen`}
-                        title="Umbenennen"
+                        draggable="false"
+                        data-list-menu-button
+                        aria-expanded="false"
+                        aria-controls={`list-row-menu-${listId}`}
+                        aria-label={`Weitere Aktionen für "${displayName}"`}
+                        title="Weitere Aktionen"
+                        mix={listMenuButtonStyle}
                       >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                        </svg>
+                        <span aria-hidden="true">⋯</span>
                       </button>
-                      <form
-                        method="POST"
-                        action={routes.lists.copy.href({ id: listId })}
-                        data-rmx-target={frameTarget}
-                        data-list-row-action
-                        mix={deleteFormStyle}
+                      <div
+                        id={`list-row-menu-${listId}`}
+                        data-list-menu
+                        role="group"
+                        aria-label={`Aktionen für "${displayName}"`}
+                        draggable="false"
+                        mix={listMenuStyle}
                       >
-                        <CsrfTokenInput />
                         <button
-                          type="submit"
-                          data-list-copy-btn
-                          data-list-row-action
-                          mix={copyBtnStyle}
-                          aria-label={`Liste "${displayName}" duplizieren`}
-                          title="Duplizieren"
+                          type="button"
+                          draggable="false"
+                          data-list-rename-btn
+                          mix={listMenuItemStyle}
+                          aria-label={`Liste "${displayName}" umbenennen`}
                         >
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <rect x="9" y="9" width="13" height="13" rx="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
+                          Umbenennen
                         </button>
-                      </form>
-                      <form
-                        method="POST"
-                        action={routes.lists.destroy.href({ id: listId })}
-                        data-rmx-target={frameTarget}
-                        data-confirm={`"${displayName}" löschen?`}
-                        data-list-row-action
-                        mix={deleteFormStyle}
-                      >
-                        <CsrfTokenInput />
-                        <button
-                          type="submit"
-                          data-list-delete-btn
-                          data-list-row-action
-                          mix={deleteBtnStyle}
-                          aria-label={`Liste "${displayName}" löschen`}
+                        <form
+                          method="POST"
+                          action={routes.lists.copy.href({ id: listId })}
+                          data-rmx-target={frameTarget}
+                          mix={listMenuFormStyle}
                         >
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
+                          <CsrfTokenInput />
+                          <button
+                            type="submit"
+                            draggable="false"
+                            data-list-copy-btn
+                            mix={listMenuItemStyle}
+                            aria-label={`Liste "${displayName}" duplizieren`}
                           >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                      </form>
-                    </div>
+                            Duplizieren
+                          </button>
+                        </form>
+                        <form
+                          method="POST"
+                          action={routes.lists.destroy.href({ id: listId })}
+                          data-rmx-target={frameTarget}
+                          data-confirm={`"${displayName}" löschen?`}
+                          mix={listMenuFormStyle}
+                        >
+                          <CsrfTokenInput />
+                          <button
+                            type="submit"
+                            draggable="false"
+                            data-list-delete-btn
+                            mix={[listMenuItemStyle, listMenuDeleteStyle]}
+                            aria-label={`Liste "${displayName}" löschen`}
+                          >
+                            Löschen
+                          </button>
+                        </form>
+                      </div>
+                    </>
                   )}
                 </div>
               )
@@ -602,7 +592,10 @@ const emptyHintStyle = css({
 
 const entryRowStyle = css({
   display: 'flex',
+  // The inline action menu wraps onto its own line inside the row.
+  flexWrap: 'wrap',
   alignItems: 'center',
+  rowGap: '2px',
   position: 'relative',
   '&:focus-visible': {
     outline: `2px solid ${theme.colors.focus.ring}`,
@@ -610,103 +603,91 @@ const entryRowStyle = css({
   },
 })
 
-const rowActionsStyle = css({
-  position: 'absolute',
-  right: '8px',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '2px',
-  zIndex: 2,
-  pointerEvents: 'none',
-  // Touch devices have no hover, so the reveal-on-hover actions are unreachable.
-  '@media (hover: none)': {
-    pointerEvents: 'auto',
-  },
-})
-
-const deleteFormStyle = css({
-  margin: 0,
-  padding: 0,
-  flexShrink: 0,
-  display: 'flex',
-  opacity: 0,
-  pointerEvents: 'none',
-  transition: 'opacity 0.12s ease',
-  '@media (hover: none)': {
-    opacity: 1,
-    pointerEvents: 'auto',
-  },
-})
-
-const deleteBtnStyle = css({
+/**
+ * One 44px action trigger per row, sized for touch. It sits beside the link
+ * (not over it), so the row name and count badge stay visible while closed.
+ */
+const listMenuButtonStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '24px',
-  height: '24px',
+  flexShrink: 0,
+  width: '44px',
+  height: '44px',
   padding: 0,
   border: 'none',
-  background: 'transparent',
-  color: theme.colors.action.danger.border,
-  cursor: 'pointer',
   borderRadius: theme.radius.sm,
+  background: 'transparent',
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.md,
+  lineHeight: 1,
+  ':hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+  '&[aria-expanded="true"]': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+  },
+})
+
+/**
+ * Inline menu: a second flex line inside the row. Rendering it inline (rather
+ * than position: absolute) keeps it out of the sidebar scroller's clip. It is
+ * display: none while closed, which also removes its buttons from the tab order.
+ */
+const listMenuStyle = css({
+  flexBasis: '100%',
+  display: 'none',
+  gridTemplateColumns: '1fr',
+  gap: '2px',
+  paddingBottom: theme.space.xs,
+  '&[data-list-menu-open]': {
+    display: 'grid',
+  },
+})
+
+const listMenuFormStyle = css({
+  margin: 0,
+  padding: 0,
+  display: 'flex',
+})
+
+const listMenuItemStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  minHeight: '44px',
+  padding: `0 ${theme.space.sm}`,
+  border: 'none',
+  borderRadius: theme.radius.sm,
+  background: 'transparent',
+  color: theme.colors.text.secondary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.sm,
+  textAlign: 'left',
+  cursor: 'pointer',
+  ':hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+  },
+})
+
+const listMenuDeleteStyle = css({
+  color: theme.colors.action.danger.border,
   ':hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
-  },
-})
-
-const renameBtnStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '24px',
-  height: '24px',
-  padding: 0,
-  border: 'none',
-  background: 'transparent',
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  borderRadius: theme.radius.sm,
-  opacity: 0,
-  pointerEvents: 'none',
-  transition: 'opacity 0.12s ease',
-  ':hover': {
-    background: theme.surface.lvl2,
-    color: theme.colors.text.primary,
-  },
-  '@media (hover: none)': {
-    opacity: 1,
-    pointerEvents: 'auto',
-  },
-})
-
-// Duplicate (copy) is a neutral, non-destructive action so it shares the
-// rename button's quiet styling rather than the delete button's red hover.
-const copyBtnStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '24px',
-  height: '24px',
-  padding: 0,
-  border: 'none',
-  background: 'transparent',
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  borderRadius: theme.radius.sm,
-  opacity: 0,
-  pointerEvents: 'none',
-  transition: 'opacity 0.12s ease',
-  ':hover': {
-    background: theme.surface.lvl2,
-    color: theme.colors.text.primary,
-  },
-  '@media (hover: none)': {
-    opacity: 1,
-    pointerEvents: 'auto',
   },
 })
 

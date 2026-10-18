@@ -152,7 +152,8 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 
 - On `(hover: none)`, do not merely force a 4-button hover cluster visible: it overlays/squeezes the label and a full-width bar doubles row height. Hide the view cluster with `display: none`, show one 44px kebab, and render the menu as an inline `flex-basis: 100%` second line; keep the edit-mode cluster inline and full-width.
 - When a filter hides rows, hide position-based move actions **and** guard the mutation (`if (filterActive()) return`). A move against a hidden neighbour can leave the visible order unchanged while persisting a new order.
-- Restore focus after Escape/action with `handle.queueTask`: prefer the kebab, fall back to `[data-item-id]` when the trigger is `display: none`, then the add field; use `CSS.escape` for selector ids.
+- Restore focus after Escape/action with `handle.queueTask`: prefer the kebab, fall back to `[data-item-id]` when the trigger is `display: none`, then the add field; use `CSS.escape` for selector ids. `queueTask` only drains on a component update — a client entry that mutates DOM attributes imperatively must call `void handle.update()` after queueing, or the task never runs.
+- Server-rendered sidebars reuse the same inline menu: one always-visible 44px trigger after the link, a `display: none` `[data-list-menu]` toggled by a client entry with `aria-expanded`, and a row `flex-wrap` second line so the scrolling `<nav>` cannot clip it. In a phone drawer, scope the "destination chosen" collapse to `a[href]` so opening a row menu does not hide the drawer.
 
 **Programmatic `maxLength` (`references/remix3-client-entries/maxlength-programmatic-value-bypass.md`)**
 
