@@ -13,7 +13,7 @@ Consolidated from 4 former learned skills (`remix-controllers`, `remix3-route-wi
 
 | You need... | Section | References |
 | --- | --- | --- |
-| Typing/consolidating controllers & middleware — createController/createAction, route contract, context keys, request pipeline, headers, RoutePattern | § Controllers & Middleware | `references/remix-controllers/` |
+| Typing/consolidating controllers & middleware — createController/createAction, route contract, context keys, request pipeline, headers, RoutePattern, id-shaped param validation | § Controllers & Middleware | `references/remix-controllers/` |
 | Adding/moving/deleting routes — admin sidebar (SSE auth 401, iframeNav), relocating between trees, routes.* URL tree, parseSafe upgrades | § Route Wiring | `references/remix3-route-wiring/` |
 | Upload/download endpoints — multipart, fs/S3/bytea, ZIP via node:zlib, PDF/CSV export with shared query parser, download guards | § File Uploads & Downloads | `references/remix-file-uploads/` |
 | Hardening request security — CSRF/CORS, client-IP trust, open redirects, IDOR, path traversal, CSP nonces, Bearer-token API | § Request-Handling Security | `references/security-gotchas/` |
@@ -46,6 +46,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - Keep the `createController<typeof routes.x, AppContext>` generic when a typed helper needs a specific middleware-provided type; prefer fixing the wrapper (`requireAuthenticatedUser<User>`) at the source when possible.
 - Type controller-helper params as `Pick<AppContext, ...>` of the members used, not the whole `AppContext` (whole-object assignment fails via `get()` method variance).
 - Keep `app/middleware/root.ts` free of `router.ts`/controller imports so `AppContext` derives without a cycle.
+- **Id-shaped inputs use `parseId` + a bound check — not `Number.isFinite`**: route params, query strings, and form fields are all untrusted. `Number.isFinite(Number(param))` accepts any finite number, so `?editing=1.5`/`?editing=1e30` reached the `int4` comparison and 500ed with Postgres `invalid input syntax for type integer: "1.5"`; `parseId` (`app/utils/ids.ts`) returns `undefined` unless the value is a safe integer — guard with `id !== undefined && id > 0`. Regression-test the fractional case (`app/actions/admin/admin-lists.test.ts`: `?editing=1.5` → 200, no edit panel; it fails at the DB layer without the fix).
 
 **Route Contract and Resource Helpers (`references/remix-controllers/route-contract-and-controllers.md`)**
 
@@ -77,6 +78,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - You are reading built-in action context (`context.has`, `context.router`, `context.headers`) or handling `request.body`/`request.signal`.
 - A `RoutePattern` property access stops typechecking after a Remix update, or you need its captures.
 - You are building or parsing HTTP headers and reaching for raw strings instead of the typed classes.
+- A controller reads a numeric id from a query string or form field and a crafted non-integer value 500s the page (`invalid input syntax for type integer`).
 
 ### Related Skills
 
