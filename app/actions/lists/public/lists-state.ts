@@ -19,7 +19,7 @@ export type ListInitialState = {
   updated_at: number
 }
 
-export type UndoKind = 'delete' | 'clear' | 'clearDone' | 'deleteSelected'
+export type UndoKind = 'delete' | 'clear' | 'clearDone' | 'deleteSelected' | 'bulkDone' | 'bulkOpen'
 
 export type ListConflictState = {
   show: boolean
@@ -89,6 +89,18 @@ export function toggleDoneAt(items: ListItem[], index: number, now: number): Lis
   return items.map((item, i) =>
     i === index ? { ...item, done: !(item.done === true), updatedAt: now } : item,
   )
+}
+
+/** Set the completion state for every selected id in one pass. Ids that no
+ *  longer exist are ignored, so a stale hidden selection can never resurrect a
+ *  deleted row. */
+export function setDoneByIds(
+  items: ListItem[],
+  ids: ReadonlySet<string>,
+  done: boolean,
+  now: number,
+): ListItem[] {
+  return items.map((item) => (ids.has(item.id) ? { ...item, done, updatedAt: now } : item))
 }
 
 export function reverseItems(items: ListItem[]): ListItem[] {

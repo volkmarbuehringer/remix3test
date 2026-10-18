@@ -67,7 +67,7 @@ export async function patchListRequest(
 }
 
 type CopyItemsOutcome =
-  | { status: 'ok'; copied: number }
+  | { status: 'ok'; copied: number; target: ServerListState }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'not_found' }
   | { status: 'bad_request' }
@@ -89,6 +89,7 @@ export async function copyItemsRequest(
       let data = (await response.json()) as { copied?: unknown }
       return {
         status: 'ok',
+        target: toState(data),
         copied: typeof data.copied === 'number' ? data.copied : itemIds.length,
       }
     }
@@ -102,10 +103,17 @@ export async function copyItemsRequest(
   }
 }
 
-type MoveOutcome =
-  | { status: 'ok' }
+export type MoveOutcome =
+  | { status: 'ok'; source: ServerListState; target: ServerListState }
   | { status: 'conflict'; state: ServerListState }
+  | { status: 'not_found' }
+  | { status: 'bad_request' }
   | { status: 'error'; network: boolean }
+
+function toMoveState(raw: unknown): { source: ServerListState; target: ServerListState } {
+  let r = (raw ?? {}) as Record<string, unknown>
+  return { source: toState(r.source), target: toState(r.target) }
+}
 
 export async function moveItemRequest(
   headers: Record<string, string>,
@@ -119,10 +127,91 @@ export async function moveItemRequest(
       headers,
       body: JSON.stringify({ targetId, itemId }),
     })
-    if (response.ok) return { status: 'ok' }
+    if (response.ok) return { status: 'ok', ...toMoveState(await response.json()) }
     if (response.status === 409)
       return { status: 'conflict', state: toState(await response.json()) }
+    if (response.status === 404) return { status: 'not_found' }
+    if (response.status === 400) return { status: 'bad_request' }
     return { status: 'error', network: false }
+  } catch {
+    return { status: 'error', network: true }
+  }
+}
+
+type MoveItemsOutcome = MoveOutcome & { moved?: number }
+
+/** Atomic multi-item move: all ids move in one transaction (all-or-nothing). */
+export async function moveItemsRequest(
+  headers: Record<string, string>,
+  sourceId: number,
+  targetId: number,
+  itemIds: string[],
+): Promise<MoveItemsOutcome> {
+  try {
+    let response = await fetch(`/lists/${sourceId}/move-items`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ targetId, itemIds }),
+    })
+    if (response.ok) {
+      let data = (await response.json()) as { moved?: unknown }
+      return {
+        status: 'ok',
+        ...toMoveState(data),
+        moved: typeof data.moved === 'number' ? data.moved : itemIds.length,
+      }
+    }
+    if (response.status === 409)
+      return { status: 'conflict', state: toState(await response.json()) }
+    if (response.status === 404) return { status: 'not_found' }
+    if (response.status === 400) return { status: 'bad_request' }
+    return { status: 'error', network: false }
+  } catch {
+    return { status: 'error', network: true }
+  }
+}
+
+export type ListTarget = {
+  id: number
+  title: string
+  description: string
+  count: number
+  doneCount: number
+  updated_at: number
+}
+
+type ListTargetsOutcome =
+  | { status: 'ok'; targets: ListTarget[]; hasMore: boolean }
+  | { status: 'error'; network: boolean }
+
+/** Session-authenticated target search. Excludes nothing; the caller drops its
+ *  own list. Search covers title, description and item labels server-side. */
+export async function searchListTargetsRequest(query: string): Promise<ListTargetsOutcome> {
+  try {
+    let params = new URLSearchParams({ limit: '100' })
+    let trimmed = query.trim()
+    if (trimmed) params.set('filter', trimmed)
+    let response = await fetch(`/lists/targets?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!response.ok) return { status: 'error', network: false }
+    let data = (await response.json()) as { data?: unknown; hasMore?: unknown }
+    let rows = Array.isArray(data.data) ? data.data : []
+    let targets: ListTarget[] = []
+    for (let raw of rows) {
+      let r = (raw ?? {}) as Record<string, unknown>
+      let id = Number(r.id)
+      if (!Number.isFinite(id) || id < 1) continue
+      targets.push({
+        id,
+        title: typeof r.title === 'string' ? r.title : '',
+        description: typeof r.description === 'string' ? r.description : '',
+        count: Number(r.count) || 0,
+        doneCount: Number(r.doneCount) || 0,
+        updated_at: Number(r.updated_at) || 0,
+      })
+    }
+    return { status: 'ok', targets, hasMore: data.hasMore === true }
   } catch {
     return { status: 'error', network: true }
   }

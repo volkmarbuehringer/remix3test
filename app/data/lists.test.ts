@@ -11,6 +11,7 @@ import {
   patchList,
   deleteList,
   moveItemBetweenLists,
+  moveItemsBetweenLists,
   copyList,
 } from './lists.ts'
 
@@ -344,6 +345,105 @@ describe('lists-api lib', () => {
 
     let after = await getListById(db, source.id)
     assert.equal(after!.list.length, 0, 'source persisted empty')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemsBetweenLists moves several items atomically in source order', async () => {
+    let source = await createList(db, {
+      description: 'Bulk move source',
+      items: [
+        { id: 'b1', label: 'One' },
+        { id: 'b2', label: 'Two' },
+        { id: 'b3', label: 'Three' },
+        { id: 'b4', label: 'Four' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Bulk move target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemsBetweenLists(db, source.id, target.id, ['b3', 'b1'], undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.moved, 2)
+      assert.deepEqual(
+        result.source.list.map((item) => item.id),
+        ['b2', 'b4'],
+        'all selected ids leave the source in one transaction',
+      )
+      assert.deepEqual(
+        result.target.list.map((item) => item.id),
+        ['t1', 'b1', 'b3'],
+        'moved items append in source order',
+      )
+    }
+    let sourceAfter = await getListById(db, source.id)
+    assert.deepEqual(
+      sourceAfter!.list.map((item) => item.id),
+      ['b2', 'b4'],
+      'the source write is persisted',
+    )
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemsBetweenLists rejects an unknown id without moving anything', async () => {
+    let source = await createList(db, {
+      description: 'Bulk move partial source',
+      items: [
+        { id: 'p1', label: 'One' },
+        { id: 'p2', label: 'Two' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Bulk move partial target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemsBetweenLists(
+      db,
+      source.id,
+      target.id,
+      ['p1', 'missing'],
+      undefined,
+      { expectedUpdatedAt: source.updated_at },
+    )
+    assert.ok(!result.ok)
+    if (!result.ok) assert.equal(result.reason, 'item_not_found')
+
+    let sourceAfter = await getListById(db, source.id)
+    let targetAfter = await getListById(db, target.id)
+    assert.equal(sourceAfter!.list.length, 2, 'no item may move on a partial selection')
+    assert.equal(targetAfter!.list.length, 1, 'target must stay untouched')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemsBetweenLists returns conflict on stale source updated_at', async () => {
+    let source = await createList(db, {
+      description: 'Bulk move stale source',
+      items: [{ id: 's1', label: 'One' }],
+    })
+    let target = await createList(db, {
+      description: 'Bulk move stale target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemsBetweenLists(db, source.id, target.id, ['s1'], undefined, {
+      expectedUpdatedAt: source.updated_at - 9999,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) {
+      assert.equal(result.reason, 'conflict')
+      assert.equal(result.current.list.length, 1, 'source not modified')
+    }
 
     await db.delete(lists, { id: source.id })
     await db.delete(lists, { id: target.id })

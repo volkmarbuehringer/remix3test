@@ -5,6 +5,7 @@ import button from '../../../ui/theme/button.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 
 import type { ListsDragMixinDescriptor } from './lists-drag-mixin.ts'
+import type { ListTarget } from './lists-api.ts'
 import {
   type ItemPriority,
   type ListConflictState,
@@ -55,9 +56,21 @@ import {
   doneCheckboxStyle,
   bulkBarStyle,
   bulkCountStyle,
-  bulkSelectStyle,
   bulkNoticeStyle,
   bulkErrorStyle,
+  targetPickerOverlayStyle,
+  targetPickerDialogStyle,
+  targetPickerHeaderStyle,
+  targetPickerTitleStyle,
+  targetPickerCloseStyle,
+  targetPickerBodyStyle,
+  targetPickerSearchStyle,
+  targetPickerResultsStyle,
+  targetPickerOptionStyle,
+  targetPickerOptionLabelStyle,
+  targetPickerMetaStyle,
+  targetPickerStateStyle,
+  targetPickerHintStyle,
   sortSelectStyle,
   viewOnlyHintStyle,
   statusBarStyle,
@@ -115,10 +128,19 @@ export type ListsEditorView = {
   editDue: string
   editTags: string
   selectedItemIds: Set<string>
-  copyTargetId: string
   copyBusy: boolean
   copyError: string
   copyNotice: string
+  picker: {
+    purpose: 'copy' | 'move'
+    itemIds: string[]
+    singleItemId: string | null
+  } | null
+  pickerQuery: string
+  pickerResults: ListTarget[]
+  pickerHasMore: boolean
+  pickerLoading: boolean
+  pickerError: string
   clearArmed: boolean
   grabbedId: string | null
   openItemMenuId: string | null
@@ -133,7 +155,6 @@ export type ListsEditorView = {
   reorderLocked: () => boolean
   viewOrderActive: () => boolean
   statusCounts: () => StatusCounts
-  copyTargets: () => Array<{ id: number; label: string }>
 
   scheduleAutosave: (fast?: boolean) => void
   saveNow: (manual?: boolean) => Promise<boolean>
@@ -158,7 +179,13 @@ export type ListsEditorView = {
   deleteSelected: () => void
   clearAll: () => void
   toggleSelectAllVisible: () => void
-  copySelectedItems: () => Promise<void>
+  setDoneSelected: (done: boolean) => void
+  openBulkPicker: (purpose: 'copy' | 'move', trigger: HTMLElement | null) => void
+  openItemMovePicker: (itemId: string, trigger: HTMLElement | null) => void
+  selectPickerTarget: (target: ListTarget) => void
+  closeTargetPicker: (restoreFocus?: boolean) => void
+  setPickerQuery: (value: string) => void
+  handlePickerKeyDown: (event: KeyboardEvent) => void
   clearSelectionAndError: () => void
   toggleSelected: (id: string) => void
   toggleDone: (index: number) => void
@@ -180,7 +207,6 @@ export type ListsEditorView = {
   setListFilter: (value: string) => void
   clearListFilter: () => void
   applyTagFilter: (tag: string) => void
-  setCopyTargetId: (value: string) => void
   setFocusedId: (id: string) => void
   setEditText: (value: string) => void
   setEditPriority: (value: '' | ItemPriority) => void
@@ -195,6 +221,7 @@ export type ListsEditorView = {
   onListRef: (el: HTMLDivElement | null) => void
   onCopyFormRef: (el: HTMLFormElement | null) => void
   onCopyCsrfRef: (el: HTMLInputElement | null) => void
+  onPickerSearchRef: (el: HTMLInputElement | null) => void
   onLiveRegion: (el: HTMLElement | null) => void
 }
 
@@ -262,10 +289,15 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     editDue,
     editTags,
     selectedItemIds,
-    copyTargetId,
     copyBusy,
     copyError,
     copyNotice,
+    picker,
+    pickerQuery,
+    pickerResults,
+    pickerHasMore,
+    pickerLoading,
+    pickerError,
     clearArmed,
     grabbedId,
     openItemMenuId,
@@ -279,7 +311,6 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     reorderLocked,
     viewOrderActive,
     statusCounts,
-    copyTargets,
     scheduleAutosave,
     saveNow,
     retrySave,
@@ -303,7 +334,14 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     deleteSelected,
     clearAll,
     toggleSelectAllVisible,
-    copySelectedItems,
+    setDoneSelected,
+    openBulkPicker,
+    openItemMovePicker,
+    selectPickerTarget,
+    closeTargetPicker,
+    setPickerQuery,
+    handlePickerKeyDown,
+    onPickerSearchRef,
     toggleSelected,
     toggleDone,
     startEditing,
@@ -654,7 +692,11 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   ? 'Erledigte Elemente gelöscht.'
                   : undoKind === 'deleteSelected'
                     ? 'Ausgewählte Elemente gelöscht.'
-                    : 'Element gelöscht.'}
+                    : undoKind === 'bulkDone'
+                      ? 'Auswahl als erledigt markiert.'
+                      : undoKind === 'bulkOpen'
+                        ? 'Auswahl als offen markiert.'
+                        : 'Element gelöscht.'}
             </span>
             <button
               mix={[
@@ -1088,35 +1130,44 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               >
                 {allVisibleSelected ? 'Auswahl aufheben' : 'Alle sichtbaren auswählen'}
               </button>
-              <span mix={css({ flex: 1 })} />
-              <select
-                id="copy-items-target"
-                aria-label="Ziel-Liste"
-                mix={[
-                  bulkSelectStyle,
-                  on('change', (e) => {
-                    view.setCopyTargetId(e.currentTarget.value)
-                  }),
-                ]}
-              >
-                <option value="">Ziel-Liste…</option>
-                {copyTargets().map((target) => (
-                  <option
-                    key={target.id}
-                    value={target.id}
-                    selected={String(target.id) === copyTargetId}
-                  >
-                    {target.label}
-                  </option>
-                ))}
-              </select>
               <button
                 type="button"
-                mix={[button({ tone: 'primary' }), on('click', () => void copySelectedItems())]}
-                disabled={copyBusy || !copyTargetId}
-                title="Ausgewählte Elemente in die Ziel-Liste kopieren"
+                mix={[button({ tone: 'secondary' }), on('click', () => setDoneSelected(true))]}
+                disabled={copyBusy}
+                title="Alle ausgewählten Elemente als erledigt markieren (auch verborgene)"
               >
-                {copyBusy ? 'Kopiere…' : '⧉ In Liste kopieren'}
+                ✓ Als erledigt
+              </button>
+              <button
+                type="button"
+                mix={[button({ tone: 'secondary' }), on('click', () => setDoneSelected(false))]}
+                disabled={copyBusy}
+                title="Alle ausgewählten Elemente als offen markieren (auch verborgene)"
+              >
+                ○ Als offen
+              </button>
+              <span mix={css({ flex: 1 })} />
+              <button
+                type="button"
+                mix={[
+                  button({ tone: 'secondary' }),
+                  on('click', (e) => openBulkPicker('copy', e.currentTarget)),
+                ]}
+                disabled={copyBusy}
+                title="Ausgewählte Elemente in eine andere Liste kopieren"
+              >
+                ⧉ In Liste kopieren
+              </button>
+              <button
+                type="button"
+                mix={[
+                  button({ tone: 'primary' }),
+                  on('click', (e) => openBulkPicker('move', e.currentTarget)),
+                ]}
+                disabled={copyBusy}
+                title="Ausgewählte Elemente in eine andere Liste verschieben"
+              >
+                → In Liste verschieben
               </button>
               <button
                 type="button"
@@ -1141,6 +1192,121 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
           {copyNotice && (
             <div role="status" aria-live="polite" mix={bulkNoticeStyle}>
               {copyNotice}
+            </div>
+          )}
+
+          {picker && (
+            <div
+              data-target-picker-overlay
+              mix={[
+                targetPickerOverlayStyle,
+                on('click', (event) => {
+                  if (event.target === event.currentTarget) closeTargetPicker(true)
+                }),
+              ]}
+            >
+              <div
+                data-target-picker-dialog
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="target-picker-title"
+                mix={[
+                  targetPickerDialogStyle,
+                  on('keydown', (event) => handlePickerKeyDown(event)),
+                ]}
+              >
+                <div mix={targetPickerHeaderStyle}>
+                  <h2 id="target-picker-title" mix={targetPickerTitleStyle}>
+                    {picker.purpose === 'copy' ? 'In Liste kopieren' : 'In Liste verschieben'}
+                  </h2>
+                  <button
+                    type="button"
+                    data-target-picker-close
+                    aria-label="Ziel-Liste schließen"
+                    title="Schließen"
+                    mix={[targetPickerCloseStyle, on('click', () => closeTargetPicker(true))]}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div mix={targetPickerBodyStyle}>
+                  <p mix={targetPickerHintStyle} data-target-picker-count>
+                    {picker.itemIds.length} {picker.itemIds.length === 1 ? 'Element' : 'Elemente'}{' '}
+                    ausgewählt. Ziel-Liste suchen:
+                  </p>
+                  <input
+                    type="search"
+                    data-target-picker-search
+                    placeholder="Liste suchen…"
+                    aria-label="Ziel-Liste suchen"
+                    defaultValue={pickerQuery}
+                    mix={[
+                      targetPickerSearchStyle,
+                      ref((el) => onPickerSearchRef(el as HTMLInputElement | null)),
+                      on('input', (event) => setPickerQuery(event.currentTarget.value)),
+                    ]}
+                  />
+                  {pickerError ? (
+                    <div role="alert" mix={targetPickerStateStyle} data-target-picker-error>
+                      {pickerError}{' '}
+                      <button
+                        type="button"
+                        mix={[
+                          button({ tone: 'secondary' }),
+                          on('click', () => setPickerQuery(pickerQuery)),
+                        ]}
+                      >
+                        Erneut versuchen
+                      </button>
+                    </div>
+                  ) : pickerLoading ? (
+                    <p role="status" mix={targetPickerStateStyle} data-target-picker-loading>
+                      Listen werden geladen…
+                    </p>
+                  ) : pickerResults.length === 0 ? (
+                    <p mix={targetPickerStateStyle} data-target-picker-empty>
+                      Keine Listen gefunden.
+                    </p>
+                  ) : (
+                    <div
+                      mix={targetPickerResultsStyle}
+                      data-target-picker-results
+                      role="group"
+                      aria-label="Ziel-Listen"
+                    >
+                      {pickerResults.map((target) => {
+                        let label =
+                          target.title.trim() ||
+                          target.description.trim() ||
+                          `${UNTITLED_LIST_LABEL} (#${target.id})`
+                        return (
+                          <button
+                            key={target.id}
+                            type="button"
+                            data-target-option={target.id}
+                            title={`${label} – ${target.count} Einträge`}
+                            mix={[
+                              targetPickerOptionStyle,
+                              on('click', () => selectPickerTarget(target)),
+                            ]}
+                          >
+                            <span mix={targetPickerOptionLabelStyle}>{label}</span>
+                            <span mix={targetPickerMetaStyle}>
+                              {target.doneCount}/{target.count}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {pickerHasMore && !pickerLoading && !pickerError && (
+                    <p mix={targetPickerHintStyle}>Weitere Listen vorhanden – Suche eingrenzen.</p>
+                  )}
+                  <p mix={targetPickerHintStyle}>
+                    Pfeiltasten wechseln, Enter wählt, Esc schließt.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1285,10 +1451,9 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         // per row, so more of the card's height goes to rows
                         // instead of whitespace.
                         padding: `${theme.space.sm} ${theme.space.md}`,
-                        // Keep a right gutter so the label doesn't run under the
-                        // overlay action cluster; the cluster itself is absolute
-                        // and takes no layout space.
-                        paddingRight: '6.5rem',
+                        // Keep a right gutter for the overlay action cluster
+                        // (edit, move, delete, up, down); the cluster itself is
+                        // absolute and takes no layout space.
                         borderBottom:
                           index < vis.length - 1
                             ? `1px solid ${theme.colors.border.subtle}`
@@ -1298,6 +1463,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           outline: `2px solid ${theme.colors.focus.ring}`,
                           outlineOffset: '-2px',
                         },
+                        paddingRight: '10rem',
                         // On touch the hover cluster is replaced by the
                         // kebab + inline menu, so the right gutter is no longer
                         // needed and the menu can wrap below the row.
@@ -1551,6 +1717,19 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             <Glyph name="edit" width={16} height={16} />
                           </button>
                           <button
+                            data-item-move-button={item.id}
+                            mix={[
+                              iconActionStyle,
+                              on('click', (event) =>
+                                openItemMovePicker(item.id, event.currentTarget),
+                              ),
+                            ]}
+                            title="In Liste verschieben"
+                            aria-label="In Liste verschieben"
+                          >
+                            <Glyph name="arrowRight" width={16} height={16} />
+                          </button>
+                          <button
                             mix={[
                               iconActionStyle,
                               iconActionDangerStyle,
@@ -1656,6 +1835,16 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             </button>
                           </>
                         )}
+                        <button
+                          type="button"
+                          mix={[
+                            button({ tone: 'secondary' }),
+                            itemMenuItemStyle,
+                            on('click', () => openItemMovePicker(item.id, null)),
+                          ]}
+                        >
+                          In Liste verschieben
+                        </button>
                         <button
                           type="button"
                           mix={[

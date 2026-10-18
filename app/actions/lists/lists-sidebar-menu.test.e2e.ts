@@ -120,7 +120,7 @@ function assertSidebarGeometry(metrics: PageMetrics) {
     }
     assert.equal(row.countVisible, true, `row ${row.id} count badge must stay visible`)
     assert.equal(row.menuVisible, false, `row ${row.id} menu must start closed`)
-    assert.equal(row.menuButtons.length, 3, `row ${row.id} menu must offer three actions`)
+    assert.equal(row.menuButtons.length, 4, `row ${row.id} menu must offer four actions`)
     assert.equal(
       row.menuButtons.every((button) => button.draggable === 'false'),
       true,
@@ -274,6 +274,36 @@ describe('lists sidebar row action menu', () => {
         openId,
         { timeout: 5_000 },
       )
+
+      // Non-drag alternative to the list-to-list drag: copy the open list's
+      // items into the clicked sidebar list through the shared confirm dialog.
+      let otherTrigger = page.locator(`[data-list-id="${otherId}"] [data-list-menu-button]`)
+      await otherTrigger.click()
+      await page
+        .locator(`[data-list-id="${otherId}"] [data-list-menu] button`)
+        .filter({ hasText: 'Elemente hierher kopieren' })
+        .click()
+      await page.locator('[data-confirm-dialog]').waitFor({ timeout: 5_000 })
+      let copyDialogText = await page.locator('[data-confirm-dialog]').innerText()
+      assert.ok(
+        copyDialogText.includes('Elemente kopieren bestätigen'),
+        'the copy-here action must use the styled confirmation dialog',
+      )
+      assert.ok(
+        copyDialogText.includes('Sidebar menu open list') &&
+          copyDialogText.includes('Sidebar menu other list'),
+        'the confirmation must name both lists',
+      )
+      await page.locator('[data-confirm-accept]').click()
+      await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
+      let targetLength = 0
+      for (let attempt = 0; attempt < 40 && targetLength !== 3; attempt++) {
+        let row = await pool.query('SELECT list FROM lists WHERE id = $1', [otherId])
+        targetLength = (row.rows[0]!.list as unknown[]).length
+        if (targetLength === 3) break
+        await page.waitForTimeout(250)
+      }
+      assert.equal(targetLength, 3, 'both open-list items must be copied into the target')
 
       // Delete must open the shared styled confirm dialog. The menu closes in
       // capture phase before ConfirmDelete's handler, so this proves hiding the

@@ -499,17 +499,6 @@ export const bulkCountStyle = css({
   whiteSpace: 'nowrap',
 })
 
-export const bulkSelectStyle = css({
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  borderRadius: theme.radius.sm,
-  border: `1px solid ${theme.colors.border.strong}`,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  fontFamily: theme.fontFamily.sans,
-  fontSize: theme.fontSize.xs,
-  maxWidth: '220px',
-})
-
 export const bulkNoticeStyle = css({
   padding: `${theme.space.xs} ${theme.space.md}`,
   fontSize: theme.fontSize.xs,
@@ -524,6 +513,146 @@ export const bulkErrorStyle = css({
   color: theme.colors.action.danger.background,
   backgroundColor: theme.surface.lvl1,
   borderBottom: `1px solid ${theme.colors.border.default}`,
+})
+
+// ── Target picker dialog ──────────────────────────────────────────────────
+// A searchable, session-backed list picker shared by bulk copy/move and the
+// single-row move action. Fixed overlay so it is never clipped by the element
+// list's scroll container; every interactive target is at least 44px tall.
+export const targetPickerOverlayStyle = css({
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1000,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: theme.space.lg,
+  background: 'rgba(0, 0, 0, 0.45)',
+})
+
+export const targetPickerDialogStyle = css({
+  width: '100%',
+  maxWidth: '460px',
+  maxHeight: 'min(80vh, 640px)',
+  display: 'flex',
+  flexDirection: 'column',
+  background: theme.surface.lvl0,
+  border: '1px solid ' + theme.colors.border.default,
+  borderRadius: theme.radius.lg,
+  boxShadow: theme.shadow.md,
+  overflow: 'hidden',
+})
+
+export const targetPickerHeaderStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  padding: theme.space.sm + ' ' + theme.space.md,
+  borderBottom: '1px solid ' + theme.colors.border.default,
+})
+
+export const targetPickerTitleStyle = css({
+  margin: 0,
+  flex: 1,
+  fontSize: theme.fontSize.md,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+})
+
+export const targetPickerCloseStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '44px',
+  height: '44px',
+  padding: 0,
+  border: '1px solid ' + theme.colors.border.default,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl1,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  fontSize: theme.fontSize.lg,
+  lineHeight: 1,
+})
+
+export const targetPickerBodyStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.sm,
+  padding: theme.space.md,
+  minHeight: 0,
+  overflow: 'hidden',
+})
+
+export const targetPickerSearchStyle = css({
+  width: '100%',
+  height: '44px',
+  padding: '0 ' + theme.space.sm,
+  borderRadius: theme.radius.md,
+  border: '1px solid ' + theme.colors.border.strong,
+  background: theme.surface.lvl0,
+  color: theme.colors.text.primary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.sm,
+  boxSizing: 'border-box',
+})
+
+export const targetPickerResultsStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
+  minHeight: 0,
+  overflowY: 'auto',
+})
+
+export const targetPickerOptionStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  width: '100%',
+  minHeight: '44px',
+  padding: theme.space.xs + ' ' + theme.space.sm,
+  border: '1px solid ' + theme.colors.border.default,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl1,
+  color: theme.colors.text.primary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.sm,
+  textAlign: 'left',
+  cursor: 'pointer',
+  boxSizing: 'border-box',
+  '&:hover, &:focus-visible': {
+    background: theme.surface.lvl3,
+    borderColor: theme.colors.focus.ring,
+  },
+})
+
+export const targetPickerOptionLabelStyle = css({
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+})
+
+export const targetPickerMetaStyle = css({
+  flexShrink: 0,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  whiteSpace: 'nowrap',
+})
+
+export const targetPickerStateStyle = css({
+  margin: 0,
+  padding: theme.space.sm,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+})
+
+export const targetPickerHintStyle = css({
+  margin: 0,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
 })
 
 export const sortSelectStyle = css({

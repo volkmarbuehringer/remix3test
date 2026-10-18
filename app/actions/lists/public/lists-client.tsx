@@ -2,7 +2,7 @@ import { clientEntry, type Handle } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
 import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
 
-import { sidebarRowLabel, syncSidebarRow, UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
+import { syncSidebarRow, UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
 import type { ListsDragContext } from './lists-drag.ts'
 import { drag } from './lists-drag-mixin.ts'
 import {
@@ -24,6 +24,7 @@ import {
   itemsFingerprint,
   parseItemsFingerprint,
   removeItemsByIds,
+  setDoneByIds,
   shuffleItems,
   clearDoneItems,
   toggleDoneAt,
@@ -35,10 +36,16 @@ import {
   copyItemsRequest,
   createListRequest,
   listsJsonHeaders,
+  mergeListRequest,
+  moveItemRequest,
+  moveItemsRequest,
   patchListRequest,
+  searchListTargetsRequest,
   sendKeepalivePatch,
+  type ListTarget,
 } from './lists-api.ts'
 import { renderListsEditor, type ListsEditorView } from './lists-view.tsx'
+import { requestConfirmDecision } from '../../../ui/confirm-delete.browser.tsx'
 
 export const ListsClient = clientEntry(
   import.meta.url + '#ListsClient',
@@ -117,11 +124,33 @@ export const ListsClient = clientEntry(
     // Row selection for "Auswahl → in Liste kopieren". Separate from the done
     // toggle: selecting is view-only and never marks the list dirty.
     let selectedItemIds = new Set<string>()
-    let copyTargetId = ''
+    // Bulk copy/move target operations (the request itself, not the picker).
     let copyBusy = false
     let copyError = ''
     let copyNotice = ''
     let copyNoticeTimer: ReturnType<typeof setTimeout> | null = null
+
+    // Searchable target picker. The candidate lists come from the server
+    // (/lists/targets), not from the 15-row sidebar page, so a target stays
+    // reachable on any page and while a search narrows the sidebar.
+    type PickerPurpose = 'copy' | 'move'
+    type PickerState = {
+      purpose: PickerPurpose
+      itemIds: string[]
+      /** Set for a single-row move so closing can refocus that row. */
+      singleItemId: string | null
+      /** Row (bulk) or menu trigger to refocus when the dialog closes. */
+      trigger: HTMLElement | null
+    }
+    let picker: PickerState | null = null
+    let pickerQuery = ''
+    let pickerResults: ListTarget[] = []
+    let pickerHasMore = false
+    let pickerLoading = false
+    let pickerError = ''
+    let pickerRequestId = 0
+    let pickerDebounce: ReturnType<typeof setTimeout> | null = null
+    let pickerSearchRef: HTMLInputElement | null = null
 
     // Touch-only per-row action menu (the kebab). Rendering it inline below
     // the row keeps the element list scroll container from clipping it.
@@ -618,7 +647,6 @@ export const ListsClient = clientEntry(
     // never leaks onto a different list.
     let clearSelection = () => {
       selectedItemIds = new Set()
-      copyTargetId = ''
     }
 
     let closeItemMenu = () => {
@@ -671,37 +699,173 @@ export const ListsClient = clientEntry(
       void handle.update()
     }
 
-    // Candidate targets are the sidebar list rows — the same set the
-    // list-to-list drag exposes. Read at interaction time so a frame
-    // navigation's freshly rendered sidebar is always current.
-    let copyTargets = (): Array<{ id: number; label: string }> => {
-      if (typeof document === 'undefined') return []
-      let seen = new Set<number>()
-      let targets: Array<{ id: number; label: string }> = []
-      for (let row of Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]'))) {
-        let id = Number(row.dataset.listId)
-        if (!Number.isFinite(id) || id === loadedListId || seen.has(id)) continue
-        seen.add(id)
-        targets.push({ id, label: sidebarRowLabel(row, id) })
-      }
-      return targets
+    let targetDisplayLabel = (target: ListTarget): string =>
+      target.title.trim() || target.description.trim() || `${UNTITLED_LIST_LABEL} (#${target.id})`
+
+    let showTargetNotice = (message: string) => {
+      copyNotice = message
+      if (copyNoticeTimer) clearTimeout(copyNoticeTimer)
+      copyNoticeTimer = setTimeout(() => {
+        copyNotice = ''
+        copyNoticeTimer = null
+        void handle.update()
+      }, 5000)
+      announce(message)
+      void handle.update()
     }
 
-    let copySelectedItems = async () => {
-      if (loadedListId === null || copyBusy) return
-      let targetId = Number(copyTargetId)
-      if (!Number.isFinite(targetId) || targetId < 1) {
-        copyError = 'Bitte eine Ziel-Liste wählen'
+    /** Push a server response into the matching sidebar row (when that row is
+     *  on the current page) so its count/updated-at stay accurate without a
+     *  full frame reload that would discard the success notice and focus. */
+    let syncSidebarState = (state: ListInitialState) => {
+      let label = state.title.trim() || state.description.trim()
+      syncSidebarRow(state.id, {
+        label: label || `${UNTITLED_LIST_LABEL} (#${state.id})`,
+        untitled: !label,
+        count: state.items.length,
+        doneCount: state.items.filter((item) => item.done === true).length,
+        updatedAt: state.updated_at,
+      })
+    }
+
+    let searchTargets = async (query: string) => {
+      let requestId = ++pickerRequestId
+      pickerLoading = true
+      pickerError = ''
+      void handle.update()
+      let outcome = await searchListTargetsRequest(query)
+      // A slower earlier request must never overwrite a newer search.
+      if (requestId !== pickerRequestId) return
+      pickerLoading = false
+      if (outcome.status === 'ok') {
+        // The loaded list is never a valid target (server rejects it too).
+        pickerResults = outcome.targets.filter((target) => target.id !== loadedListId)
+        pickerHasMore = outcome.hasMore
+      } else {
+        pickerResults = []
+        pickerHasMore = false
+        pickerError = outcome.network
+          ? 'Listen konnten nicht geladen werden (Netzwerkfehler).'
+          : 'Listen konnten nicht geladen werden.'
+      }
+      void handle.update()
+    }
+
+    let setPickerQuery = (value: string) => {
+      pickerQuery = value
+      if (pickerDebounce) clearTimeout(pickerDebounce)
+      pickerDebounce = setTimeout(() => {
+        pickerDebounce = null
+        void searchTargets(pickerQuery)
+      }, 250)
+      void handle.update()
+    }
+
+    let closeTargetPicker = (restoreFocus = true) => {
+      let current = picker
+      if (!current) return
+      picker = null
+      pickerQuery = ''
+      pickerResults = []
+      pickerHasMore = false
+      pickerLoading = false
+      pickerError = ''
+      // Invalidate any in-flight search so its late response cannot reopen the
+      // result list after the dialog closed.
+      pickerRequestId++
+      if (pickerDebounce) {
+        clearTimeout(pickerDebounce)
+        pickerDebounce = null
+      }
+      if (!restoreFocus) {
         void handle.update()
         return
       }
-      let itemIds = items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id)
+      handle.queueTask(() => {
+        let trigger = current.trigger
+        if (trigger && trigger.isConnected && trigger.offsetParent !== null) {
+          trigger.focus()
+          return
+        }
+        if (current.singleItemId) {
+          let row = document.querySelector<HTMLElement>(
+            `[data-item-id="${CSS.escape(current.singleItemId)}"]`,
+          )
+          row?.focus()
+        }
+      })
+      // queueTask is drained by the next component update, so schedule it
+      // after queueing (otherwise the task can be left waiting forever).
+      void handle.update()
+    }
+
+    let openTargetPicker = (
+      purpose: 'copy' | 'move',
+      itemIds: string[],
+      trigger: HTMLElement | null,
+      singleItemId: string | null = null,
+    ) => {
+      if (loadedListId === null) {
+        copyError = 'Bitte zuerst eine Liste öffnen'
+        void handle.update()
+        return
+      }
       if (itemIds.length === 0) {
         copyError = 'Keine Elemente ausgewählt'
         void handle.update()
         return
       }
+      picker = { purpose, itemIds, trigger, singleItemId }
+      pickerQuery = ''
+      pickerResults = []
+      pickerHasMore = false
+      pickerError = ''
+      pickerLoading = true
+      handle.queueTask(() => pickerSearchRef?.focus())
+      void handle.update()
+      void searchTargets('')
+    }
 
+    let selectPickerTarget = (target: ListTarget) => {
+      let current = picker
+      if (!current) return
+      closeTargetPicker(true)
+      if (current.purpose === 'copy') {
+        void copyItemsToTarget(target, current.itemIds)
+      } else if (current.singleItemId) {
+        void moveSingleItemToTarget(current.singleItemId, target)
+      } else {
+        void moveItemsToTarget(target, current.itemIds)
+      }
+    }
+
+    let handlePickerKeyDown = (event: KeyboardEvent) => {
+      if (!picker) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeTargetPicker(true)
+        return
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+      let buttons = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[data-target-option]'),
+      ).filter((button) => button.offsetParent !== null)
+      if (buttons.length === 0) return
+      event.preventDefault()
+      let index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+      let next =
+        event.key === 'ArrowDown'
+          ? index < 0
+            ? 0
+            : Math.min(buttons.length - 1, index + 1)
+          : index < 0
+            ? buttons.length - 1
+            : Math.max(0, index - 1)
+      buttons[next]?.focus()
+    }
+
+    let copyItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
+      if (loadedListId === null || copyBusy || itemIds.length === 0) return
       // Claim the in-flight guard *before* awaiting. A pending autosave makes
       // `flushNow` span a network round-trip; without this, a second click could
       // pass the `copyBusy` guard and copy the same selection twice.
@@ -713,24 +877,17 @@ export const ListsClient = clientEntry(
         // source's `updated_at`, which a pending autosave is about to bump.
         let flushed = await flushNow()
         if (!flushed) return
-        let outcome = await copyItemsRequest(getCsrfHeaders(), loadedListId, targetId, itemIds)
+        let outcome = await copyItemsRequest(getCsrfHeaders(), loadedListId, target.id, itemIds)
         if (outcome.status === 'ok') {
           let copied = outcome.copied
           selectedItemIds = new Set()
-          copyTargetId = ''
-          copyNotice = `${copied} ${copied === 1 ? 'Element' : 'Elemente'} kopiert`
-          if (copyNoticeTimer) clearTimeout(copyNoticeTimer)
-          copyNoticeTimer = setTimeout(() => {
-            copyNotice = ''
-            copyNoticeTimer = null
-            void handle.update()
-          }, 5000)
-          announce(
-            `${copied} ${copied === 1 ? 'Element' : 'Elemente'} in die gewählte Liste kopiert`,
+          if (outcome.target) syncSidebarState(outcome.target)
+          showTargetNotice(
+            `${copied} ${copied === 1 ? 'Element' : 'Elemente'} nach „${targetDisplayLabel(target)}" kopiert`,
           )
-          void handle.update()
-          // Refresh the sidebar so the target row's count reflects the copies.
-          handle.frame.reload().catch(() => {})
+          // The bulk bar (and its trigger) unmounts with the cleared
+          // selection; land keyboard users back in the editor.
+          handle.queueTask(() => newItemRef?.focus())
         } else if (outcome.status === 'conflict') {
           conflictState = { show: true, serverState: outcome.state }
         } else if (outcome.status === 'not_found') {
@@ -748,6 +905,203 @@ export const ListsClient = clientEntry(
         copyBusy = false
         void handle.update()
       }
+    }
+
+    let moveItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
+      if (loadedListId === null || copyBusy || itemIds.length === 0) return
+      copyBusy = true
+      copyError = ''
+      void handle.update()
+      try {
+        let flushed = await flushNow()
+        if (!flushed) return
+        let outcome = await moveItemsRequest(getCsrfHeaders(), loadedListId, target.id, itemIds)
+        if (outcome.status === 'ok') {
+          items = cloneItems(outcome.source.items)
+          loadedUpdatedAt = outcome.source.updated_at
+          clearSelection()
+          snapshotClean()
+          saveStatus = 'saved'
+          syncEditorSidebar()
+          syncSidebarState(outcome.target)
+          let moved = outcome.moved ?? itemIds.length
+          showTargetNotice(
+            `${moved} ${moved === 1 ? 'Element' : 'Elemente'} nach „${targetDisplayLabel(target)}" verschoben`,
+          )
+          handle.queueTask(() => newItemRef?.focus())
+        } else if (outcome.status === 'conflict') {
+          conflictState = { show: true, serverState: outcome.state }
+        } else if (outcome.status === 'not_found') {
+          copyError = 'Liste nicht gefunden'
+        } else if (outcome.status === 'bad_request') {
+          copyError = 'Verschieben nicht möglich'
+        } else {
+          copyError = outcome.network
+            ? 'Verschieben fehlgeschlagen (Netzwerkfehler)'
+            : 'Verschieben fehlgeschlagen'
+        }
+      } catch {
+        copyError = 'Verschieben fehlgeschlagen (Netzwerkfehler)'
+      } finally {
+        copyBusy = false
+        void handle.update()
+      }
+    }
+
+    let moveSingleItemToTarget = async (itemId: string, target: ListTarget) => {
+      if (loadedListId === null || copyBusy) return
+      // Focus the surviving neighbour after the row leaves the editor.
+      let currentIndex = items.findIndex((item) => item.id === itemId)
+      let nextFocusId =
+        currentIndex < 0
+          ? null
+          : (items[currentIndex + 1]?.id ?? items[currentIndex - 1]?.id ?? null)
+      copyBusy = true
+      copyError = ''
+      void handle.update()
+      try {
+        let flushed = await flushNow()
+        if (!flushed) return
+        let outcome = await moveItemRequest(getCsrfHeaders(), loadedListId, target.id, itemId)
+        if (outcome.status === 'ok') {
+          items = cloneItems(outcome.source.items)
+          loadedUpdatedAt = outcome.source.updated_at
+          snapshotClean()
+          saveStatus = 'saved'
+          syncEditorSidebar()
+          syncSidebarState(outcome.target)
+          showTargetNotice(`Element nach „${targetDisplayLabel(target)}" verschoben`)
+          focusItemTrigger(nextFocusId)
+        } else if (outcome.status === 'conflict') {
+          conflictState = { show: true, serverState: outcome.state }
+        } else if (outcome.status === 'not_found') {
+          copyError = 'Liste nicht gefunden'
+        } else if (outcome.status === 'bad_request') {
+          copyError = 'Verschieben nicht möglich'
+        } else {
+          copyError = outcome.network
+            ? 'Verschieben fehlgeschlagen (Netzwerkfehler)'
+            : 'Verschieben fehlgeschlagen'
+        }
+      } catch {
+        copyError = 'Verschieben fehlgeschlagen (Netzwerkfehler)'
+      } finally {
+        copyBusy = false
+        void handle.update()
+      }
+    }
+
+    let setDoneSelected = (done: boolean) => {
+      if (selectedItemIds.size === 0) return
+      let ids = new Set(items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id))
+      if (ids.size === 0) return
+      showUndo(done ? 'bulkDone' : 'bulkOpen', cloneItems(items))
+      items = setDoneByIds(items, ids, done, Date.now())
+      setDirty()
+      announce(
+        `${ids.size} ${ids.size === 1 ? 'Element' : 'Elemente'} als ${done ? 'erledigt' : 'offen'} markiert`,
+      )
+      void handle.update()
+      scheduleAutosave(true)
+    }
+
+    let openBulkPicker = (purpose: 'copy' | 'move', trigger: HTMLElement | null) => {
+      let itemIds = items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id)
+      openTargetPicker(purpose, itemIds, trigger)
+    }
+
+    let openItemMovePicker = (itemId: string, trigger: HTMLElement | null) => {
+      closeItemMenu()
+      let focusTarget =
+        trigger && trigger.isConnected
+          ? trigger
+          : document.querySelector<HTMLElement>(`[data-item-menu-button="${CSS.escape(itemId)}"]`)
+      openTargetPicker('move', [itemId], focusTarget, itemId)
+    }
+
+    // Sidebar menu action: copy every item of the open list into the clicked
+    // sidebar list, using the same server merge as the list-to-list drag. The
+    // server-side merge is atomic (source untouched, target appended), so a
+    // single confirmation covers the whole operation.
+    let copyOpenListInto = async (targetId: number, targetName: string) => {
+      if (copyBusy || targetId === loadedListId) return
+      if (loadedListId === null) {
+        copyError = 'Bitte zuerst eine Liste öffnen'
+        void handle.update()
+        return
+      }
+      if (items.length === 0) {
+        copyError = 'Die geöffnete Liste ist leer'
+        void handle.update()
+        return
+      }
+      let sourceName = title.trim() || description.trim() || UNTITLED_LIST_LABEL
+      let count = items.length
+      let message =
+        count > 0
+          ? `Alle ${count} Einträge von "${sourceName}" in "${targetName}" kopieren?`
+          : `Alle Einträge von "${sourceName}" in "${targetName}" kopieren?`
+      let run = async () => {
+        copyBusy = true
+        copyError = ''
+        void handle.update()
+        try {
+          let flushed = await flushNow()
+          if (!flushed) return
+          let outcome = await mergeListRequest(getCsrfHeaders(), loadedListId!, targetId)
+          if (outcome.status === 'ok') {
+            showTargetNotice(`Alle Einträge in „${targetName}" kopiert`)
+            handle.frame.reload().catch(() => {})
+          } else if (outcome.status === 'conflict') {
+            conflictState = { show: true, serverState: outcome.state }
+          } else if (outcome.status === 'not_found') {
+            copyError = 'Liste nicht gefunden'
+          } else if (outcome.status === 'bad_request') {
+            copyError = count === 0 ? 'Die Quellliste ist leer' : 'Kopieren nicht möglich'
+          } else {
+            copyError = outcome.network
+              ? 'Kopieren fehlgeschlagen (Netzwerkfehler)'
+              : 'Kopieren fehlgeschlagen'
+          }
+        } catch {
+          copyError = 'Kopieren fehlgeschlagen (Netzwerkfehler)'
+        } finally {
+          copyBusy = false
+          void handle.update()
+        }
+      }
+      let decision = requestConfirmDecision({
+        message,
+        title: 'Elemente kopieren bestätigen',
+        confirmLabel: 'Kopieren',
+      })
+      if (decision) {
+        void decision.then((accepted) => {
+          if (accepted) void run()
+        })
+        return
+      }
+      if (typeof window !== 'undefined' && window.confirm(message)) void run()
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener(
+        'click',
+        (event) => {
+          let target = event.target
+          if (!(target instanceof Element)) return
+          let button = target.closest<HTMLElement>('[data-list-copy-here-btn]')
+          if (!button) return
+          event.preventDefault()
+          let row = button.closest<HTMLElement>('[data-list-id]')
+          let targetId = Number(row?.dataset.listId)
+          if (!Number.isFinite(targetId) || targetId < 1) return
+          let targetName =
+            row?.querySelector<HTMLElement>('[data-list-name]')?.textContent?.trim() || 'Liste'
+          void copyOpenListInto(targetId, targetName)
+        },
+        { signal: handle.signal },
+      )
     }
 
     // Revert unsaved edits back to the last saved snapshot.
@@ -1461,10 +1815,15 @@ export const ListsClient = clientEntry(
       editDue,
       editTags,
       selectedItemIds,
-      copyTargetId,
       copyBusy,
       copyError,
       copyNotice,
+      picker,
+      pickerQuery,
+      pickerResults,
+      pickerHasMore,
+      pickerLoading,
+      pickerError,
       clearArmed,
       grabbedId,
       openItemMenuId,
@@ -1478,7 +1837,6 @@ export const ListsClient = clientEntry(
       reorderLocked,
       viewOrderActive,
       statusCounts: visibleStatusCounts,
-      copyTargets,
       scheduleAutosave,
       saveNow,
       retrySave,
@@ -1502,7 +1860,16 @@ export const ListsClient = clientEntry(
       deleteSelected,
       clearAll,
       toggleSelectAllVisible,
-      copySelectedItems,
+      setDoneSelected,
+      openBulkPicker,
+      openItemMovePicker,
+      selectPickerTarget,
+      closeTargetPicker,
+      setPickerQuery,
+      handlePickerKeyDown,
+      onPickerSearchRef: (el) => {
+        pickerSearchRef = el
+      },
       clearSelectionAndError: () => {
         clearSelection()
         copyError = ''
@@ -1557,11 +1924,6 @@ export const ListsClient = clientEntry(
         openItemMenuId = null
         if (filterInputRef) filterInputRef.value = tag
         announce(`Nach Tag „${tag}" gefiltert`)
-        void handle.update()
-      },
-      setCopyTargetId: (value) => {
-        copyTargetId = value
-        copyError = ''
         void handle.update()
       },
       setFocusedId: (id) => {

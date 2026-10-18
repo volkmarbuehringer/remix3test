@@ -985,6 +985,118 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // GET /lists/targets — session-backed search for the editor's picker
+  // -----------------------------------------------------------------------
+
+  it('GET /lists/targets searches title, description and item labels', async () => {
+    let unique = `target-search-${Date.now()}`
+    let created = await createListFor(userCookie, userCsrfToken, `${unique} description`, [
+      `${unique} item label`,
+    ])
+
+    let response = await router.fetch(`${LISTS_URL}/targets?filter=${encodeURIComponent(unique)}`, {
+      headers: { Cookie: userCookie, Accept: 'application/json' },
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.ok(Array.isArray(body.data), 'the picker endpoint returns a data array')
+    assert.equal(body.data.length, 1)
+    assert.equal(body.data[0].id, created.id)
+    assert.equal(body.data[0].count, 1)
+    assert.equal(body.data[0].doneCount, 0)
+
+    // The item-label match is the important part: the sidebar query already
+    // searches labels, and the picker must not regress to title-only.
+    let byItem = await router.fetch(
+      `${LISTS_URL}/targets?filter=${encodeURIComponent(unique + ' item label')}`,
+      { headers: { Cookie: userCookie, Accept: 'application/json' } },
+    )
+    let byItemBody = await byItem.json()
+    assert.equal(byItemBody.data.length, 1)
+    assert.equal(byItemBody.data[0].id, created.id)
+  })
+
+  it('GET /lists/targets requires authentication', async () => {
+    let response = await router.fetch(`${LISTS_URL}/targets`, {
+      headers: { Accept: 'application/json' },
+    })
+    assert.equal(response.status, 302)
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /lists/:id/move-items — atomic bulk move
+  // -----------------------------------------------------------------------
+
+  it('POST /lists/:id/move-items moves every selected item in one request', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Bulk source', ['A', 'B', 'C'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Bulk target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({
+        targetId: target.id,
+        itemIds: [source.items[0].id, source.items[2].id],
+      }),
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.moved, 2)
+    assert.deepEqual(
+      body.source.items.map((item: { label: string }) => item.label),
+      ['B'],
+    )
+    assert.deepEqual(
+      body.target.items.map((item: { label: string }) => item.label),
+      ['Keep', 'A', 'C'],
+      'source order is preserved in the target',
+    )
+  })
+
+  it('POST /lists/:id/move-items rejects a partial selection with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Bulk partial', ['A', 'B'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Bulk partial target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({
+        targetId: target.id,
+        itemIds: [source.items[0].id, 'does-not-exist'],
+      }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/move-items without If-Match returns 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Bulk no pre', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Bulk no pre target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: [source.items[0].id] }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  // -----------------------------------------------------------------------
   // POST /lists/:id/merge — copy a list's items into another list
   // -----------------------------------------------------------------------
 

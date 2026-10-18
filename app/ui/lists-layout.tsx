@@ -443,6 +443,16 @@ function ListsLayout(
                         >
                           Umbenennen
                         </button>
+                        <button
+                          type="button"
+                          draggable="false"
+                          data-list-copy-here-btn
+                          mix={listMenuItemStyle}
+                          aria-label={`Elemente der geöffneten Liste in "${displayName}" kopieren`}
+                          title="Elemente der geöffneten Liste hierher kopieren"
+                        >
+                          Elemente hierher kopieren
+                        </button>
                         <form
                           method="POST"
                           action={routes.lists.copy.href({ id: listId })}
@@ -487,7 +497,6 @@ function ListsLayout(
             <ListNameEdit />
             <ListsSidebarKeyboard />
             <ListsRowActions />
-            <ConfirmDelete />
             {sidebarEntries.length === 0 && (
               <p mix={emptyHintStyle}>
                 {new URL(getContext().request.url).searchParams.get('filter')
@@ -557,6 +566,14 @@ function ListsLayout(
           </button>
           {children}
         </section>
+        {/*
+          The confirm dialog is fixed-position. Mounting it inside the sticky
+          sidebar trapped it in that stacking context: after a list-to-list
+          drag, the editor section painted above the dialog and swallowed its
+          clicks. Keeping it as a direct child of the page grid preserves the
+          viewport-wide overlay.
+        */}
+        <ConfirmDelete />
         <SidebarToggle />
       </div>
     )

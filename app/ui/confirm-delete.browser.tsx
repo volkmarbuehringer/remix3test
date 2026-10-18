@@ -6,15 +6,30 @@ import { entrance, exit } from '../utils/motion.ts'
 
 interface PendingConfirm {
   message: string
+  title: string
+  confirmLabel: string
+  tone: 'danger' | 'primary'
   /** Runs only when the user accepts. */
   onConfirm: () => void
+  /** Runs when the user cancels/dismisses. Lets an awaited decision unblock. */
+  onCancel?: (() => void) | undefined
 }
 
 const CONFIRM_EVENT = 'app:confirm-request'
 
-export interface ConfirmRequestDetail {
+export interface ConfirmRequestOptions {
   message: string
+  /** Defaults to "Löschen bestätigen". */
+  title?: string
+  /** Defaults to "Löschen". */
+  confirmLabel?: string
+  /** Defaults to the danger tone (destructive action). */
+  tone?: 'danger' | 'primary'
+}
+
+export interface ConfirmRequestDetail extends ConfirmRequestOptions {
   onConfirm: () => void
+  onCancel?: (() => void) | undefined
 }
 
 /**
@@ -32,6 +47,29 @@ export function requestConfirm(detail: ConfirmRequestDetail): boolean {
   })
   document.dispatchEvent(event)
   return event.defaultPrevented
+}
+
+/**
+ * Promise-returning variant for flows that must await the decision before
+ * issuing their request (e.g. the list merge drag). Returns null when no
+ * dialog is mounted so callers can fall back to window.confirm.
+ */
+export function requestConfirmDecision(detail: ConfirmRequestOptions): Promise<boolean> | null {
+  if (typeof document === 'undefined') return null
+  let resolve!: (accepted: boolean) => void
+  let decision = new Promise<boolean>((res) => {
+    resolve = res
+  })
+  let event = new CustomEvent<ConfirmRequestDetail>(CONFIRM_EVENT, {
+    detail: {
+      ...detail,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false),
+    },
+    cancelable: true,
+  })
+  document.dispatchEvent(event)
+  return event.defaultPrevented ? decision : null
 }
 
 const overlayStyle = css({
@@ -111,8 +149,12 @@ export const ConfirmDelete = clientEntry(
           if (!form) return
           event.preventDefault()
           event.stopPropagation()
+          pending?.onCancel?.()
           pending = {
             message: form.getAttribute('data-confirm') || 'Wirklich löschen?',
+            title: 'Löschen bestätigen',
+            confirmLabel: 'Löschen',
+            tone: 'danger',
             // requestSubmit (not submit) dispatches a submit event, so the frame
             // runtime still performs the DELETE navigation.
             onConfirm: () => form.requestSubmit(btn),
@@ -128,7 +170,15 @@ export const ConfirmDelete = clientEntry(
           let detail = (event as CustomEvent<ConfirmRequestDetail>).detail
           if (!detail) return
           event.preventDefault()
-          pending = { message: detail.message, onConfirm: detail.onConfirm }
+          pending?.onCancel?.()
+          pending = {
+            message: detail.message,
+            title: detail.title || 'Löschen bestätigen',
+            confirmLabel: detail.confirmLabel || 'Löschen',
+            tone: detail.tone || 'danger',
+            onConfirm: detail.onConfirm,
+            onCancel: detail.onCancel,
+          }
           void handle.update()
         },
         { signal: handle.signal },
@@ -136,8 +186,10 @@ export const ConfirmDelete = clientEntry(
     }
 
     function close() {
+      let current = pending
       pending = null
       void handle.update()
+      current?.onCancel?.()
     }
 
     function accept() {
@@ -183,7 +235,7 @@ export const ConfirmDelete = clientEntry(
             ]}
           >
             <h2 id="confirm-delete-title" mix={titleStyle}>
-              Löschen bestätigen
+              {current.title}
             </h2>
             <p id="confirm-delete-message" mix={messageStyle}>
               {current.message}
@@ -199,9 +251,13 @@ export const ConfirmDelete = clientEntry(
               <button
                 type="button"
                 data-confirm-accept="true"
-                mix={[button({ tone: 'danger' }), on('click', accept), ref((el) => el?.focus())]}
+                mix={[
+                  button({ tone: current.tone }),
+                  on('click', accept),
+                  ref((el) => el?.focus()),
+                ]}
               >
-                Löschen
+                {current.confirmLabel}
               </button>
             </div>
           </div>

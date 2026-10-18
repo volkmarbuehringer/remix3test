@@ -3,6 +3,7 @@ import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone
 import { mergeListRequest, moveItemRequest, type ServerListState } from './lists-api.ts'
 import type { ListItem } from './lists-state.ts'
 import { sidebarRowLabel } from './sidebar-sync.ts'
+import { requestConfirmDecision } from '../../../ui/confirm-delete.browser.tsx'
 
 /**
  * Drag-and-drop controller for /lists: intra-list item reorder, item drop onto
@@ -292,6 +293,12 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
       } else if (outcome.status === 'conflict') {
         ctx.showConflict(outcome.state)
         ctx.update()
+      } else if (outcome.status === 'not_found') {
+        ctx.setSaveError('Liste nicht gefunden')
+        ctx.update()
+      } else if (outcome.status === 'bad_request') {
+        ctx.setSaveError('Verschieben nicht möglich')
+        ctx.update()
       } else {
         ctx.setSaveError(
           outcome.network
@@ -422,7 +429,20 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
       count !== null
         ? `Alle ${count} Einträge von "${sourceName}" in "${targetName}" kopieren?`
         : `Alle Einträge von "${sourceName}" in "${targetName}" kopieren?`
-    if (typeof window !== 'undefined' && !window.confirm(message)) {
+    // Use the shared styled dialog when the page mounts one (the /lists layout
+    // does). Keep the blocking prompt as the fallback for headless/unit tests
+    // that render the mixin without <ConfirmDelete />.
+    let decision = requestConfirmDecision({
+      message,
+      title: 'Zusammenführen bestätigen',
+      confirmLabel: 'Kopieren',
+    })
+    let accepted = decision
+      ? await decision
+      : typeof window !== 'undefined'
+        ? window.confirm(message)
+        : false
+    if (!accepted) {
       ctx.update()
       return
     }

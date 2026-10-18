@@ -35,9 +35,11 @@ export const routes = route({
 
   lists: route('lists', {
     index: get('/'),
+    targets: get('/targets'),
     create: post('/'),
     update: put('/:id'),
     move: post('/:id/move'),
+    moveItems: post('/:id/move-items'),
     copy: post('/:id/copy'),
     merge: post('/:id/merge'),
     copyItems: post('/:id/copy-items'),

@@ -702,6 +702,137 @@ function throwMoveError(reason: MoveFailure, current?: ListRow): never {
   throw error
 }
 
+type MoveItemsResult =
+  | { ok: true; source: ListRow; target: ListRow; moved: number }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'conflict'; current: ListRow }
+  | { ok: false; reason: 'same_list' }
+  | { ok: false; reason: 'item_not_found' }
+
+/**
+ * Move several identified items from the source list into the target list in
+ * one transaction. Bulk moves must be atomic: the per-item move endpoint bumps
+ * the source's `updated_at` on every call, so a sequential client loop either
+ * needs a fresh If-Match after each response (slow, and leaves a partial move
+ * behind on failure) or races its own precondition. Every requested id must
+ * exist, mirroring `copyItemsToList`; a partial match is rejected instead of
+ * silently moving a subset. Source order is preserved and the source is left
+ * empty when every item moves, which is a valid state.
+ */
+export async function moveItemsBetweenLists(
+  db: Database,
+  sourceId: number,
+  targetId: number,
+  itemIds: string[],
+  userId?: number,
+  options?: { expectedUpdatedAt?: number },
+): Promise<MoveItemsResult> {
+  if (sourceId === targetId) return { ok: false, reason: 'same_list' }
+
+  let wanted = new Set(itemIds)
+  if (wanted.size === 0) return { ok: false, reason: 'item_not_found' }
+
+  try {
+    return await db.transaction(async (tx) => {
+      for (let lockId of [sourceId, targetId].toSorted((a, b) => a - b)) {
+        let args: unknown[] = [lockId]
+        let ownerClause = ''
+        if (userId != null) {
+          args.push(userId)
+          ownerClause = ' AND user_id = $2'
+        }
+        let locked = await tx.exec(
+          `SELECT id FROM lists WHERE id = $1${ownerClause} FOR UPDATE`,
+          args,
+        )
+        if ((locked.rows ?? []).length === 0) {
+          throwMoveError('not_found')
+        }
+      }
+
+      let sourceWhere = userId != null ? { id: sourceId, user_id: userId } : { id: sourceId }
+      let targetWhere = userId != null ? { id: targetId, user_id: userId } : { id: targetId }
+
+      let sourceRow = await tx.findOne(lists, { where: sourceWhere })
+      let targetRow = await tx.findOne(lists, { where: targetWhere })
+      if (!sourceRow || !targetRow) throwMoveError('not_found')
+
+      let parsedSource = parseRow(sourceRow)
+      let parsedTarget = parseRow(targetRow)
+
+      let expectedUpdatedAt = options?.expectedUpdatedAt
+      let updateSourceWhere = { ...sourceWhere }
+      if (expectedUpdatedAt != null) {
+        if (parsedSource.updated_at !== expectedUpdatedAt) {
+          throwMoveError('conflict', parsedSource)
+        }
+        ;(updateSourceWhere as Record<string, unknown>).updated_at = expectedUpdatedAt
+      }
+
+      let selected = parsedSource.list.filter((entry) => wanted.has(entry.id))
+      if (selected.length !== wanted.size) throwMoveError('item_not_found')
+
+      let now = Date.now()
+      let nextSource = parsedSource.list.filter((entry) => !wanted.has(entry.id))
+      let nextTarget = [...parsedTarget.list, ...selected]
+
+      let sourceWrite = await tx.updateMany(
+        lists,
+        { list: nextSource, updated_at: now },
+        { where: updateSourceWhere },
+      )
+      if (expectedUpdatedAt != null && (sourceWrite.affectedRows ?? 0) === 0) {
+        let current = (await tx.findOne(lists, {
+          where: sourceWhere,
+        })) as Record<string, unknown> | null
+        if (!current) throwMoveError('not_found')
+        throwMoveError('conflict', parseRow(current))
+      }
+
+      let targetWrite = await tx.updateMany(
+        lists,
+        { list: nextTarget, updated_at: now },
+        { where: targetWhere },
+      )
+      if ((targetWrite.affectedRows ?? 0) === 0) throwMoveError('not_found')
+
+      let updatedSource = (await tx.findOne(lists, {
+        where: sourceWhere,
+      })) as Record<string, unknown> | null
+      let updatedTarget = (await tx.findOne(lists, {
+        where: targetWhere,
+      })) as Record<string, unknown> | null
+      if (!updatedSource || !updatedTarget) throwMoveError('not_found')
+      return {
+        ok: true,
+        source: parseRow(updatedSource),
+        target: parseRow(updatedTarget),
+        moved: selected.length,
+      }
+    })
+  } catch (error) {
+    if (error instanceof Error && 'moveReason' in error) {
+      let typed = error as Error & {
+        moveReason: MoveFailure
+        moveCurrent?: ListRow
+      }
+      switch (typed.moveReason) {
+        case 'not_found':
+          return { ok: false, reason: 'not_found' }
+        case 'conflict':
+          return typed.moveCurrent
+            ? { ok: false, reason: 'conflict', current: typed.moveCurrent }
+            : { ok: false, reason: 'not_found' }
+        case 'item_not_found':
+          return { ok: false, reason: 'item_not_found' }
+        case 'same_list':
+          return { ok: false, reason: 'same_list' }
+      }
+    }
+    throw error
+  }
+}
+
 export async function moveItemBetweenLists(
   db: Database,
   sourceId: number,

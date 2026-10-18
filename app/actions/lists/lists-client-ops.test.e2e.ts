@@ -80,29 +80,6 @@ describe('lists merge via sidebar drag', () => {
     return { sourceId, targetId }
   }
 
-  // Override window.confirm and count its invocations in a DOM data attribute.
-  // The count is how these tests observe that the client entry's drag handlers
-  // actually ran: the listeners are registered by the entry's factory body, which
-  // only executes once the deferred client module loads, and a synthetic drag
-  // before that is a silent no-op. The toolbar is *server* rendered, so waiting
-  // for it proves nothing about hydration.
-  function installConfirm(page: { evaluate: Function }, accept: boolean) {
-    return page.evaluate((result: boolean) => {
-      let root = document.documentElement
-      root.dataset.confirmCalls = '0'
-      window.confirm = () => {
-        root.dataset.confirmCalls = String(Number(root.dataset.confirmCalls ?? '0') + 1)
-        return result
-      }
-    }, accept)
-  }
-
-  async function readConfirmCalls(page: { evaluate: Function }) {
-    return (await page.evaluate(() =>
-      Number(document.documentElement.dataset.confirmCalls ?? '0'),
-    )) as number
-  }
-
   async function targetItemCount(listId: number) {
     let row = await pool.query('SELECT list FROM lists WHERE id = $1', [listId])
     return (row.rows[0]!.list as Array<Record<string, unknown>>).length
@@ -157,23 +134,21 @@ describe('lists merge via sidebar drag', () => {
   }
 
   // Retry the gesture until the drop handler runs, which is observable as the
-  // confirmation prompt. Pre-hydration attempts are no-ops, so the loop exits on
-  // its first live dispatch; the merge tests stop there, so a merge is issued
-  // exactly once and can never be double-applied by a retry.
+  // styled confirmation dialog. Pre-hydration attempts are no-ops, so the loop
+  // exits on its first live dispatch; the merge tests stop there, so a merge is
+  // issued exactly once and can never be double-applied by a retry.
   async function dragUntilPrompted(
-    page: { evaluate: Function; waitForTimeout: Function },
+    page: { evaluate: Function; waitForTimeout: Function; locator: Function },
     fromId: number,
     toId: number,
     options?: { dirtyTitle?: string },
   ) {
-    let calls = 0
-    for (let attempt = 0; attempt < 60 && calls === 0; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       await dragList(page, fromId, toId, options)
       await page.waitForTimeout(250)
-      calls = await readConfirmCalls(page)
+      if ((await page.locator('[data-confirm-dialog]').count()) > 0) return
     }
-    assert.ok(calls > 0, 'the drag must be handled once the client entry hydrates')
-    return calls
+    assert.ok(false, 'the drag must open the confirmation dialog')
   }
 
   it('merges a dragged list into another after confirming and reloads the editor', async (t) => {
@@ -189,12 +164,11 @@ describe('lists merge via sidebar drag', () => {
       await page.locator('#lists-title').waitFor({ timeout: 15_000 })
       await page.locator(`[data-list-id="${sourceId}"]`).waitFor({ timeout: 15_000 })
 
-      // Accept the confirmation gate. Overriding window.confirm keeps the test
-      // deterministic across browsers — a real modal dialog opened from inside
-      // page.evaluate is not reliably accepted by Playwright. Must run after the
-      // navigation, which resets the top document.
-      await installConfirm(page, true)
+      // The list merge uses the shared styled confirmation dialog now. Accept
+      // it through a real click so the awaited decision resolves.
       await dragUntilPrompted(page, sourceId, targetId)
+      await page.locator('[data-confirm-accept]').click()
+      await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
       // The frame reloads after the merge — the editor must now render three items.
       await page.waitForFunction(
@@ -227,7 +201,6 @@ describe('lists merge via sidebar drag', () => {
       await page.goto(`/lists?load=${sourceId}`)
       await page.locator('#lists-title').waitFor({ timeout: 15_000 })
       await page.locator(`[data-list-id="${targetId}"]`).waitFor({ timeout: 15_000 })
-      await installConfirm(page, true)
 
       // Every attempt dirties the open list and drags in one synchronous task, so
       // the 1500ms autosave can never win the race: the drop handler's flushNow()
@@ -237,6 +210,8 @@ describe('lists merge via sidebar drag', () => {
       await dragUntilPrompted(page, sourceId, targetId, {
         dirtyTitle: 'Quelle mit ungespeicherten Änderungen',
       })
+      await page.locator('[data-confirm-accept]').click()
+      await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
       // The frame reloads onto the SOURCE list, so assert on the target's row:
       // one seeded target item plus both seeded source items, exactly once.
@@ -360,15 +335,41 @@ describe('lists copy selected items into another list', () => {
       // Select the first and third source items (skip the middle one).
       await selectItems(page, ['copy-src-1', 'copy-src-3'])
 
-      // The picker must offer the other sidebar list as a target.
-      assert.equal(
-        await page.locator(`#copy-items-target option[value="${targetId}"]`).count(),
-        1,
-        'the target picker should list the other sidebar list',
+      // Open the API-backed picker and search for the target by name. The
+      // target row exists on this page, but the point is that the picker uses
+      // /lists/targets rather than reading the 15-row sidebar DOM.
+      await page.locator('button:has-text("⧉ In Liste kopieren")').click()
+      await page.locator('[data-target-picker-dialog]').waitFor({ timeout: 5_000 })
+      await page.fill('[data-target-picker-search]', 'copy target')
+      await page
+        .locator(`[data-target-option="${targetId}"]`)
+        .waitFor({ state: 'visible', timeout: 5_000 })
+
+      // The picker is a real touch target too: 44px search/options and no
+      // horizontal overflow while the dialog is open.
+      let pickerGeometry = (await page.evaluate(() => {
+        let search = document.querySelector<HTMLElement>('[data-target-picker-search]')
+        let option = document.querySelector<HTMLElement>('[data-target-option]')
+        return {
+          searchHeight: search?.getBoundingClientRect().height ?? 0,
+          optionHeight: option?.getBoundingClientRect().height ?? 0,
+          scrollWidth: document.documentElement.scrollWidth,
+          innerWidth: window.innerWidth,
+        }
+      })) as {
+        searchHeight: number
+        optionHeight: number
+        scrollWidth: number
+        innerWidth: number
+      }
+      assert.ok(pickerGeometry.searchHeight >= 44, 'the picker search must be >=44px tall')
+      assert.ok(pickerGeometry.optionHeight >= 44, 'picker options must be >=44px tall')
+      assert.ok(
+        pickerGeometry.scrollWidth <= pickerGeometry.innerWidth + 1,
+        'the open picker must not overflow horizontally',
       )
 
-      await page.selectOption('#copy-items-target', String(targetId))
-      await page.locator('button:has-text("In Liste kopieren")').click()
+      await page.locator(`[data-target-option="${targetId}"]`).click()
 
       // The server appends the two selected copies to the target.
       let targetItems = await listItems(targetId)
