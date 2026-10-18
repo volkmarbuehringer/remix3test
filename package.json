@@ -33,14 +33,14 @@
     "@mastra/pg": "^1.31.2",
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "date-holidays": "^3.37.0",
-    "nodemailer": "^10.1.1",
+    "nodemailer": "^10.1.2",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.14.2",
+    "@fission-ai/openspec": "^1.14.3",
     "@oxlint/plugins": "^1.88.0",
     "@types/bun": "^1.4.3",
     "@types/node": "26.6.5",
