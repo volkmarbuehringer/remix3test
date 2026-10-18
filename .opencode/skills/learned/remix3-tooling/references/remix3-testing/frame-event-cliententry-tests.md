@@ -25,6 +25,12 @@ function mountWithFrame(initial: ListInitialState) {
     frame,
     props: { initialState: initial },
     signal: controller.signal,
+    // Entries that open a picker/dialog focus via queueTask during the
+    // exercised path; without this the click throws and the follow-up
+    // search/render never runs.
+    queueTask: (task: () => void) => {
+      task()
+    },
     // Production re-runs the render function through the runtime; here the same
     // function re-renders into the test root.
     update: () => {
@@ -59,6 +65,8 @@ it('shows loading between reloadStart and reloadComplete', () => {
 
 - **Synthesise only what the factory touches at construction.** With `initialState` supplied the entry takes its initial branch and never reads `document.getElementById('lists-initial-state')` on mount; `reloadComplete` does, so add the marker to `document.body` (and remove it in `afterEach`) when you fire that event.
 - **The synthetic handle needs `frame`, `props`, `signal`, `update`.** `handle.update()` must re-render through `result.root.render(...)`; `handle.signal` must be a real `AbortSignal` because the factory passes it to native `addEventListener` (Bun rejects the SSR stub — see `remix3-bun-runtime`). Abort it in `afterEach` so the document/window listeners the factory registered are removed.
+- **Stub `queueTask` when the exercised path opens a picker/dialog.** A real `clientEntry` focuses newly revealed UI with `handle.queueTask(...)`. On the minimal synthetic handle that method is `undefined`, so the click handler throws *after* setting the dialog state: the dialog appears in its loading/empty state, but nothing after the `queueTask` call runs — including the search request that fills the picker. Add `queueTask: (task) => task()` (or queue and drain it after the render) to `mountWithFrame`. This bit the `/lists` target-picker test even though the existing loading test passed.
+- **Hold the mutation response to test frame-navigation races.** Return a manually resolved promise from the `fetch` stub for the mutation; dispatch `reloadStart`, swap in a different `#lists-initial-state` marker, dispatch `reloadComplete`, then resolve the response. Assert the new list's rows remain and the stale action is surfaced as cancelled. Without the deferred response the race cannot be reproduced in a browser test — the same harness also proves the source-id guard.
 - **This bypasses hydration.** You assert the entry's own render output, not the server→client handoff. Keep one e2e that drives the real navigation for the wiring.
 - **Don't try to dispatch on a real frame.** `render(<Entry/>)` does not expose it; stubbing `frameInit.resolveFrame` only helps when the test itself calls `handle.frame.reload()` (see `document-scoped-cliententry-browser-tests.md`).
 

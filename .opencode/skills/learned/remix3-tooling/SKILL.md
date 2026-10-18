@@ -198,7 +198,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 **Frame-event `clientEntry` tests (`references/remix3-testing/frame-event-cliententry-tests.md`)**
 
 - `RenderResult` exposes `container`/`root`/`$`/`$$`/`act`/`cleanup` — **not** the entry's `frame`, so `render(<Entry/>)` gives you no way to dispatch `reloadStart`/`reloadComplete`. Call the entry factory directly with a synthetic `Handle` whose `frame` is a plain `EventTarget` and whose `update` re-renders into the test root (the `pending-submit.test.browser.tsx` pattern).
-- The synthetic handle needs `frame`, `props`, a real `signal` (native `addEventListener`; Bun rejects the SSR stub), and `update`; abort the signal + `cleanup()` in `afterEach` so the factory's document/window listeners do not leak.
+- The synthetic handle needs `frame`, `props`, a real `signal` (native `addEventListener`; Bun rejects the SSR stub), and `update`; abort the signal + `cleanup()` in `afterEach` so the factory's document/window listeners do not leak. Add `queueTask` (drain it) when the exercised path opens a picker/dialog, and hold a manually resolved `fetch` promise to test a response resolving after a frame switch.
 - This bypasses hydration — assert the entry's own render output, and keep an e2e for the real navigation wiring.
 
 **Parallel test interference (`references/remix3-testing/parallel-test-interference.md`)**
