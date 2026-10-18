@@ -3,9 +3,9 @@ import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../db.ts'
 import { sql } from 'remix/data-table'
-import { lists } from '../../data/schema.ts'
+import { lists, users } from '../../data/schema.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { createAuthCookieWithCsrfForUser, createTestUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
@@ -78,9 +78,99 @@ describe('Lists controller', () => {
     let text = await response.text()
     assert.ok(text.includes('Neue Liste'), 'should render "Neue Liste" sidebar entry')
     assert.ok(
-      text.includes('aria-label="Listen suchen"'),
-      'should render the sidebar search input (labeled "Listen suchen")',
+      text.includes('aria-label="Listen und Einträge suchen"'),
+      'should render the sidebar search input (labeled for lists and items)',
     )
+    assert.ok(text.includes('name="sort"'), 'should render the sidebar sort select')
+    assert.ok(text.includes('name="size"'), 'should render the sidebar page-size select')
+    assert.ok(text.includes('data-sidebar-result-count'), 'should render the result count')
+  })
+
+  it('GET /lists?filter= searches item labels and reports the result count', async () => {
+    let marker = 'itemsearch-' + Date.now()
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Item search list ' + marker,
+        items: [{ label: marker + ' Eintrag' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(LISTS_URL + '?filter=' + marker + '%20Eintrag', {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(
+      text.includes('Item search list ' + marker),
+      'item text must match the sidebar search',
+    )
+    assert.ok(text.includes('1 Treffer'), 'the sidebar should report the filtered result count')
+    await db.delete(lists, { id })
+  })
+
+  it('GET /lists?sort=name orders lists alphabetically and size=all shows the page', async () => {
+    let marker = 'sortname-' + Date.now()
+    let ids: number[] = []
+    try {
+      for (let title of ['Zulu ' + marker, 'Alpha ' + marker]) {
+        let saveResponse = await router.fetch(LISTS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Csrf-Token': userCsrfToken,
+            Cookie: userCookie,
+          },
+          body: JSON.stringify({ title, description: title, items: [] }),
+        })
+        assert.equal(saveResponse.status, 200)
+        ids.push((await saveResponse.json()).id)
+      }
+
+      let response = await router.fetch(LISTS_URL + '?sort=name&size=all&filter=' + marker, {
+        headers: { Cookie: userCookie },
+      })
+      let text = await response.text()
+      let alpha = text.indexOf('Alpha ' + marker)
+      let zulu = text.indexOf('Zulu ' + marker)
+      assert.ok(alpha >= 0 && zulu >= 0, 'both lists should render')
+      assert.ok(alpha < zulu, 'sort=name must render Alpha before Zulu')
+      assert.ok(text.includes('2 Treffer'), 'the result count should include both matches')
+
+      // The count sort orders by the aliased jsonb item count; this also proves
+      // the ORDER BY alias is valid SQL on the pinned data-table build.
+      let byCount = await router.fetch(LISTS_URL + '?sort=count&size=all&filter=' + marker, {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(byCount.status, 200)
+      assert.ok((await byCount.text()).includes('Alpha ' + marker))
+    } finally {
+      for (let id of ids) await db.delete(lists, { id })
+    }
+  })
+
+  it('GET /lists renders an empty-state CTA for a user with no lists', async () => {
+    let email = `empty-lists-${Date.now()}@example.com`
+    let userId = await createTestUser(email)
+    assert.ok(userId != null, 'test user should be created')
+    try {
+      let auth = await createAuthCookieWithCsrfForUser(email)
+      assert.ok(auth?.cookie, 'empty user session should be created')
+      let response = await router.fetch(LISTS_URL, {
+        headers: { Cookie: auth!.cookie },
+      })
+      let text = await response.text()
+      assert.ok(text.includes('Erste Liste erstellen'), 'empty sidebar should offer a create CTA')
+      assert.ok(text.includes('0 Listen'), 'empty sidebar should report zero results')
+    } finally {
+      if (userId != null) await db.delete(users, userId)
+    }
   })
 
   it('GET /lists renders one collapsed action menu per sidebar row', async () => {
@@ -2149,7 +2239,7 @@ describe('Lists controller', () => {
         ids.push((await saveResponse.json()).id)
       }
 
-      let response = await router.fetch(LISTS_URL + '?filter=' + marker, {
+      let response = await router.fetch(LISTS_URL + '?filter=' + marker + '&sort=name&size=15', {
         headers: { Cookie: userCookie },
       })
       assert.equal(response.status, 200)
@@ -2159,6 +2249,8 @@ describe('Lists controller', () => {
         text.includes('filter=' + marker),
         'pagination links must carry the active filter forward',
       )
+      assert.ok(text.includes('sort=name'), 'pagination links must carry the active sort')
+      assert.ok(text.includes('size=15'), 'pagination links must carry the page size')
     } finally {
       for (let id of ids) await db.delete(lists, { id })
     }

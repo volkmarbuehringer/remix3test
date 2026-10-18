@@ -82,6 +82,12 @@ export interface ListSummary {
   doneCount: number
 }
 
+export type SidebarSort = 'recent' | 'name' | 'count'
+
+export interface ListSummaryResult extends ListResult<ListSummary[]> {
+  total: number
+}
+
 function toSummary(row: z.output<typeof listSummaryWireSchema>): ListSummary {
   return {
     id: row.id,
@@ -211,15 +217,27 @@ const summaryColumns = `SELECT id, title, description, updated_at,
 
 export async function getListSummaries(
   db: Database,
-  options: { offset?: number; limit?: number; filter?: string | undefined },
+  options: {
+    offset?: number
+    limit?: number
+    filter?: string | undefined
+    sort?: SidebarSort | undefined
+  },
   userId?: number,
-): Promise<ListResult<ListSummary[]>> {
+): Promise<ListSummaryResult> {
   let offset = Math.max(0, options.offset ?? 0)
   let limit = Math.max(1, Math.min(options.limit ?? 20, 100))
   let rawFilter = options.filter
+  let orderBy =
+    options.sort === 'name'
+      ? "LOWER(COALESCE(NULLIF(title, ''), description, '')) ASC, id ASC"
+      : options.sort === 'count'
+        ? 'item_count DESC, updated_at DESC, id DESC'
+        : 'updated_at DESC, id DESC'
 
   let rows: ListSummary[]
   let hasMore: boolean
+  let total: number
 
   if (rawFilter) {
     let filter = rawFilter.length > 200 ? rawFilter.slice(0, 200) : rawFilter
@@ -227,9 +245,13 @@ export async function getListSummaries(
     let searchPattern = `%${esc}%`
     let args: unknown[] = [searchPattern, limit + 1, offset]
     let ownerClause = ''
+    let countArgs: unknown[] = [searchPattern]
+    let countOwnerClause = ''
     if (userId != null) {
       args.push(userId)
       ownerClause = ' AND user_id = $4'
+      countArgs.push(userId)
+      countOwnerClause = ' AND user_id = $2'
     }
     rows = (
       await queryRows(
@@ -242,7 +264,7 @@ export async function getListSummaries(
             SELECT 1 FROM jsonb_array_elements(list) item
             WHERE item->>'label' ILIKE $1
           )) ${ownerClause}
-       ORDER BY updated_at DESC, id DESC
+       ORDER BY ${orderBy}
        LIMIT $2 OFFSET $3`,
           args,
         ),
@@ -251,19 +273,39 @@ export async function getListSummaries(
     ).map(toSummary)
     hasMore = rows.length > limit
     if (hasMore) rows.pop()
+
+    let countRows = await queryRows(
+      db,
+      rawSql(
+        `SELECT COUNT(*) AS total FROM lists
+       WHERE (title ILIKE $1
+          OR description ILIKE $1
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(list) item
+            WHERE item->>'label' ILIKE $1
+          )) ${countOwnerClause}`,
+        countArgs,
+      ),
+      z.object({ total: z.coerce.number() }),
+    )
+    total = countRows[0]?.total ?? 0
   } else {
     let args: unknown[] = [limit + 1, offset]
     let ownerClause = ''
+    let countArgs: unknown[] = []
+    let countOwnerClause = ''
     if (userId != null) {
       args.push(userId)
       ownerClause = 'WHERE user_id = $3'
+      countArgs = [userId]
+      countOwnerClause = 'WHERE user_id = $1'
     }
     rows = (
       await queryRows(
         db,
         rawSql(
           `${summaryColumns} ${ownerClause}
-       ORDER BY updated_at DESC, id DESC
+       ORDER BY ${orderBy}
        LIMIT $1 OFFSET $2`,
           args,
         ),
@@ -272,9 +314,16 @@ export async function getListSummaries(
     ).map(toSummary)
     hasMore = rows.length > limit
     if (hasMore) rows.pop()
+
+    let countRows = await queryRows(
+      db,
+      rawSql(`SELECT COUNT(*) AS total FROM lists ${countOwnerClause}`, countArgs),
+      z.object({ total: z.coerce.number() }),
+    )
+    total = countRows[0]?.total ?? 0
   }
 
-  return { data: rows, hasMore, offset }
+  return { data: rows, hasMore, offset, total }
 }
 
 export async function getListSummariesByIds(

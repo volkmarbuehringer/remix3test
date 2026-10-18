@@ -173,6 +173,33 @@ describe('lists view controls', () => {
     assert.equal(bulk.textContent?.trim(), '1 ausgewählt')
   })
 
+  it('labels the visible-select action when hidden rows stay selected', async () => {
+    let result = mount([
+      { id: 'a', label: 'Alpha offen' },
+      { id: 'b', label: 'Beta erledigt', done: true },
+      { id: 'c', label: 'Gamma offen' },
+    ])
+    let container = result.container as HTMLElement
+    await waitFor(() => statusTab(container, 'all') !== null)
+
+    await result.act(() =>
+      (container.querySelector('[data-select-item="b"]') as HTMLElement).click(),
+    )
+    await result.act(() => statusTab(container, 'open').click())
+    assert.ok(await waitFor(() => itemIds(container).join(',') === 'a,c'))
+
+    // Select every visible row while the hidden done row stays selected.
+    let selectAll = buttonByText(container, 'Alle sichtbaren auswählen')
+    assert.ok(selectAll)
+    await result.act(() => selectAll!.click())
+    let toggle = buttonByText(container, 'Sichtbare abwählen')
+    assert.ok(toggle, 'the action must name what it deselects when hidden rows remain')
+    assert.equal(
+      container.querySelector('[data-bulk-count]')?.getAttribute('data-bulk-hidden'),
+      '1',
+    )
+  })
+
   it('resets text and status filters from the filtered empty state', async () => {
     let result = mount([
       { id: 'a', label: 'Alpha' },
@@ -235,9 +262,18 @@ describe('lists view controls', () => {
     await waitFor(() => container.querySelector('[aria-label="Ansicht umkehren"]') !== null)
 
     let reverse = container.querySelector('[aria-label="Ansicht umkehren"]') as HTMLButtonElement
+    let unpressedClass = reverse.className
     await result.act(() => reverse.click())
     assert.ok(await waitFor(() => itemIds(container).join(',') === 'c,b,a'))
     assert.equal(reverse.getAttribute('aria-pressed'), 'true')
+    let pressedReverse = container.querySelector(
+      '[aria-label="Ansicht umkehren"]',
+    ) as HTMLButtonElement
+    assert.notEqual(
+      pressedReverse.className,
+      unpressedClass,
+      'the pressed reverse toggle must gain a visible pressed style',
+    )
     assert.equal(container.querySelector('[data-save-status]')?.textContent, 'Gespeichert')
 
     await result.act(() => reverse.click())

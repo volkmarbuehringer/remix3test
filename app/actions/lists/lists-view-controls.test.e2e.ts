@@ -216,6 +216,14 @@ describe('lists status filter strip', () => {
         '1',
       )
       assertGeometry(await readGeometry(page))
+      assert.notEqual(
+        await page.evaluate(
+          () =>
+            getComputedStyle(document.querySelector('[data-help-button]') as HTMLElement).display,
+        ),
+        'none',
+        'desktop keeps the ? toolbar control visible',
+      )
 
       await clickStatus(page, 'open', 2)
       await clickStatus(page, 'overdue', 1)
@@ -237,6 +245,24 @@ describe('lists status filter strip', () => {
         { timeout: 15_000 },
       )
       assertGeometry(await readGeometry(page))
+
+      // The narrow toolbar folds reverse/shuffle/help into the "…" menu so the
+      // header stays dense. Open it and check the folded actions keep 44px.
+      assert.equal(
+        await page.evaluate(
+          () =>
+            getComputedStyle(document.querySelector('[data-help-button]') as HTMLElement).display,
+        ),
+        'none',
+        'the ? control folds into the menu at 390px',
+      )
+      await page.locator('[data-lists-more] summary').click()
+      let menuAction = page.locator('[data-reverse-menu-action]')
+      await menuAction.waitFor({ state: 'visible', timeout: 5_000 })
+      let menuActionHeight = await menuAction.evaluate(
+        (el: HTMLElement) => el.getBoundingClientRect().height,
+      )
+      assert.ok(menuActionHeight >= 44, 'folded toolbar actions keep a 44px target')
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
     }

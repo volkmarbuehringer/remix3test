@@ -81,6 +81,22 @@ describe('ListsSearch', () => {
     assert.equal(event.defaultPrevented, false, 'nothing to clear, nothing to intercept')
   })
 
+  it('submits immediately when the sort or page-size select changes', () => {
+    mount(
+      FORM.replace(
+        '</form>',
+        '<select name="sort" data-lists-sidebar-select><option value="name">Name</option></select></form>',
+      ),
+    )
+    renderEntry()
+
+    let select = document.querySelector('[data-lists-sidebar-select]') as HTMLSelectElement
+    let submits = countSubmits(searchInput())
+    select.value = 'name'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    assert.equal(submits(), 1, 'a select change resubmits the shared GET form')
+  })
+
   it('debounces typing into a single form submit', async () => {
     mount(FORM)
     renderEntry()

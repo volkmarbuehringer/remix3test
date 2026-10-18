@@ -114,10 +114,14 @@ export const ListsClient = clientEntry(
     // Conflict state
     let conflictState: ListConflictState = { show: false, serverState: null }
 
-    // Undo + inline-confirm state
+    // Undo + inline-confirm state. The undo chip now stays until the next
+    // mutation (see setDirty) instead of expiring on a timer, so Ctrl/Cmd+Z
+    // can revert the last destructive action even after a pause.
     let undoSnapshot: ListItem[] | null = null
-    let undoTimer: ReturnType<typeof setTimeout> | null = null
     let undoKind: UndoKind | null = null
+    // One-shot guard: showUndo runs immediately before setDirty in every
+    // destructive path, and that setDirty must not clear the chip it just set.
+    let keepUndoForMutation = false
     let clearArmed = false
     let clearArmTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -156,25 +160,21 @@ export const ListsClient = clientEntry(
     // the row keeps the element list scroll container from clipping it.
     let openItemMenuId: string | null = null
 
+    // Keyboard-help sheet (the "?" trigger). Focus managed like the picker.
+    let helpOpen = false
+    let helpTrigger: HTMLElement | null = null
+
     let clearUndo = () => {
-      if (undoTimer) clearTimeout(undoTimer)
-      undoTimer = null
       undoSnapshot = null
       undoKind = null
       void handle.update()
     }
 
     let showUndo = (kind: UndoKind, snapshot: ListItem[]) => {
-      if (undoTimer) clearTimeout(undoTimer)
       undoSnapshot = snapshot
       undoKind = kind
+      keepUndoForMutation = true
       void handle.update()
-      undoTimer = setTimeout(() => {
-        undoSnapshot = null
-        undoKind = null
-        undoTimer = null
-        void handle.update()
-      }, 6000)
     }
 
     let undo = () => {
@@ -404,6 +404,13 @@ export const ListsClient = clientEntry(
     }
 
     let setDirty = () => {
+      // The previous action's undo stays available until the next mutation, but
+      // not across it: a second edit must not silently revert to a stale state.
+      if (keepUndoForMutation) {
+        keepUndoForMutation = false
+      } else if (undoSnapshot !== null) {
+        clearUndo()
+      }
       // Runs before the dirty early-return so that reverting a new-list draft
       // back to clean clears the stored draft rather than leaving it stale.
       saveDraft()
@@ -682,6 +689,40 @@ export const ListsClient = clientEntry(
         }
         newItemRef?.focus()
       })
+    }
+
+    // Keyboard shortcut sheet. The visible list lives in lists-view; the live
+    // region announcement keeps the pre-existing screen-reader affordance.
+    let openHelp = (trigger: HTMLElement | null) => {
+      helpTrigger = trigger
+      helpOpen = true
+      announce(
+        'Tastatur-Hilfe geöffnet: Enter nimmt ein Element auf, Pfeile verschieben es, Enter legt es ab, Strg oder Cmd plus Pfeile verschieben direkt, Escape bricht ab, Strg oder Cmd plus Z macht die letzte Aktion rückgängig, Doppelklick auf den Elementtext bearbeitet es.',
+      )
+      void handle.update()
+    }
+
+    let closeHelp = () => {
+      if (!helpOpen) return
+      helpOpen = false
+      announce('Tastatur-Hilfe geschlossen')
+      let trigger = helpTrigger
+      helpTrigger = null
+      handle.queueTask(() => {
+        if (trigger && trigger.isConnected && trigger.offsetParent !== null) {
+          trigger.focus()
+          return
+        }
+        // On touch the "?" button is folded into the "…" menu, so restore
+        // focus to that menu's summary instead.
+        document.querySelector<HTMLElement>('[data-lists-more] summary')?.focus()
+      })
+      void handle.update()
+    }
+
+    let toggleHelp = (trigger: HTMLElement | null) => {
+      if (helpOpen) closeHelp()
+      else openHelp(trigger)
     }
 
     let toggleSelected = (id: string) => {
@@ -1102,6 +1143,30 @@ export const ListsClient = clientEntry(
         },
         { signal: handle.signal },
       )
+
+      // Ctrl/Cmd+Z outside form fields. Inputs keep their native text undo;
+      // inside the editor the document shortcut reverts the last destructive
+      // action (the chip above documents that it is still available).
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+          if (event.key.toLowerCase() !== 'z') return
+          let target = event.target
+          if (
+            target instanceof Element &&
+            target.closest(
+              'input, textarea, select, [contenteditable=""], [contenteditable="true"]',
+            )
+          ) {
+            return
+          }
+          if (undoSnapshot === null) return
+          event.preventDefault()
+          undo()
+        },
+        { signal: handle.signal },
+      )
     }
 
     // Revert unsaved edits back to the last saved snapshot.
@@ -1110,13 +1175,12 @@ export const ListsClient = clientEntry(
         clearTimeout(autosaveTimer)
         autosaveTimer = null
       }
-      if (undoTimer) {
-        clearTimeout(undoTimer)
-        undoTimer = null
-      }
       undoSnapshot = null
       undoKind = null
+      keepUndoForMutation = false
       openItemMenuId = null
+      helpOpen = false
+      picker = null
       clearSelection()
       items = parseItemsFingerprint(cleanItemsJSON)
       title = cleanTitle
@@ -1138,6 +1202,9 @@ export const ListsClient = clientEntry(
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
       openItemMenuId = null
+      helpOpen = false
+      picker = null
+      keepUndoForMutation = false
       clearSelection()
       snapshotClean()
       saveStatus = 'saved'
@@ -1824,6 +1891,7 @@ export const ListsClient = clientEntry(
       pickerHasMore,
       pickerLoading,
       pickerError,
+      helpOpen,
       clearArmed,
       grabbedId,
       openItemMenuId,
@@ -1867,6 +1935,8 @@ export const ListsClient = clientEntry(
       closeTargetPicker,
       setPickerQuery,
       handlePickerKeyDown,
+      toggleHelp,
+      closeHelp,
       onPickerSearchRef: (el) => {
         pickerSearchRef = el
       },

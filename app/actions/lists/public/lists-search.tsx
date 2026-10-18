@@ -61,6 +61,24 @@ export const ListsSearch = clientEntry(
         { signal: ac.signal },
       )
 
+      // Sort/page-size selects live in the same GET form; a change is an
+      // explicit navigation, so submit immediately (no debounce).
+      for (let select of Array.from(
+        document.querySelectorAll<HTMLSelectElement>('[data-lists-sidebar-select]'),
+      )) {
+        select.addEventListener(
+          'change',
+          () => {
+            if (timer) {
+              clearTimeout(timer)
+              timer = null
+            }
+            submit()
+          },
+          { signal: ac.signal },
+        )
+      }
+
       ac.signal.addEventListener('abort', () => {
         if (timer) clearTimeout(timer)
       })

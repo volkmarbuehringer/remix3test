@@ -21,6 +21,7 @@ import {
   copyItemsToList,
   type ListSummary,
   type ListItemInput,
+  type SidebarSort,
 } from '../../data/lists.ts'
 import {
   renderListsPage,
@@ -63,6 +64,10 @@ function listsIndexReturnHref(url: URL): string {
   if (offset) params.set('offset', offset)
   let filter = url.searchParams.get('filter')
   if (filter) params.set('filter', filter)
+  let sort = url.searchParams.get('sort')
+  if (sort) params.set('sort', sort)
+  let size = url.searchParams.get('size')
+  if (size) params.set('size', size)
   let query = params.toString()
   return routes.lists.index.href() + (query ? '?' + query : '')
 }
@@ -134,6 +139,17 @@ export default createController(routes.lists, {
 
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
+      let sortRaw = context.url.searchParams.get('sort')
+      let sort: SidebarSort = sortRaw === 'name' || sortRaw === 'count' ? sortRaw : 'recent'
+      let sizeRaw = context.url.searchParams.get('size')
+      // Accept the preset sizes and any whole 5–100 (the Settings slider can
+      // store a custom global page size). "all" is capped at the query limit.
+      let requestedSize: number | 'all' | null = null
+      if (sizeRaw === 'all') requestedSize = 'all'
+      else if (sizeRaw && /^[0-9]+$/.test(sizeRaw)) {
+        let parsed = Number(sizeRaw)
+        if (Number.isInteger(parsed) && parsed >= 5 && parsed <= 100) requestedSize = parsed
+      }
       let idsRaw = context.url.searchParams.get('ids')
       let sidebarEntries: ListSidebarEntry[]
       let listResult: PaginationState | undefined
@@ -152,16 +168,26 @@ export default createController(routes.lists, {
         let entries = await getListSummariesByIds(context.db, ids, listUserId)
         sidebarEntries = entries.map(toSidebarEntry)
       } else {
-        let pageSize = getPageSize(context.session, 15)
+        let pageSize =
+          requestedSize === 'all'
+            ? 100
+            : typeof requestedSize === 'number'
+              ? requestedSize
+              : getPageSize(context.session, 15)
 
         let result = await getListSummaries(
           context.db,
-          { limit: pageSize, offset, filter },
+          { limit: pageSize, offset, filter, sort },
           listUserId,
         )
 
         sidebarEntries = result.data.map(toSidebarEntry)
-        listResult = { offset: result.offset, hasMore: result.hasMore, limit: pageSize }
+        listResult = {
+          offset: result.offset,
+          hasMore: result.hasMore,
+          limit: pageSize,
+          total: result.total,
+        }
       }
 
       let loadParam = context.url.searchParams.get('load')
@@ -735,6 +761,10 @@ export default createController(routes.lists, {
       if (offset) params.set('offset', offset)
       let filter = context.url.searchParams.get('filter')
       if (filter) params.set('filter', filter)
+      let sort = context.url.searchParams.get('sort')
+      if (sort) params.set('sort', sort)
+      let size = context.url.searchParams.get('size')
+      if (size) params.set('size', size)
       return redirect(routes.lists.index.href() + '?' + params.toString())
     },
   },

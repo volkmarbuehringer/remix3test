@@ -344,6 +344,50 @@ describe('lists sidebar row action menu', () => {
       await page
         .locator(`[data-list-id="${copiedIds[0]}"]`)
         .waitFor({ state: 'attached', timeout: 15_000 })
+
+      // Sidebar sort/page-size controls submit the shared GET form and keep the
+      // open list in the URL. The client entry wires the change events, so retry
+      // until hydration has landed (a pre-hydration selectOption is a no-op).
+      let activeBeforeSort = await page.evaluate(
+        () =>
+          document.querySelector('[data-lists-active-id]')?.getAttribute('data-lists-active-id') ??
+          '',
+      )
+      assert.ok(activeBeforeSort, 'a list should be open before sorting')
+      for (let attempt = 0; attempt < 40; attempt++) {
+        await page.selectOption('select[name="sort"]', 'name')
+        await page.waitForTimeout(150)
+        if ((await page.evaluate(() => location.search)).includes('sort=name')) break
+      }
+      assert.ok(
+        (await page.evaluate(() => location.search)).includes('sort=name'),
+        'changing the sort must navigate with sort=name',
+      )
+      assert.ok(
+        (await page.evaluate(() => location.search)).includes(`load=${activeBeforeSort}`),
+        'sorting must preserve the open list',
+      )
+      assert.equal(await page.locator('select[name="sort"]').inputValue(), 'name')
+
+      for (let attempt = 0; attempt < 40; attempt++) {
+        await page.selectOption('select[name="size"]', 'all')
+        await page.waitForTimeout(150)
+        if ((await page.evaluate(() => location.search)).includes('size=all')) break
+      }
+      assert.ok(
+        (await page.evaluate(() => location.search)).includes('size=all'),
+        'changing the page size must navigate with size=all',
+      )
+      assert.ok(
+        await page.locator('[data-sidebar-result-count]').isVisible(),
+        'the sidebar result count must stay visible',
+      )
+      assert.ok(
+        /\d+ (Liste|Listen|Treffer)/.test(
+          (await page.locator('[data-sidebar-result-count]').innerText()).trim(),
+        ),
+        'the result count must be human-readable',
+      )
     } finally {
       await removeLists()
     }

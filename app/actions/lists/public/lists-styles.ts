@@ -375,12 +375,79 @@ export const iconToolbarBtnStyle = css({
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,
   },
+  '&[aria-pressed="true"]': {
+    background: theme.colors.action.primary.background,
+    borderColor: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.foreground,
+  },
   // 26px is below the WCAG 2.2 minimum target on touch; grow the hit area
   // without changing the glyph.
   '@media (hover: none)': {
     width: '44px',
     height: '44px',
   },
+})
+
+// Explicit pressed style for the reverse toggle. Applied conditionally from
+// the view as well as via the attribute selector so the state is visible even
+// if a runtime drops the nested attribute rule.
+export const pressedControlStyle = css({
+  background: theme.colors.action.primary.background,
+  borderColor: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+})
+
+// On touch, the reverse/shuffle/help controls move into the "…" menu so the
+// toolbar stays two rows at 390px. Desktop keeps the visible 26px cluster.
+export const touchOnlyToolbarActionStyle = css({
+  display: 'inline-flex',
+  '@media (max-width: 768px)': {
+    display: 'none',
+  },
+})
+
+export const touchOnlyMenuActionStyle = css({
+  display: 'none',
+  width: '100%',
+  minHeight: '44px',
+  justifyContent: 'center',
+  '@media (max-width: 768px)': {
+    display: 'flex',
+  },
+  '&[aria-pressed="true"]': {
+    background: theme.colors.action.primary.background,
+    borderColor: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.foreground,
+  },
+})
+
+export const shortcutListStyle = css({
+  margin: 0,
+  padding: 0,
+  listStyle: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
+})
+
+export const shortcutRowStyle = css({
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: theme.space.sm,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+})
+
+export const shortcutKeyStyle = css({
+  flexShrink: 0,
+  minWidth: '6.5rem',
+  padding: '2px 6px',
+  borderRadius: theme.radius.sm,
+  border: '1px solid ' + theme.colors.border.default,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.primary,
+  fontFamily: theme.fontFamily.mono,
+  fontSize: theme.fontSize.xs,
 })
 
 // "…" overflow menu that holds the destructive list actions so they stay out

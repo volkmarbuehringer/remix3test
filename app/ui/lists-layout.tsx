@@ -50,6 +50,8 @@ export type PaginationState = {
   offset: number
   hasMore: boolean
   limit: number
+  /** Total matching lists (not just the current page), when known. */
+  total?: number | undefined
 }
 
 const frameTarget = frames.listsContent
@@ -101,11 +103,72 @@ const navScrollStyle = css({
   overflowY: 'auto',
 })
 
+const sidebarFormStyle = css({
+  margin: 0,
+  marginBottom: theme.space.xs,
+})
+
 const searchFormStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.xs,
-  marginBottom: theme.space.xs,
+})
+
+const sidebarControlsRowStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  flexWrap: 'wrap',
+  marginTop: theme.space.xs,
+})
+
+const sidebarSelectStyle = css({
+  flex: '1 1 84px',
+  minWidth: 0,
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.sm,
+  border: `1px solid ${theme.colors.border.default}`,
+  background: theme.surface.lvl0,
+  color: theme.colors.text.primary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.xxs,
+})
+
+const sidebarResultCountStyle = css({
+  flexBasis: '100%',
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.text.muted,
+})
+
+const emptyStateStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: theme.space.xs,
+  padding: `${theme.space.sm} 0`,
+})
+
+const emptyCtaStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '44px',
+  padding: `0 ${theme.space.sm}`,
+  borderRadius: theme.radius.md,
+  border: `1px solid ${theme.colors.border.strong}`,
+  background: theme.surface.lvl0,
+  color: theme.colors.text.primary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  textDecoration: 'none',
+})
+
+const countRingStyle = css({
+  width: '14px',
+  height: '14px',
+  flexShrink: 0,
+  borderRadius: theme.radius.full,
+  border: `1px solid ${theme.colors.border.default}`,
 })
 
 const searchInputStyle = css({
@@ -219,13 +282,32 @@ function currentFilter(): string | null {
   return new URL(getContext().request.url).searchParams.get('filter')
 }
 
+function currentSort(): 'recent' | 'name' | 'count' {
+  let value = new URL(getContext().request.url).searchParams.get('sort')
+  return value === 'name' || value === 'count' ? value : 'recent'
+}
+
+function currentSize(): string | null {
+  let value = new URL(getContext().request.url).searchParams.get('size')
+  if (value === 'all') return 'all'
+  if (value && /^[0-9]+$/.test(value)) return value
+  return null
+}
+
+/** Sidebar view state that must survive search, pagination and list links. */
+function appendSidebarParams(params: URLSearchParams) {
+  let filter = currentFilter()
+  if (filter) params.set('filter', filter)
+  let sort = currentSort()
+  if (sort !== 'recent') params.set('sort', sort)
+  let size = currentSize()
+  if (size) params.set('size', size)
+}
+
 function buildListHref(listId: number, pagination?: PaginationState): string {
   let params = new URLSearchParams()
   params.set('load', String(listId))
-  let filter = currentFilter()
-  if (filter) {
-    params.set('filter', filter)
-  }
+  appendSidebarParams(params)
   if (pagination && pagination.offset > 0) {
     params.set('offset', String(pagination.offset))
   }
@@ -248,10 +330,7 @@ function buildPageHref(
   } else if (activeId != null) {
     params.set('load', String(activeId))
   }
-  let filter = currentFilter()
-  if (filter) {
-    params.set('filter', filter)
-  }
+  appendSidebarParams(params)
   return routes.lists.index.href() + '?' + params.toString()
 }
 
@@ -269,6 +348,17 @@ function ListsLayout(
       typeof activeItem === 'string' && activeItem.startsWith('list:')
         ? Number(activeItem.slice(5))
         : null
+    let filterValue = currentFilter() ?? ''
+    let pageLimit = pagination?.limit ?? 15
+    let sizeValue = currentSize() ?? (pageLimit >= 100 ? 'all' : String(pageLimit))
+    let sizeOptions =
+      sizeValue === 'all' || ['15', '30', '50'].includes(sizeValue)
+        ? ['15', '30', '50']
+        : ['15', '30', '50', sizeValue].toSorted((a, b) => Number(a) - Number(b))
+    let resultCount = pagination?.total ?? sidebarEntries.length
+    let resultLabel = filterValue
+      ? `${resultCount} Treffer`
+      : `${resultCount} ${resultCount === 1 ? 'Liste' : 'Listen'}`
     return (
       <div
         mix={[
@@ -301,29 +391,71 @@ function ListsLayout(
               data-rmx-target={frameTarget}
               data-rmx-reset-focus="manual"
               data-lists-search="true"
-              mix={searchFormStyle}
+              mix={sidebarFormStyle}
             >
-              <input
-                id="lists-sidebar-search"
-                type="search"
-                name="filter"
-                defaultValue={new URL(getContext().request.url).searchParams.get('filter') ?? ''}
-                placeholder="Listen suchen…"
-                aria-label="Listen suchen"
-                mix={searchInputStyle}
-              />
-              {activeListId !== null ? (
-                <input type="hidden" name="load" value={activeListId} />
-              ) : null}
-              <ListsSearch />
-              <button
-                type="submit"
-                aria-label="Listen suchen"
-                title="Suchen"
-                mix={searchButtonStyle}
-              >
-                <Glyph name="search" width={14} height={14} />
-              </button>
+              <div mix={searchFormStyle}>
+                <input
+                  id="lists-sidebar-search"
+                  type="search"
+                  name="filter"
+                  defaultValue={filterValue}
+                  placeholder="Listen oder Einträge suchen…"
+                  aria-label="Listen und Einträge suchen"
+                  mix={searchInputStyle}
+                />
+                {activeListId !== null ? (
+                  <input type="hidden" name="load" value={activeListId} />
+                ) : null}
+                <ListsSearch />
+                <button
+                  type="submit"
+                  aria-label="Listen und Einträge suchen"
+                  title="Suchen"
+                  mix={searchButtonStyle}
+                >
+                  <Glyph name="search" width={14} height={14} />
+                </button>
+              </div>
+              <div mix={sidebarControlsRowStyle}>
+                <select
+                  name="sort"
+                  data-lists-sidebar-select
+                  defaultValue={currentSort()}
+                  aria-label="Listen sortieren"
+                  title="Sortierung der Seitenleiste"
+                  mix={sidebarSelectStyle}
+                >
+                  <option value="recent">Zuletzt geändert</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="count">Meiste Einträge</option>
+                </select>
+                <select
+                  name="size"
+                  data-lists-sidebar-select
+                  defaultValue={sizeValue}
+                  aria-label="Listen pro Seite"
+                  title="Anzahl der Listen pro Seite"
+                  mix={sidebarSelectStyle}
+                >
+                  {sizeOptions.map((value) => (
+                    <option key={value} value={value}>
+                      {value} pro Seite
+                    </option>
+                  ))}
+                  <option value="all">Alle (max. 100)</option>
+                </select>
+                <span
+                  mix={sidebarResultCountStyle}
+                  data-sidebar-result-count
+                  title={
+                    pagination?.total != null
+                      ? `${sidebarEntries.length} von ${pagination.total} sichtbar`
+                      : undefined
+                  }
+                >
+                  {resultLabel}
+                </span>
+              </div>
             </form>
             <NavLink
               key="new"
@@ -401,6 +533,19 @@ function ListsLayout(
                           : `${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`
                       }
                     >
+                      {entry.doneCount != null && (
+                        <span
+                          aria-hidden="true"
+                          mix={countRingStyle}
+                          style={{
+                            background: `conic-gradient(${theme.colors.success.background} ${
+                              entry.count > 0
+                                ? Math.round((entry.doneCount / entry.count) * 100)
+                                : 0
+                            }%, ${theme.colors.border.default} 0)`,
+                          }}
+                        />
+                      )}
                       {entry.doneCount != null ? `${entry.doneCount}/${entry.count}` : entry.count}
                     </span>
                   </NavLink>
@@ -498,11 +643,21 @@ function ListsLayout(
             <ListsSidebarKeyboard />
             <ListsRowActions />
             {sidebarEntries.length === 0 && (
-              <p mix={emptyHintStyle}>
-                {new URL(getContext().request.url).searchParams.get('filter')
-                  ? 'Keine Treffer'
-                  : 'Keine gespeicherten Listen'}
-              </p>
+              <div mix={emptyStateStyle}>
+                <p mix={emptyHintStyle}>
+                  {filterValue ? 'Keine Treffer' : 'Keine gespeicherten Listen'}
+                </p>
+                {!filterValue && (
+                  <NavLink
+                    href={routes.lists.index.href() + '?new=1'}
+                    target={frameTarget}
+                    mix={emptyCtaStyle}
+                    data-lists-empty-cta
+                  >
+                    + Erste Liste erstellen
+                  </NavLink>
+                )}
+              </div>
             )}
           </nav>
           {/* Kept outside the scrolling <nav> so the controls stay pinned to the
@@ -585,6 +740,7 @@ const countBadgeStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  gap: '4px',
   minWidth: '20px',
   height: '20px',
   padding: '0 6px',

@@ -46,6 +46,12 @@ import {
   panelRightStyle,
   panelFilterInputStyle,
   iconToolbarBtnStyle,
+  pressedControlStyle,
+  touchOnlyToolbarActionStyle,
+  touchOnlyMenuActionStyle,
+  shortcutListStyle,
+  shortcutRowStyle,
+  shortcutKeyStyle,
   menuDetailsStyle,
   menuSummaryStyle,
   menuPanelStyle,
@@ -141,6 +147,7 @@ export type ListsEditorView = {
   pickerHasMore: boolean
   pickerLoading: boolean
   pickerError: string
+  helpOpen: boolean
   clearArmed: boolean
   grabbedId: string | null
   openItemMenuId: string | null
@@ -186,6 +193,8 @@ export type ListsEditorView = {
   closeTargetPicker: (restoreFocus?: boolean) => void
   setPickerQuery: (value: string) => void
   handlePickerKeyDown: (event: KeyboardEvent) => void
+  toggleHelp: (trigger: HTMLElement | null) => void
+  closeHelp: () => void
   clearSelectionAndError: () => void
   toggleSelected: (id: string) => void
   toggleDone: (index: number) => void
@@ -298,6 +307,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     pickerHasMore,
     pickerLoading,
     pickerError,
+    helpOpen,
     clearArmed,
     grabbedId,
     openItemMenuId,
@@ -341,6 +351,8 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     closeTargetPicker,
     setPickerQuery,
     handlePickerKeyDown,
+    toggleHelp,
+    closeHelp,
     onPickerSearchRef,
     toggleSelected,
     toggleDone,
@@ -461,13 +473,18 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 </button>
               )}
               <button
+                data-manual-save
                 mix={[
-                  button({ tone: 'primary' }),
+                  // Autosave is the default; this is the explicit escape hatch.
+                  // Keep it quiet (secondary) and let the status pill carry the
+                  // everyday save state.
+                  button({ tone: 'secondary' }),
                   on('click', () => {
                     void flushNow()
                   }),
                 ]}
                 disabled={!isDirty() || saving}
+                title="Jetzt speichern — Änderungen werden sonst automatisch gespeichert"
               >
                 Speichern
               </button>
@@ -704,6 +721,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 css({ fontSize: theme.fontSize.xs }),
                 on('click', undo),
               ]}
+              title="Bleibt bis zur nächsten Änderung verfügbar (Strg/Cmd+Z außerhalb von Eingabefeldern)"
             >
               ↶ Rückgängig
             </button>
@@ -950,16 +968,22 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               )}
               <button
                 type="button"
-                mix={[iconToolbarBtnStyle, on('click', toggleReverse)]}
+                mix={[
+                  iconToolbarBtnStyle,
+                  touchOnlyToolbarActionStyle,
+                  ...(reverseView ? [pressedControlStyle] : []),
+                  on('click', toggleReverse),
+                ]}
                 title="Ansicht umkehren (nicht gespeichert)"
                 aria-label="Ansicht umkehren"
                 aria-pressed={reverseView}
+                data-reverse-toggle
               >
                 ↺
               </button>
               <button
                 type="button"
-                mix={[iconToolbarBtnStyle, on('click', reshuffle)]}
+                mix={[iconToolbarBtnStyle, touchOnlyToolbarActionStyle, on('click', reshuffle)]}
                 title="Ansicht mischen (nicht gespeichert)"
                 aria-label="Ansicht mischen"
               >
@@ -967,16 +991,16 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               </button>
               <button
                 type="button"
+                data-help-button
                 mix={[
                   iconToolbarBtnStyle,
-                  on('click', () =>
-                    announce(
-                      'Tastatur: Enter nimmt ein Element auf, Pfeile verschieben es, Enter legt es ab. Strg+Pfeile verschieben direkt.',
-                    ),
-                  ),
+                  touchOnlyToolbarActionStyle,
+                  on('click', (event) => toggleHelp(event.currentTarget)),
                 ]}
-                title="Tastatur: Enter aufnehmen, Pfeile verschieben, Enter ablegen. Strg+Pfeile für Direktverschieben."
-                aria-label="Tastatur-Hinweise"
+                title="Tastatur- und Maus-Hilfe"
+                aria-label="Tastatur-Hilfe"
+                aria-expanded={helpOpen}
+                aria-controls="lists-help-dialog"
               >
                 ?
               </button>
@@ -1025,6 +1049,39 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   ⋯
                 </summary>
                 <div mix={menuPanelStyle}>
+                  <button
+                    type="button"
+                    data-reverse-menu-action
+                    aria-pressed={reverseView}
+                    mix={[
+                      button({ tone: 'secondary' }),
+                      touchOnlyMenuActionStyle,
+                      ...(reverseView ? [pressedControlStyle] : []),
+                      on('click', toggleReverse),
+                    ]}
+                  >
+                    ↺ Ansicht umkehren
+                  </button>
+                  <button
+                    type="button"
+                    mix={[
+                      button({ tone: 'secondary' }),
+                      touchOnlyMenuActionStyle,
+                      on('click', reshuffle),
+                    ]}
+                  >
+                    ⇄ Ansicht mischen
+                  </button>
+                  <button
+                    type="button"
+                    mix={[
+                      button({ tone: 'secondary' }),
+                      touchOnlyMenuActionStyle,
+                      on('click', (event) => toggleHelp(event.currentTarget)),
+                    ]}
+                  >
+                    ? Tastatur-Hilfe
+                  </button>
                   <button
                     mix={[button({ tone: 'secondary' }), on('click', clearDone)]}
                     disabled={items.filter((item) => item.done === true).length === 0}
@@ -1128,7 +1185,11 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 type="button"
                 mix={[button({ tone: 'secondary' }), on('click', toggleSelectAllVisible)]}
               >
-                {allVisibleSelected ? 'Auswahl aufheben' : 'Alle sichtbaren auswählen'}
+                {allVisibleSelected
+                  ? hiddenSelectedCount > 0
+                    ? 'Sichtbare abwählen'
+                    : 'Auswahl aufheben'
+                  : 'Alle sichtbaren auswählen'}
               </button>
               <button
                 type="button"
@@ -1310,6 +1371,91 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             </div>
           )}
 
+          {helpOpen && (
+            <div
+              data-help-overlay
+              mix={[
+                targetPickerOverlayStyle,
+                on('click', (event) => {
+                  if (event.target === event.currentTarget) closeHelp()
+                }),
+              ]}
+            >
+              <div
+                id="lists-help-dialog"
+                data-help-dialog
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="lists-help-title"
+                mix={[
+                  targetPickerDialogStyle,
+                  on('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      closeHelp()
+                    }
+                  }),
+                  ref((el) => {
+                    if (el && !el.dataset.focusReady) {
+                      el.dataset.focusReady = 'true'
+                      el.querySelector<HTMLButtonElement>('button')?.focus()
+                    }
+                  }),
+                ]}
+              >
+                <div mix={targetPickerHeaderStyle}>
+                  <h2 id="lists-help-title" mix={targetPickerTitleStyle}>
+                    Tastatur & Maus
+                  </h2>
+                  <button
+                    type="button"
+                    data-help-close
+                    aria-label="Hilfe schließen"
+                    title="Schließen"
+                    mix={[targetPickerCloseStyle, on('click', closeHelp)]}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div mix={targetPickerBodyStyle}>
+                  <ul mix={shortcutListStyle}>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>Enter / Leertaste</kbd>
+                      <span>Element aufnehmen bzw. ablegen (Greifmodus)</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>↑ / ↓</kbd>
+                      <span>Fokus bewegen; beim Greifen das Element verschieben</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>Strg/Cmd + ↑↓</kbd>
+                      <span>Element direkt verschieben</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>Esc</kbd>
+                      <span>Greifen abbrechen oder Dialog schließen</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>Strg/Cmd + Z</kbd>
+                      <span>Letzte Aktion rückgängig (außerhalb von Eingabefeldern)</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>Doppelklick</kbd>
+                      <span>Elementtext bearbeiten (oder Stift-Symbol)</span>
+                    </li>
+                    <li mix={shortcutRowStyle}>
+                      <kbd mix={shortcutKeyStyle}>?</kbd>
+                      <span>Diese Hilfe öffnen</span>
+                    </li>
+                  </ul>
+                  <p mix={targetPickerHintStyle}>
+                    Der Greifmodus bleibt aktiv, bis du Enter/Leertaste drückst oder Esc abbrichst.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {items.length === 0 ? (
             <div
               mix={css({
@@ -1476,8 +1622,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
                         : []),
                       on('keydown', (e) => handleRowKeyDown(e, index)),
-                      on('click', () => {
+                      on('click', (event) => {
                         view.setFocusedId(item.id)
+                        // The second click of a native double click carries
+                        // detail === 2; this is the row-level edit affordance
+                        // alongside the pencil button.
+                        if (event.detail === 2) startEditing(realIndex)
                       }),
                     ]}
                     role="listitem"
@@ -1617,6 +1767,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 color: theme.colors.text.muted,
                               }),
                           ].filter(Boolean)}
+                          title="Doppelklick zum Bearbeiten"
                         >
                           {item.label}
                         </span>
@@ -1738,7 +1889,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             title="Löschen"
                             aria-label="Löschen"
                           >
-                            <Glyph name="close" width={16} height={16} />
+                            <Glyph name="trash" width={16} height={16} />
                           </button>
                           {rowDraggable && (
                             <>
