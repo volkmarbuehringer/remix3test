@@ -1,6 +1,6 @@
 ---
 name: remix3-ui
-description: "Use when building Remix 3 pages, components, <Frame> navigation, or clientEntry browser behavior — component context / handle.id / TypedEventTarget, document shell + asset-entry/ImportMap/head wiring, choosing app-owned css() vs @remix-run/ui primitives, unsafeHTML and remix/html-template, the createRoot/run() interactivity runtime, custom event mixins and browser-only behavior mixins (createMixin(type, { ssr: false })), on(...)/handle.update() cancellation, navigate/link/attrs, optimistic UI, enhanced form submission, queueTask vs requestAnimationFrame, ARIA tab wiring + no-JS fallback CSS, Firefox multi-import-map, frame targets/data-rmx-* escapes, cascade/mounted-guard traps, LazyFrame/IntersectionObserver, session.flash in fragments, frame failures/cancellation, renderToString/renderWith, and remix/component JSX attribute conventions (kebab-case SVG, runtime renames verified at runtime)."
+description: "Use when building Remix 3 pages, components, <Frame> navigation, or clientEntry browser behavior — component context / handle.id / TypedEventTarget, document shell + asset-entry/ImportMap/head wiring, choosing app-owned css() vs @remix-run/ui primitives, unsafeHTML and remix/html-template, the createRoot/run() interactivity runtime, custom event mixins and browser-only behavior mixins (createMixin(type, { ssr: false })), touch row action menus (kebab + inline menu, focus restoration), on(...)/handle.update() cancellation, navigate/link/attrs, optimistic UI, enhanced form submission, queueTask vs requestAnimationFrame, ARIA tab wiring + no-JS fallback CSS, Firefox multi-import-map, frame targets/data-rmx-* escapes, cascade/mounted-guard traps, LazyFrame/IntersectionObserver, session.flash in fragments, frame failures/cancellation, renderToString/renderWith, and remix/component JSX attribute conventions (kebab-case SVG, runtime renames verified at runtime)."
 user-invocable: false
 origin: consolidated
 ---
@@ -106,6 +106,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | A server-hidden element must reappear when scripting is disabled; a `<noscript>` or `<html data-*>` fallback goes live / gets wiped after a client patch | `references/remix3-client-entries/nojs-fallback-scripting-media.md` |
 | A `clientEntry` needs a client-only mount, a custom event mixin, code-driven navigation (or a link-like non-anchor host), cancellation granularity / optimistic state, stable list keys / input ownership, or enhanced form submission | `references/remix3-client-entries/interactivity-runtime.md` |
 | Building keyboard-navigable rich lists (roving tabindex, nested controls, focus-by-id reorder, safe re-init) | `references/remix3-client-entries/roving-tabindex-keyboard-lists.md` |
+| Dense touch row lists: hover actions squeeze the label, a row menu is clipped by the scroll container, filtered move actions reorder hidden rows, or focus drops after an action | `references/remix3-client-entries/touch-row-action-menu.md` |
 | Setting an input/textarea value programmatically (chip, autofill, URL prefill) and the `maxLength` cap must still hold | `references/remix3-client-entries/maxlength-programmatic-value-bypass.md` |
 | Streaming agent/LLM text into a chat bubble and rendering markdown only once the stream settles, without `innerHTML` | `references/remix3-client-entries/streamed-chat-markdown-finalize.md` |
 | A `clientEntry` / `.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX and must be split without behavior change | `references/remix3-client-entries/client-entry-decomposition.md` |
@@ -147,6 +148,12 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 
 - Guard bubbled keydown at the top of the row handler (`if (e.target !== e.currentTarget) return`) so nested checkbox/textarea/buttons keep their semantics; track the roving `tabindex`/focus by stable item id (fall back to the first item when the focused id was deleted, or every row becomes `tabindex="-1"`); abort the previous wiring pass before re-initializing (per-row `AbortController`s or one delegated listener); exclude modifier keys from typeahead.
 
+**Touch row action menus (`references/remix3-client-entries/touch-row-action-menu.md`)**
+
+- On `(hover: none)`, do not merely force a 4-button hover cluster visible: it overlays/squeezes the label and a full-width bar doubles row height. Hide the view cluster with `display: none`, show one 44px kebab, and render the menu as an inline `flex-basis: 100%` second line; keep the edit-mode cluster inline and full-width.
+- When a filter hides rows, hide position-based move actions **and** guard the mutation (`if (filterActive()) return`). A move against a hidden neighbour can leave the visible order unchanged while persisting a new order.
+- Restore focus after Escape/action with `handle.queueTask`: prefer the kebab, fall back to `[data-item-id]` when the trigger is `display: none`, then the add field; use `CSS.escape` for selector ids.
+
 **Programmatic `maxLength` (`references/remix3-client-entries/maxlength-programmatic-value-bypass.md`)**
 
 - `element.value = x` bypasses `maxLength` (it only guards typing/pasting); clamp with `.slice(0, MAX)` using the same shared constant the server validates against, then re-run the counter and `setSelectionRange(value.length, value.length)`.
@@ -179,6 +186,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 - Before adopting `requestAnimationFrame` for post-render DOM work, wiring the multiple-import-maps polyfill, or hand-rolling tabs over `hidden` panels.
 - You are adding a client-only `createRoot`, a custom event mixin (`createMixin`/`handle.element`), code-driven `navigate` or a link-like non-anchor host (`link`/`attrs`), optimistic UI, stable list keys, or an enhanced form submit that follows a controller redirect — see `references/remix3-client-entries/interactivity-runtime.md` for the guide sections and the app's actual seams.
 - You are adding keyboard navigation/reorder to a list of rich rows containing nested controls.
+- You are adding per-row actions to a dense touch list, or a filtered list with position-based reorder controls.
 - You set a `maxLength`-bounded field programmatically (chip click, autofill, URL prefill, draft restore) and the counter can exceed the cap.
 - You stream agent/LLM text into a chat bubble and want markdown rendering in the settled reply without an `innerHTML` XSS risk.
 - A single `clientEntry`/`.browser.tsx` has grown past ~1,000 lines and mixes state, DOM, network, styles, and JSX — see `references/remix3-client-entries/client-entry-decomposition.md` for the extraction order and the view-model setter rule.

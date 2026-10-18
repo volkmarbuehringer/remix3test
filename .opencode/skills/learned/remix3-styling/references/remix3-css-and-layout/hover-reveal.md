@@ -29,7 +29,7 @@ The working implementation is in this repo:
 ### Key details
 
 - **Reveal toggles both `opacity` and `pointer-events`** on the cluster: `pointer-events: none` on the container is what lets clicks pass through to the row beneath, and it must be turned back to `auto` to be interactive.
-- **Touch devices: hover-only reveals are unreachable.** Add `@media (hover: none)` so the cluster is always visible and interactive on touch while keeping the hover reveal on pointer devices. Prefer `@media (hover: none)` over a width-based or touch-capability sniff.
+- **Touch devices: hover-only reveals are unreachable.** Add `@media (hover: none)` so the cluster is always visible and interactive on touch while keeping the hover reveal on pointer devices. Prefer `@media (hover: none)` over a width-based or touch-capability sniff. For **dense rows**, an always-visible 4-button cluster squeezes/overlays the label and doubles row height; switch to one 44px kebab + inline menu — see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`.
 - **Force-visibly reveal an actively-editing row** by adding a conditional style (`opacity: 1; pointer-events: auto`) when that row is in edit mode, so its Save/Cancel actions are always visible instead of waiting for hover.
 - **Keyboard reachability** — handle `focusin`/`focusout`, not just `mouseenter`/`mouseleave`.
 
