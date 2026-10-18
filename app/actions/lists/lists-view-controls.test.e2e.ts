@@ -45,6 +45,93 @@ async function readGeometry(page: { evaluate: Function }) {
   }
 }
 
+async function waitForRows(page: { waitForFunction: Function }, expected: number, timeout = 500) {
+  await page.waitForFunction(
+    (count: number) => document.querySelectorAll('[data-item-id]').length === count,
+    expected,
+    { timeout },
+  )
+}
+
+/**
+ * Status buttons are server-rendered but their click handlers attach with the
+ * deferred ListsClient entry. A click in the hydration gap is a silent no-op,
+ * so retry until the expected row count lands (same hazard as the sort e2e).
+ */
+async function clickStatus(
+  page: { locator: Function; waitForFunction: Function; waitForTimeout: Function },
+  status: string,
+  expected: number,
+  timeout = 15_000,
+) {
+  let deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    try {
+      await waitForRows(page, expected, 250)
+      return
+    } catch {
+      // not there yet — click and retry
+    }
+    await page.locator(`[data-status-filter="${status}"]`).click()
+    try {
+      await waitForRows(page, expected, 500)
+      return
+    } catch {
+      // hydration gap or another render still pending
+    }
+    await page.waitForTimeout(100)
+  }
+  throw new Error(`status "${status}" did not produce ${expected} rows`)
+}
+
+/**
+ * The hide-done checkbox can toggle natively before hydration without running
+ * its change handler. Ensure it is checked and re-dispatch `change` on every
+ * attempt so the handler repairs the state once the entry is live.
+ */
+async function checkHideDone(
+  page: { evaluate: Function; waitForFunction: Function; waitForTimeout: Function },
+  expected: number,
+  timeout = 15_000,
+) {
+  let deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    let state = (await page.evaluate(() => {
+      let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
+      return {
+        checked: checkbox?.checked ?? false,
+        rows: document.querySelectorAll('[data-item-id]').length,
+      }
+    })) as { checked: boolean; rows: number }
+    if (state.checked && state.rows === expected) return
+
+    await page.evaluate(() => {
+      let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
+      if (checkbox && !checkbox.checked) checkbox.click()
+      checkbox?.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    try {
+      await page.waitForFunction(
+        (count: number) => {
+          let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
+          return (
+            checkbox?.checked === true &&
+            document.querySelectorAll('[data-item-id]').length === count
+          )
+        },
+        expected,
+        { timeout: 500 },
+      )
+      return
+    } catch {
+      // retry after hydration
+    }
+    await page.waitForTimeout(100)
+  }
+  throw new Error(`hide-done did not produce ${expected} rows`)
+}
+
 function assertGeometry(metrics: Awaited<ReturnType<typeof readGeometry>>) {
   assert.ok(
     metrics.scrollWidth <= metrics.innerWidth + 1,
@@ -130,31 +217,11 @@ describe('lists status filter strip', () => {
       )
       assertGeometry(await readGeometry(page))
 
-      await page.locator('[data-status-filter="open"]').click()
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 2,
-        undefined,
-        { timeout: 5_000 },
-      )
-      await page.locator('[data-status-filter="overdue"]').click()
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 1,
-        undefined,
-        { timeout: 5_000 },
-      )
-      await page.locator('[data-status-filter="all"]').click()
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 3,
-        undefined,
-        { timeout: 5_000 },
-      )
+      await clickStatus(page, 'open', 2)
+      await clickStatus(page, 'overdue', 1)
+      await clickStatus(page, 'all', 3)
 
-      await page.locator('[data-hide-done]').click()
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-item-id]').length === 2,
-        undefined,
-        { timeout: 5_000 },
-      )
+      await checkHideDone(page, 2)
       assert.equal(
         await page.locator('[data-status-filter="all"]').getAttribute('data-status-count'),
         '2',
