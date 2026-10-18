@@ -93,10 +93,10 @@ describe('admin uploads: multirow download', () => {
     // markers both clientEntries set on hydration.
     await page
       .locator('[data-bulk-delete-form][data-bulk-delete-ready]')
-      .waitFor({ timeout: 15_000 })
+      .waitFor({ state: 'attached', timeout: 15_000 })
     await page
       .locator('[data-bulk-download-form][data-bulk-download-ready]')
-      .waitFor({ timeout: 15_000 })
+      .waitFor({ state: 'attached', timeout: 15_000 })
 
     // Select two specific rows by filename (the grid sorts newest-first, so
     // row order is not insertion order). Row selection self-heals after a

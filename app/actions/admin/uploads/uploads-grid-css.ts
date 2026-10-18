@@ -115,6 +115,9 @@ export const tableCss = css({
   // `lvl1` is one step away from the panel's `lvl0`; the hover rule must stay
   // last so it also wins on even rows (both have the same specificity).
   '& tbody tr:nth-child(even)': { background: theme.surface.lvl1 },
+  // Freshly uploaded rows stay tinted for this render so users can spot where
+  // their file landed; the next navigation clears the tint naturally.
+  '& tbody tr[data-uploaded="true"]': { background: theme.colors.success.background },
   '& tbody tr:hover': { background: theme.surface.lvl3 },
   '@media (max-width: 1024px)': {
     // The grid scrolls sideways below this (the table has a 740px floor), so both
@@ -151,6 +154,27 @@ export const tableCss = css({
     },
     '& tbody tr:nth-child(even) td:last-child': { background: theme.surface.lvl1 },
     '& tbody tr:hover td:last-child': { background: theme.surface.lvl3 },
+    // Keep the pinned cells' opaque backgrounds in sync with the upload tint.
+    '& tbody tr[data-uploaded="true"] td:first-child': {
+      background: theme.colors.success.background,
+    },
+    '& tbody tr[data-uploaded="true"] td:last-child': {
+      background: theme.colors.success.background,
+    },
+    '& tbody tr[data-uploaded="true"]:hover td:first-child': {
+      background: theme.surface.lvl3,
+    },
+    '& tbody tr[data-uploaded="true"]:hover td:last-child': {
+      background: theme.surface.lvl3,
+    },
+  },
+  // Phones: ID, Typ, Größe and Datum move into the filename cell's meta line
+  // (see `filenameMetaCss`), so the grid fits without horizontal scrolling and
+  // the filename + actions stay readable side by side.
+  '@media (max-width: 720px)': {
+    minWidth: '0',
+    '& th:nth-child(2), & td:nth-child(2), & th:nth-child(4), & td:nth-child(4), & th:nth-child(5), & td:nth-child(5), & th:nth-child(6), & td:nth-child(6)':
+      { display: 'none' },
   },
 })
 
@@ -182,6 +206,55 @@ export const filterBarCss = css({
   gap: theme.space.sm,
   flex: '1 1 auto',
   minWidth: 0,
+  // The bulk client entry swaps this toolbar for the selection actions while
+  // rows are selected; the author `display` above would otherwise beat `hidden`.
+  '&[hidden]': { display: 'none' },
+})
+
+// ── Mobile sort bar ────────────────────────────────────────────
+// Shown only below 720px, where the Typ/Größe/Datum headers (and their sort
+// links) are hidden to make the grid fit the viewport.
+export const mobileSortCss = css({
+  display: 'none',
+  '@media (max-width: 720px)': {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.space.xs,
+    flexBasis: '100%',
+    marginTop: theme.space.xs,
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.text.muted,
+  },
+})
+
+export const mobileSortLabelCss = css({
+  marginRight: theme.space.xs,
+})
+
+export const mobileSortLinkCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2px',
+  minHeight: '24px',
+  padding: `0 ${theme.space.xs}`,
+  color: theme.colors.text.secondary,
+  background: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.subtle}`,
+  borderRadius: theme.radius.full,
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+export const mobileSortLinkActiveCss = css({
+  color: theme.colors.action.primary.foreground,
+  background: theme.colors.action.primary.background,
+  borderColor: theme.colors.action.primary.background,
+  fontWeight: theme.fontWeight.semibold,
+  '&:hover': {
+    color: theme.colors.action.primary.foreground,
+    background: theme.colors.action.primary.background,
+  },
 })
 
 export const sortArrowCss = css({
@@ -240,11 +313,30 @@ export const paginationCss = css({
   // No top margin: the panel's own row gap separates the pagination bar from the
   // grid, and every pixel saved here is a pixel the grid can show another row in.
   flexShrink: 0,
+  // Phones: give the footer its own two rows instead of squeezing the info,
+  // page links and page-size control into one very narrow line.
+  '@media (max-width: 720px)': {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: theme.space.sm,
+  },
 })
 
 export const paginationButtonsCss = css({
   display: 'flex',
+  alignItems: 'center',
   gap: theme.space.sm,
+  flexWrap: 'wrap',
+  '@media (max-width: 720px)': { justifyContent: 'space-between' },
+})
+
+/** Keeps the page-size control pinned right on desktop and full-width on phones. */
+export const pageSizeSlotCss = css({
+  marginLeft: 'auto',
+  '@media (max-width: 720px)': {
+    marginLeft: 0,
+    width: '100%',
+  },
 })
 
 export const thActionsCss = css({
@@ -302,6 +394,8 @@ export const bulkFormCss = css({
 export const bulkGroupCss = css({
   display: 'inline-flex',
   alignItems: 'center',
+  // The group replaces the filter toolbar while rows are selected, so it starts
+  // at the left edge like the search form it stands in for.
   flex: 'none',
   '@media (max-width: 960px)': {
     display: 'flex',
@@ -310,6 +404,10 @@ export const bulkGroupCss = css({
     flex: '1 1 100%',
     gap: theme.space.sm,
   },
+  // The group is hidden until a row is selected (the bulk client entry toggles
+  // `hidden` once hydrated). The author `display` above would otherwise beat the
+  // UA `[hidden]` rule.
+  '&[hidden]': { display: 'none' },
 })
 
 export const bulkToolbarCss = css({
@@ -436,6 +534,35 @@ export const filenameCellCss = css({
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+  // On phones the cell also carries the meta line (see `filenameMetaCss`), so
+  // it switches to a wrapping block that can show both lines.
+  '@media (max-width: 720px)': {
+    whiteSpace: 'normal',
+    overflow: 'visible',
+    textOverflow: 'clip',
+  },
+})
+
+export const filenameTextCss = css({
+  display: 'block',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+})
+
+// Secondary metadata for narrow screens, where the dedicated Typ/Größe/Datum
+// columns are hidden from the grid. On desktop the columns speak for themselves.
+export const filenameMetaCss = css({
+  display: 'none',
+  '@media (max-width: 720px)': {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.space.xs,
+    marginTop: '2px',
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.text.muted,
+  },
 })
 
 export const sizeCellCss = css({ whiteSpace: 'nowrap' })
@@ -485,6 +612,20 @@ export const emptyStateGlyph = css({
   borderRadius: 999,
   background: theme.surface.lvl2,
   color: theme.colors.text.muted,
+})
+
+// "Filter zurücksetzen" action in a filtered empty state.
+export const emptyActionCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: `${theme.space.xs} ${theme.space.md}`,
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.action.primary.foreground,
+  background: theme.colors.action.primary.background,
+  borderRadius: theme.radius.md,
+  textDecoration: 'none',
+  '&:hover': { opacity: 0.9 },
 })
 
 // ── Upload dropzone ─────────────────────────────────────────────
@@ -564,6 +705,45 @@ export const dropzoneHintCss = css({
   '@media (max-width: 640px)': { display: 'none' },
 })
 
+// Policy line under the dropzone ("PDF, Bilder und Text · maximal 50 MB …"). It
+// spans the form row so the accepted types and limits are visible before a
+// file is chosen, instead of only surfacing after a rejected upload.
+export const uploadHintCss = css({
+  flexBasis: '100%',
+  margin: 0,
+  fontSize: theme.fontSize.xs,
+  lineHeight: theme.lineHeight.relaxed,
+  color: theme.colors.text.muted,
+})
+
+// "3 Dateien ausgewählt (12,4 MB)" plus an "Alle entfernen" button above the
+// pending file chips.
+export const pendingSummaryCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  flexBasis: '100%',
+  flexWrap: 'wrap',
+  gap: theme.space.xs,
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  '&[hidden]': { display: 'none' },
+})
+
+export const pendingClearBtnCss = css({
+  // 24px min height keeps the small text link a WCAG 2.2-sized touch target.
+  minHeight: '24px',
+  padding: '0 0.25rem',
+  border: 'none',
+  background: 'none',
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xs,
+  textDecoration: 'underline',
+  cursor: 'pointer',
+  '&:hover': { color: theme.colors.text.primary },
+})
+
 export const pendingListCss = css({
   flexBasis: '100%',
   listStyle: 'none',
@@ -603,10 +783,11 @@ export const quotaRowCss = css({
 export const quotaTextCss = css({
   display: 'inline-flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: theme.space.xs,
   fontSize: theme.fontSize.sm,
   color: theme.colors.text.muted,
-  whiteSpace: 'nowrap',
+  '@media (max-width: 720px)': { width: '100%' },
 })
 
 export const quotaTrackCss = css({

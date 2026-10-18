@@ -92,6 +92,9 @@ export const UploadDropzone = clientEntry(
       let input = form.querySelector<HTMLInputElement>('[data-file-input]')
       let dropzone = form.querySelector<HTMLElement>('[data-dropzone]')
       let list = form.querySelector<HTMLUListElement>('[data-pending-list]')
+      let summary = form.querySelector<HTMLElement>('[data-pending-summary]')
+      let summaryText = form.querySelector<HTMLElement>('[data-pending-summary-text]')
+      let clearAll = form.querySelector<HTMLButtonElement>('[data-pending-clear]')
       let validation = form.querySelector<HTMLElement>('[data-upload-validation]')
       let submit = form.querySelector<HTMLButtonElement>('[data-upload-submit]')
       if (!input || !dropzone || !list || !validation || !submit) return
@@ -163,6 +166,23 @@ export const UploadDropzone = clientEntry(
           list!.removeAttribute('hidden')
         }
 
+        // Batch summary above the chips: count plus total size is the fastest
+        // way to confirm what is about to be uploaded, especially on a phone
+        // where only a few chips fit in view.
+        if (summary && summaryText) {
+          if (files.length === 0) {
+            summary.setAttribute('hidden', '')
+            summaryText.textContent = ''
+          } else {
+            summary.removeAttribute('hidden')
+            let totalBytes = files.reduce((sum, file) => sum + file.size, 0)
+            summaryText.textContent =
+              files.length === 1
+                ? `1 Datei ausgewählt (${formatBytes(totalBytes)})`
+                : `${files.length} Dateien ausgewählt (${formatBytes(totalBytes)})`
+          }
+        }
+
         for (let [i, file] of files.entries()) {
           let li = document.createElement('li')
           Object.assign(li.style, chipStyle)
@@ -205,6 +225,12 @@ export const UploadDropzone = clientEntry(
         files.splice(index, 1)
         setInputFiles(files)
         renderPending()
+        // The remove button that had focus is gone; keep keyboard navigation in
+        // the chip list (next chip, previous chip, or the file input).
+        let buttons = list!.querySelectorAll<HTMLButtonElement>('button')
+        let next = buttons[Math.min(index, buttons.length - 1)]
+        if (next) next.focus()
+        else input!.focus()
       }
 
       function addFiles(incoming: FileList) {
@@ -309,7 +335,16 @@ export const UploadDropzone = clientEntry(
         validation!.removeAttribute('hidden')
       }
 
+      function onClearAll() {
+        setInputFiles([])
+        renderPending()
+        // The summary (and its focused button) is hidden after clearing; move
+        // focus to the now-empty file input so the next Tab continues here.
+        input!.focus()
+      }
+
       input.addEventListener('change', onChange, { signal: ac.signal })
+      clearAll?.addEventListener('click', onClearAll, { signal: ac.signal })
       dropzone.addEventListener('dragover', onDragOver, { signal: ac.signal })
       dropzone.addEventListener('dragenter', onDragOver, { signal: ac.signal })
       dropzone.addEventListener('dragleave', onDragLeave, { signal: ac.signal })

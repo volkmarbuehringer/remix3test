@@ -79,6 +79,22 @@ export function formatWeekLabel(weekStart: number): string {
 }
 
 /**
+ * Format an epoch ms value as a compact local German date, e.g. "03.10.2026".
+ * Unlike {@link formatDateDE} it omits the weekday, which keeps narrow table
+ * meta lines on one line. Returns an em dash for null/invalid input.
+ */
+export function formatCompactDateDE(epochMs: number | null | undefined): string {
+  if (epochMs == null) return '\u2014'
+  let d = new Date(Number(epochMs))
+  if (isNaN(d.getTime())) return '\u2014'
+  return d.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+/**
  * Format an epoch ms value to German date locale, e.g. "Mo, 10.06.2026".
  * Returns an em dash for null/invalid input.
  */

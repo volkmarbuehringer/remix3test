@@ -58,6 +58,17 @@ import {
   quotaFillCss,
   quotaFillNearCss,
   clearSelectionBtnCss,
+  uploadHintCss,
+  pendingSummaryCss,
+  pendingClearBtnCss,
+  filenameTextCss,
+  filenameMetaCss,
+  pageSizeSlotCss,
+  emptyActionCss,
+  mobileSortCss,
+  mobileSortLabelCss,
+  mobileSortLinkCss,
+  mobileSortLinkActiveCss,
 } from './uploads-grid-css.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
@@ -94,8 +105,14 @@ import { table } from '../../../ui/mixins/admin-table.ts'
 import { sortArrow, sortRule } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
-import { formatRelativeTimeDE } from '../../../utils/date-utils.ts'
-import { formatUploadType, formatBytes } from '../../../utils/upload-validation.ts'
+import { formatCompactDateDE, formatRelativeTimeDE, MS_PER_DAY } from '../../../utils/date-utils.ts'
+import {
+  ALLOWED_EXTENSIONS,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_FILES,
+  formatUploadType,
+  formatBytes,
+} from '../../../utils/upload-validation.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
@@ -103,9 +120,24 @@ import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.ts
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
 import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
+import { getQuotaStats, type QuotaStats } from './uploads-quota.ts'
 import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
+
+/**
+ * The file-picker `accept` list and full extension list come from the server
+ * allowlist. The visible summary deliberately groups them into the same three
+ * categories as the filter tabs, which is shorter and matches what users see in
+ * the grid.
+ */
+const UPLOAD_ACCEPT = [...ALLOWED_EXTENSIONS].join(',')
+const UPLOAD_FORMATS_LABEL = [...ALLOWED_EXTENSIONS]
+  .map((extension) => extension.slice(1).toUpperCase())
+  .join(', ')
+const UPLOAD_POLICY_LABEL =
+  `PDF, Bilder und Text · maximal ${formatBytes(MAX_UPLOAD_BYTES)} pro Datei, ` +
+  `bis zu ${MAX_UPLOAD_FILES} Dateien pro Upload`
 
 /**
  * German display label per MIME grouping. Typing this as `Record<UploadKind, …>`
@@ -126,6 +158,18 @@ const UPLOAD_KIND_TABS: { value: UploadKind | undefined; label: string }[] = [
   { value: undefined, label: 'Alle' },
   ...UPLOAD_KINDS.map((value) => ({ value, label: UPLOAD_KIND_LABELS[value] })),
 ]
+
+/**
+ * Compact sort links for phones. The dedicated sortable columns (Typ, Größe,
+ * Datum) are hidden below 720px to keep the grid readable, so this bar keeps
+ * their sort toggle reachable without horizontal scrolling.
+ */
+const MOBILE_SORT_OPTIONS = [
+  { field: 'created_at', label: 'Datum' },
+  { field: 'filename', label: 'Name' },
+  { field: 'size', label: 'Größe' },
+  { field: 'mime_type', label: 'Typ' },
+] as const
 
 function parseUploadPage(raw: string | null): number {
   let n = Number(raw)
@@ -526,22 +570,24 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
       quota,
     } = handle.props
 
+    let quotaStats = getQuotaStats(quota)
+
     return (
       <PageSection
         title="Datei-Upload"
-        description="Laden Sie Dateien hoch, die in der Datenbank gespeichert werden."
+        description="PDF, Bilder und Textdateien hochladen, durchsuchen und verwalten."
         mix={pageSectionCss}
       >
         <div mix={[panelCss, uploadPanelCss]}>
           {uploadedIds.length > 0 ? (
-            <p mix={successBanner}>
+            <p role="status" mix={successBanner} data-uploaded-banner>
               {uploadedIds.length === 1
-                ? `Datei hochgeladen (ID: ${uploadedIds[0]}).`
-                : `${uploadedIds.length} Dateien hochgeladen (IDs: ${uploadedIds.join(', ')}).`}
+                ? 'Datei erfolgreich hochgeladen.'
+                : `${uploadedIds.length} Dateien erfolgreich hochgeladen.`}
             </p>
           ) : null}
           {deletedCount > 0 ? (
-            <p mix={successBanner} data-deleted-banner>
+            <p role="status" mix={successBanner} data-deleted-banner>
               {deletedCount === 1 ? '1 Datei gelöscht.' : `${deletedCount} Dateien gelöscht.`}
             </p>
           ) : null}
@@ -572,7 +618,9 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   type="file"
                   name="file"
                   multiple
+                  accept={UPLOAD_ACCEPT}
                   aria-label="Dateien zum Hochladen auswählen"
+                  aria-describedby="upload-policy-hint"
                   mix={fileInputCss}
                   data-file-input
                 />
@@ -586,28 +634,43 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 </span>
               </button>
             </div>
-            <ul mix={pendingListCss} data-pending-list hidden aria-live="polite"></ul>
+            <p
+              id="upload-policy-hint"
+              mix={uploadHintCss}
+              title={`Erlaubte Dateitypen: ${UPLOAD_FORMATS_LABEL}`}
+            >
+              {UPLOAD_POLICY_LABEL}
+            </p>
+            <div mix={pendingSummaryCss} data-pending-summary hidden>
+              <span data-pending-summary-text aria-live="polite"></span>
+              <button type="button" mix={pendingClearBtnCss} data-pending-clear>
+                Alle entfernen
+              </button>
+            </div>
+            {/* The summary above carries the aria-live announcement; the chip
+                list stays navigable without repeating every file name. */}
+            <ul mix={pendingListCss} data-pending-list hidden></ul>
             <p role="alert" mix={validationErrorCss} data-upload-validation hidden></p>
             <UploadDropzone />
           </form>
-          <div mix={quotaRowCss}>
-            {quota.userQuotaBytes != null ? (
-              <span mix={quotaTextCss} data-user-quota>
-                <Glyph name="info" width={14} height={14} /> {formatBytes(quota.userUsedBytes)} von{' '}
-                {formatBytes(quota.userQuotaBytes)} belegt
-              </span>
-            ) : null}
-            <span mix={quotaTextCss} data-total-quota>
-              <Glyph name="zap" width={14} height={14} /> Gesamt:{' '}
-              {formatBytes(quota.totalUsedBytes)} von {formatBytes(quota.totalQuotaBytes)}
+          <div mix={quotaRowCss} role="group" aria-label="Speicherbelegung">
+            <span
+              mix={quotaTextCss}
+              data-quota-summary
+              title={`${formatBytes(quotaStats.free)} frei`}
+            >
+              <Glyph name="info" width={14} height={14} />
+              {quotaStats.label}: {formatBytes(quotaStats.used)} von {formatBytes(quotaStats.cap)} (
+              {quotaStats.percent} %)
             </span>
-            {quotaBar(quota)}
+            {quotaBar(quotaStats)}
           </div>
           <div mix={toolsRowCss}>
             <form
               method="GET"
               action={routes.admin.uploads.index.href()}
               data-rmx-target={getSelfFrameTarget()}
+              data-uploads-filter
               mix={filterBarCss}
             >
               {/* Kind tabs reset to page 1 — a stale page can be out of range for
@@ -635,11 +698,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               <input type="hidden" name="order" value={sortDirection} />
               {kind ? <input type="hidden" name="kind" value={kind} /> : null}
               <input
-                type="text"
+                type="search"
                 name="filter"
                 placeholder="Suche nach Dateiname oder Typ…"
                 defaultValue={filter ?? ''}
                 aria-label="Dateien nach Name oder Typ durchsuchen"
+                autoComplete="off"
+                enterKeyHint="search"
                 mix={table.filterInput}
               />
               <button type="submit" mix={table.searchBtn}>
@@ -654,9 +719,31 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   Zurücksetzen
                 </a>
               ) : null}
+              {/* The sortable Typ/Größe/Datum headers are hidden on phones, so
+                  keep their sort toggles here instead. */}
+              <span mix={mobileSortCss} data-mobile-sort>
+                <span mix={mobileSortLabelCss}>Sortieren:</span>
+                {MOBILE_SORT_OPTIONS.map((option) => {
+                  let active = sortColumn === option.field
+                  return (
+                    <a
+                      key={option.field}
+                      href={uploadsSortHref(option.field, sortColumn, sortDirection, filter, kind)}
+                      data-rmx-target={getSelfFrameTarget()}
+                      aria-label={`Nach ${option.label} sortieren`}
+                      mix={[mobileSortLinkCss, active ? mobileSortLinkActiveCss : undefined]}
+                    >
+                      {option.label}
+                      <span aria-hidden="true">
+                        {sortArrow(option.field, sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  )
+                })}
+              </span>
             </form>
             {uploads.length > 0 ? (
-              <div mix={bulkGroupCss}>
+              <div mix={bulkGroupCss} data-bulk-group>
                 <form
                   id="bulk-delete-form"
                   method="POST"
@@ -674,7 +761,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     kind={kind}
                   />
                   <div mix={bulkToolbarCss}>
-                    <span mix={selectedCountCss} data-selected-count>
+                    <span mix={selectedCountCss} data-selected-count aria-live="polite">
                       0 ausgewählt
                     </span>
                     <button
@@ -718,6 +805,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             <div mix={tableScrollCss}>
               <table
                 mix={tableCss}
+                aria-label="Hochgeladene Dateien"
                 data-uploads-table="true"
                 data-selection-scope={`${kind ?? ''}::${filter ?? ''}`}
               >
@@ -807,7 +895,12 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 </thead>
                 <tbody>
                   {uploads.map((u) => (
-                    <tr key={u.id} data-row-id={u.id} data-upload-filename={u.filename}>
+                    <tr
+                      key={u.id}
+                      data-row-id={u.id}
+                      data-upload-filename={u.filename}
+                      data-uploaded={uploadedIds.includes(u.id) ? 'true' : undefined}
+                    >
                       <td mix={tdCheckboxCss}>
                         <input
                           type="checkbox"
@@ -820,14 +913,30 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       </td>
                       <td mix={idCellCss}>{u.id}</td>
                       <td mix={filenameCellCss} title={u.filename}>
-                        {u.filename}
+                        <span mix={filenameTextCss}>{u.filename}</span>
+                        {/* Narrow screens hide the Typ/Größe/Datum columns; this
+                            line keeps that metadata visible without the grid
+                            scrolling sideways. */}
+                        <span mix={filenameMetaCss}>
+                          <span mix={mimeBadgeCss} title={u.mime_type}>
+                            {formatUploadType(u.mime_type)}
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span>{formatBytes(u.size)}</span>
+                          <span aria-hidden="true">·</span>
+                          {/* Compact date instead of the weekday-prefixed
+                              absolute fallback, so the meta line fits a phone. */}
+                          <span title={new Date(u.created_at).toLocaleString('de-DE')}>
+                            {formatUploadMetaDate(u.created_at)}
+                          </span>
+                        </span>
                       </td>
                       <td>
                         <span mix={mimeBadgeCss} data-mime={u.mime_type} title={u.mime_type}>
                           {formatUploadType(u.mime_type)}
                         </span>
                       </td>
-                      <td mix={sizeCellCss}>{formatSize(u.size)}</td>
+                      <td mix={sizeCellCss}>{formatBytes(u.size)}</td>
                       <td mix={dateCellCss}>
                         <span title={new Date(u.created_at).toLocaleString('de-DE')}>
                           {formatRelativeTimeDE(u.created_at)}
@@ -889,45 +998,60 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       ? `Keine Dateien vom Typ „${uploadKindLabel(kind)}“ gefunden.`
                       : 'Noch keine Dateien hochgeladen. Ziehen Sie eine Datei hierher oder wählen Sie eine aus.'}
               </p>
+              {filter || kind ? (
+                <a
+                  href={uploadsPageHref(1, sortColumn, sortDirection, undefined, undefined)}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={emptyActionCss}
+                >
+                  Filter zurücksetzen
+                </a>
+              ) : null}
             </div>
           )}
 
           <div mix={paginationCss}>
-            <span mix={table.paginationInfo} aria-current="page">
-              {total} Dateien · Seite {page} von {totalPages}
+            <span mix={table.paginationInfo} data-pagination-info>
+              {total === 0 ? 'Keine Dateien' : `${total} Dateien · Seite ${page} von ${totalPages}`}
             </span>
             <div mix={paginationButtonsCss}>
-              {page > 1 ? (
-                <a
-                  href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter, kind)}
-                  data-rmx-target={getSelfFrameTarget()}
-                  mix={table.pageLink}
-                  aria-label={`Seite ${page - 1}`}
-                >
-                  Zurück
-                </a>
-              ) : (
-                <span mix={table.pageLinkDisabled}>Zurück</span>
-              )}
-              {page < totalPages ? (
-                <a
-                  href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter, kind)}
-                  data-rmx-target={getSelfFrameTarget()}
-                  mix={table.pageLink}
-                  aria-label={`Seite ${page + 1}`}
-                >
-                  Vor
-                </a>
-              ) : (
-                <span mix={table.pageLinkDisabled}>Vor</span>
-              )}
-              <PageSizeControl
-                action={routes.admin.pageSize.href()}
-                pageKey={pageKey}
-                pageSize={pageSize}
-                pageSizeOverride={pageSizeOverride}
-                controlId="uploads-page-size"
-              />
+              {total > 0 ? (
+                <>
+                  {page > 1 ? (
+                    <a
+                      href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter, kind)}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.pageLink}
+                      aria-label={`Seite ${page - 1}`}
+                    >
+                      Zurück
+                    </a>
+                  ) : (
+                    <span mix={table.pageLinkDisabled}>Zurück</span>
+                  )}
+                  {page < totalPages ? (
+                    <a
+                      href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter, kind)}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.pageLink}
+                      aria-label={`Seite ${page + 1}`}
+                    >
+                      Vor
+                    </a>
+                  ) : (
+                    <span mix={table.pageLinkDisabled}>Vor</span>
+                  )}
+                </>
+              ) : null}
+              <div mix={pageSizeSlotCss}>
+                <PageSizeControl
+                  action={routes.admin.pageSize.href()}
+                  pageKey={pageKey}
+                  pageSize={pageSize}
+                  pageSizeOverride={pageSizeOverride}
+                  controlId="uploads-page-size"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -965,10 +1089,15 @@ function UploadsGridStateHiddenInputs(handle: Handle<UploadsGridStateHiddenInput
   }
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+/**
+ * Date shown in the narrow-screen filename meta line. Keeps the relative
+ * wording for recent uploads but uses the compact `03.10.2026` form for older
+ * ones, because the weekday-prefixed `Sa., 03.10.2026` fallback wraps onto a
+ * second line inside a phone-sized filename column.
+ */
+function formatUploadMetaDate(createdAt: number): string {
+  if (Date.now() - createdAt < 7 * MS_PER_DAY) return formatRelativeTimeDE(createdAt)
+  return formatCompactDateDE(createdAt)
 }
 
 /** Upward-arrow upload glyph for the dropzone and empty state. */
@@ -993,33 +1122,24 @@ function uploadIcon() {
 }
 
 /**
- * Storage-usage progress bar. Shows the narrower of the two quotas (per-user for
- * a non-admin, the global quota for an admin) so the bar never claims more
- * headroom than the user actually has, and turns warning-coloured near the limit.
+ * Storage-usage progress bar with a human-readable value for assistive tech;
+ * turns warning-coloured near the limit.
  */
-function quotaBar(quota: {
-  userUsedBytes: number
-  userQuotaBytes: number | null
-  totalUsedBytes: number
-  totalQuotaBytes: number
-}) {
-  let used = quota.userQuotaBytes != null ? quota.userUsedBytes : quota.totalUsedBytes
-  let cap = quota.userQuotaBytes ?? quota.totalQuotaBytes
-  let pct = cap > 0 ? Math.max(0, Math.min(1, used / cap)) : 0
-  let near = pct >= 0.85
+function quotaBar(stats: QuotaStats) {
   return (
     <span
       role="progressbar"
       aria-label="Speicherkontingent"
       aria-valuemin={0}
-      aria-valuemax={cap}
-      aria-valuenow={Math.round(used)}
-      mix={[quotaTrackCss, ...(near ? [quotaTrackNearCss] : [])]}
-      data-quota-near={near ? 'true' : undefined}
+      aria-valuemax={stats.cap}
+      aria-valuenow={Math.round(stats.used)}
+      aria-valuetext={`${formatBytes(stats.used)} von ${formatBytes(stats.cap)} (${stats.percent} %)`}
+      mix={[quotaTrackCss, ...(stats.near ? [quotaTrackNearCss] : [])]}
+      data-quota-near={stats.near ? 'true' : undefined}
     >
       <span
-        mix={[quotaFillCss, ...(near ? [quotaFillNearCss] : [])]}
-        style={{ width: `${pct * 100}%` }}
+        mix={[quotaFillCss, ...(stats.near ? [quotaFillNearCss] : [])]}
+        style={{ width: `${stats.ratio * 100}%` }}
       />
     </span>
   )

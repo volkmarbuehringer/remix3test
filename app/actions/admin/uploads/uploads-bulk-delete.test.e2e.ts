@@ -84,8 +84,15 @@ describe('admin uploads: multirow delete banner', () => {
     // the store re-sync, which surfaces as `locator.check: Clicking the checkbox
     // did not change its state`. Wait for its hydration marker first, as the
     // sibling `uploads-bulk-download.test.e2e.ts` does.
+    // The toolbar is intentionally hidden while nothing is selected, so the
+    // hydration marker only has to be attached, not visible.
     let bulkReady = page.locator('[data-bulk-delete-form][data-bulk-delete-ready]')
-    await bulkReady.waitFor({ timeout: 15_000 })
+    await bulkReady.waitFor({ state: 'attached', timeout: 15_000 })
+
+    // The bulk toolbar stays out of the way until something is selected, so the
+    // page starts without a permanently visible "0 ausgewählt" action row.
+    let bulkGroup = page.locator('[data-bulk-group]')
+    await bulkGroup.waitFor({ state: 'hidden', timeout: 5_000 })
 
     // Accept the native confirm() dialog the clientEntry shows on submit.
     let confirmMessage = ''
@@ -103,6 +110,7 @@ describe('admin uploads: multirow delete banner', () => {
     await page.locator('[data-selected-count]').filter({ hasText: '2 ausgewählt' }).waitFor({
       timeout: 10_000,
     })
+    await bulkGroup.waitFor({ state: 'visible', timeout: 5_000 })
     await bulkButton.click()
 
     // The POST to /delete-many redirects; frameRedirects follows it in-frame and
@@ -138,7 +146,7 @@ describe('admin uploads: multirow delete banner', () => {
     page.once('dialog', (dialog) => {
       void dialog.accept()
     })
-    await bulkReady.waitFor({ timeout: 15_000 })
+    await bulkReady.waitFor({ state: 'attached', timeout: 15_000 })
     await page.locator('[data-upload-filename="test-e2e-3.txt"] input[name="ids"]').check()
     await page.locator('[data-selected-count]').filter({ hasText: '1 ausgewählt' }).waitFor({
       timeout: 10_000,

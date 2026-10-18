@@ -11,6 +11,11 @@ import { serializeSessionCookie, sessionStorage } from '../../../middleware/sess
 import { router } from '../../../test-router.ts'
 import { createAuthCookieWithCsrfForUser, generateCsrfToken } from '../../../../test/utils.ts'
 import { routes } from '../../../routes.ts'
+import {
+  ALLOWED_EXTENSIONS,
+  MAX_UPLOAD_BYTES,
+  formatBytes,
+} from '../../../utils/upload-validation.ts'
 
 const BASE = 'https://remix.run'
 const UPLOADS_URL = `${BASE}${routes.admin.uploads.action.href()}`
@@ -81,6 +86,22 @@ describe('Admin Uploads controller', () => {
     assert.ok(html.includes('Datei-Upload'), 'page should contain the upload heading')
     assert.ok(html.includes('multiple'), 'file input should allow multiple files')
     assert.ok(html.includes('name="file"'), 'page should contain the file input')
+    assert.ok(
+      html.includes(`accept="${[...ALLOWED_EXTENSIONS].join(',')}"`),
+      'file input should suggest the allowed extensions',
+    )
+    assert.ok(
+      html.includes(`maximal ${formatBytes(MAX_UPLOAD_BYTES)} pro Datei`),
+      'the dropzone should state the size and count policy up front',
+    )
+    assert.ok(
+      html.includes('data-pending-summary'),
+      'the selected-files summary should be rendered',
+    )
+    assert.ok(
+      html.includes('data-mobile-sort'),
+      'phones need a sort control because the sortable headers are hidden',
+    )
   })
 
   it('POST /admin/uploads accepts multiple files in one request', async () => {
@@ -107,11 +128,18 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(
-      html.includes('Dateien hochgeladen (IDs:'),
-      'success banner should report multiple files',
+      html.includes('2 Dateien erfolgreich hochgeladen.'),
+      'success banner should report the number of uploaded files',
     )
     assert.ok(html.includes('uplctl-multi-a.txt'), 'uploaded file a should appear in the list')
     assert.ok(html.includes('uplctl-multi-b.txt'), 'uploaded file b should appear in the list')
+    // Scope to the row tags: the rendered stylesheet also contains the
+    // `[data-uploaded="true"]` selector, so a page-wide string count would
+    // include CSS rules.
+    for (let name of ['uplctl-multi-a.txt', 'uplctl-multi-b.txt']) {
+      let rowTag = html.match(new RegExp(`<tr[^>]*data-upload-filename="${name}"[^>]*>`))?.[0] ?? ''
+      assert.ok(rowTag.includes('data-uploaded="true"'), `${name} should be highlighted`)
+    }
 
     // Both rows must be claimed by the authenticated user.
     let result = await pool.query(
@@ -364,6 +392,10 @@ describe('Admin Uploads controller', () => {
     assert.ok(
       html.includes('Keine Dateien gefunden für diese Suche.'),
       'filtered empty state should be shown',
+    )
+    assert.ok(
+      html.includes('Filter zurücksetzen'),
+      'a filtered empty state should offer a way back to the full list',
     )
   })
 
@@ -710,6 +742,7 @@ describe('Admin Uploads controller', () => {
     let html = await response.text()
     assert.ok(html.includes(`name="ids" value="${id}"`), 'row should expose a named ids checkbox')
     assert.ok(html.includes('data-select-all'), 'header should expose a select-all toggle')
+    assert.ok(html.includes('data-bulk-group'), 'the bulk toolbar should carry its toggle marker')
     assert.ok(html.includes('Ausgewählte löschen'), 'page should render the bulk delete button')
     assert.ok(html.includes('data-bulk-delete-form'), 'bulk form should carry its marker')
     assert.ok(

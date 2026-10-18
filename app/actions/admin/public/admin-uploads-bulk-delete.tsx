@@ -37,6 +37,8 @@ export const UploadBulkDelete = clientEntry(
     function init() {
       let form = document.querySelector<HTMLFormElement>('[data-bulk-delete-form]')
       let table = document.querySelector<HTMLElement>('[data-uploads-table]')
+      let group = document.querySelector<HTMLElement>('[data-bulk-group]')
+      let filterForm = document.querySelector<HTMLFormElement>('[data-uploads-filter]')
       if (!form || !table) return
       let selectAll = table.querySelector<HTMLInputElement>('input[data-select-all]')
       let countEl = form.querySelector<HTMLElement>('[data-selected-count]')
@@ -73,6 +75,14 @@ export const UploadBulkDelete = clientEntry(
 
       function update() {
         let n = selectedCount()
+        // Swap the search/filter toolbar for the bulk actions while rows are
+        // selected: the toolbar is server-rendered (so bulk delete still works
+        // without JS) but stays out of the way with an empty selection, and the
+        // swap keeps the row height stable instead of pushing the grid down.
+        // Reveal the group before mutating the live region, otherwise the first
+        // "1 ausgewählt" is announced while the region is still hidden.
+        if (group) group.hidden = n === 0
+        if (filterForm) filterForm.hidden = n > 0
         countEl!.textContent = `${n} ausgewählt`
         submit!.disabled = n === 0
         if (clearBtn) clearBtn.hidden = n === 0
@@ -129,6 +139,10 @@ export const UploadBulkDelete = clientEntry(
         selectAll!.checked = false
         selectAll!.indeterminate = false
         update()
+        // The clear control lives inside the toolbar that `update()` just hid;
+        // return focus to the search field it was swapped out for instead of
+        // dropping it on <body>.
+        filterForm?.querySelector<HTMLInputElement>('input[name="filter"]')?.focus()
       }
 
       selectAll.addEventListener('change', onSelectAllChange, { signal: ac.signal })

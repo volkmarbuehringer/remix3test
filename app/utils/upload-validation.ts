@@ -13,7 +13,7 @@ import { ContentType } from 'remix/headers/content-type'
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 /** Maximum number of files accepted in one upload request. */
-const MAX_UPLOAD_FILES = 20
+export const MAX_UPLOAD_FILES = 20
 
 export const ALLOWED_EXTENSIONS = new Set([
   '.jpg',
@@ -67,9 +67,7 @@ function filePolicyError(file: ClientFile): string | null {
   if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return 'Dateityp nicht erlaubt.'
   if (!ALLOWED_MIME_TYPES.has(normalizeMimeType(file.type))) return 'Dateityp nicht erlaubt.'
   if (file.name.replace(/[/\\]/g, '_') !== file.name) return 'Ungültiger Dateiname.'
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return 'Eine Datei überschreitet die maximale Größe von 50 MB.'
-  }
+  if (file.size > MAX_UPLOAD_BYTES) return UPLOAD_TOO_LARGE_MESSAGE
   return null
 }
 
@@ -81,9 +79,7 @@ function filePolicyError(file: ClientFile): string | null {
  */
 export function validateUploadFiles(files: ClientFile[]): string | null {
   if (files.length === 0) return null
-  if (files.length > MAX_UPLOAD_FILES) {
-    return 'Zu viele Dateien in einem Upload (maximal 20).'
-  }
+  if (files.length > MAX_UPLOAD_FILES) return UPLOAD_TOO_MANY_FILES_MESSAGE
   for (let file of files) {
     let error = filePolicyError(file)
     if (error != null) return error
@@ -107,10 +103,25 @@ export function formatUploadType(mime: string): string {
   return mime
 }
 
-/** Format a byte count as a short human-readable size, e.g. `1.4 MB`. */
+/**
+ * German number formatting for byte values: decimal comma, no trailing `,0`
+ * (`63,6 MB`, `500 MB`). Sizes are rendered in a German UI, so a dot decimal
+ * reads like a thousands separator to users.
+ */
+const byteNumberFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 })
+
+/** Format a byte count as a short human-readable size, e.g. `1,4 MB`. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${byteNumberFormat.format(bytes)} B`
+  if (bytes < 1024 * 1024) return `${byteNumberFormat.format(bytes / 1024)} KB`
+  return `${byteNumberFormat.format(bytes / (1024 * 1024))} MB`
 }
+
+/**
+ * Shared rejection copy. The numeric limits are interpolated from the same
+ * constants the validator (and the UI hint) use, so changing a cap updates the
+ * message instead of leaving a stale literal behind.
+ */
+export const UPLOAD_TOO_LARGE_MESSAGE = `Eine Datei überschreitet die maximale Größe von ${formatBytes(MAX_UPLOAD_BYTES)}.`
+export const UPLOAD_TOO_MANY_FILES_MESSAGE = `Zu viele Dateien in einem Upload (maximal ${MAX_UPLOAD_FILES}).`

@@ -17,6 +17,8 @@ import {
   ALLOWED_EXTENSIONS,
   ALLOWED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_FILES,
+  UPLOAD_TOO_LARGE_MESSAGE,
   normalizeMimeType,
 } from '../utils/upload-validation.ts'
 
@@ -55,7 +57,7 @@ async function uploadHandler(file: FileUpload): Promise<string | void> {
     let chunk = Buffer.from(value)
     totalBytes += chunk.length
     if (totalBytes > MAX_UPLOAD_BYTES) {
-      setUploadError('Datei zu groß (maximale Größe 50 MB).')
+      setUploadError(UPLOAD_TOO_LARGE_MESSAGE)
       return
     }
     chunks.push(chunk)
@@ -116,6 +118,9 @@ export function uploadFormData(): Middleware<{
   let parseForm = formData({
     uploadHandler,
     maxFileSize: MAX_UPLOAD_BYTES,
+    // Explicit so the advertised "bis zu 20 Dateien" and the parser's limit
+    // cannot drift apart if the shared constant changes.
+    maxFiles: MAX_UPLOAD_FILES,
   })
 
   return async (context, next) => {

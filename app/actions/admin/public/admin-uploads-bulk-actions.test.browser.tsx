@@ -19,14 +19,19 @@ const TABLE_HTML = `
     <input type="checkbox" name="ids" value="3" />
     <form data-delete-form="2" action="/admin/uploads/2/delete" method="POST"></form>
   </div>
-  <form data-bulk-delete-form action="/admin/uploads/delete-many" method="POST">
-    <span data-selected-count>0 ausgewählt</span>
-    <button type="submit" disabled>Löschen</button>
+  <form data-uploads-filter action="/admin/uploads" method="GET">
+    <input type="search" name="filter" />
   </form>
-  <button data-clear-selection hidden>Auswahl aufheben</button>
-  <form data-bulk-download-form action="/admin/uploads/download-many" method="POST" data-rmx-document>
-    <button type="submit" disabled>Download</button>
-  </form>
+  <div data-bulk-group>
+    <form data-bulk-delete-form action="/admin/uploads/delete-many" method="POST">
+      <span data-selected-count>0 ausgewählt</span>
+      <button type="submit" disabled>Löschen</button>
+    </form>
+    <button data-clear-selection hidden>Auswahl aufheben</button>
+    <form data-bulk-download-form action="/admin/uploads/download-many" method="POST" data-rmx-document>
+      <button type="submit" disabled>Download</button>
+    </form>
+  </div>
 `
 
 const originalConfirm = window.confirm
@@ -74,6 +79,15 @@ function downloadSubmitOf(host: HTMLElement): HTMLButtonElement {
 function clearBtnOf(host: HTMLElement): HTMLButtonElement {
   return host.querySelector('[data-clear-selection]') as HTMLButtonElement
 }
+function groupOf(host: HTMLElement): HTMLElement {
+  return host.querySelector('[data-bulk-group]') as HTMLElement
+}
+function filterFormOf(host: HTMLElement): HTMLFormElement {
+  return host.querySelector('[data-uploads-filter]') as HTMLFormElement
+}
+function filterInputOf(host: HTMLElement): HTMLInputElement {
+  return filterFormOf(host).querySelector('input[name="filter"]') as HTMLInputElement
+}
 
 function change(target: HTMLInputElement, checked: boolean) {
   target.checked = checked
@@ -107,6 +121,23 @@ describe('uploads bulk actions', () => {
     assert.equal(downloadSubmitOf(host).disabled, true)
     assert.equal(countOf(host).textContent, '0 ausgewählt')
     assert.equal(clearBtnOf(host).hidden, true)
+  })
+
+  it('swaps the filter toolbar for bulk actions and restores search focus on clear', () => {
+    let host = mount()
+    mountEntries()
+
+    assert.equal(groupOf(host).hidden, true, 'bulk group starts hidden')
+    assert.equal(filterFormOf(host).hidden, false, 'filter form starts visible')
+
+    change(rowCb(host, '1'), true)
+    assert.equal(groupOf(host).hidden, false, 'bulk group appears with a selection')
+    assert.equal(filterFormOf(host).hidden, true, 'filter form is swapped out')
+
+    clearBtnOf(host).click()
+    assert.equal(groupOf(host).hidden, true, 'bulk group hides after clearing')
+    assert.equal(filterFormOf(host).hidden, false, 'filter form comes back')
+    assert.equal(document.activeElement, filterInputOf(host), 'focus returns to search')
   })
 
   it('enables both bulk buttons and updates the count when a row is checked', () => {

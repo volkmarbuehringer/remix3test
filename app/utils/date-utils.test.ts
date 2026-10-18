@@ -5,6 +5,7 @@ import {
   isDateInPast,
   isWithinHours,
   generateMinOptions,
+  formatCompactDateDE,
   formatDateDE,
   formatRelativeTimeDE,
   formatUtcDateDE,
@@ -138,6 +139,17 @@ describe('generateMinOptions', () => {
 
   it('returns empty array for negative count', () => {
     assert.deepEqual(generateMinOptions(-1, 15), [])
+  })
+})
+
+describe('formatCompactDateDE', () => {
+  it('returns an em dash for null and invalid input', () => {
+    assert.equal(formatCompactDateDE(null), '\u2014')
+    assert.equal(formatCompactDateDE(NaN), '\u2014')
+  })
+
+  it('renders a leading-zero date without the weekday', () => {
+    assert.equal(formatCompactDateDE(Date.UTC(2026, 9, 3)), '03.10.2026')
   })
 })
 

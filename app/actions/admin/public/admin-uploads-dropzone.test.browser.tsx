@@ -15,6 +15,10 @@ const FORM_HTML = `
     <div data-dropzone>
       <label for="file-input">Dateien hierher ziehen</label>
     </div>
+    <div data-pending-summary hidden>
+      <span data-pending-summary-text></span>
+      <button type="button" data-pending-clear>Alle entfernen</button>
+    </div>
     <ul data-pending-list hidden></ul>
     <p data-upload-validation hidden></p>
     <button type="submit" data-upload-submit disabled>
@@ -47,6 +51,12 @@ function dropzoneOf(host: HTMLElement): HTMLElement {
 }
 function listOf(host: HTMLElement): HTMLUListElement {
   return host.querySelector('[data-pending-list]') as HTMLUListElement
+}
+function summaryOf(host: HTMLElement): HTMLElement {
+  return host.querySelector('[data-pending-summary]') as HTMLElement
+}
+function summaryTextOf(host: HTMLElement): HTMLElement {
+  return host.querySelector('[data-pending-summary-text]') as HTMLElement
 }
 function submitOf(host: HTMLElement): HTMLButtonElement {
   return host.querySelector('[data-upload-submit]') as HTMLButtonElement
@@ -159,6 +169,37 @@ describe('UploadDropzone', () => {
     assert.equal(submitOf(host).disabled, false)
   })
 
+  it('summarizes the selected batch and clears it in one action', () => {
+    let host = mount()
+    mountEntry()
+
+    dropzoneOf(host).dispatchEvent(
+      dragEvent('drop', filesTransfer([new File(['hello'], 'first.txt', { type: 'text/plain' })])),
+    )
+    assert.equal(summaryOf(host).hasAttribute('hidden'), false)
+    assert.equal(summaryTextOf(host).textContent, '1 Datei ausgewählt (5 B)')
+
+    dropzoneOf(host).dispatchEvent(
+      dragEvent(
+        'drop',
+        filesTransfer([new File(['world!'], 'second.txt', { type: 'text/plain' })]),
+      ),
+    )
+    assert.equal(inputOf(host).files?.length, 2, 'the second drop adds to the batch')
+    assert.equal(summaryTextOf(host).textContent, '2 Dateien ausgewählt (11 B)')
+
+    let clear = summaryOf(host).querySelector('button') as HTMLButtonElement
+    clear.click()
+
+    assert.equal(listOf(host).querySelectorAll('li').length, 0)
+    assert.equal(listOf(host).hasAttribute('hidden'), true)
+    assert.equal(summaryOf(host).hasAttribute('hidden'), true)
+    assert.equal(summaryTextOf(host).textContent, '')
+    assert.equal(inputOf(host).files?.length, 0)
+    assert.equal(submitOf(host).disabled, true)
+    assert.equal(document.activeElement, inputOf(host), 'focus returns to the file input')
+  })
+
   it('styles the chip from the theme tokens without double-wrapping', () => {
     let host = mount()
     mountEntry()
@@ -187,6 +228,7 @@ describe('UploadDropzone', () => {
     assert.equal(listOf(host).hasAttribute('hidden'), true)
     assert.equal(inputOf(host).files?.length, 0)
     assert.equal(submitOf(host).disabled, true)
+    assert.equal(document.activeElement, inputOf(host), 'focus returns to the file input')
   })
 
   it('cancels a file dropped outside the dropzone and explains where to drop it', () => {
