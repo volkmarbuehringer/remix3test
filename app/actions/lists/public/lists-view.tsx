@@ -10,6 +10,8 @@ import {
   type ListConflictState,
   type ListItem,
   type SortMode,
+  type StatusCounts,
+  type StatusFilter,
   type UndoKind,
   dueBadge,
   priorityLabel,
@@ -57,6 +59,13 @@ import {
   bulkNoticeStyle,
   bulkErrorStyle,
   sortSelectStyle,
+  viewOnlyHintStyle,
+  statusBarStyle,
+  statusTabsStyle,
+  statusTabStyle,
+  statusCountStyle,
+  hideDoneLabelStyle,
+  resetFiltersStyle,
   filterInputStyle,
   descriptionHeadStyle,
   descriptionLabelStyle,
@@ -96,6 +105,10 @@ export type ListsEditorView = {
   undoKind: UndoKind | null
   newItemLabel: string
   listFilter: string
+  statusFilter: StatusFilter
+  hideDone: boolean
+  sortMode: SortMode
+  reverseView: boolean
   editingIndex: number | null
   editText: string
   editPriority: '' | ItemPriority
@@ -117,7 +130,9 @@ export type ListsEditorView = {
   statusLabel: () => string
   isDirty: () => boolean
   activeItemId: () => string | null
-  filterActive: () => boolean
+  reorderLocked: () => boolean
+  viewOrderActive: () => boolean
+  statusCounts: () => StatusCounts
   copyTargets: () => Array<{ id: number; label: string }>
 
   scheduleAutosave: (fast?: boolean) => void
@@ -132,9 +147,12 @@ export type ListsEditorView = {
   discardDraft: () => void
   undo: () => void
   addItem: () => void
-  applySort: (mode: SortMode) => void
-  reverse: () => void
-  shuffle: () => void
+  setStatusFilter: (status: StatusFilter) => void
+  setHideDone: (value: boolean) => void
+  setSortMode: (mode: SortMode) => void
+  toggleReverse: () => void
+  reshuffle: () => void
+  resetFilters: () => void
   announce: (message: string) => void
   clearDone: () => void
   deleteSelected: () => void
@@ -173,6 +191,7 @@ export type ListsEditorView = {
   onDescriptionInputRef: (el: HTMLTextAreaElement | null) => void
   onNewItemRef: (el: HTMLTextAreaElement | null) => void
   onFilterInputRef: (el: HTMLInputElement | null) => void
+  onSortSelectRef: (el: HTMLSelectElement | null) => void
   onListRef: (el: HTMLDivElement | null) => void
   onCopyFormRef: (el: HTMLFormElement | null) => void
   onCopyCsrfRef: (el: HTMLInputElement | null) => void
@@ -233,6 +252,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     undoKind,
     newItemLabel,
     listFilter,
+    statusFilter,
+    hideDone,
+    sortMode,
+    reverseView,
     editingIndex,
     editText,
     editPriority,
@@ -253,7 +276,9 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     statusLabel,
     isDirty,
     activeItemId,
-    filterActive,
+    reorderLocked,
+    viewOrderActive,
+    statusCounts,
     copyTargets,
     scheduleAutosave,
     saveNow,
@@ -267,9 +292,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     discardDraft,
     undo,
     addItem,
-    applySort,
-    reverse,
-    shuffle,
+    setStatusFilter,
+    setHideDone,
+    setSortMode,
+    toggleReverse,
+    reshuffle,
+    resetFilters,
     announce,
     clearDone,
     deleteSelected,
@@ -308,10 +336,19 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
   // O(n²) with n array copies — a multi-second stall once a list had enough
   // members. Compute them once here.
   let activeId = activeItemId()
-  let rowDraggable = !filterActive()
-  let doneCount = vis.filter((item) => item.done === true).length
-  let totalCount = vis.length
+  let rowDraggable = !reorderLocked()
+  // Progress reflects the whole list, not the filtered view: hiding done rows
+  // must not turn "4 von 10 erledigt" into a misleading "0 von 6".
+  let doneCount = items.filter((item) => item.done === true).length
+  let totalCount = items.length
+  let counts = statusCounts()
+  // The All tab count must match what the tab will actually show when the
+  // hide-done shortcut is active.
+  let allTabCount = hideDone && statusFilter !== 'done' ? counts.open : counts.all
   let allVisibleSelected = vis.length > 0 && vis.every((item) => selectedItemIds.has(item.id))
+  let selectedExistingCount = items.filter((item) => selectedItemIds.has(item.id)).length
+  let visibleSelectedCount = vis.filter((item) => selectedItemIds.has(item.id)).length
+  let hiddenSelectedCount = Math.max(0, selectedExistingCount - visibleSelectedCount)
 
   return (
     <div
@@ -439,6 +476,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
           ) : (
             <span
               role="status"
+              data-save-status=""
               aria-live="polite"
               title="Speicherstatus dieser Liste"
               mix={css({
@@ -616,9 +654,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   ? 'Erledigte Elemente gelöscht.'
                   : undoKind === 'deleteSelected'
                     ? 'Ausgewählte Elemente gelöscht.'
-                    : undoKind === 'reorder'
-                      ? 'Reihenfolge geändert.'
-                      : 'Element gelöscht.'}
+                    : 'Element gelöscht.'}
             </span>
             <button
               mix={[
@@ -797,7 +833,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                     type="checkbox"
                     checked={allVisibleSelected}
                     indeterminate={selectedItemIds.size > 0 && !allVisibleSelected}
-                    disabled={totalCount === 0}
+                    disabled={vis.length === 0}
                     aria-label="Alle sichtbaren Elemente auswählen"
                     title="Alle sichtbaren Elemente auswählen"
                     mix={[selectionCheckboxStyle, on('change', toggleSelectAllVisible)]}
@@ -845,34 +881,45 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             <div mix={panelRightStyle}>
               <select
                 mix={[
+                  ref((el: HTMLSelectElement) => view.onSortSelectRef(el)),
                   sortSelectStyle,
                   on('change', (e) => {
-                    applySort((e.currentTarget.value as SortMode) || 'manual')
-                    e.currentTarget.value = 'manual'
+                    setSortMode((e.currentTarget.value as SortMode) || 'manual')
                   }),
                 ]}
                 aria-label="Sortieren"
-                value="manual"
+                title="Nur Ansicht – die gespeicherte Reihenfolge bleibt unverändert"
+                data-sort-mode={sortMode}
               >
-                <option value="manual">Sortieren…</option>
+                <option value="manual">Manuell</option>
                 <option value="az">A–Z</option>
                 <option value="done">Nach Erledigt</option>
                 <option value="due">Nach Fälligkeit</option>
                 <option value="updated">Nach Änderung</option>
               </select>
+              {viewOrderActive() && (
+                <span
+                  mix={viewOnlyHintStyle}
+                  data-view-only-hint
+                  title="Nur Ansicht – die gespeicherte Reihenfolge bleibt unverändert"
+                >
+                  Ansicht
+                </span>
+              )}
               <button
                 type="button"
-                mix={[iconToolbarBtnStyle, on('click', reverse)]}
-                title="Reihenfolge umkehren"
-                aria-label="Reihenfolge umkehren"
+                mix={[iconToolbarBtnStyle, on('click', toggleReverse)]}
+                title="Ansicht umkehren (nicht gespeichert)"
+                aria-label="Ansicht umkehren"
+                aria-pressed={reverseView}
               >
                 ↺
               </button>
               <button
                 type="button"
-                mix={[iconToolbarBtnStyle, on('click', shuffle)]}
-                title="Reihenfolge mischen"
-                aria-label="Reihenfolge mischen"
+                mix={[iconToolbarBtnStyle, on('click', reshuffle)]}
+                title="Ansicht mischen (nicht gespeichert)"
+                aria-label="Ansicht mischen"
               >
                 ⇄
               </button>
@@ -950,7 +997,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       on('click', deleteSelected),
                     ]}
                     disabled={selectedItemIds.size === 0}
-                    title="Ausgewählte Elemente aus der Liste entfernen"
+                    title="Ausgewählte Elemente aus der Liste entfernen (auch verborgene)"
                   >
                     {selectedItemIds.size > 0
                       ? `✕ Auswahl löschen (${selectedItemIds.size})`
@@ -973,10 +1020,67 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             </div>
           </div>
 
+          {items.length > 0 && (
+            <div mix={statusBarStyle} data-status-bar>
+              <div mix={statusTabsStyle} role="group" aria-label="Nach Status filtern">
+                {(
+                  [
+                    ['all', 'Alle', allTabCount],
+                    ['open', 'Offen', counts.open],
+                    ['done', 'Erledigt', counts.done],
+                    ['overdue', 'Überfällig', counts.overdue],
+                  ] as const
+                ).map(([value, label, count]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    data-status-filter={value}
+                    data-status-count={String(count)}
+                    aria-pressed={statusFilter === value}
+                    mix={[statusTabStyle, on('click', () => setStatusFilter(value))]}
+                  >
+                    {label}
+                    <span mix={statusCountStyle}>{count}</span>
+                  </button>
+                ))}
+              </div>
+              <label
+                mix={hideDoneLabelStyle}
+                title={
+                  statusFilter === 'done'
+                    ? 'Im Tab „Erledigt“ nicht verfügbar'
+                    : 'Erledigte Elemente ausblenden'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={hideDone}
+                  disabled={statusFilter === 'done'}
+                  data-hide-done
+                  mix={[
+                    selectionCheckboxStyle,
+                    on('change', (e) => setHideDone(e.currentTarget.checked)),
+                  ]}
+                />
+                Erledigte ausblenden
+              </label>
+            </div>
+          )}
+
           {selectedItemIds.size > 0 && (
             <div mix={bulkBarStyle}>
-              <span mix={bulkCountStyle} data-bulk-count={String(selectedItemIds.size)}>
+              <span
+                mix={bulkCountStyle}
+                data-bulk-count={String(selectedItemIds.size)}
+                data-bulk-hidden={hiddenSelectedCount > 0 ? String(hiddenSelectedCount) : undefined}
+                title={
+                  hiddenSelectedCount > 0
+                    ? `${hiddenSelectedCount} ausgewählte Elemente sind in dieser Ansicht verborgen`
+                    : undefined
+                }
+              >
                 {selectedItemIds.size} ausgewählt
+                {hiddenSelectedCount > 0 ? ` (inkl. ${hiddenSelectedCount} verborgener)` : ''}
               </span>
               <button
                 type="button"
@@ -1050,15 +1154,29 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             >
               Noch keine Elemente. Füge oben eines hinzu.
             </div>
-          ) : totalCount === 0 ? (
+          ) : vis.length === 0 ? (
             <div
               mix={css({
-                padding: `${theme.space.xxl} ${theme.space.lg}`,
+                padding: `${theme.space.xl} ${theme.space.lg}`,
                 textAlign: 'center',
                 color: theme.colors.text.muted,
               })}
             >
-              Keine Treffer für „{listFilter.trim()}“.
+              <p mix={css({ margin: 0 })}>
+                {listFilter.trim()
+                  ? `Keine Treffer für „${listFilter.trim()}“.`
+                  : 'Keine Elemente in dieser Ansicht.'}
+              </p>
+              <button
+                type="button"
+                mix={[
+                  button({ tone: 'secondary' }),
+                  resetFiltersStyle,
+                  on('click', () => resetFilters()),
+                ]}
+              >
+                Filter zurücksetzen
+              </button>
             </div>
           ) : (
             <div

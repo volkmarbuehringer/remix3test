@@ -19,7 +19,7 @@ export type ListInitialState = {
   updated_at: number
 }
 
-export type UndoKind = 'delete' | 'clear' | 'clearDone' | 'deleteSelected' | 'reorder'
+export type UndoKind = 'delete' | 'clear' | 'clearDone' | 'deleteSelected'
 
 export type ListConflictState = {
   show: boolean
@@ -131,6 +131,132 @@ export function sortItems(items: ListItem[], mode: SortMode): ListItem[] {
       break
   }
   return next
+}
+
+export type StatusFilter = 'all' | 'open' | 'done' | 'overdue'
+
+export type StatusCounts = {
+  all: number
+  open: number
+  done: number
+  overdue: number
+}
+
+/**
+ * An open item whose due date is strictly before today. Mirrors the badge:
+ * completed items never read as overdue, and malformed dates are ignored (the
+ * server schema is the validation boundary).
+ */
+export function isOverdueItem(
+  item: ListItem,
+  todayKey: string = localDateKey(new Date()),
+): boolean {
+  return (
+    item.done !== true &&
+    typeof item.due === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(item.due) &&
+    item.due < todayKey
+  )
+}
+
+/**
+ * Status tab predicate. `done` intentionally ignores `hideDone` — the user
+ * explicitly asked to see completed rows. `open` and `overdue` already exclude
+ * done items, so `hideDone` only narrows the `all` tab.
+ */
+export function filterItemsByStatus(
+  items: ListItem[],
+  status: StatusFilter,
+  hideDone = false,
+  nowMs: number = Date.now(),
+): ListItem[] {
+  let today = localDateKey(new Date(nowMs))
+  switch (status) {
+    case 'done':
+      return items.filter((item) => item.done === true)
+    case 'overdue':
+      return items.filter((item) => isOverdueItem(item, today))
+    case 'open':
+      return items.filter((item) => item.done !== true)
+    case 'all':
+      return hideDone ? items.filter((item) => item.done !== true) : items
+    default:
+      return items
+  }
+}
+
+/** Counts for the status tabs. Overdue only counts open items. */
+export function countItemsByStatus(items: ListItem[], nowMs: number = Date.now()): StatusCounts {
+  let today = localDateKey(new Date(nowMs))
+  let counts: StatusCounts = { all: items.length, open: 0, done: 0, overdue: 0 }
+  for (let item of items) {
+    if (item.done === true) {
+      counts.done++
+    } else {
+      counts.open++
+      if (isOverdueItem(item, today)) counts.overdue++
+    }
+  }
+  return counts
+}
+
+export type ViewOrderOptions = {
+  reverse?: boolean
+  /** Stable random ranking (item ids in display order). Overrides `mode`. */
+  shuffleOrder?: readonly string[] | null
+}
+
+/**
+ * View-only ordering. It never touches the persisted array: sort/reverse/
+ * shuffle are applied to a copy for display, so the manual order survives until
+ * the user explicitly reorders with drag/keyboard.
+ */
+export function orderViewItems(
+  items: ListItem[],
+  mode: SortMode,
+  options: ViewOrderOptions = {},
+): ListItem[] {
+  let next: ListItem[]
+  let shuffleOrder = options.shuffleOrder
+  if (shuffleOrder && shuffleOrder.length > 0) {
+    let rank = new Map(shuffleOrder.map((id, index) => [id, index]))
+    next = items.toSorted(
+      (a, b) =>
+        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+    )
+  } else {
+    next = sortItems(items, mode)
+  }
+  return options.reverse ? reverseItems(next) : next
+}
+
+export type ItemViewOptions = {
+  query?: string
+  status?: StatusFilter
+  hideDone?: boolean
+  sort?: SortMode
+} & ViewOrderOptions
+
+/**
+ * The single composition used by the editor: text/tag filter → status filter →
+ * view-only ordering. Each stage is pure, so callers can reuse the pieces.
+ */
+export function buildVisibleItems(
+  items: ListItem[],
+  options: ItemViewOptions = {},
+  nowMs: number = Date.now(),
+): ListItem[] {
+  let filtered = filterItems(items, options.query ?? '')
+  filtered = filterItemsByStatus(
+    filtered,
+    options.status ?? 'all',
+    options.hideDone ?? false,
+    nowMs,
+  )
+  return orderViewItems(filtered, options.sort ?? 'manual', {
+    reverse: options.reverse ?? false,
+    shuffleOrder: options.shuffleOrder ?? null,
+  })
 }
 
 export function clearDoneItems(items: ListItem[]): { items: ListItem[]; removedIds: string[] } {

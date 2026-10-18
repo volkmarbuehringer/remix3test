@@ -16,7 +16,7 @@ export type ListsDragContext = {
   getLoadedListId: () => number | null
   getLoadedUpdatedAt: () => number | null
   getListRef: () => HTMLDivElement | null
-  isFilterActive: () => boolean
+  isReorderLocked: () => boolean
   getCsrfHeaders: () => Record<string, string>
   flush: () => Promise<boolean>
   commitReorder: (items: ListItem[]) => void
@@ -74,7 +74,7 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
       e.preventDefault()
       return
     }
-    if (ctx.isFilterActive()) {
+    if (ctx.isReorderLocked()) {
       e.preventDefault()
       return
     }

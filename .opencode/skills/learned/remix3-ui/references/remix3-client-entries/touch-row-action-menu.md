@@ -103,7 +103,7 @@ Wait ~350ms after move/delete so the fast autosave hits the stub, then assert fo
 - 390px: row 63px, label no longer 22px, no horizontal overflow.
 - Filtered list: menu has no move actions, and `moveItem` returns without reordering (defense in depth).
 - `document.activeElement` is the kebab on touch and the row on pointer devices after Escape/action; delete focuses the next/previous visible row.
-- Current suite result: **126 lists browser tests pass** (including the sidebar menu open/close/focus/tab-stop suite); `app/actions/lists/lists-sidebar-menu.test.e2e.ts` checks the real SSR markup and 44px geometry at 390x844 and 1440x900 in Chromium and Firefox. Typecheck, format, lint, theme conformance, and the full `npm test` are green.
+- Current suite result: **138 lists browser tests pass** (including the sidebar menu open/close/focus/tab-stop suite and the view controls in `view-only-list-controls.md`); `app/actions/lists/lists-sidebar-menu.test.e2e.ts` checks the real SSR markup and 44px geometry at 390x844 and 1440x900 in Chromium and Firefox. Typecheck, format, lint, theme conformance, and the full `npm test` are green.
 
 ## When to Use
 

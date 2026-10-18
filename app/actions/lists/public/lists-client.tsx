@@ -8,11 +8,15 @@ import { drag } from './lists-drag-mixin.ts'
 import {
   type ItemPriority,
   type SortMode,
+  type StatusCounts,
+  type StatusFilter,
   type ListItem,
   type ListInitialState,
   type ListConflictState,
   type UndoKind,
+  buildVisibleItems,
   cloneItems,
+  countItemsByStatus,
   createItem,
   deleteItemAt,
   editItemFields,
@@ -20,9 +24,7 @@ import {
   itemsFingerprint,
   parseItemsFingerprint,
   removeItemsByIds,
-  reverseItems,
   shuffleItems,
-  sortItems,
   clearDoneItems,
   toggleDoneAt,
   addItem as appendItem,
@@ -46,6 +48,14 @@ export const ListsClient = clientEntry(
     let description = ''
     let newItemLabel = ''
     let listFilter = ''
+    // View-only status and ordering controls. They never mutate `items`, so the
+    // persisted manual order is only changed by drag/keyboard/move actions.
+    let statusFilter: StatusFilter = 'all'
+    let hideDone = false
+    let sortMode: SortMode = 'manual'
+    let reverseView = false
+    let shuffleOrder: string[] | null = null
+    let sortSelectRef: HTMLSelectElement | null = null
     // Description visibility. 'auto' shows the field only when the list has a
     // description, 'open' forces it visible, 'closed' hides it even when filled.
     // Resets to 'auto' on every list load so switching lists always reflects the
@@ -178,13 +188,121 @@ export const ListsClient = clientEntry(
     // (drag + keyboard grab + up/down buttons) is disabled while a filter is
     // active, because moving "up/down" inside a filtered subset is ambiguous.
     let filterActive = (): boolean => listFilter.trim() !== ''
-    let visibleItems = (): ListItem[] => filterItems(items, listFilter)
+    let viewOrderActive = (): boolean =>
+      sortMode !== 'manual' || reverseView || shuffleOrder !== null
+    // Position-based reordering is only meaningful while rows are displayed in
+    // their persisted order. Any hidden row (text/tag, status, hide-done) or any
+    // view-only sort/reverse/shuffle makes "up/down" ambiguous.
+    let reorderLocked = (): boolean =>
+      filterActive() || statusFilter !== 'all' || hideDone || viewOrderActive()
+    let visibleItems = (): ListItem[] =>
+      buildVisibleItems(items, {
+        query: listFilter,
+        status: statusFilter,
+        hideDone,
+        sort: sortMode,
+        reverse: reverseView,
+        shuffleOrder,
+      })
+    // Status tab counts follow the text/tag filter (a search narrows every tab),
+    // but not the status filter itself — otherwise every inactive tab would
+    // read zero.
+    let visibleStatusCounts = (): StatusCounts => countItemsByStatus(filterItems(items, listFilter))
+    let syncSortSelect = () => {
+      if (sortSelectRef && sortSelectRef.value !== sortMode) sortSelectRef.value = sortMode
+    }
     // Reset the in-list filter. Called on every reload/hydrate because the
     // client entry is not remounted on frame navigation, so the filter would
     // otherwise persist across switching to a different list.
     let clearFilter = () => {
       listFilter = ''
       if (filterInputRef) filterInputRef.value = ''
+    }
+    // Frame navigation opens a different list; none of the view-only controls
+    // should leak into it.
+    let resetViewState = () => {
+      clearFilter()
+      statusFilter = 'all'
+      hideDone = false
+      sortMode = 'manual'
+      reverseView = false
+      shuffleOrder = null
+      syncSortSelect()
+    }
+    let resetFilters = () => {
+      disarmClear()
+      clearFilter()
+      statusFilter = 'all'
+      hideDone = false
+      openItemMenuId = null
+      announce('Filter zurückgesetzt')
+      void handle.update()
+    }
+    let statusFilterLabel = (status: StatusFilter): string =>
+      status === 'open'
+        ? 'Offen'
+        : status === 'done'
+          ? 'Erledigt'
+          : status === 'overdue'
+            ? 'Überfällig'
+            : 'Alle'
+    let setStatusFilter = (status: StatusFilter) => {
+      disarmClear()
+      statusFilter = status
+      // "Erledigt" is an explicit request to see completed rows; the hide-done
+      // shortcut must not silently turn that tab into an empty view.
+      if (status === 'done') hideDone = false
+      openItemMenuId = null
+      announce(`Status: ${statusFilterLabel(status)}`)
+      void handle.update()
+    }
+    let setHideDone = (value: boolean) => {
+      disarmClear()
+      hideDone = value
+      openItemMenuId = null
+      announce(value ? 'Erledigte ausgeblendet' : 'Erledigte eingeblendet')
+      void handle.update()
+    }
+    let sortLabel = (mode: SortMode): string =>
+      mode === 'az'
+        ? 'A–Z'
+        : mode === 'done'
+          ? 'Nach Erledigt'
+          : mode === 'due'
+            ? 'Nach Fälligkeit'
+            : mode === 'updated'
+              ? 'Nach Änderung'
+              : 'Manuell'
+    let setSortMode = (mode: SortMode) => {
+      disarmClear()
+      sortMode = mode
+      shuffleOrder = null
+      if (mode === 'manual') reverseView = false
+      openItemMenuId = null
+      syncSortSelect()
+      announce(
+        mode === 'manual'
+          ? 'Manuelle Reihenfolge'
+          : `Ansicht: ${sortLabel(mode)} (nicht gespeichert)`,
+      )
+      void handle.update()
+    }
+    let toggleReverse = () => {
+      disarmClear()
+      reverseView = !reverseView
+      announce(reverseView ? 'Ansicht umgekehrt (nicht gespeichert)' : 'Ansicht zurückgedreht')
+      void handle.update()
+    }
+    let reshuffle = () => {
+      disarmClear()
+      if (items.length < 2) return
+      sortMode = 'manual'
+      shuffleOrder = shuffleItems(items).map((item) => item.id)
+      reverseView = false
+      openItemMenuId = null
+      syncSortSelect()
+      announce('Ansicht gemischt (nicht gespeichert)')
+      void handle.update()
     }
 
     // Push the current `title`/`description` state into the uncontrolled
@@ -283,7 +401,7 @@ export const ListsClient = clientEntry(
       saveError = ''
       conflictState = { show: false, serverState: null }
       snapshotClean()
-      clearFilter()
+      resetViewState()
       syncFieldInputs()
       void handle.update()
     }
@@ -672,7 +790,7 @@ export const ListsClient = clientEntry(
       saveError = ''
       loadingList = false
       conflictState = { show: false, serverState: null }
-      clearFilter()
+      resetViewState()
       syncFieldInputs()
     }
 
@@ -721,7 +839,7 @@ export const ListsClient = clientEntry(
         loadingList = false
         conflictState = { show: false, serverState: null }
         draftRestored = true
-        clearFilter()
+        resetViewState()
         syncFieldInputs()
         void handle.update()
         return
@@ -739,7 +857,7 @@ export const ListsClient = clientEntry(
       loadingList = false
       conflictState = { show: false, serverState: null }
       snapshotClean()
-      clearFilter()
+      resetViewState()
       syncFieldInputs()
       void handle.update()
     }
@@ -791,7 +909,7 @@ export const ListsClient = clientEntry(
       getLoadedListId: () => loadedListId,
       getLoadedUpdatedAt: () => loadedUpdatedAt,
       getListRef: () => listRef,
-      isFilterActive: filterActive,
+      isReorderLocked: reorderLocked,
       getCsrfHeaders,
       flush: flushNow,
       commitReorder: (next) => {
@@ -869,27 +987,6 @@ export const ListsClient = clientEntry(
       void handle.update()
     }
 
-    // One-shot sort control. Choosing an order reorders the real `items` array
-    // (so it autosaves) and offers undo, exactly like Umkehren/Mischen. "manual"
-    // is the neutral drag state and does nothing.
-    let applySort = (mode: SortMode) => {
-      disarmClear()
-      if (mode === 'manual') return
-      showUndo('reorder', cloneItems(items))
-      items = sortItems(items, mode)
-      announce(
-        mode === 'az'
-          ? 'A–Z sortiert'
-          : mode === 'done'
-            ? 'Nach Erledigt sortiert'
-            : mode === 'due'
-              ? 'Nach Fälligkeit sortiert'
-              : 'Nach Änderung sortiert',
-      )
-      setDirty()
-      void handle.update()
-    }
-
     // Duplicate the currently open list by submitting the hidden copy form. The
     // frame runtime intercepts the POST (data-rmx-target) and follows the
     // server redirect straight to the new list's load URL, refreshing both the
@@ -947,11 +1044,12 @@ export const ListsClient = clientEntry(
     }
 
     let moveItem = (from: number, to: number) => {
-      // Position-based reordering is disabled while an in-list filter is
-      // active: moving relative to a hidden neighbour is ambiguous and the
-      // visible order often does not change. Hide the menu actions too, but
-      // keep the invariant enforced here as a single choke point.
-      if (filterActive()) return
+      // Position-based reordering is disabled whenever the view hides rows or
+      // shows a view-only order: moving relative to a hidden neighbour is
+      // ambiguous and the visible order often does not change. Hide the menu
+      // actions too, but keep the invariant enforced here as a single choke
+      // point.
+      if (reorderLocked()) return
       disarmClear()
       if (from < 0 || from >= items.length) return
       if (to < 0 || to >= items.length) return
@@ -966,24 +1064,6 @@ export const ListsClient = clientEntry(
 
     let moveUp = (index: number) => moveItem(index, index - 1)
     let moveDown = (index: number) => moveItem(index, index + 1)
-
-    let reverse = () => {
-      disarmClear()
-      showUndo('reorder', cloneItems(items))
-      items = reverseItems(items)
-      setDirty()
-      announce('Reihenfolge umgekehrt')
-      void handle.update()
-    }
-
-    let shuffle = () => {
-      disarmClear()
-      showUndo('reorder', cloneItems(items))
-      items = shuffleItems(items)
-      setDirty()
-      announce('Reihenfolge gemischt')
-      void handle.update()
-    }
 
     let startEditing = (index: number) => {
       openItemMenuId = null
@@ -1212,16 +1292,14 @@ export const ListsClient = clientEntry(
       focusItem(vis[targetIndex]!.id)
     }
 
-    // The active roving-tabindex id. Falls back to the first item when no item
-    // is focused, or when `focusedId` references a row that no longer exists
-    // (deleted / cleared / reloaded) — otherwise the whole list would end up
-    // with tabindex="-1" and become unreachable by keyboard. While a filter is
-    // active the fallback is the first *visible* item, so a filtered view still
-    // has a tabbable row.
-    let activeItemId = (): string | null =>
-      focusedId && items.some((i) => i.id === focusedId)
-        ? focusedId
-        : (visibleItems()[0]?.id ?? null)
+    // The active roving-tabindex id. Falls back to the first *visible* item when
+    // no item is focused, the focused row was deleted/reloaded, or the focused
+    // row is hidden by a filter — otherwise the whole visible list would end up
+    // with tabindex="-1" and become unreachable by keyboard.
+    let activeItemId = (): string | null => {
+      let vis = visibleItems()
+      return focusedId && vis.some((i) => i.id === focusedId) ? focusedId : (vis[0]?.id ?? null)
+    }
 
     let grabbedMove = (from: number, to: number) => {
       if (to < 0 || to >= items.length) return
@@ -1238,11 +1316,11 @@ export const ListsClient = clientEntry(
       // keep their own semantics.
       if (e.target !== e.currentTarget) return
 
-      // While filtering, reordering is view-only: arrow keys / Home / End /
-      // typeahead only move focus among the visible subset, and grab-reorder /
-      // Ctrl+Cmd+Arrow quick-move are skipped so the item's real position never
-      // changes under a filter.
-      if (filterActive()) {
+      // While the view hides rows or applies a view-only order, reordering is
+      // view-only: arrow keys / Home / End / typeahead only move focus among the
+      // visible subset, and grab-reorder / Ctrl+Cmd+Arrow quick-move are skipped
+      // so the item's real position never changes under a filter or view sort.
+      if (reorderLocked()) {
         let vis = visibleItems()
         switch (e.key) {
           case 'ArrowDown':
@@ -1373,6 +1451,10 @@ export const ListsClient = clientEntry(
       undoKind,
       newItemLabel,
       listFilter,
+      statusFilter,
+      hideDone,
+      sortMode,
+      reverseView,
       editingIndex,
       editText,
       editPriority,
@@ -1393,7 +1475,9 @@ export const ListsClient = clientEntry(
       statusLabel,
       isDirty,
       activeItemId,
-      filterActive,
+      reorderLocked,
+      viewOrderActive,
+      statusCounts: visibleStatusCounts,
       copyTargets,
       scheduleAutosave,
       saveNow,
@@ -1407,9 +1491,12 @@ export const ListsClient = clientEntry(
       discardDraft,
       undo,
       addItem,
-      applySort,
-      reverse,
-      shuffle,
+      setStatusFilter,
+      setHideDone,
+      setSortMode,
+      toggleReverse,
+      reshuffle,
+      resetFilters,
       announce,
       clearDone,
       deleteSelected,
@@ -1510,6 +1597,10 @@ export const ListsClient = clientEntry(
       },
       onFilterInputRef: (el) => {
         filterInputRef = el
+      },
+      onSortSelectRef: (el) => {
+        sortSelectRef = el
+        syncSortSelect()
       },
       onListRef: (el) => {
         listRef = el

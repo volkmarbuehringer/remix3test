@@ -36,11 +36,11 @@ function makeItems(count: number): ListItem[] {
 type Counts = {
   visibleItems: number
   activeItemId: number
-  filterActive: number
+  reorderLocked: number
 }
 
 function renderWithSpy(items: ListItem[]): Counts {
-  let counts: Counts = { visibleItems: 0, activeItemId: 0, filterActive: 0 }
+  let counts: Counts = { visibleItems: 0, activeItemId: 0, reorderLocked: 0 }
   let noop = () => {}
   let noopAsync = async () => {}
 
@@ -59,6 +59,10 @@ function renderWithSpy(items: ListItem[]): Counts {
     undoKind: null,
     newItemLabel: '',
     listFilter: '',
+    statusFilter: 'all',
+    hideDone: false,
+    sortMode: 'manual',
+    reverseView: false,
     editingIndex: null,
     editText: '',
     editPriority: '',
@@ -88,10 +92,12 @@ function renderWithSpy(items: ListItem[]): Counts {
       counts.activeItemId++
       return items[0]?.id ?? null
     },
-    filterActive: () => {
-      counts.filterActive++
+    reorderLocked: () => {
+      counts.reorderLocked++
       return false
     },
+    viewOrderActive: () => false,
+    statusCounts: () => ({ all: items.length, open: items.length, done: 0, overdue: 0 }),
     copyTargets: () => [],
     scheduleAutosave: noop,
     saveNow: () => Promise.resolve(false),
@@ -105,9 +111,12 @@ function renderWithSpy(items: ListItem[]): Counts {
     discardDraft: noop,
     undo: noop,
     addItem: noop,
-    applySort: noop,
-    reverse: noop,
-    shuffle: noop,
+    setStatusFilter: noop,
+    setHideDone: noop,
+    setSortMode: noop,
+    toggleReverse: noop,
+    reshuffle: noop,
+    resetFilters: noop,
     announce: noop,
     clearDone: noop,
     deleteSelected: noop,
@@ -144,6 +153,7 @@ function renderWithSpy(items: ListItem[]): Counts {
     onDescriptionInputRef: noop,
     onNewItemRef: noop,
     onFilterInputRef: noop,
+    onSortSelectRef: noop,
     onListRef: noop,
     onCopyFormRef: noop,
     onCopyCsrfRef: noop,
@@ -160,7 +170,7 @@ describe('lists editor render complexity', () => {
     let large = renderWithSpy(makeItems(400))
 
     // `visibleItems` is read once to build `vis`. `activeItemId` and
-    // `filterActive` are hoisted above the row loop (previously O(n) each,
+    // `reorderLocked` are hoisted above the row loop (previously O(n) each,
     // called per row). A linear-time render keeps these at a small constant
     // count whether there are 20 or 400 members.
     assert.ok(
@@ -172,8 +182,8 @@ describe('lists editor render complexity', () => {
       `activeItemId must not scale with rows (got ${large.activeItemId})`,
     )
     assert.ok(
-      large.filterActive <= 2,
-      `filterActive must not scale with rows (got ${large.filterActive})`,
+      large.reorderLocked <= 2,
+      `reorderLocked must not scale with rows (got ${large.reorderLocked})`,
     )
 
     // And it must not grow at all between 20 and 400 members.

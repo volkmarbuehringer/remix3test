@@ -3,14 +3,19 @@ import * as assert from 'remix/assert'
 
 import {
   addItem,
+  buildVisibleItems,
   clearDoneItems,
+  countItemsByStatus,
   cloneItems,
   createItem,
   deleteItemAt,
   dueBadge,
   editItemFields,
   filterItems,
+  filterItemsByStatus,
+  isOverdueItem,
   itemsFingerprint,
+  orderViewItems,
   parseItemsFingerprint,
   removeItemsByIds,
   reverseItems,
@@ -206,6 +211,105 @@ describe('lists-state', () => {
     assert.deepEqual(
       sortItems(dated, 'due').map((i) => i.id),
       ['b', 'c', 'd', 'a', 'e'],
+    )
+  })
+
+  it('counts status tabs with overdue only for open items', () => {
+    // Fixed local "today" so the test never depends on the machine clock.
+    let now = new Date(2026, 9, 14, 9, 0, 0).getTime()
+    let statusSample: ListItem[] = [
+      item('a', 'Überfällig', { due: '2026-10-13' }),
+      item('b', 'Heute fällig', { due: '2026-10-14' }),
+      item('c', 'Zukunft', { due: '2026-10-15' }),
+      item('d', 'Ohne Termin'),
+      item('e', 'Erledigt, war überfällig', { done: true, due: '2026-10-01' }),
+    ]
+
+    assert.deepEqual(countItemsByStatus(statusSample, now), {
+      all: 5,
+      open: 4,
+      done: 1,
+      overdue: 1,
+    })
+    assert.equal(isOverdueItem(statusSample[0]!, '2026-10-14'), true)
+    assert.equal(isOverdueItem(statusSample[1]!, '2026-10-14'), false)
+    assert.equal(isOverdueItem(statusSample[4]!, '2026-10-14'), false)
+    assert.equal(isOverdueItem(item('x', 'Malformed', { due: 'bald' }), '2026-10-14'), false)
+  })
+
+  it('filters by status and optionally hides done items on the all tab', () => {
+    let now = new Date(2026, 9, 14, 9, 0, 0).getTime()
+    let statusSample: ListItem[] = [
+      item('a', 'Überfällig', { due: '2026-10-13' }),
+      item('b', 'Heute fällig', { due: '2026-10-14' }),
+      item('c', 'Zukunft', { due: '2026-10-15' }),
+      item('d', 'Ohne Termin'),
+      item('e', 'Erledigt', { done: true }),
+    ]
+
+    let ids = (rows: ListItem[]) => rows.map((row) => row.id)
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'all', false, now)), [
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+    ])
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'all', true, now)), ['a', 'b', 'c', 'd'])
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'open', false, now)), [
+      'a',
+      'b',
+      'c',
+      'd',
+    ])
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'done', false, now)), ['e'])
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'done', true, now)), ['e'])
+    assert.deepEqual(ids(filterItemsByStatus(statusSample, 'overdue', false, now)), ['a'])
+  })
+
+  it('buildVisibleItems combines text, status, and view-only ordering without mutating items', () => {
+    let now = new Date(2026, 9, 14, 9, 0, 0).getTime()
+    let combined: ListItem[] = [
+      item('a', 'Banane', { done: true }),
+      item('b', 'Ananas'),
+      item('c', 'Apfel'),
+    ]
+    let before = JSON.stringify(combined)
+
+    assert.deepEqual(
+      buildVisibleItems(combined, { query: 'an', status: 'open', sort: 'az' }, now).map(
+        (i) => i.id,
+      ),
+      ['b'],
+    )
+    assert.deepEqual(
+      buildVisibleItems(combined, { query: '', status: 'all', sort: 'az' }, now).map((i) => i.id),
+      ['b', 'c', 'a'],
+    )
+    assert.deepEqual(
+      buildVisibleItems(combined, { status: 'all', reverse: true }, now).map((i) => i.id),
+      ['c', 'b', 'a'],
+    )
+    assert.deepEqual(
+      buildVisibleItems(combined, { status: 'all', shuffleOrder: ['a', 'c', 'b'] }, now).map(
+        (i) => i.id,
+      ),
+      ['a', 'c', 'b'],
+    )
+    assert.equal(JSON.stringify(combined), before, 'the persisted array must stay untouched')
+  })
+
+  it('orderViewItems keeps unknown ids at the end of a shuffle order', () => {
+    let ordered = orderViewItems(sample, 'manual', { shuffleOrder: ['c', 'a'] })
+    assert.deepEqual(
+      ordered.map((i) => i.id),
+      ['c', 'a', 'b'],
+    )
+    assert.deepEqual(
+      orderViewItems(sample, 'manual', { shuffleOrder: ['c', 'a'], reverse: true }).map(
+        (i) => i.id,
+      ),
+      ['b', 'a', 'c'],
     )
   })
 

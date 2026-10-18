@@ -546,6 +546,109 @@ export const sortSelectStyle = css({
   },
 })
 
+// View-only sort marker: the select never rewrites the persisted order.
+export const viewOnlyHintStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '2px 6px',
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.surface.lvl2,
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xxxs,
+  fontWeight: theme.fontWeight.semibold,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  whiteSpace: 'nowrap',
+})
+
+/**
+ * Compact status filter strip. It wraps instead of overflowing on phones; the
+ * hide-done shortcut is a label so the whole text is a touch target.
+ */
+export const statusBarStyle = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  padding: `0 ${theme.space.md}`,
+  borderBottom: `1px solid ${theme.colors.border.default}`,
+  backgroundColor: theme.surface.lvl0,
+  '@media (max-width: 768px)': {
+    padding: `0 ${theme.space.xs}`,
+  },
+})
+
+export const statusTabsStyle = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '2px',
+})
+
+export const statusTabStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  minHeight: '44px',
+  padding: `0 ${theme.space.sm}`,
+  border: 'none',
+  borderRadius: theme.radius.sm,
+  backgroundColor: 'transparent',
+  color: theme.colors.text.secondary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.xs,
+  cursor: 'pointer',
+  ':hover': {
+    backgroundColor: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+  '&[aria-pressed="true"]': {
+    backgroundColor: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+  },
+  '@media (max-width: 768px)': {
+    padding: '0 2px',
+    gap: '2px',
+  },
+})
+
+export const statusCountStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '16px',
+  height: '18px',
+  padding: '0 3px',
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.colors.border.default,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xxxs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+export const hideDoneLabelStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  minHeight: '44px',
+  marginLeft: 'auto',
+  color: theme.colors.text.secondary,
+  fontFamily: theme.fontFamily.sans,
+  fontSize: theme.fontSize.xs,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+})
+
+export const resetFiltersStyle = css({
+  display: 'inline-flex',
+  marginTop: theme.space.md,
+})
+
 // In-list search lives inline in the ELEMENTE toolbar; Escape clears it.
 export const filterInputStyle = css({
   width: '100%',

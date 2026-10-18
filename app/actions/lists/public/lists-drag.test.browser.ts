@@ -94,7 +94,7 @@ function setup(options: { items?: ListItem[] } = {}) {
     getLoadedListId: () => loadedListId,
     getLoadedUpdatedAt: () => loadedUpdatedAt,
     getListRef: () => listRef,
-    isFilterActive: () => false,
+    isReorderLocked: () => false,
     getCsrfHeaders: () => ({ 'X-Csrf-Token': 'tok' }),
     flush: async () => {
       events.push('flush')

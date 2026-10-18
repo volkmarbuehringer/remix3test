@@ -324,7 +324,7 @@ describe('lists autosave persistence', () => {
 })
 
 // ---------------------------------------------------------------------------
-// One-shot sort control ("Sortieren…" → A–Z).
+// View-only sort control (A–Z). It must never rewrite the persisted order.
 // ---------------------------------------------------------------------------
 
 describe('lists sort control', () => {
@@ -344,7 +344,7 @@ describe('lists sort control', () => {
     adminUserId = Number(userRows[0]!.id)
   })
 
-  it('reorders items A–Z and offers undo', async (t) => {
+  it('applies A–Z as a view-only sort and leaves the persisted order untouched', async (t) => {
     let now = Date.now()
     let seeded = await pool.query(
       'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
@@ -384,18 +384,17 @@ describe('lists sort control', () => {
       // Playwright synthetic-event unreliability the sibling e2e files document),
       // so this behavior is scoped to Chromium only.
       if (isFirefox(page)) {
-        // Firefox smoke check: the sort control still renders; the reorder
-        // mutation itself stays covered by the chromium project and the
-        // lists-state unit tests.
+        // Firefox smoke check: the sort control still renders; the view-only
+        // behavior is covered by the chromium project and the browser suite.
         assert.ok((await page.locator('select[aria-label="Sortieren"]').count()) === 1)
         return
       }
       await page.selectOption('select[aria-label="Sortieren"]', 'az')
 
-      // The client reorders the rendered rows and raises the undo chip. Retry
-      // the interaction until the reorder registers — the change listener is
-      // attached by the client entry's render pass, and a selectOption that
-      // lands in the hydration gap is a silent no-op (see `selectItems`).
+      // The client reorders only the rendered view. Retry the interaction until
+      // it registers — the change listener is attached by the client entry's
+      // render pass, and a selectOption that lands in the hydration gap is a
+      // silent no-op (see `selectItems`).
       let domIds = await readItemIds(page)
       for (
         let attempt = 0;
@@ -408,12 +407,39 @@ describe('lists sort control', () => {
           await page.selectOption('select[aria-label="Sortieren"]', 'az')
         }
       }
-      assert.deepEqual(domIds, ['sort-a', 'sort-b', 'sort-c'], 'A–Z must reorder the rows by label')
-      assert.ok((await page.locator('button:has-text("Rückgängig")').count()) === 1)
-      assert.ok((await page.getByText('Reihenfolge geändert.').count()) >= 1)
-      // Persistence of the reordered rows rides the representative autosave
-      // round trip above (the same debounced PUT) plus the unit-tested
-      // `sortItems` transition; it is not asserted a second time here.
+      assert.deepEqual(domIds, ['sort-a', 'sort-b', 'sort-c'], 'A–Z must reorder the view by label')
+      assert.equal(await page.locator('[data-view-only-hint]').count(), 1)
+      assert.equal(
+        await page.locator('button:has-text("Rückgängig")').count(),
+        0,
+        'a view-only sort must not offer undo',
+      )
+      assert.equal(
+        await page.locator('[data-save-status]').innerText(),
+        'Gespeichert',
+        'a view-only sort must not mark the list dirty',
+      )
+
+      // Past the autosave debounce: the persisted order must still be the
+      // original insertion order.
+      await page.waitForTimeout(1800)
+      assert.deepEqual(
+        (await listItems(listId)).map((item) => item.id),
+        ['sort-b', 'sort-a', 'sort-c'],
+        'the view-only sort must not PUT a reordered list',
+      )
+
+      // Manual restores the persisted order and removes the view-only marker.
+      await page.selectOption('select[aria-label="Sortieren"]', 'manual')
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll('[data-item-id]')]
+            .map((el) => el.getAttribute('data-item-id'))
+            .join(',') === 'sort-b,sort-a,sort-c',
+        undefined,
+        { timeout: 5_000 },
+      )
+      assert.equal(await page.locator('[data-view-only-hint]').count(), 0)
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
     }
