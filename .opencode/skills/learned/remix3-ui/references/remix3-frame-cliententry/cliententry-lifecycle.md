@@ -399,6 +399,20 @@ An entry whose `init()` re-runs on every frame `reloadComplete` (uploads bulk de
 
 Those entries stamp `form.dataset.<name>Ready = 'true'` at the end of `init()` (`admin-uploads-bulk-delete.tsx`, `admin-uploads-bulk-download.tsx`, `admin-uploads-dropzone.tsx`). Wait for that marker before interacting, and wait for it **again** after any frame reload that replaces the form — the replaced element starts without the attribute. `uploads-bulk-delete.test.e2e.ts` and its `-bulk-download` sibling show both patterns.
 
+**A marker the entry itself hides needs `state: 'attached'`.** The bulk toolbar is server-rendered (bulk delete still works without JS) and the entry hides its whole `[data-bulk-group]` wrapper in `update()` while the selection is empty. Because the marker lives on a form *inside* that wrapper, `locator.waitFor()`'s default `state: 'visible'` now times out with `locator resolved to hidden <form … data-bulk-delete-ready="true">` even though hydration has already finished — the attribute is present, the element is deliberately not visible. Pass `{ state: 'attached' }` for the marker wait and keep any visibility wait for the toggle itself:
+
+```ts
+let bulkReady = page.locator('[data-bulk-delete-form][data-bulk-delete-ready]')
+await bulkReady.waitFor({ state: 'attached', timeout: 15_000 })  // hydration marker
+
+let bulkGroup = page.locator('[data-bulk-group]')
+await bulkGroup.waitFor({ state: 'hidden', timeout: 5_000 })     // toolbar starts collapsed
+…check a row…
+await bulkGroup.waitFor({ state: 'visible', timeout: 5_000 })    // revealed on selection
+```
+
+This applies whenever a hide-after-hydration change touches an element that carries (or contains) a readiness marker: relax only the marker waits to `attached`, and use `hidden`/`visible` only for the toggle assertion itself (`uploads-bulk-delete.test.e2e.ts`, `uploads-bulk-download.test.e2e.ts`).
+
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 
 **Context:** Distinct failures when authoring a new remix/component `clientEntry`: `ReferenceError: document is not defined` during server render, TS/JSX parse errors from misplaced mixins, `AssetServerCompilationError: IMPORT_NOT_ALLOWED`, and a hydrated entry that replaces the whole document with the error card.
