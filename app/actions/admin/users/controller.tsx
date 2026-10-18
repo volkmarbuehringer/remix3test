@@ -104,6 +104,13 @@ function toSafeUser(u: User): SafeUser {
   }
 }
 
+/** Escape LIKE wildcards so a text filter is treated as a literal substring
+ *  (mirrors the admin-lists search). Without this, an email like
+ *  `john_doe@x.com` matches `johnXdoe@x.com` too. */
+function likePattern(value: string): string {
+  return `%${value.replace(/[%_\\]/g, '\\$&')}%`
+}
+
 function buildUsersFilterPredicate(filter?: string): WhereInput | undefined {
   return filter === 'enabled'
     ? isNull('disabled_at')
@@ -112,7 +119,7 @@ function buildUsersFilterPredicate(filter?: string): WhereInput | undefined {
       : filter && /^\d+$/.test(filter)
         ? { id: Number(filter) }
         : filter
-          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+          ? or(ilike('name', likePattern(filter)), ilike('email', likePattern(filter)))
           : undefined
 }
 
@@ -600,10 +607,7 @@ export default createController(routes.admin.users, {
         if (user.role === 'admin') {
           // Ordered acquisition prevents two concurrent destroys from locking
           // the same admin rows in different orders.
-          await tx.exec(
-            `SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE`,
-            [],
-          )
+          await tx.exec(`SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE`, [])
           let adminCount = await tx.count(users, { where: { role: 'admin' } })
           if (adminCount <= 1) return true
         }

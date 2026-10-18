@@ -4,6 +4,13 @@ import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from '../../test/pool.ts'
 import { searchLists } from './admin-lists.ts'
 
+async function seedUserId(email: string): Promise<number> {
+  let result = await pool.query('SELECT id FROM users WHERE email = $1', [email])
+  let id = result.rows[0]?.id
+  assert.ok(id !== undefined, `seed user ${email} must exist`)
+  return Number(id)
+}
+
 describe('admin-lists', () => {
   let now: number
 
@@ -95,5 +102,110 @@ describe('admin-lists', () => {
       !rows.some((row) => row.description === 'test-admin-combo-empty'),
       'combined search + items filter should drop the empty row',
     )
+  })
+
+  it('searchLists returns the owner email and null for unowned rows', async () => {
+    let timestamp = Date.now()
+    let ownerId = await seedUserId('user@newapp.com')
+    await pool.query(
+      `INSERT INTO lists (user_id, description, list, created_at, updated_at)
+       VALUES ($1, 'test-admin-owned-row', '[]'::jsonb, $2, $2),
+              (NULL, 'test-admin-unowned-row', '[]'::jsonb, $2, $2)`,
+      [ownerId, timestamp],
+    )
+
+    let owned = await searchLists(db, '%test-admin-owned-row%', 10, 0)
+    assert.equal(owned[0]?.owner_email, 'user@newapp.com', 'owned row should carry its owner')
+
+    let unowned = await searchLists(db, '%test-admin-unowned-row%', 10, 0)
+    assert.equal(unowned[0]?.owner_email, null, 'unowned row should have no owner email')
+  })
+
+  it('searchLists matches lists by the owner email', async () => {
+    let timestamp = Date.now()
+    let ownerId = await seedUserId('user@newapp.com')
+    await pool.query(
+      `INSERT INTO lists (user_id, description, list, created_at, updated_at)
+       VALUES ($1, 'test-admin-owner-email-search', '[]'::jsonb, $2, $2)`,
+      [ownerId, timestamp],
+    )
+
+    let rows = await searchLists(db, '%user@newapp.com%', 50, 0)
+    assert.ok(
+      rows.some((row) => row.description === 'test-admin-owner-email-search'),
+      'searching an owner email should find that owner’s lists',
+    )
+  })
+
+  it('searchLists matches lists by the owner name', async () => {
+    let timestamp = Date.now()
+    let ownerId = await seedUserId('user@newapp.com')
+    await pool.query(
+      `INSERT INTO lists (user_id, description, list, created_at, updated_at)
+       VALUES ($1, 'test-admin-owner-name-search', '[]'::jsonb, $2, $2)`,
+      [ownerId, timestamp],
+    )
+
+    let rows = await searchLists(db, '%John Doe%', 50, 0)
+    assert.ok(
+      rows.some((row) => row.description === 'test-admin-owner-name-search'),
+      'searching an owner name should find that owner’s lists',
+    )
+  })
+
+  it('searchLists orders by owner email', async () => {
+    let timestamp = Date.now()
+    let adminId = await seedUserId('admin@newapp.com')
+    let userId = await seedUserId('user@newapp.com')
+    await pool.query(
+      `INSERT INTO lists (user_id, description, list, created_at, updated_at)
+       VALUES ($1, 'test-admin-owner-sort-b', '[]'::jsonb, $2, $2),
+              ($3, 'test-admin-owner-sort-a', '[]'::jsonb, $2, $2)`,
+      [userId, timestamp, adminId],
+    )
+
+    let rows = await searchLists(db, '%test-admin-owner-sort%', 50, 0, 'owner', 'asc')
+    assert.deepEqual(
+      rows.map((row) => row.description),
+      ['test-admin-owner-sort-a', 'test-admin-owner-sort-b'],
+      'owner sort should order admin@ before user@',
+    )
+  })
+
+  it('searchLists tolerates malformed list payloads instead of failing the grid', async () => {
+    let timestamp = Date.now()
+    await pool.query(
+      `INSERT INTO lists (description, list, created_at, updated_at)
+       VALUES ('test-admin-poison-object', '{"nope":true}'::jsonb, $1, $1),
+              ('test-admin-poison-item', '[{"label":1}, "junk"]'::jsonb, $1, $1)`,
+      [timestamp],
+    )
+
+    let rows = await searchLists(db, '%test-admin-poison%', 10, 0, 'description', 'asc')
+    assert.deepEqual(
+      rows.map((row) => row.list),
+      [[{ id: '', label: '' }], []],
+      'malformed items keep only string fields, and a non-array payload becomes []',
+    )
+  })
+
+  it('searchLists sorts unowned rows last when ordering by owner', async () => {
+    let timestamp = Date.now()
+    let adminId = await seedUserId('admin@newapp.com')
+    await pool.query(
+      `INSERT INTO lists (user_id, description, list, created_at, updated_at)
+       VALUES ($1, 'test-admin-owner-nullsort-owned', '[]'::jsonb, $2, $2),
+              (NULL, 'test-admin-owner-nullsort-unowned', '[]'::jsonb, $2, $2)`,
+      [adminId, timestamp],
+    )
+
+    for (let direction of ['asc', 'desc'] as const) {
+      let rows = await searchLists(db, '%test-admin-owner-nullsort%', 50, 0, 'owner', direction)
+      assert.equal(
+        rows[rows.length - 1]?.description,
+        'test-admin-owner-nullsort-unowned',
+        `unowned rows should sort last in ${direction} order`,
+      )
+    }
   })
 })

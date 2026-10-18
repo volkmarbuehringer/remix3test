@@ -248,7 +248,9 @@ export const lists = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
-    user_id: c.integer(),
+    // Ownerless lists are a first-class state: the admin create action and the
+    // list-copy path both insert without a user_id.
+    user_id: c.integer().nullable(),
     list: c.json(),
     title: c.text(),
     description: c.text(),

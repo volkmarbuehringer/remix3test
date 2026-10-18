@@ -86,6 +86,30 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 200)
     })
 
+    it('treats LIKE wildcards in the filter as literal characters', async () => {
+      let suffix = Date.now()
+      let literalEmail = `filter-test_${suffix}@example.com`
+      let wildcardEmail = `filter-testX${suffix}@example.com`
+      let literalId = await createTestUser(literalEmail)
+      let wildcardId = await createTestUser(wildcardEmail)
+      assert.ok(literalId && wildcardId, 'wildcard probe users must be created')
+      try {
+        let response = await router.fetch(
+          `${USERS_URL}?filter=${encodeURIComponent(literalEmail)}`,
+          { headers: { Cookie: adminCookie } },
+        )
+        assert.equal(response.status, 200)
+        let text = await response.text()
+        assert.ok(text.includes(literalEmail), 'the literal email should match itself')
+        assert.ok(
+          !text.includes(wildcardEmail),
+          'an underscore in the filter must not act as a single-character wildcard',
+        )
+      } finally {
+        await pool.query('DELETE FROM users WHERE id = ANY($1)', [[literalId, wildcardId]])
+      }
+    })
+
     it('supports pagination', async () => {
       let response = await router.fetch(`${USERS_URL}?offset=0`, {
         headers: { Cookie: adminCookie },

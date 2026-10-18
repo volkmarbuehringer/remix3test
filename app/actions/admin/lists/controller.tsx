@@ -9,9 +9,10 @@ import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { lists } from '../../../data/schema.ts'
 import {
+  findListRow,
   isListItemFilter,
+  LIST_SORTABLE_FIELDS,
   searchLists,
-  toListRow,
   type ListRow,
 } from '../../../data/admin-lists.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
@@ -39,9 +40,9 @@ import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
 
 const LISTS_PAGE_LIMIT = 10
 
-const SORTABLE_FIELDS = ['id', 'title', 'description', 'created_at', 'updated_at'] as const
-
-type ListSortColumn = (typeof SORTABLE_FIELDS)[number]
+// Derived from the data layer's whitelist so the grid headers and the SQL
+// ORDER BY cannot drift apart.
+const SORTABLE_FIELDS = LIST_SORTABLE_FIELDS
 
 const LISTS_FORM_KEYS = [
   'title',
@@ -103,37 +104,24 @@ async function loadGridData(
   },
 ): Promise<{ rows: ListRow[]; hasMore: boolean }> {
   let limit = opts.pageSize + 1
-  if (opts.filter || opts.status) {
-    let filter = opts.filter
-      ? opts.filter.length > 200
-        ? opts.filter.slice(0, 200)
-        : opts.filter
-      : ''
-    let esc = filter.replace(/[%_\\]/g, '\\$&')
-    let searchPattern = filter ? `%${esc}%` : '%%'
-    let rows = await searchLists(
-      db,
-      searchPattern,
-      limit,
-      opts.offset,
-      opts.column,
-      opts.direction,
-      opts.status,
-    )
-    let hasMore = rows.length > opts.pageSize
-    if (hasMore) rows.pop()
-    return { rows, hasMore }
-  }
-  let rows = (
-    await db.findMany(lists, {
-      limit,
-      offset: opts.offset,
-      orderBy: [
-        [opts.column as ListSortColumn, opts.direction],
-        ['id', 'desc'],
-      ] as const,
-    })
-  ).map(toListRow)
+  let filter = opts.filter
+    ? opts.filter.length > 200
+      ? opts.filter.slice(0, 200)
+      : opts.filter
+    : ''
+  let esc = filter.replace(/[%_\\]/g, '\\$&')
+  let searchPattern = filter ? `%${esc}%` : '%%'
+  // One query path for every view: searchLists always joins the owner, so the
+  // Besitzer column is populated whether or not a text/status filter is active.
+  let rows = await searchLists(
+    db,
+    searchPattern,
+    limit,
+    opts.offset,
+    opts.column,
+    opts.direction,
+    opts.status,
+  )
   let hasMore = rows.length > opts.pageSize
   if (hasMore) rows.pop()
   return { rows, hasMore }
@@ -244,12 +232,12 @@ export default createController(routes.admin.lists, {
         pageSize: effectivePageSize,
       })
 
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
+      // parseId, not Number: a fractional id like `?editing=1.5` used to pass
+      // Number.isFinite and reach the int4 comparison, 500ing the page.
+      let editingRowId = parseId(context.url.searchParams.get('editing'))
       let editRow: ListRow | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        let found = await context.db.findOne(lists, { where: { id: editingRowId } })
-        if (found) editRow = toListRow(found)
+      if (editingRowId !== undefined && editingRowId > 0) {
+        editRow = await findListRow(context.db, editingRowId)
       }
 
       let creating = context.url.searchParams.get('creating') === 'true'
@@ -349,7 +337,7 @@ export default createController(routes.admin.lists, {
         return redirect(listsGridUrl(formData))
       }
 
-      let existing = await db.findOne(lists, { where: { id } })
+      let existing = await findListRow(db, id)
       if (!existing) {
         context.session.flash('error', 'Liste nicht gefunden.')
         return redirect(listsGridUrl(formData))
@@ -360,7 +348,7 @@ export default createController(routes.admin.lists, {
 
       if (!parseResult.success) {
         return renderListsError(context, {
-          editRow: toListRow(existing),
+          editRow: existing,
           formValues: listFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),

@@ -40,11 +40,18 @@ describe('Admin Lists Controller', () => {
     title: string,
     description: string,
     items: Array<{ id: string; label: string }> = [],
+    ownerEmail?: string,
   ): Promise<number> {
     let now = Date.now()
+    let ownerId: number | null = null
+    if (ownerEmail) {
+      let owner = await pool.query('SELECT id FROM users WHERE email = $1', [ownerEmail])
+      ownerId = (owner.rows[0]?.id as number) ?? null
+      assert.ok(ownerId !== null, `seed user ${ownerEmail} must exist`)
+    }
     let result = await pool.query(
-      'INSERT INTO lists (title, description, list, created_at, updated_at) VALUES ($1, $2, $3::jsonb, $4, $5) RETURNING id',
-      [title, description, JSON.stringify(items), now, now],
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [ownerId, title, description, JSON.stringify(items), now],
     )
     return result.rows[0].id as number
   }
@@ -125,6 +132,15 @@ describe('Admin Lists Controller', () => {
       )
     })
 
+    it('ignores a non-integer ?editing value instead of failing the query', async () => {
+      let response = await router.fetch(LISTS_URL + '?editing=1.5', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200, 'a fractional id must not reach the int4 comparison')
+      let text = await response.text()
+      assert.ok(!text.includes('Liste bearbeiten'), 'no edit panel for an invalid id')
+    })
+
     it('defaults to updated_at descending so the active sort matches a visible column', async () => {
       await insertList('Sort Row', 'test-admin-sort')
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
@@ -143,7 +159,10 @@ describe('Admin Lists Controller', () => {
       await insertList('Min Width Row', 'test-admin-minwidth')
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
       let text = await response.text()
-      assert.ok(text.includes('min-width: 840px'), 'table min-width style should be present')
+      assert.ok(
+        text.includes('min-width: 1030px'),
+        'the grid must keep a floor wide enough for its seven columns',
+      )
     })
 
     it('renders the item-count filter tabs and refresh action', async () => {
@@ -207,6 +226,83 @@ describe('Admin Lists Controller', () => {
       assert.equal(response.status, 200)
       let text = await response.text()
       assert.ok(text.includes('test-admin-unknown-status'), 'unknown status should not filter rows')
+    })
+
+    it('shows the owner email and marks unowned lists', async () => {
+      await insertList('Owned Row', 'test-admin-owner-column', [], 'user@newapp.com')
+      await insertList('Unowned Row', 'test-admin-no-owner')
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('user@newapp.com'), 'an owned list should show its owner email')
+      assert.ok(text.includes('Kein Besitzer'), 'an unowned list should be marked as ownerless')
+    })
+
+    it('links the owner to the users grid filtered by their email', async () => {
+      await insertList('Owner Link Row', 'test-admin-owner-link', [], 'user@newapp.com')
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(
+        text.includes('/admin/users?filter=user%40newapp.com'),
+        'the owner cell should link to the users grid filtered by email',
+      )
+    })
+
+    it('searches lists by owner email', async () => {
+      await insertList('Owned By User', 'test-admin-owner-search-owned', [], 'user@newapp.com')
+      await insertList('Owned By Admin', 'test-admin-owner-search-other', [], 'admin@newapp.com')
+      let response = await router.fetch(
+        LISTS_URL + '?filter=' + encodeURIComponent('user@newapp.com'),
+        {
+          headers: { Cookie: adminCookie },
+        },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('test-admin-owner-search-owned'),
+        'the owner email search should find that owner’s lists',
+      )
+      assert.ok(
+        !text.includes('test-admin-owner-search-other'),
+        'the owner email search must not match another owner’s lists',
+      )
+    })
+
+    it('supports sorting by owner', async () => {
+      await insertList('Owner Sort Row', 'test-admin-owner-sort', [], 'admin@newapp.com')
+      let response = await router.fetch(LISTS_URL + '?sort=owner&order=asc', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('sort=owner'), 'the Besitzer header should carry the owner sort link')
+      assert.ok(
+        text.includes('aria-sort="ascending"'),
+        'the active owner sort should report aria-sort=ascending',
+      )
+    })
+
+    it('shows the owner in the edit panel', async () => {
+      let id = await insertList('Edit Owner Row', 'test-admin-edit-owner', [], 'user@newapp.com')
+      let response = await router.fetch(LISTS_URL + '?editing=' + id, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('user@newapp.com'), 'the edit panel should name the owner')
+    })
+
+    it('explains that created lists have no owner', async () => {
+      let response = await router.fetch(LISTS_URL + '?creating=true', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('ohne Besitzer'),
+        'the create panel should state that new lists are ownerless',
+      )
     })
   })
 

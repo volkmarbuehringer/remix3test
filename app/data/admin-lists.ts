@@ -1,14 +1,18 @@
-import { rawSql, type Database, type TableRow } from 'remix/data-table'
+import { rawSql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import type { lists } from './schema.ts'
 import { int8, queryRows } from './rows.ts'
 
 const listWireSchema = z.object({
   id: z.number(),
   user_id: z.number().nullable(),
-  list: z.array(z.object({ id: z.string(), label: z.string(), done: z.boolean().optional() })),
+  owner_email: z.string().nullable(),
+  // Any JSON value: the column is user data, so shape drift (an object instead
+  // of an array) degrades to an empty list instead of failing the whole grid
+  // through RawRowError. Element narrowing lives in toListItems below, and the
+  // tolerant behavior is pinned by the malformed-payload test.
+  list: z.json(),
   title: z.string(),
   description: z.string(),
   created_at: int8,
@@ -22,9 +26,11 @@ export interface ListRow {
   description: string
   created_at: number
   updated_at: number
+  /** Email of the list owner, or null when the list has no owner. */
+  owner_email: string | null
 }
 
-/** Narrow the JSONB `list` column (typed `unknown` in a raw `TableRow`) into
+/** Narrow the JSONB `list` column (the wire schema types it as `unknown`) into
  *  the display row's item shape, guarding each element. */
 function toListItems(value: unknown): ListRow['list'] {
   if (!Array.isArray(value)) return []
@@ -42,11 +48,7 @@ function toListItems(value: unknown): ListRow['list'] {
   return items
 }
 
-/** Adapt a raw `lists` table row — whose json/bigint columns surface as
- *  `unknown` — into the typed display row. This is the single boundary where
- *  the vendor column types are narrowed, so callers never need
- *  `as unknown as ListRow`. */
-export function toListRow(row: TableRow<typeof lists>): ListRow {
+function wireToListRow(row: z.output<typeof listWireSchema>): ListRow {
   return {
     id: row.id,
     title: row.title,
@@ -54,8 +56,32 @@ export function toListRow(row: TableRow<typeof lists>): ListRow {
     list: toListItems(row.list),
     created_at: row.created_at,
     updated_at: row.updated_at,
+    owner_email: row.owner_email,
   }
 }
+
+/** Every grid/edit row selects the list plus its owner's email through the same
+ *  join, so no caller can render a row without owner information. */
+const LIST_ROW_SELECT = `SELECT lists.*, u.email AS owner_email
+FROM lists
+LEFT JOIN users u ON u.id = lists.user_id`
+
+/** Whitelisted ORDER BY expressions. The key is the public `sort` param value
+ *  (also validated against `LIST_SORTABLE_FIELDS` in the controller); the value
+ *  is the safe SQL expression it maps to. Falls back to `created_at DESC` when
+ *  omitted. `owner` sorts by the joined user's email, so unowned lists group. */
+const SORT_EXPRS: Record<string, string> = {
+  id: 'lists.id',
+  title: 'lists.title',
+  owner: 'LOWER(u.email)',
+  description: 'lists.description',
+  updated_at: 'lists.updated_at',
+  created_at: 'lists.created_at',
+}
+
+/** Columns the admin grid may sort by, derived from SORT_EXPRS so the grid
+ *  headers and the SQL whitelist cannot drift apart. */
+export const LIST_SORTABLE_FIELDS: readonly string[] = Object.keys(SORT_EXPRS)
 
 /** Item-count filters offered by the admin grid's filter tabs. */
 const LIST_ITEM_FILTERS = ['items', 'empty'] as const
@@ -67,14 +93,22 @@ export function isListItemFilter(value: string | undefined | null): value is Lis
   return value === 'items' || value === 'empty'
 }
 
-/** Results are ordered by `sortColumn`/`direction`; the column is
- *  validated against a fixed whitelist so the ORDER BY clause cannot be
- *  injected. Falls back to `created_at DESC` when omitted.
+/**
+ * Results are ordered by `sortColumn`/`direction`; the column is
+ * validated against a fixed whitelist so the ORDER BY clause cannot be
+ * injected. Falls back to `created_at DESC` when omitted.
  *
- *  `searchPattern` matches title/description/item labels; pass `''`/`'%%'`
- *  to skip the text search. `status` filters by whether the JSONB `list`
- *  column has items at all. Conditions are composed into one parameterized
- *  WHERE clause, so callers can combine a text search with an item filter. */
+ * `searchPattern` matches title/description/item labels and the owner's
+ * email/name and must already be LIKE-escaped (escape `%`, `_`, and `\`); the
+ * controller builds it from the raw filter. Pass `''`/`'%%'` to skip the text
+ * search. `status` filters by whether the JSONB `list` column has items at
+ * all. Conditions are composed into one parameterized WHERE clause, so callers
+ * can combine a text search with an item filter.
+ *
+ * Every row is joined to its owner, so the grid can show who owns each list.
+ * Sorting by `owner` orders by the owner's email; unowned rows always sort
+ * last, in both directions.
+ */
 export async function searchLists(
   db: Database,
   searchPattern: string,
@@ -84,16 +118,7 @@ export async function searchLists(
   direction?: 'asc' | 'desc',
   status?: string,
 ): Promise<ListRow[]> {
-  let column =
-    sortColumn === 'id'
-      ? 'id'
-      : sortColumn === 'title'
-        ? 'title'
-        : sortColumn === 'description'
-          ? 'description'
-          : sortColumn === 'updated_at'
-            ? 'updated_at'
-            : 'created_at'
+  let column: string = SORT_EXPRS[sortColumn ?? ''] ?? 'lists.created_at'
   let orderDir = compileOrderByDirection(direction ?? 'desc')
 
   let conditions: string[] = []
@@ -103,21 +128,24 @@ export async function searchLists(
     params.push(searchPattern)
     let pattern = '$' + params.length
     conditions.push(
-      `(title ILIKE ${pattern}
-        OR description ILIKE ${pattern}
+      `(lists.title ILIKE ${pattern}
+        OR lists.description ILIKE ${pattern}
+        OR u.email ILIKE ${pattern}
+        OR u.name ILIKE ${pattern}
         OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements(COALESCE(list, '[]'::jsonb)) item
+          SELECT 1 FROM jsonb_array_elements(COALESCE(lists.list, '[]'::jsonb)) item
           WHERE item->>'label' ILIKE ${pattern}
         ))`,
     )
   }
 
-  // `list` is nullable in the schema; COALESCE keeps the length check safe.
+  // COALESCE is belt-and-braces: `list` is NOT NULL DEFAULT '[]', so it only
+  // matters for rows written outside the table API.
   if (isListItemFilter(status)) {
     conditions.push(
       status === 'empty'
-        ? `jsonb_array_length(COALESCE(list, '[]'::jsonb)) = 0`
-        : `jsonb_array_length(COALESCE(list, '[]'::jsonb)) > 0`,
+        ? `jsonb_array_length(COALESCE(lists.list, '[]'::jsonb)) = 0`
+        : `jsonb_array_length(COALESCE(lists.list, '[]'::jsonb)) > 0`,
     )
   }
 
@@ -129,20 +157,28 @@ export async function searchLists(
   let rows = await queryRows(
     db,
     rawSql(
-      `SELECT * FROM lists
+      `${LIST_ROW_SELECT}
      ${where}
-     ORDER BY ${column} ${orderDir}, id DESC
+     ORDER BY ${column} ${orderDir} NULLS LAST, lists.id DESC
      LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
       params,
     ),
     listWireSchema,
   )
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    list: row.list,
-    description: row.description,
-    created_at: Number(row.created_at),
-    updated_at: Number(row.updated_at),
-  }))
+  return rows.map(wireToListRow)
+}
+
+/** Load one list row (with its owner's email) for the inline edit panel. */
+export async function findListRow(db: Database, id: number): Promise<ListRow | null> {
+  let rows = await queryRows(
+    db,
+    rawSql(
+      `${LIST_ROW_SELECT}
+       WHERE lists.id = $1`,
+      [id],
+    ),
+    listWireSchema,
+  )
+  let row = rows[0]
+  return row ? wireToListRow(row) : null
 }

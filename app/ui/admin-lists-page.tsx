@@ -112,6 +112,44 @@ const descEmptyStyle = css({
   fontSize: theme.fontSize.xs,
 })
 
+/** Owner email in the Besitzer column: a quiet link that drills into the
+ *  filtered users grid without competing with the title for attention. */
+const ownerLinkStyle = css({
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  '&:hover': {
+    color: theme.colors.action.primary.background,
+    textDecoration: 'underline',
+  },
+})
+
+/** Owner context line in the edit panel header. */
+const panelOwnerStyle = css({
+  marginLeft: 'auto',
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+})
+
+/** Restores Titel/Vorschau breathing room after the Besitzer column raised the
+ *  fixed-column total. The shared `table` mixin floors at 840px for a narrower
+ *  colgroup, so this page needs its own floor. Keep this in sync with the
+ *  widest colgroup (currently seven columns). `!important` because the two
+ *  rules land in sibling `@layer rmx.*` sub-layers (see admin-table.ts
+ *  `twoColumnGrid`). */
+const listsTableMinWidth = css({
+  minWidth: '1030px !important',
+})
+
+/** Quiet explanatory line under a form field. */
+const fieldHintStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
 const previewListStyle = css({
   display: 'flex',
   flexWrap: 'wrap',
@@ -171,6 +209,7 @@ const summaryStyle = css({
   marginTop: '2px',
 })
 
+const colOwnerWidth = css({ width: '190px' })
 const colItemsWidth = css({ width: '96px' })
 const colUpdatedWidth = css({ width: '150px' })
 const colActionsWidth = css({ width: '104px' })
@@ -318,9 +357,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           <input
             type="text"
             name="filter"
-            placeholder="Suche nach Titel, Beschreibung oder Element…"
+            placeholder="Suche nach Titel, Beschreibung, Element oder Besitzer…"
             defaultValue={filter ?? ''}
-            aria-label="Nach Titel, Beschreibung oder Element suchen"
+            aria-label="Nach Titel, Beschreibung, Element oder Besitzer suchen"
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
@@ -387,10 +426,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               )}
             </div>
           ) : (
-            <table mix={table.table}>
+            <table mix={[table.table, listsTableMinWidth]}>
               <colgroup>
                 <col mix={css({ width: '56px' })} />
                 <col />
+                <col mix={colOwnerWidth} />
                 <col mix={colItemsWidth} />
                 <col />
                 <col mix={colUpdatedWidth} />
@@ -440,6 +480,30 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       Titel
                       <span mix={'title' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('title', sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  </th>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('owner', sortColumn, sortDirection)}
+                  >
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'owner',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        undefined,
+                        activeItemFilter,
+                      )}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.sortLink}
+                    >
+                      Besitzer
+                      <span mix={'owner' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('owner', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
@@ -516,6 +580,34 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             <span mix={descEmptyStyle}>(keine Beschreibung)</span>
                           )}
                         </div>
+                      </td>
+                      <td mix={table.td} title={row.owner_email ?? undefined}>
+                        {row.owner_email ? (
+                          <a
+                            // Not buildFilterParams: that helper also carries the
+                            // lists grid's sort/order state, which the users grid
+                            // must not inherit.
+                            //
+                            // Document navigation, not data-rmx-target: the users
+                            // grid's filter input is uncontrolled, and an in-frame
+                            // reload reuses the input node, keeping the previous
+                            // page's text. A full load mounts it fresh, so the
+                            // visible filter matches the applied one and "Suchen"
+                            // preserves the owner filter.
+                            href={
+                              routes.admin.users.index.href() +
+                              '?' +
+                              new URLSearchParams({ filter: row.owner_email }).toString()
+                            }
+                            target="_top"
+                            data-rmx-document
+                            mix={ownerLinkStyle}
+                          >
+                            {row.owner_email}
+                          </a>
+                        ) : (
+                          <span mix={descEmptyStyle}>Kein Besitzer</span>
+                        )}
                       </td>
                       <td mix={table.td}>
                         <span
@@ -815,6 +907,12 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Liste bearbeiten</span>
+              <span
+                mix={panelOwnerStyle}
+                title={row.owner_email ? 'Besitzer: ' + row.owner_email : 'Kein Besitzer'}
+              >
+                {row.owner_email ?? 'Kein Besitzer'}
+              </span>
             </div>
 
             <div mix={table.panelBody}>
@@ -968,6 +1066,8 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
                   <div mix={fieldErrorStyle}>{fieldErrors.description}</div>
                 ) : null}
               </div>
+
+              <p mix={fieldHintStyle}>Neue Listen werden ohne Besitzer angelegt.</p>
 
               <div mix={table.actions}>
                 <PendingSubmitButton>Anlegen</PendingSubmitButton>
