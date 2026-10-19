@@ -21,6 +21,11 @@ export function gridFilter(raw: Record<string, string>): string | undefined {
   return raw._filter || undefined
 }
 
+/** The hidden `_status` field, or `undefined` when empty. */
+export function gridStatus(raw: Record<string, string>): string | undefined {
+  return raw._status || undefined
+}
+
 /**
  * Whitelist the submitted `_sort` column against the grid's sortable set,
  * falling back to `fallback` when absent or unrecognized so the value can

@@ -257,7 +257,7 @@ describe('ClientGridPage', () => {
 
     let hrefs = findElementsWithProp(tree, 'href').map((el) => String(el.props.href))
     assert.ok(
-      hrefs.some((href) => href.includes('filter=active') && !href.includes('offset=15')),
+      hrefs.some((href) => href.includes('status=active') && !href.includes('offset=15')),
       'Aktiv tab should reset the offset',
     )
     assert.ok(
@@ -267,6 +267,63 @@ describe('ClientGridPage', () => {
     assert.ok(
       findElementsWithProp(tree, 'name', 'order').some((el) => el.props.value === 'desc'),
       'search form should carry the active sort direction',
+    )
+  })
+
+  it('carries the status tab through search, sort, pagination, and row links', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({
+        rows: sampleRows,
+        offset: 15,
+        hasPrev: true,
+        hasNext: true,
+        sortField: 'name',
+        sortOrder: 'desc',
+        filter: 'user',
+        status: 'active',
+      }),
+    )
+    let tree = renderFn()
+    let hrefs = findElementsWithProp(tree, 'href').map((el) => String(el.props.href))
+
+    assert.ok(
+      hrefs.some(
+        (href) =>
+          href.includes('filter=user') &&
+          href.includes('sort=name') &&
+          href.includes('status=active'),
+      ),
+      'status tab links should preserve the search and sort',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('offset=30') && href.includes('status=active')),
+      'pagination should preserve the status tab',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('editing=1') && href.includes('status=active')),
+      'edit links should preserve the status tab',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('creating=true') && href.includes('status=active')),
+      'the create link should preserve the status tab',
+    )
+    assert.ok(
+      hrefs.some(
+        (href) =>
+          href.includes('filter=user') &&
+          !href.includes('status=active') &&
+          !href.includes('status=inactive'),
+      ),
+      'the Alle tab should clear the status but keep the search',
+    )
+    assert.equal(
+      findElementsWithProp(tree, 'name', 'filter')[0]?.props.defaultValue,
+      'user',
+      'the search form should keep the search text',
+    )
+    assert.ok(
+      findElementsWithProp(tree, 'name', 'status').some((el) => el.props.value === 'active'),
+      'the search form should carry the status tab',
     )
   })
 

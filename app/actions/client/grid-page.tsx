@@ -40,6 +40,7 @@ interface ClientGridPageProps {
   sortField?: string | null
   sortOrder?: 'asc' | 'desc'
   filter?: string | undefined
+  status?: string | undefined
   pageSize?: number
   pageKey?: PageSizeKey
   pageSizeOverride?: number | null
@@ -127,6 +128,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sortField = null,
       sortOrder = 'asc',
       filter,
+      status,
       pageSize = 15,
       pageKey = PAGE_SIZE_KEYS.adminClients,
       pageSizeOverride = null,
@@ -136,7 +138,23 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
-    let isStatusFilter = filter === 'active' || filter === 'inactive'
+    let statusFilter = status ?? ''
+    let isStatusFilter = statusFilter === 'active' || statusFilter === 'inactive'
+    let statusTabHref = (nextStatus?: 'active' | 'inactive') =>
+      ADMIN_BASE +
+      '?' +
+      buildFilterParams(filter ?? '', sortCol, sortOrder, 0, undefined, nextStatus)
+    let clearSearchHref =
+      ADMIN_BASE +
+      '?' +
+      buildFilterParams(
+        '',
+        sortCol,
+        sortOrder,
+        0,
+        undefined,
+        isStatusFilter ? statusFilter : undefined,
+      )
 
     // Shared grid state carried across row actions / tab filter links.
     let gridState = {
@@ -144,6 +162,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sort: sortCol,
       order: sortOrder,
       filter: filter ?? '',
+      status: statusFilter,
     }
 
     // Row action URLs carry the same state as the hidden inputs so a reload of
@@ -153,6 +172,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
     rowActionParams.set('sort', sortCol)
     rowActionParams.set('order', sortOrder)
     if (filter) rowActionParams.set('filter', filter)
+    if (statusFilter) rowActionParams.set('status', statusFilter)
     let rowActionQuery = rowActionParams.toString()
     let rowActionSuffix = rowActionQuery ? '?' + rowActionQuery : ''
 
@@ -172,7 +192,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             {/* Status tabs always reset to the first page: keeping the previous
                 offset while the result set changes can land on an empty page. */}
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('', sortCol, sortOrder, 0)}
+              href={statusTabHref()}
               data-rmx-target={getSelfFrameTarget()}
               aria-current={!isStatusFilter ? 'page' : undefined}
               mix={[table.filterTab, !isStatusFilter ? table.filterTabActive : undefined]}
@@ -180,18 +200,21 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               Alle
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('active', sortCol, sortOrder, 0)}
+              href={statusTabHref('active')}
               data-rmx-target={getSelfFrameTarget()}
-              aria-current={filter === 'active' ? 'page' : undefined}
-              mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
+              aria-current={statusFilter === 'active' ? 'page' : undefined}
+              mix={[table.filterTab, statusFilter === 'active' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('inactive', sortCol, sortOrder, 0)}
+              href={statusTabHref('inactive')}
               data-rmx-target={getSelfFrameTarget()}
-              aria-current={filter === 'inactive' ? 'page' : undefined}
-              mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
+              aria-current={statusFilter === 'inactive' ? 'page' : undefined}
+              mix={[
+                table.filterTab,
+                statusFilter === 'inactive' ? table.filterTabActive : undefined,
+              ]}
             >
               Inaktiv
             </a>
@@ -201,11 +224,12 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               a new search starts on page 1. */}
           <input type="hidden" name="sort" value={sortCol} />
           <input type="hidden" name="order" value={sortOrder} />
+          {isStatusFilter ? <input type="hidden" name="status" value={statusFilter} /> : null}
           <input
             type="text"
             name="filter"
             placeholder="Suche nach Name, E-Mail oder ID..."
-            defaultValue={filter && !isStatusFilter ? filter : ''}
+            defaultValue={filter ?? ''}
             aria-label="Nach Name, E-Mail oder ID suchen"
             mix={table.filterInput}
           />
@@ -213,7 +237,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter ? (
-            <a href={ADMIN_BASE} mix={table.clearLink}>
+            <a href={clearSearchHref} mix={table.clearLink}>
               Zurücksetzen
             </a>
           ) : null}
@@ -223,7 +247,15 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           {/* A link styled as a button, not an <a> wrapping a <button> (invalid
               nesting). buttonLink() applies the button styles to the link itself. */}
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortCol, sortOrder, filter)}
+            href={buildCreateUrl(
+              ADMIN_BASE,
+              offset,
+              sortCol,
+              sortOrder,
+              filter,
+              undefined,
+              statusFilter,
+            )}
             data-rmx-target={getSelfFrameTarget()}
             mix={[buttonLink({ tone: 'primary' }), smallBtnStyle]}
           >
@@ -258,7 +290,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                 <tr>
                   <th mix={table.thSortable} aria-sort={sortRule('id', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'id', sortCol, sortOrder, offset, filter)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'id',
+                        sortCol,
+                        sortOrder,
+                        offset,
+                        filter,
+                        undefined,
+                        statusFilter,
+                      )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
@@ -270,7 +311,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={table.thSortable} aria-sort={sortRule('name', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'name', sortCol, sortOrder, offset, filter)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'name',
+                        sortCol,
+                        sortOrder,
+                        offset,
+                        filter,
+                        undefined,
+                        statusFilter,
+                      )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
@@ -282,7 +332,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={table.thSortable} aria-sort={sortRule('email', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'email', sortCol, sortOrder, offset, filter)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'email',
+                        sortCol,
+                        sortOrder,
+                        offset,
+                        filter,
+                        undefined,
+                        statusFilter,
+                      )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
@@ -294,7 +353,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={table.thSortable} aria-sort={sortRule('role', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'role', sortCol, sortOrder, offset, filter)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'role',
+                        sortCol,
+                        sortOrder,
+                        offset,
+                        filter,
+                        undefined,
+                        statusFilter,
+                      )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
@@ -306,7 +374,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={table.thSortable} aria-sort={sortRule('status', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'status', sortCol, sortOrder, offset, filter)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'status',
+                        sortCol,
+                        sortOrder,
+                        offset,
+                        filter,
+                        undefined,
+                        statusFilter,
+                      )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
@@ -383,6 +460,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                             sortCol,
                             sortOrder,
                             filter,
+                            undefined,
+                            statusFilter,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
                           aria-label="Bearbeiten"
@@ -467,6 +546,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     sortCol,
                     sortOrder,
                     filter,
+                    undefined,
+                    statusFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
@@ -486,6 +567,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     sortCol,
                     sortOrder,
                     filter,
+                    undefined,
+                    statusFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
@@ -516,6 +599,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           sort={sortCol}
           order={sortOrder}
           filter={filter}
+          status={statusFilter}
         />
         <ClientsContextMenu />
       </div>

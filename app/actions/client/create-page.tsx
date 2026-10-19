@@ -57,13 +57,22 @@ interface ClientCreatePageProps {
   sort?: string
   order?: string
   filter?: string
+  status?: string
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
 
 function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      status = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     let selectedRole =
       formValues?.role === 'Admin' || formValues?.role === 'Editor' || formValues?.role === 'Viewer'
         ? formValues.role
@@ -81,7 +90,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
           action={routes.admin.clients.index.href()}
           data-rmx-target={getSelfFrameTarget()}
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -264,7 +273,13 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               <div mix={table.actions}>
                 <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 {(() => {
-                  let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
+                  let cancelQ = gridStateToParams({
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                    status,
+                  }).toString()
                   let cancelHref =
                     routes.admin.clients.index.href() + (cancelQ ? '?' + cancelQ : '')
                   return (

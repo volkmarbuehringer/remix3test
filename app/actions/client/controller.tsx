@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { ilike, or, type Database, type WhereInput } from 'remix/data-table'
+import { and, ilike, or, type Database, type WhereInput } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import { minLength, maxLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
@@ -26,6 +26,7 @@ import {
   gridOffset,
   gridSortColumn,
   gridSortDirection,
+  gridStatus,
 } from '../../utils/grid-params.ts'
 import {
   gridStateFromURL,
@@ -50,6 +51,7 @@ const CLIENT_FORM_KEYS = [
   '_sort',
   '_order',
   '_filter',
+  '_status',
 ] as const
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
 const CLIENT_OPTIONAL_FORM_KEYS = ['role', 'status', 'registered'] as const
@@ -86,6 +88,7 @@ const clientSaveSchema = f.object({
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
   _filter: f.field(s.defaulted(s.string(), '')),
+  _status: f.field(s.defaulted(s.string(), '')),
 })
 
 function parseDate(value: string): number | undefined {
@@ -130,17 +133,42 @@ function parseClientForm(formData: FormData) {
   return s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap })
 }
 
-/** Builds the WHERE predicate for the grid from the single `filter` query param. */
-function buildClientsFilterPredicate(filter?: string): WhereInput | undefined {
-  return filter === 'active'
-    ? { status: 'Active' }
-    : filter === 'inactive'
-      ? { status: 'Inactive' }
-      : filter && /^\d+$/.test(filter)
-        ? { id: Number(filter) }
-        : filter
-          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-          : undefined
+/** Trim and escape LIKE wildcards so user text is matched literally. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
+/** Whitelist the status tab value; anything else means "no status filter". */
+function normalizeStatusFilter(
+  status: string | null | undefined,
+): 'active' | 'inactive' | undefined {
+  return status === 'active' || status === 'inactive' ? status : undefined
+}
+
+/**
+ * Builds the WHERE predicate from the separate status-tab (`status`) and
+ * search-box (`filter`) params. `filter` is matched literally against name,
+ * email, and (for numeric input) id, so a client named "Active" or "User 123"
+ * is searchable instead of being interpreted as a status or id.
+ */
+function buildClientsFilterPredicate(filter?: string, status?: string): WhereInput | undefined {
+  let conditions: WhereInput[] = []
+  let statusFilter = normalizeStatusFilter(status)
+
+  if (statusFilter === 'active') conditions.push({ status: 'Active' })
+  if (statusFilter === 'inactive') conditions.push({ status: 'Inactive' })
+
+  let query = filter?.trim()
+  if (query) {
+    let pattern = `%${escapeLikePattern(query)}%`
+    let textMatch = or(ilike('name', pattern), ilike('email', pattern))
+    let id = /^\d+$/.test(query) ? Number(query) : NaN
+    conditions.push(Number.isSafeInteger(id) && id > 0 ? or(textMatch, { id }) : textMatch)
+  }
+
+  if (conditions.length === 0) return undefined
+  if (conditions.length === 1) return conditions[0]!
+  return and(...conditions)
 }
 
 async function loadGridData(
@@ -150,6 +178,7 @@ async function loadGridData(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: string | undefined
     pageSize: number
   },
 ): Promise<{ rows: Row[]; hasMore: boolean }> {
@@ -158,7 +187,7 @@ async function loadGridData(
     pageSize: opts.pageSize,
     page: pageNum,
     orderBy: [[opts.column, opts.direction]],
-    where: buildClientsFilterPredicate(opts.filter),
+    where: buildClientsFilterPredicate(opts.filter, opts.status),
   })) as { items: Row[]; page: number; hasMore: boolean }
 
   return { rows: page, hasMore }
@@ -196,6 +225,7 @@ async function renderClientsError(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: string | undefined
     pageSize: number
   },
 ): Promise<Response> {
@@ -206,6 +236,7 @@ async function renderClientsError(
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
+    status: opts.status,
     pageSize: opts.pageSize,
     pageKey,
     pageSizeOverride,
@@ -219,6 +250,7 @@ async function renderClientsError(
         column: opts.column,
         direction: opts.direction,
         filter: opts.filter,
+        status: opts.status,
         pageSize: opts.pageSize,
       }),
     buildPage: (page) => (
@@ -230,6 +262,7 @@ async function renderClientsError(
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
         filter={page.filter}
+        status={page.status}
         editRow={opts.editRow ?? null}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
@@ -265,6 +298,7 @@ async function renderClientsIndex(
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = context.url.searchParams.get('filter') || undefined
+  let status = normalizeStatusFilter(context.url.searchParams.get('status'))
 
   let { column, direction } = parseSort(context.url, {
     allowedColumns: SORTABLE_FIELDS,
@@ -277,6 +311,7 @@ async function renderClientsIndex(
     column,
     direction: direction as 'asc' | 'desc',
     filter,
+    status,
     pageSize: effectivePageSize,
   })
 
@@ -305,6 +340,7 @@ async function renderClientsIndex(
       sortColumn={column}
       sortDirection={direction as 'asc' | 'desc'}
       filter={filter}
+      status={status}
       editRow={editRow}
       creating={creating}
       pageSize={effectivePageSize}
@@ -383,6 +419,7 @@ export default createController(routes.admin.clients, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: normalizeStatusFilter(gridStatus(rawValues)),
           pageSize: effectivePageSize,
         })
       }
@@ -530,6 +567,7 @@ export default createController(routes.admin.clients, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: normalizeStatusFilter(gridStatus(rawValues)),
           pageSize: effectivePageSize,
         })
       }

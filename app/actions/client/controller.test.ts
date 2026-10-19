@@ -120,8 +120,8 @@ describe('Client lab controller', () => {
     )
   })
 
-  it('renders status filter tabs and a status column', async () => {
-    let response = await router.fetch(`${CLIENTS_URL}?filter=active`, {
+  it('renders status filter tabs and filters by the status param', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?status=active`, {
       headers: authHeaders(),
     })
 
@@ -130,6 +130,22 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('>Alle<') || html.includes('Alle'), 'should render Alle filter tab')
     assert.ok(html.includes('Aktiv'), 'should render Aktiv filter tab')
     assert.ok(html.includes('Inaktiv'), 'should render Inaktiv filter tab')
+    assert.ok(html.includes('data-status="Active"'), 'should render Active rows')
+    assert.ok(
+      !html.includes('data-status="Inactive"'),
+      'the status tab should exclude Inactive rows',
+    )
+  })
+
+  it('filters the grid to inactive clients with ?status=inactive', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?status=inactive`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('data-status="Inactive"'), 'should render Inactive rows')
+    assert.ok(!html.includes('data-status="Active"'), 'the status tab should exclude Active rows')
   })
 
   it('renders a per-row status toggle form', async () => {
@@ -154,13 +170,60 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(
-      html.includes('?filter=active&amp;sort=name&amp;order=asc'),
+      html.includes('href="/admin/clients?sort=name&amp;order=asc&amp;status=active"'),
       'Aktiv tab should reset the offset',
     )
+  })
+
+  it('treats a filter value of "active" as search text, not a status filter', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?filter=active`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
     assert.ok(
-      !html.includes('filter=active&amp;sort=name&amp;order=asc&amp;offset'),
-      'Aktiv tab must not carry the previous page offset',
+      html.includes('Keine Kunden für diese Suche gefunden.'),
+      'the search should not silently switch to the Active status tab',
     )
+    assert.ok(!html.includes('data-status="Active"'), 'no rows should be status-filtered as Active')
+  })
+
+  it('matches a numeric search against id, name, and email', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?filter=1`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('data-row-id="1"'), 'should match the numeric id')
+    assert.ok(
+      html.includes('data-row-id="10"'),
+      'should also match names/emails containing the digits',
+    )
+  })
+
+  it('treats LIKE wildcards in the search as literal characters', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?filter=%25`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('Keine Kunden für diese Suche gefunden.'),
+      'an escaped % should not match every row',
+    )
+  })
+
+  it('trims whitespace-only searches instead of filtering everything out', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?filter=%20%20`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('data-row-id="1"'), 'a blank search should not filter rows')
   })
 
   it('preserves the active sort in the search form', async () => {
@@ -263,6 +326,39 @@ describe('Client lab controller', () => {
     )
   })
 
+  it('carries the status tab in row action URLs and hidden inputs', async () => {
+    let response = await router.fetch(
+      `${CLIENTS_URL}?offset=15&sort=name&order=desc&status=active`,
+      {
+        headers: authHeaders(),
+      },
+    )
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('toggle-status?offset=15&amp;sort=name&amp;order=desc&amp;status=active'),
+      'the toggle action should carry the status tab',
+    )
+    assert.ok(html.includes('name="_status" value="active"'), 'row forms should round-trip status')
+  })
+
+  it('preserves the status tab on the frame action path', async () => {
+    let response = await router.fetch(
+      `${CLIENTS_URL}/5?offset=15&sort=name&order=desc&status=active`,
+      { headers: authHeaders() },
+    )
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes(
+        'action="/admin/clients/5?offset=15&amp;sort=name&amp;order=desc&amp;status=active"',
+      ),
+      'the update form should carry the status tab',
+    )
+  })
+
   // -----------------------------------------------------------------------
   // PUT /admin/clients/:id — update a row (via methodOverride with _method=PUT)
   // -----------------------------------------------------------------------
@@ -351,6 +447,33 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Kunde bearbeiten'), 'should show edit form')
     assert.ok(html.includes('Ed'), 'should preserve submitted name value')
     assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
+  })
+
+  it('keeps the status tab on a validation re-render', async () => {
+    let body = new URLSearchParams({
+      _method: 'PUT',
+      name: 'Ed',
+      email: 'ed@example.com',
+      role: 'Editor',
+      status: 'Active',
+      registered: '2026-05-01',
+      _offset: '0',
+      _sort: 'id',
+      _order: 'asc',
+      _status: 'active',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(`${CLIENTS_URL}/5`, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('name="_status" value="active"'), 'should round-trip the status tab')
+    assert.ok(html.includes('status=active'), 'the edit action should carry the status tab')
   })
 
   it('PUT with an invalid name and omitted role/status/date keeps the row values', async () => {

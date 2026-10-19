@@ -15,6 +15,7 @@ interface ClientPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter?: string | undefined
+  status?: string | undefined
   pageSize: number
   pageKey: PageSizeKey
   pageSizeOverride: number | null
@@ -35,6 +36,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       sortColumn,
       sortDirection,
       filter,
+      status,
       pageSize,
       pageKey,
       pageSizeOverride,
@@ -56,6 +58,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
           sortField={sortColumn}
           sortOrder={sortDirection}
           filter={filter}
+          status={status}
           pageSize={pageSize}
           pageKey={pageKey}
           pageSizeOverride={pageSizeOverride}
@@ -83,6 +86,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter ?? ''}
+                  status={status ?? ''}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />
@@ -92,6 +96,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter ?? ''}
+                  status={status ?? ''}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />

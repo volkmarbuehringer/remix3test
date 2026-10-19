@@ -25,6 +25,7 @@ interface ClientEditPageProps {
   sort: string
   order: string
   filter?: string
+  status?: string
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
@@ -80,7 +81,16 @@ const fieldErrorStyle = css({
 
 function ClientEditPage(handle: Handle<ClientEditPageProps>) {
   return () => {
-    let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
+    let {
+      row,
+      offset,
+      sort,
+      order,
+      filter = '',
+      status = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     let rowRole =
       row.role === 'Admin' || row.role === 'Editor' || row.role === 'Viewer' ? row.role : 'Viewer'
     let rowStatus = row.status === 'Active' || row.status === 'Inactive' ? row.status : 'Active'
@@ -100,6 +110,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
     if (sort) actionParams.set('sort', sort)
     if (order) actionParams.set('order', order)
     if (filter) actionParams.set('filter', filter)
+    if (status) actionParams.set('status', status)
     let actionQuery = actionParams.toString()
     let actionSuffix = actionQuery ? '?' + actionQuery : ''
 
@@ -112,7 +123,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
           action={routes.admin.clients.update.href({ id: row.id }) + actionSuffix}
           data-rmx-target={getSelfFrameTarget()}
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -302,6 +313,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     sort,
                     order,
                     filter,
+                    undefined,
+                    status,
                   )}
                   mix={[buttonLink({ tone: 'secondary' }), table.spacer, css({ width: '100%' })]}
                 >
