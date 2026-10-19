@@ -2,10 +2,11 @@ import * as assert from 'remix/assert'
 import { describe, it, before } from 'remix/test'
 
 import { router } from '../../test-router.ts'
-import { initializeAppDatabase } from '../../db.ts'
+import { db, initializeAppDatabase } from '../../db.ts'
 import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
 import { pool } from '../../../test/pool.ts'
 import { routes } from '../../routes.ts'
+import { seed } from '../../data/seed.ts'
 import { clientErrorMap } from './controller.tsx'
 
 const BASE = 'https://remix.run'
@@ -66,7 +67,8 @@ describe('Client lab controller', () => {
   it('seeds every client with a registration date inside 2026', async () => {
     let result = await pool.query(
       `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE registered < $1 OR registered >= $2)::int AS outside
+              COUNT(*) FILTER (WHERE registered < $1 OR registered >= $2)::int AS outside,
+              COUNT(*) FILTER (WHERE char_length(name) < 8)::int AS short_names
          FROM clients
         WHERE email LIKE 'user%@example.com'`,
       [Date.UTC(2026, 0, 1), Date.UTC(2027, 0, 1)],
@@ -78,6 +80,37 @@ describe('Client lab controller', () => {
       0,
       'all seeded clients must be editable under the 2026 registration rule',
     )
+    assert.equal(
+      Number(row.short_names),
+      0,
+      'all seeded clients must satisfy the 8-character name rule',
+    )
+  })
+
+  it('normalizes legacy demo client names and dates when the seed runs', async () => {
+    let existing = await pool.query('SELECT name, registered FROM clients WHERE id = 21')
+    let row = existing.rows[0]!
+    await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 21', [
+      'User 21',
+      Date.UTC(2025, 0, 21),
+    ])
+
+    try {
+      await seed(db)
+      let result = await pool.query('SELECT name, registered FROM clients WHERE id = 21')
+      let normalized = result.rows[0]!
+      assert.equal(normalized.name, 'User 021')
+      let registered = Number(normalized.registered)
+      assert.ok(
+        registered >= Date.UTC(2026, 0, 1) && registered < Date.UTC(2027, 0, 1),
+        'legacy seeded dates should be normalized into 2026',
+      )
+    } finally {
+      await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 21', [
+        row.name,
+        row.registered,
+      ])
+    }
   })
 
   // -----------------------------------------------------------------------
@@ -401,6 +434,35 @@ describe('Client lab controller', () => {
     let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
     let html = await follow.text()
     assert.ok(html.includes('Kunde gespeichert.'), 'should surface a success flash')
+  })
+
+  it('PUT /admin/clients/21 updates a seeded client without changing its padded name', async () => {
+    let existing = await pool.query('SELECT name, email FROM clients WHERE id = 21')
+    let row = existing.rows[0]!
+    assert.equal(row.name, 'User 021', 'seed names must satisfy the 8-character rule')
+
+    let body = new URLSearchParams({
+      _method: 'PUT',
+      name: row.name,
+      email: row.email,
+      status: 'Active',
+      _status: 'inactive',
+      _offset: '0',
+      _sort: 'registered',
+      _order: 'desc',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(`${CLIENTS_URL}/21`, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.includes('editing=21'), 'should return to the edit panel')
+    assert.ok(location.includes('status=inactive'), 'should keep the status tab')
   })
 
   it('PUT /admin/clients/0 redirects to the grid with an invalid-id flash', async () => {

@@ -7,6 +7,7 @@ import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
 import { isProduction, isTest, requireEnv } from '../config.ts'
+import { serializeSessionStorage } from '../utils/serialized-session-storage.ts'
 
 const appRootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
@@ -17,6 +18,8 @@ const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
 // session — observed as a logged-out uploads grid under parallel load. Test
 // workers are separate processes that share module state with their in-process
 // test server, so an in-memory store is both per-worker-isolated and race-free.
+// Non-test runs keep the fs store but serialize its reads/writes in-process so
+// a frame reload or cancel cannot read a session file mid-write.
 if (!isTest) {
   fs.mkdirSync(sessionDirectoryPath, { recursive: true })
 }
@@ -34,7 +37,7 @@ export const sessionCookie = createCookie('session', {
 
 export const sessionStorage = isTest
   ? createMemorySessionStorage()
-  : createFsSessionStorage(sessionDirectoryPath)
+  : serializeSessionStorage(createFsSessionStorage(sessionDirectoryPath))
 
 /**
  * Serialize a raw session id into the cookie value the session middleware

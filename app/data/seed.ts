@@ -91,7 +91,7 @@ export async function seed(db: Database): Promise<void> {
     let clientRows = Array.from({ length: 200 }, (_, i) => {
       let role = (['Admin', 'Editor', 'Viewer'] as const)[i % 3]
       return {
-        name: `User ${i + 1}`,
+        name: `User ${String(i + 1).padStart(3, '0')}`,
         email: `user${i + 1}@example.com`,
         ...(role !== undefined ? { role } : {}),
         status: i % 4 === 0 ? 'Inactive' : 'Active',
@@ -102,6 +102,33 @@ export async function seed(db: Database): Promise<void> {
     console.log('✅ Seeded 200 clients')
   } else {
     console.log('ℹ️ Skipping client seed, clients already present')
+  }
+
+  // Legacy demo rows were seeded as "User 7" (7 chars), which fails the
+  // controller's 8-character name rule. Normalize only rows matching the
+  // seeded email/name pattern so existing dev databases stay editable.
+  let normalizedNames = await db.exec(sql`
+    UPDATE clients
+       SET name = 'User ' || lpad(substring(name from 6), 3, '0')
+     WHERE email ~ '^user[0-9]+@example[.]com$'
+       AND name ~ '^User [0-9]{1,2}$'
+  `)
+  if ((normalizedNames.affectedRows ?? 0) > 0) {
+    console.log(`✅ Normalized ${normalizedNames.affectedRows} legacy client name(s)`)
+  }
+
+  // The old relative-date seed reached back into 2025 for later rows. Bring
+  // only seeded rows outside 2026 into a deterministic 2026 window so they
+  // stay editable under the registered-date rule.
+  let normalizedDates = await db.exec(sql`
+    UPDATE clients
+       SET registered = 1767225600000
+         + ((substring(email from 5 for position('@' in email) - 5)::int - 1) * 86400000)
+     WHERE email ~ '^user[0-9]+@example[.]com$'
+       AND (registered < 1767225600000 OR registered >= 1798761600000)
+  `)
+  if ((normalizedDates.affectedRows ?? 0) > 0) {
+    console.log(`✅ Normalized ${normalizedDates.affectedRows} legacy client date(s)`)
   }
 
   let resourcesCount = Number(await db.count(resources))
