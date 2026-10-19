@@ -11,6 +11,7 @@ interface ClientPageProps {
   rows: Client[]
   offset: number
   hasMore: boolean
+  total?: number | undefined
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter?: string | undefined
@@ -31,6 +32,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       rows,
       offset,
       hasMore,
+      total,
       sortColumn,
       sortDirection,
       filter,
@@ -53,6 +55,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
           offset={offset}
           hasPrev={offset > 0}
           hasNext={hasMore}
+          total={total}
           sortField={sortColumn}
           sortOrder={sortDirection}
           filter={filter}

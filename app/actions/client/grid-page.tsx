@@ -37,6 +37,7 @@ interface ClientGridPageProps {
   offset: number
   hasPrev: boolean
   hasNext: boolean
+  total?: number | undefined
   sortField?: string | null
   sortOrder?: 'asc' | 'desc'
   filter?: string | undefined
@@ -137,8 +138,9 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       offset,
       hasPrev,
       hasNext,
+      total,
       sortField = null,
-      sortOrder = 'asc',
+      sortOrder = 'desc',
       filter,
       status,
       pageSize = 15,
@@ -147,10 +149,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       editingId,
       creating = false,
     } = handle.props
-    let sortCol = sortField ?? 'id'
+    let sortCol = sortField ?? 'registered'
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
+    let totalPages = total != null && pageSize > 0 ? Math.ceil(total / pageSize) : 0
     let statusFilter = status ?? ''
     let isStatusFilter = statusFilter === 'active' || statusFilter === 'inactive'
     let preservePanel = (href: string) => withPanelState(href, editingId, creating)
@@ -567,11 +570,20 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               {rows.length > 0 ? (
                 <span mix={table.paginationInfo}>
                   Zeige {pageStart}–{pageEnd}
+                  {total != null ? ` von ${total}` : ''}
                 </span>
               ) : null}
               {currentPage > 0 ? (
-                <span mix={pageBadgeStyle} aria-label={`Seite ${currentPage}`}>
+                <span
+                  mix={pageBadgeStyle}
+                  aria-label={
+                    totalPages > 0
+                      ? `Seite ${currentPage} von ${totalPages}`
+                      : `Seite ${currentPage}`
+                  }
+                >
                   Seite {currentPage}
+                  {totalPages > 0 ? ` von ${totalPages}` : ''}
                 </span>
               ) : null}
             </span>

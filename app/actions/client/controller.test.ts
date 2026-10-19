@@ -105,6 +105,7 @@ describe('Client lab controller', () => {
     let html = await response.text()
     assert.ok(html.includes('client-grid-content'), 'should have grid content')
     assert.ok(html.includes('Weiter'), 'should have pagination')
+    assert.ok(/Zeige 1–15 von \d+/.test(html), 'should show the total count')
   })
 
   it('enables the previous-page link on page 2', async () => {
@@ -115,8 +116,22 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(
-      html.includes('href="/admin/clients?offset=0&amp;sort=id&amp;order=asc"'),
+      html.includes('href="/admin/clients?offset=0&amp;sort=registered&amp;order=desc"'),
       'page 2 should link back to page 1',
+    )
+  })
+
+  it('defaults to newest registrations first', async () => {
+    let response = await router.fetch(CLIENTS_URL, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('aria-sort="descending"'), 'registered should be the default sort')
+    assert.ok(
+      html.includes('sort=registered&amp;order=asc'),
+      'clicking the registered header should toggle to ascending',
     )
   })
 
@@ -483,6 +498,10 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('name="_status" value="active"'), 'should round-trip the status tab')
+    assert.ok(
+      /Zeige \d+–\d+ von \d+/.test(html),
+      'should keep the total count on a validation re-render',
+    )
     assert.ok(html.includes('status=active'), 'the edit action should carry the status tab')
   })
 

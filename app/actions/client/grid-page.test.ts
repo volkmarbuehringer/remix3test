@@ -189,6 +189,20 @@ describe('ClientGridPage', () => {
     assert.ok(treeContainsText(tree, '3'), 'page end should be 3')
   })
 
+  it('shows the total count and total pages', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true, total: 42 }),
+    )
+    let tree = renderFn()
+
+    assert.ok(treeContainsText(tree, 'von 42'), 'pagination info should include the total')
+    assert.equal(
+      findElementsWithProp(tree, 'aria-label', 'Seite 1 von 3').length,
+      1,
+      'the page badge should include the total page count',
+    )
+  })
+
   it('renders accessible edit/toggle/delete actions for each row', () => {
     let renderFn = ClientGridPage(
       makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),

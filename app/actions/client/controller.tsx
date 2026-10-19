@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { and, ilike, or, type Database, type WhereInput } from 'remix/data-table'
+import { and, ilike, or, type Database, type SingleTableWhere } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import { minLength, maxLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
@@ -151,8 +151,11 @@ function normalizeStatusFilter(
  * email, and (for numeric input) id, so a client named "Active" or "User 123"
  * is searchable instead of being interpreted as a status or id.
  */
-function buildClientsFilterPredicate(filter?: string, status?: string): WhereInput | undefined {
-  let conditions: WhereInput[] = []
+function buildClientsFilterPredicate(
+  filter?: string,
+  status?: string,
+): SingleTableWhere<typeof clients> | undefined {
+  let conditions: SingleTableWhere<typeof clients>[] = []
   let statusFilter = normalizeStatusFilter(status)
 
   if (statusFilter === 'active') conditions.push({ status: 'Active' })
@@ -181,16 +184,18 @@ async function loadGridData(
     status?: string | undefined
     pageSize: number
   },
-): Promise<{ rows: Row[]; hasMore: boolean }> {
+): Promise<{ rows: Row[]; hasMore: boolean; total: number }> {
   let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
-  let { items: page, hasMore } = (await paginate(db, clients, {
+  let where = buildClientsFilterPredicate(opts.filter, opts.status)
+  let { items: page, hasMore } = await paginate<Row>(db, clients, {
     pageSize: opts.pageSize,
     page: pageNum,
     orderBy: [[opts.column, opts.direction]],
-    where: buildClientsFilterPredicate(opts.filter, opts.status),
-  })) as { items: Row[]; page: number; hasMore: boolean }
+    where,
+  })
+  let total = await db.count(clients, where ? { where } : undefined)
 
-  return { rows: page, hasMore }
+  return { rows: page, hasMore, total }
 }
 
 /**
@@ -258,6 +263,7 @@ async function renderClientsError(
         rows={page.rows}
         offset={page.offset}
         hasMore={page.hasMore}
+        total={page.total}
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
         filter={page.filter}
@@ -301,11 +307,11 @@ async function renderClientsIndex(
 
   let { column, direction } = parseSort(context.url, {
     allowedColumns: SORTABLE_FIELDS,
-    defaultColumn: 'id',
-    defaultDirection: 'asc',
+    defaultColumn: 'registered',
+    defaultDirection: 'desc',
   })
 
-  let { rows, hasMore } = await loadGridData(context.db, {
+  let { rows, hasMore, total } = await loadGridData(context.db, {
     offset,
     column,
     direction: direction as 'asc' | 'desc',
@@ -335,6 +341,7 @@ async function renderClientsIndex(
       rows={rows}
       offset={offset}
       hasMore={hasMore}
+      total={total}
       sortColumn={column}
       sortDirection={direction as 'asc' | 'desc'}
       filter={filter}
@@ -420,8 +427,8 @@ export default createController(routes.admin.clients, {
           formValues: readClientFormValues(formData),
           fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
-          direction: gridSortDirection(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'registered'),
+          direction: gridSortDirection(rawValues, 'desc'),
           filter: gridFilter(rawValues),
           status: normalizeStatusFilter(gridStatus(rawValues)),
           pageSize: effectivePageSize,
@@ -574,8 +581,8 @@ export default createController(routes.admin.clients, {
           formValues: rawValues,
           fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
-          direction: gridSortDirection(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'registered'),
+          direction: gridSortDirection(rawValues, 'desc'),
           filter: gridFilter(rawValues),
           status: normalizeStatusFilter(gridStatus(rawValues)),
           pageSize: effectivePageSize,

@@ -25,6 +25,7 @@ export interface AdminGridErrorState {
 interface AdminGridErrorPage<Row> extends AdminGridErrorState {
   rows: Row[]
   hasMore: boolean
+  total?: number | undefined
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
@@ -44,7 +45,7 @@ type ActiveItem = Parameters<typeof renderAdminPage>[1]
 export async function renderGridFormError<Row>(opts: {
   render: RenderFn
   activeItem: ActiveItem
-  loadRows: () => Promise<{ rows: Row[]; hasMore: boolean }>
+  loadRows: () => Promise<{ rows: Row[]; hasMore: boolean; total?: number | undefined }>
   buildPage: (page: AdminGridErrorPage<Row>) => RemixNode
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
@@ -54,7 +55,7 @@ export async function renderGridFormError<Row>(opts: {
   grid: AdminGridErrorState
 }): Promise<Response> {
   let { render, activeItem, loadRows, buildPage, grid } = opts
-  let { rows, hasMore } = await loadRows()
+  let { rows, hasMore, total } = await loadRows()
 
   return renderAdminPage(
     render,
@@ -62,6 +63,7 @@ export async function renderGridFormError<Row>(opts: {
     buildPage({
       rows,
       hasMore,
+      total,
       formValues: opts.formValues,
       fieldErrors: opts.fieldErrors,
       formError: opts.formError,
