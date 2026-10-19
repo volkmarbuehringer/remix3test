@@ -88,25 +88,27 @@ describe('Client lab controller', () => {
   })
 
   it('normalizes legacy demo client names and dates when the seed runs', async () => {
-    let existing = await pool.query('SELECT name, registered FROM clients WHERE id = 21')
+    // Use a high index so the date arithmetic exercises the bigint path; the
+    // old int4 expression overflowed for indexes above ~24.
+    let existing = await pool.query('SELECT name, registered FROM clients WHERE id = 150')
     let row = existing.rows[0]!
-    await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 21', [
-      'User 21',
+    await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 150', [
+      'User 50',
       Date.UTC(2025, 0, 21),
     ])
 
     try {
       await seed(db)
-      let result = await pool.query('SELECT name, registered FROM clients WHERE id = 21')
+      let result = await pool.query('SELECT name, registered FROM clients WHERE id = 150')
       let normalized = result.rows[0]!
-      assert.equal(normalized.name, 'User 021')
+      assert.equal(normalized.name, 'User 050')
       let registered = Number(normalized.registered)
       assert.ok(
         registered >= Date.UTC(2026, 0, 1) && registered < Date.UTC(2027, 0, 1),
         'legacy seeded dates should be normalized into 2026',
       )
     } finally {
-      await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 21', [
+      await pool.query('UPDATE clients SET name = $1, registered = $2 WHERE id = 150', [
         row.name,
         row.registered,
       ])

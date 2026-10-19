@@ -123,7 +123,7 @@ export async function seed(db: Database): Promise<void> {
   let normalizedDates = await db.exec(sql`
     UPDATE clients
        SET registered = 1767225600000
-         + ((substring(email from 5 for position('@' in email) - 5)::int - 1) * 86400000)
+         + ((substring(email from 5 for position('@' in email) - 5)::bigint - 1) * 86400000)
      WHERE email ~ '^user[0-9]+@example[.]com$'
        AND (registered < 1767225600000 OR registered >= 1798761600000)
   `)
