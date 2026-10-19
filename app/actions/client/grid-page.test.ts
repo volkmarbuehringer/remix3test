@@ -126,6 +126,26 @@ describe('ClientGridPage', () => {
     assert.ok(treeContainsText(tree, 'Inactive'), 'should show status')
   })
 
+  it('renders the UTC registration day for a timestamp near local midnight', () => {
+    let lateMidnightRow = {
+      ...sampleRows[0]!,
+      registered: Date.UTC(2026, 4, 1, 23, 30),
+    }
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: [lateMidnightRow], offset: 0, hasPrev: false, hasNext: false }),
+    )
+    let tree = renderFn()
+
+    assert.ok(
+      treeContainsText(tree, '01.05.2026'),
+      'the grid should show the UTC day used by the edit form',
+    )
+    assert.ok(
+      !treeContainsText(tree, '02.05.2026'),
+      'the grid must not shift the registration day in local time',
+    )
+  })
+
   it('renders sortable column headers', () => {
     let renderFn = ClientGridPage(
       makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),

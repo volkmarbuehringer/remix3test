@@ -11,6 +11,7 @@ import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { PendingSubmitButton } from '../../ui/pending-submit.browser.tsx'
 import { FormErrorFocus } from '../../ui/form-error-focus.browser.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
+import { formatIsoDateUtc } from '../../utils/date-utils.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { routes } from '../../routes.ts'
 
@@ -72,14 +73,6 @@ const fieldErrorStyle = css({
   fontSize: theme.fontSize.xxs,
   color: theme.colors.action.danger.background,
 })
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(ts: number): string {
-  return new Date(ts).toISOString().split('T')[0]!
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -281,7 +274,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     input.focus,
                     fieldErrors?.registered ? inputErrorStyle : null,
                   ].filter(Boolean)}
-                  value={formValues?.registered ?? formatDate(row.registered as number)}
+                  value={formValues?.registered ?? formatIsoDateUtc(row.registered as number)}
                   required
                   aria-invalid={fieldErrors?.registered ? 'true' : undefined}
                   aria-describedby={

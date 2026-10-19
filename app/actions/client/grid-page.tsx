@@ -26,6 +26,7 @@ import { GridStateScript } from '../../ui/grid-state-script.tsx'
 import { PageSizeControl } from '../../ui/page-size-control.tsx'
 import { dataGridFill, dataGridWrap } from '../../ui/mixins/data-grid.ts'
 import { PAGE_SIZE_KEYS, type PageSizeKey } from '../../utils/get-page-size.ts'
+import { formatUtcDateDE } from '../../utils/date-utils.ts'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
 type Row = Client
@@ -115,14 +116,6 @@ const actionSegDanger = css({
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
 
 function ClientGridPage(handle: Handle<ClientGridPageProps>) {
   return () => {
@@ -377,8 +370,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         {row.status}
                       </span>
                     </td>
-                    <td mix={table.td} title={formatDate(row.registered as number)}>
-                      {formatDate(row.registered as number)}
+                    <td mix={table.td} title={formatUtcDateDE(row.registered as number)}>
+                      {formatUtcDateDE(row.registered as number)}
                     </td>
                     <td mix={table.actionCell}>
                       <div mix={actionGroup}>

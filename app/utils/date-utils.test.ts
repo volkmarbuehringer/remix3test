@@ -7,6 +7,7 @@ import {
   generateMinOptions,
   formatCompactDateDE,
   formatDateDE,
+  formatIsoDateUtc,
   formatRelativeTimeDE,
   formatUtcDateDE,
   formatUtcPeriodDayDE,
@@ -187,6 +188,18 @@ describe('formatUtcPeriodDayDE', () => {
 
   it('renders leap day correctly', () => {
     assert.equal(formatUtcPeriodDayDE(Date.UTC(2024, 1, 29)), '29. Februar 2024')
+  })
+})
+
+describe('formatIsoDateUtc', () => {
+  it('renders the UTC calendar day for a timestamp near local midnight', () => {
+    assert.equal(formatIsoDateUtc(Date.UTC(2026, 4, 1, 23, 30)), '2026-05-01')
+  })
+
+  it('round-trips a parsed date-only value', () => {
+    let ms = parseIsoDateUtc('2026-05-01')
+    assert.ok(ms !== null)
+    assert.equal(formatIsoDateUtc(ms), '2026-05-01')
   })
 })
 

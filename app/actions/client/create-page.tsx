@@ -11,6 +11,7 @@ import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { PendingSubmitButton } from '../../ui/pending-submit.browser.tsx'
 import { FormErrorFocus } from '../../ui/form-error-focus.browser.tsx'
 import { gridStateToParams } from '../../utils/grid-state.ts'
+import { formatIsoDateUtc } from '../../utils/date-utils.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { routes } from '../../routes.ts'
 
@@ -46,14 +47,6 @@ const fieldErrorStyle = css({
   fontSize: theme.fontSize.xxs,
   color: theme.colors.action.danger.background,
 })
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function todayString(): string {
-  return new Date().toISOString().split('T')[0]!
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -249,7 +242,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                     input.focus,
                     fieldErrors?.registered ? inputErrorStyle : null,
                   ].filter(Boolean)}
-                  value={formValues?.registered ?? todayString()}
+                  value={formValues?.registered ?? formatIsoDateUtc()}
                   required
                   aria-invalid={fieldErrors?.registered ? 'true' : undefined}
                   aria-describedby={

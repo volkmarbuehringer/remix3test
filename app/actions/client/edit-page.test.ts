@@ -33,6 +33,24 @@ function treeContainsText(node: unknown, text: string): boolean {
   return false
 }
 
+function findElementsWithProp(node: unknown, prop: string, value?: unknown): RemixElement[] {
+  let matches: RemixElement[] = []
+  if (!node) return matches
+  if (typeof node === 'object' && node !== null) {
+    let el = node as RemixElement
+    if (prop in el.props && (value === undefined || el.props[prop] === value)) {
+      matches.push(el)
+    }
+    if (el.props?.children) {
+      let children = Array.isArray(el.props.children) ? el.props.children : [el.props.children]
+      for (let child of children) {
+        matches.push(...findElementsWithProp(child, prop, value))
+      }
+    }
+  }
+  return matches
+}
+
 /** True when a <button> is nested inside an <a> — invalid HTML that breaks link semantics. */
 function hasButtonInsideAnchor(node: unknown, insideAnchor = false): boolean {
   if (!node || typeof node !== 'object') return false
@@ -116,6 +134,25 @@ describe('ClientEditPage', () => {
     assert.ok(treeContainsText(tree, 'Rolle'), 'should show Rolle label')
     assert.ok(treeContainsText(tree, 'Status'), 'should show Status label')
     assert.ok(treeContainsText(tree, 'Registriert'), 'should show Registriert label')
+  })
+
+  it('renders the registration input with the UTC day used by the grid', () => {
+    let lateMidnightRow = {
+      ...sampleRow,
+      registered: Date.UTC(2026, 4, 1, 23, 30),
+    }
+    let renderFn = ClientEditPage(
+      makeHandle({ row: lateMidnightRow, offset: '0', sort: '', order: 'asc' }),
+    )
+    let tree = renderFn()
+
+    let registeredInputs = findElementsWithProp(tree, 'name', 'registered')
+    assert.equal(registeredInputs.length, 1, 'should render one registration input')
+    assert.equal(
+      registeredInputs[0]?.props.value,
+      '2026-05-01',
+      'the input should show the same UTC day as the grid',
+    )
   })
 
   it('does not nest a button inside the cancel link (invalid HTML)', () => {

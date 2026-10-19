@@ -141,6 +141,16 @@ export function formatUtcPeriodDayDE(epochMs: number): string {
 }
 
 /**
+ * Format an epoch-ms timestamp as a UTC date-only `YYYY-MM-DD` string — the
+ * shape `<input type="date">` expects and the client registered-date rule
+ * validates. Formatting in local time would shift the day around midnight and
+ * disagree with the grid.
+ */
+export function formatIsoDateUtc(epochMs: number = Date.now()): string {
+  return new Date(epochMs).toISOString().slice(0, 10)
+}
+
+/**
  * Parse a YYYY-MM-DD calendar date into UTC-midnight epoch ms. Returns null
  * for non-calendar dates (e.g. 2024-02-31) that would silently roll over.
  */

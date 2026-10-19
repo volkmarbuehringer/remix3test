@@ -6,6 +6,7 @@ import * as f from 'remix/data-schema/form-data'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../utils/ids.ts'
+import { parseIsoDateUtc } from '../../utils/date-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes } from '../../routes.ts'
@@ -61,12 +62,8 @@ const CLIENT_STATUSES = ['Active', 'Inactive'] as const
  * such as 2026-02-30 instead of accepting whatever the Date constructor did.
  */
 function isClientRegisteredDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-
-  let date = new Date(value + 'T00:00:00Z')
-  if (Number.isNaN(date.getTime())) return false
-
-  return date.getUTCFullYear() === 2026 && date.toISOString().slice(0, 10) === value
+  let ms = parseIsoDateUtc(value)
+  return ms !== null && new Date(ms).getUTCFullYear() === 2026
 }
 
 const clientSaveSchema = f.object({
@@ -93,8 +90,7 @@ const clientSaveSchema = f.object({
 
 function parseDate(value: string): number | undefined {
   if (!value || value === '0') return undefined
-  let ts = Date.parse(value + 'T00:00:00Z')
-  return Number.isFinite(ts) ? ts : undefined
+  return parseIsoDateUtc(value) ?? undefined
 }
 
 /**
