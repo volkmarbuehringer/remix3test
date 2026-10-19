@@ -81,6 +81,13 @@ export async function seed(db: Database): Promise<void> {
 
   let clientsCount = Number(await db.count(clients))
   if (clientsCount === 0) {
+    // The controller only accepts 2026 registration dates. Spread the 200
+    // rows from 1 Jan 2026 up to today (clamped to the 2026 calendar) so the
+    // whole seed stays editable; the old 3-day step reached back into 2025.
+    let yearStart = Date.UTC(2026, 0, 1)
+    let yearEnd = Date.UTC(2026, 11, 31)
+    let latest = Math.min(Math.max(Date.now(), yearStart), yearEnd)
+    let span = latest - yearStart
     let clientRows = Array.from({ length: 200 }, (_, i) => {
       let role = (['Admin', 'Editor', 'Viewer'] as const)[i % 3]
       return {
@@ -88,7 +95,7 @@ export async function seed(db: Database): Promise<void> {
         email: `user${i + 1}@example.com`,
         ...(role !== undefined ? { role } : {}),
         status: i % 4 === 0 ? 'Inactive' : 'Active',
-        registered: Date.now() - i * 86400000 * 3,
+        registered: latest - Math.floor((i * span) / 199),
       }
     })
     await db.createMany(clients, clientRows)

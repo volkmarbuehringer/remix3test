@@ -63,6 +63,23 @@ describe('Client lab controller', () => {
     )
   })
 
+  it('seeds every client with a registration date inside 2026', async () => {
+    let result = await pool.query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE registered < $1 OR registered >= $2)::int AS outside
+         FROM clients
+        WHERE email LIKE 'user%@example.com'`,
+      [Date.UTC(2026, 0, 1), Date.UTC(2027, 0, 1)],
+    )
+    let row = result.rows[0]!
+    assert.ok(Number(row.total) > 0, 'the client seed should have run')
+    assert.equal(
+      Number(row.outside),
+      0,
+      'all seeded clients must be editable under the 2026 registration rule',
+    )
+  })
+
   // -----------------------------------------------------------------------
   // GET /admin/clients — page rendering
   // -----------------------------------------------------------------------
