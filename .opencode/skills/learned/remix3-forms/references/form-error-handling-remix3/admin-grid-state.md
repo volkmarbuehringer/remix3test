@@ -8,6 +8,7 @@ Keeping admin CRUD grid state (sort/filter/pagination) across a failed POST, and
 - Hidden inputs and `app/utils/grid-state.ts` helpers
 - `renderGridFormError` and why the grid error path returns **200, not 400**
 - Page-level vs form-level error banners, and avoiding double display
+- Optional update fields: keeping absence real so a partial submit cannot rewrite the row
 - Unicode escapes in JSX text
 
 For the core validation pattern, see `validation-and-schema.md`. For adding a new filter end-to-end, see `url-param-filter-checklist.md`.
@@ -105,6 +106,59 @@ re-render branch, and the sort direction flows through `gridStateDirection()`'s 
 invalid `_order` falls back to the caller's default instead of reaching a raw-SQL `ORDER BY`
 compiler (which throws). Adding a new grid field means adding it inside `gridStateOverrides()` once;
 existing branches need no change.
+
+### Optional Update Fields: Keep Absence Real
+
+`readFormFieldValues()` fills every key with `''`, so a field omitted from a
+partial submit still looks present. If the update schema allows optional fields
+(e.g. `s.optional(s.enum_([...]))`), `formValues` then overrides the row with
+`''`; if `editRow` is rebuilt from raw values, the edit panel shows fabricated
+defaults (Viewer/Active, a blank date) and a later save writes them back.
+
+Keep absence real and load the current row:
+
+```typescript
+const OPTIONAL_KEYS = ['role', 'status', 'registered'] as const
+
+function readSubmittedValues(formData: FormData): Record<string, string> {
+  let values = readFormFieldValues(CLIENT_FORM_KEYS, formData)
+  for (let key of OPTIONAL_KEYS) {
+    if (!formData.has(key)) delete values[key]
+  }
+  return values
+}
+
+let existing = (await db.findOne(clients, { where: { id } })) as Row | null
+if (!existing) {
+  context.session.flash('error', 'Kunde nicht gefunden.')
+  return editingRedirect(
+    routes.admin.clients.index.href(),
+    null,
+    gridStateFromForm(rawValues),
+  )
+}
+
+return renderGridFormError({
+  editRow: existing,
+  formValues: readSubmittedValues(formData),
+  fieldErrors: issuesToFieldErrors(parsed.issues),
+  ...
+})
+```
+
+- Required fields stay in `formValues` (empty when omitted) so their errors
+  remain visible; only absent optional keys are deleted.
+- The edit panel's `<select>`/date controls then fall back to `row.*`.
+- Do **not** rebuild `editRow` from raw values; load the current row.
+- Trigger: a partial/API PUT that omits optional fields and fails another
+  field. Browser forms submit every control, so normal UI submissions are
+  unaffected — but the schema explicitly supports omission.
+- Parse with `parseSafe(schema, formData, { errorMap })` so vendor check messages are
+  localized by `code`; `issuesToFieldErrors()` then only keys them by field. See
+  `validation-and-schema.md` § "Localize Built-In Check Messages by `code`, Not `message`".
+- Reference implementation: `app/actions/client/controller.tsx`
+  (`readClientFormValues`) and the partial-PUT test in
+  `app/actions/client/controller.test.ts`.
 
 ### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
 

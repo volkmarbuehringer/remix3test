@@ -97,28 +97,41 @@ function parseDate(value: string): number | undefined {
   return Number.isFinite(ts) ? ts : undefined
 }
 
-/** Map the schema's built-in English check messages to the German UI copy. */
-function clientFieldErrors(
-  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> | undefined }>,
-): Record<string, string> {
-  let errors = issuesToFieldErrors(issues)
+/**
+ * German UI copy for the schema's built-in checks, resolved from the check's
+ * `code` via `parseSafe`'s `errorMap` instead of comparing the vendor's
+ * English default messages. Standard Schema issues expose only `message` and
+ * `path`, so the code is available solely through `errorMap`.
+ */
+export function clientErrorMap(context: s.ErrorMapContext): string | undefined {
+  let field = context.path?.[0]
 
-  if (errors.name === 'Expected at least 8 characters') {
-    errors.name = 'Der Name muss mindestens 8 Zeichen enthalten.'
+  if (field === 'name') {
+    if (context.code === 'string.min_length') {
+      return 'Der Name muss mindestens 8 Zeichen enthalten.'
+    }
+    if (context.code === 'string.max_length') {
+      return 'Der Name darf höchstens 100 Zeichen enthalten.'
+    }
   }
-  if (errors.name === 'Expected at most 100 characters') {
-    errors.name = 'Der Name darf höchstens 100 Zeichen enthalten.'
-  }
-  if (errors.email === 'Expected valid email') {
-    errors.email = 'Bitte eine gültige E-Mail-Adresse eingeben.'
-  }
-  if (errors.email === 'Expected at most 100 characters') {
-    errors.email = 'Die E-Mail-Adresse darf höchstens 100 Zeichen enthalten.'
-  }
-  if (errors.role) errors.role = 'Ungültige Rolle.'
-  if (errors.status) errors.status = 'Ungültiger Status.'
 
-  return errors
+  if (field === 'email') {
+    if (context.code === 'string.email') {
+      return 'Bitte eine gültige E-Mail-Adresse eingeben.'
+    }
+    if (context.code === 'string.max_length') {
+      return 'Die E-Mail-Adresse darf höchstens 100 Zeichen enthalten.'
+    }
+  }
+
+  if (field === 'role') return 'Ungültige Rolle.'
+  if (field === 'status') return 'Ungültiger Status.'
+
+  return undefined
+}
+
+function parseClientForm(formData: FormData) {
+  return s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap })
 }
 
 /** Builds the WHERE predicate for the grid from the single `filter` query param. */
@@ -353,7 +366,7 @@ export default createController(routes.admin.clients, {
       }
 
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
-      let parsed = s.parseSafe(clientSaveSchema, formData)
+      let parsed = parseClientForm(formData)
 
       if (!parsed.success) {
         let existing = (await db.findOne(clients, { where: { id } })) as Row | null
@@ -369,7 +382,7 @@ export default createController(routes.admin.clients, {
         return renderClientsError(context, {
           editRow: existing,
           formValues: readClientFormValues(formData),
-          fieldErrors: clientFieldErrors(parsed.issues),
+          fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
@@ -510,13 +523,13 @@ export default createController(routes.admin.clients, {
       let effectivePageSize = getPageSize(context.session, PAGE_SIZE, PAGE_SIZE_KEYS.adminClients)
 
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
-      let parsed = s.parseSafe(clientSaveSchema, formData)
+      let parsed = parseClientForm(formData)
 
       if (!parsed.success) {
         return renderClientsError(context, {
           creating: true,
           formValues: rawValues,
-          fieldErrors: clientFieldErrors(parsed.issues),
+          fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),

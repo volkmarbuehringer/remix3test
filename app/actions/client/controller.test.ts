@@ -6,6 +6,7 @@ import { initializeAppDatabase } from '../../db.ts'
 import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
 import { pool } from '../../../test/pool.ts'
 import { routes } from '../../routes.ts'
+import { clientErrorMap } from './controller.tsx'
 
 const BASE = 'https://remix.run'
 const CLIENTS_URL = `${BASE}/admin/clients`
@@ -25,6 +26,42 @@ describe('Client lab controller', () => {
   function authHeaders(): Record<string, string> {
     return authCookie ? { Cookie: authCookie } : {}
   }
+
+  // -----------------------------------------------------------------------
+  // Validation copy
+  // -----------------------------------------------------------------------
+  it('maps check messages by issue code and field, not vendor text', () => {
+    let context = (code: string, field: string) => ({
+      code,
+      defaultMessage: 'Vendor copy is allowed to change',
+      path: [field],
+      input: '',
+    })
+
+    assert.equal(
+      clientErrorMap(context('string.min_length', 'name')),
+      'Der Name muss mindestens 8 Zeichen enthalten.',
+    )
+    assert.equal(
+      clientErrorMap(context('string.max_length', 'name')),
+      'Der Name darf höchstens 100 Zeichen enthalten.',
+    )
+    assert.equal(
+      clientErrorMap(context('string.max_length', 'email')),
+      'Die E-Mail-Adresse darf höchstens 100 Zeichen enthalten.',
+    )
+    assert.equal(
+      clientErrorMap(context('string.email', 'email')),
+      'Bitte eine gültige E-Mail-Adresse eingeben.',
+    )
+    assert.equal(clientErrorMap(context('enum.invalid_value', 'role')), 'Ungültige Rolle.')
+    assert.equal(clientErrorMap(context('enum.invalid_value', 'status')), 'Ungültiger Status.')
+    assert.equal(
+      clientErrorMap(context('string.min_length', 'email')),
+      undefined,
+      'an unrelated field/code pair keeps the vendor default',
+    )
+  })
 
   // -----------------------------------------------------------------------
   // GET /admin/clients — page rendering
@@ -499,6 +536,52 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Ungültige Rolle.'), 'should show a role validation error')
     assert.ok(html.includes('Ungültiger Status.'), 'should show a status validation error')
     assert.ok(html.includes('aria-invalid="true"'), 'invalid selects should be marked invalid')
+  })
+
+  it('POST /admin/clients with too-long name and email uses the German max-length messages', async () => {
+    let body = new URLSearchParams({
+      name: 'N'.repeat(101),
+      email: 'a'.repeat(89) + '@example.com',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('Der Name darf höchstens 100 Zeichen enthalten.'),
+      'should show the German name max-length error',
+    )
+    assert.ok(
+      html.includes('Die E-Mail-Adresse darf höchstens 100 Zeichen enthalten.'),
+      'should show the German email max-length error',
+    )
+  })
+
+  it('POST /admin/clients with an invalid email uses the German email message', async () => {
+    let body = new URLSearchParams({
+      name: 'ValidNameHere',
+      email: 'not-an-email',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('Bitte eine gültige E-Mail-Adresse eingeben.'),
+      'should show the German email format error',
+    )
   })
 
   it('POST /admin/clients with a whitespace-only name re-renders instead of throwing', async () => {

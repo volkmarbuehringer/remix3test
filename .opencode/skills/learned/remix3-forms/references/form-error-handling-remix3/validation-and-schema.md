@@ -166,6 +166,41 @@ if (!result.success) {
 let { resource_id, day, start_min, end_min } = result.value
 ```
 
+### Localize Built-In Check Messages by `code`, Not `message`
+
+`s.parseSafe(schema, value, { errorMap })` is the only place a vendor check's `code`
+(`string.min_length`, `string.max_length`, `string.email`, `enum.invalid_value`, ...)
+reaches application code: Standard Schema issues expose only `message` and `path`, and
+`createIssue()` drops the code before returning them. Comparing the English default
+message to translate it breaks whenever the vendor rewords a check, and silently falls
+back to English when it does.
+
+```typescript
+export function clientErrorMap(context: s.ErrorMapContext): string | undefined {
+  let field = context.path?.[0]
+
+  if (field === 'name' && context.code === 'string.min_length') {
+    return 'Der Name muss mindestens 8 Zeichen enthalten.'
+  }
+  if (field === 'email' && context.code === 'string.email') {
+    return 'Bitte eine gültige E-Mail-Adresse eingeben.'
+  }
+  // role/status are mapped by field (enum checks); other pairs keep the vendor default.
+  return undefined
+}
+
+let parsed = s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap })
+```
+
+- `refine()` **with an explicit message** bypasses `errorMap` (the message is already
+  final); `refine()` without one emits `refine.failed` and goes through the map.
+- `path[0]` distinguishes fields that share a code — `name` and `email` both use
+  `string.max_length`, so the same code needs different German copy per field.
+- Keep `issuesToFieldErrors(parsed.issues)` for the field→message map; the messages are
+  already localized at parse time.
+- Reference implementation + regression test: `app/actions/client/controller.tsx`
+  (`clientErrorMap`), `app/actions/client/controller.test.ts`.
+
 ### Schema with coerce.number() + .refine()
 
 ```typescript
@@ -279,7 +314,8 @@ was before the frame re-render. Add all three:
 
 - `role="alert"` on each error element and on the form-level banner.
 - `aria-invalid="true"` plus `aria-describedby` pointing at the error element id on
-  the rejected control.
+  the rejected control. Use the **string** `aria-invalid="true"`; Remix 3 renders
+  `aria-invalid={true}` as a bare `aria-invalid` attribute, which is not a valid ARIA value.
 - A tiny `clientEntry` inside the form that focuses the first invalid control:
 
 ```tsx

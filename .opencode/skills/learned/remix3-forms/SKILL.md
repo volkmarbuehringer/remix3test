@@ -73,23 +73,25 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - Rendering per-field error messages next to form inputs
 - Preserving submitted form values after a validation failure
 - Preserving admin grid state (sort/filter/pagination) across a failed POST
+- Re-rendering an admin edit form after a partial/API update with optional fields
 - Testing form validation controller behavior
 
 ### Load Only The References You Need
 
 | Task involves... | Start with |
 | --- | --- |
-| `parseSafe` + schema, value preservation, select fields, `coerce.number()`/empty-select and Postgres `number`-vs-string traps, the empty-string `""` select fallback, `role="alert"`/`aria-invalid`/focus-first-invalid wiring, cross-field and wizard checks, validation tests | `references/form-error-handling-remix3/validation-and-schema.md` |
+| `parseSafe` + schema, value preservation, select fields, `coerce.number()`/empty-select and Postgres `number`-vs-string traps, the empty-string `""` select fallback, code-based `errorMap` localization, `role="alert"`/`aria-invalid`/focus-first-invalid wiring, cross-field and wizard checks, validation tests | `references/form-error-handling-remix3/validation-and-schema.md` |
 | `s.defaulted()` returning its default **without running the wrapped schema** — defaulted→required fields silently bypass validation; missing-field fail-fast and issue-message mapping (`promptSchema`, `promptIssueMessage`) | `references/form-error-handling-remix3/defaulted-skips-validation.md` |
-| Admin CRUD grids: a shared `loadPageData`, `grid-state.ts` hidden inputs, `renderGridFormError` returning **200 not 400**, error banners | `references/form-error-handling-remix3/admin-grid-state.md` |
+| Admin CRUD grids: a shared `loadPageData`, `grid-state.ts` hidden inputs, `renderGridFormError` returning **200 not 400**, error banners, partial updates with optional fields | `references/form-error-handling-remix3/admin-grid-state.md` |
 | Adding a new URL-query-param filter that drives a SQL `WHERE` (the 8+ touchpoint checklist) | `references/form-error-handling-remix3/url-param-filter-checklist.md` |
 
 ### Core Rules
 
 - Use `s.parseSafe`, never `s.parse`, for form validation. `parse` throws and loses error details; `parseSafe` returns `{ success, value }` or `{ success, issues }`.
+- Localize built-in check messages through `parseSafe(..., { errorMap })` keyed on `context.code`; Standard Schema issues carry no `code` (only `message`/`path`), and comparing the vendor's English `message` breaks on rewording.
 - **`s.defaulted(chained, default)` returns its default without running the wrapped schema** — never wrap a required/validated field in it. A defaulted→required field parses the default as a *success*, silently bypassing every `.refine` in the chain. Let missing fields fail the base type check and map the generic issue at the response boundary (`promptIssueMessage()` in `app/actions/agent-events/controller.tsx`). Details + pinned vendor line refs (`schema.ts:515/519-525`, build `7f900151`): `references/form-error-handling-remix3/defaulted-skips-validation.md`.
 - Extract raw string values from `FormData` **before** validation and pass them back as `formValues` so the user never re-types input.
-- `formValues` (from a failed submit) take priority over row data (from the DB); fall back to the row only when absent.
+- `formValues` (from a failed submit) take priority over row data (from the DB); fall back to the row only when absent. For optional update fields, make absence real with `formData.has(key)`; otherwise `readFormFieldValues()` fills `''` and the row is overwritten.
 - `<select>` does not honor `defaultValue` in Remix 3 — use `selected` on each `<option>`.
 - A cleared select submits `""`, and `"" != null` is true: normalize the preserved id to `""` and select a disabled placeholder option when empty, or the browser shows the first option while the field error says required.
 - Server-rendered errors need `role="alert"`, `aria-invalid`/`aria-describedby` on the control, and a focus-first-invalid `clientEntry`; the markup alone is silent to screen readers.
