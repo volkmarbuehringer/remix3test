@@ -100,3 +100,16 @@ if (!(value === 'pending' && (!status || status === 'pending'))) {
 ```
 
 **Rule of thumb:** the default representation must be keyed off the default value, not the active state. When adding a new non-default tab (e.g. `all`/`Alle`), re-check the shared active-tab href logic or the new tab will ship this bug.
+
+## Don't Overload One Param (status + search)
+
+A single `filter` param must not double as a status tab, a numeric id, and name/email text. `?filter=active` cannot tell "Active-status clients" from a search for a client named "Active", and `?filter=123` stops matching "User 123" once the numeric branch wins.
+
+Use one param per dimension (`status=active|inactive`, `filter=<text>`) and thread both through the grid state. For the text search:
+
+- trim it; whitespace-only means "no filter"
+- escape `\`, `%`, and `_`, then wrap the value in `%...%` so LIKE metacharacters match literally
+- for an all-digit query, OR `{ id: Number(query) }` with the `name`/`email` ILIKEs
+- combine the status and text predicates with `and(...)`, not an `if/else` that picks one
+
+Reference: `app/actions/client/controller.tsx` (`buildClientsFilterPredicate`) and the numeric/search/wildcard tests in `app/actions/client/controller.test.ts`.

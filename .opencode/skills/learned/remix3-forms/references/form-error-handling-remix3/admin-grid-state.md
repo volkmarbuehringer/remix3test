@@ -160,6 +160,26 @@ return renderGridFormError({
   (`readClientFormValues`) and the partial-PUT test in
   `app/actions/client/controller.test.ts`.
 
+### Keep an Open Edit/Create Panel Across Grid Navigation
+
+Sort, pagination, status-tab, and clear-search links are plain GET navigations. If
+they omit `editing`/`creating`, the frame reload closes the panel. Append the open
+mode to every grid-navigation URL and add hidden inputs so the search form does the
+same:
+
+```ts
+function withPanelState(href: string, editingId: number | null | undefined, creating: boolean) {
+  let panel = editingId ? `editing=${editingId}` : creating ? 'creating=true' : ''
+  return panel ? href + (href.includes('?') ? '&' : '?') + panel : href
+}
+```
+
+- Do not append `creating` to row edit links (`buildEditUrl` already sets `editing`);
+  do not append `editing` to the create link (`buildCreateUrl` sets `creating`).
+- The search form needs hidden `editing`/`creating` inputs too.
+- Reference: `app/actions/client/grid-page.tsx` (`withPanelState`) and
+  `app/actions/client/grid-page.test.ts`.
+
 ### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
 
 When an admin **grid** page routes its validation-error re-render through the shared helper (`app/ui/admin-grid-error.tsx` → `renderGridFormError`), the response is always **status 200**, NOT 400.
