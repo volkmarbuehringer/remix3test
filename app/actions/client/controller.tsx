@@ -258,7 +258,6 @@ async function renderClientsError(
         rows={page.rows}
         offset={page.offset}
         hasMore={page.hasMore}
-        nextOffset={page.offset + page.pageSize}
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
         filter={page.filter}
@@ -336,7 +335,6 @@ async function renderClientsIndex(
       rows={rows}
       offset={offset}
       hasMore={hasMore}
-      nextOffset={offset + effectivePageSize}
       sortColumn={column}
       sortDirection={direction as 'asc' | 'desc'}
       filter={filter}
@@ -392,12 +390,18 @@ export default createController(routes.admin.clients, {
       let formData = context.formData
       let effectivePageSize = getPageSize(context.session, PAGE_SIZE, PAGE_SIZE_KEYS.adminClients)
 
+      let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
+
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige Kunden-ID.')
+        return editingRedirect(
+          routes.admin.clients.index.href(),
+          null,
+          gridStateFromForm(rawValues),
+        )
       }
 
-      let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = parseClientForm(formData)
 
       if (!parsed.success) {
@@ -456,6 +460,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
+      context.session.flash('success', 'Kunde gespeichert.')
       return editingRedirect(routes.admin.clients.index.href(), id, gridStateFromForm(rawValues))
     },
 
@@ -463,13 +468,13 @@ export default createController(routes.admin.clients, {
     async destroy(context) {
       let db = context.db
       let formData = context.formData
+      let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige Kunden-ID.')
+        return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
       }
-
-      let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
 
       try {
         let deleted = await db.delete(clients, { id })
@@ -496,6 +501,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
+      context.session.flash('success', 'Kunde gelöscht.')
       return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
     },
 
@@ -538,6 +544,10 @@ export default createController(routes.admin.clients, {
         })
       }
 
+      context.session.flash(
+        'success',
+        newStatus === 'Active' ? 'Kunde aktiviert.' : 'Kunde deaktiviert.',
+      )
       let qs = params.toString()
       return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
@@ -602,6 +612,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
+      context.session.flash('success', 'Kunde angelegt.')
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))

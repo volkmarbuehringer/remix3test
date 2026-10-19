@@ -382,9 +382,13 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde gespeichert.'), 'should surface a success flash')
   })
 
-  it('PUT /admin/clients/0 returns 400 for invalid id', async () => {
+  it('PUT /admin/clients/0 redirects to the grid with an invalid-id flash', async () => {
     let response = await router.fetch(`${CLIENTS_URL}/0`, {
       method: 'POST',
       body: new URLSearchParams({ _method: 'PUT', name: 'Test', _csrf: csrfToken! }),
@@ -392,7 +396,13 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 400)
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Ungültige Kunden-ID.'), 'should surface an invalid-id flash')
   })
 
   it('PUT /admin/clients/99999 reports a missing row instead of silently succeeding', async () => {
@@ -543,6 +553,10 @@ describe('Client lab controller', () => {
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
     assert.ok(location.includes('offset=0'), 'should preserve grid offset')
     assert.ok(location.includes('sort=name'), 'should preserve grid sort')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde gelöscht.'), 'should surface a success flash')
   })
 
   it('DELETE /admin/clients/99999 reports a missing row instead of silently succeeding', async () => {
@@ -567,6 +581,30 @@ describe('Client lab controller', () => {
     let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
     let html = await follow.text()
     assert.ok(html.includes('Kunde nicht gefunden.'), 'should surface a flash message')
+  })
+
+  it('DELETE /admin/clients/0 redirects to the grid with an invalid-id flash', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/0`, {
+      method: 'POST',
+      body: new URLSearchParams({
+        _method: 'DELETE',
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        _csrf: csrfToken!,
+      }),
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Ungültige Kunden-ID.'), 'should surface an invalid-id flash')
   })
 
   // -----------------------------------------------------------------------
@@ -595,6 +633,10 @@ describe('Client lab controller', () => {
       'should redirect to /admin/clients?editing=<id>',
     )
     assert.ok(/\bediting=\d+/.test(location), 'editing param should be a number')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde angelegt.'), 'should surface a success flash')
   })
 
   it('POST /admin/clients with empty data re-renders with validation error', async () => {
@@ -853,6 +895,10 @@ describe('Client lab controller', () => {
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to the grid list')
     assert.ok(location.includes('sort=name'), 'should carry grid-state params')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde deaktiviert.'), 'should surface a success flash')
 
     let result = await pool.query('SELECT status FROM clients WHERE id = $1', [id])
     assert.equal(result.rows[0]?.status, 'Inactive', 'status should flip to Inactive')

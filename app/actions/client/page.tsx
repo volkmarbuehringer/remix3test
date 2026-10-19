@@ -11,7 +11,6 @@ interface ClientPageProps {
   rows: Client[]
   offset: number
   hasMore: boolean
-  nextOffset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter?: string | undefined
@@ -32,7 +31,6 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       rows,
       offset,
       hasMore,
-      nextOffset,
       sortColumn,
       sortDirection,
       filter,
@@ -63,6 +61,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
           pageKey={pageKey}
           pageSizeOverride={pageSizeOverride}
           editingId={editRow?.id ?? null}
+          creating={creating}
         />
       </div>
     )

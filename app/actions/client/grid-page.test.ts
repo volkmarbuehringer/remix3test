@@ -146,6 +146,26 @@ describe('ClientGridPage', () => {
     )
   })
 
+  it('labels every cell for the mobile card layout', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
+    let tree = renderFn()
+
+    let labels = findElementsWithProp(tree, 'data-label').map((el) =>
+      String(el.props['data-label']),
+    )
+    assert.deepEqual(labels.slice(0, 7), [
+      'ID',
+      'Name',
+      'E-Mail',
+      'Rolle',
+      'Status',
+      'Registriert',
+      'Aktionen',
+    ])
+  })
+
   it('renders sortable column headers', () => {
     let renderFn = ClientGridPage(
       makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
@@ -324,6 +344,83 @@ describe('ClientGridPage', () => {
     assert.ok(
       findElementsWithProp(tree, 'name', 'status').some((el) => el.props.value === 'active'),
       'the search form should carry the status tab',
+    )
+  })
+
+  it('keeps an open edit panel through grid navigation', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({
+        rows: sampleRows,
+        offset: 15,
+        hasPrev: true,
+        hasNext: true,
+        sortField: 'name',
+        sortOrder: 'desc',
+        filter: 'user',
+        status: 'active',
+        editingId: 3,
+      }),
+    )
+    let tree = renderFn()
+    let hrefs = findElementsWithProp(tree, 'href').map((el) => String(el.props.href))
+
+    assert.ok(
+      hrefs.some((href) => href.includes('status=active') && href.includes('editing=3')),
+      'status tabs should keep the open edit panel',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('sort=id') && href.includes('editing=3')),
+      'sort links should keep the open edit panel',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('offset=30') && href.includes('editing=3')),
+      'pagination should keep the open edit panel',
+    )
+    assert.ok(
+      hrefs.some(
+        (href) =>
+          href.includes('status=active') && !href.includes('filter=') && href.includes('editing=3'),
+      ),
+      'the clear-search link should keep the open edit panel',
+    )
+    assert.equal(
+      findElementsWithProp(tree, 'name', 'editing')[0]?.props.value,
+      3,
+      'the search form should keep the editing id',
+    )
+  })
+
+  it('keeps an open create panel through grid navigation', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({
+        rows: sampleRows,
+        offset: 15,
+        hasPrev: true,
+        hasNext: true,
+        sortField: 'name',
+        sortOrder: 'desc',
+        creating: true,
+      }),
+    )
+    let tree = renderFn()
+    let hrefs = findElementsWithProp(tree, 'href').map((el) => String(el.props.href))
+
+    assert.ok(
+      hrefs.some((href) => href.includes('status=active') && href.includes('creating=true')),
+      'status tabs should keep the open create panel',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('sort=id') && href.includes('creating=true')),
+      'sort links should keep the open create panel',
+    )
+    assert.ok(
+      hrefs.some((href) => href.includes('offset=30') && href.includes('creating=true')),
+      'pagination should keep the open create panel',
+    )
+    assert.equal(
+      findElementsWithProp(tree, 'name', 'creating')[0]?.props.value,
+      'true',
+      'the search form should keep the creating flag',
     )
   })
 

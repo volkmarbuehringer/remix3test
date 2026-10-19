@@ -57,9 +57,12 @@ export const ClientsContextMenu = clientEntry(
         case 'deactivate':
           submitRowForm(target.rowId, 'data-toggle-form')
           break
-        case 'delete':
-          confirmAndSubmitRowForm(target.rowId, 'Wirklich löschen?')
+        case 'delete': {
+          let deleteForm = target.row.querySelector<HTMLFormElement>('form[data-delete-form]')
+          let message = deleteForm?.dataset.confirm ?? 'Wirklich löschen?'
+          confirmAndSubmitRowForm(target.rowId, message)
           break
+        }
       }
     },
   }),

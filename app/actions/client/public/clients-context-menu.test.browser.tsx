@@ -22,10 +22,16 @@ function setup(status = 'Pending') {
   let host = document.createElement('div')
   host.innerHTML = `
     <div data-clients-table>
-      <div data-row-id="5" data-status="${status}"><span>Row</span></div>
+      <div data-row-id="5" data-status="${status}">
+        <span>Row</span>
+        <form
+          data-delete-form="5"
+          action="/admin/clients/5/delete"
+          data-confirm="Kunde &quot;Row&quot; wirklich löschen?"
+        ></form>
+        <form data-toggle-form="5" action="/admin/clients/5/toggle"></form>
+      </div>
     </div>
-    <form data-delete-form="5" action="/admin/clients/5/delete"></form>
-    <form data-toggle-form="5" action="/admin/clients/5/toggle"></form>
   `
   document.body.appendChild(host)
   fixture = host
@@ -162,7 +168,7 @@ describe('ClientsContextMenu', () => {
     })
     selectItem(container, 'delete')
 
-    assert.equal(confirmMessage, 'Wirklich löschen?')
+    assert.equal(confirmMessage, 'Kunde "Row" wirklich löschen?')
     assert.equal(deleteSubmits, 1)
   })
 
