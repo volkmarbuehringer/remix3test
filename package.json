@@ -34,7 +34,7 @@
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "date-holidays": "^3.37.0",
     "nodemailer": "^10.1.2",
-    "pdfmake": "^0.3.11",
+    "pdfmake": "^0.3.12",
     "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.6.7"
@@ -47,7 +47,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.23.1",
-    "html-validate": "^11.16.2",
+    "html-validate": "^11.16.4",
     "mastra": "^1.34.2",
     "oxfmt": "^0.73.0",
     "oxlint": "^1.88.0",
