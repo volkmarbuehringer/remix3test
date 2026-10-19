@@ -1,7 +1,7 @@
 import { createController } from 'remix/router'
 import { ilike, or, type Database, type WhereInput } from 'remix/data-table'
 import * as s from 'remix/data-schema'
-import { minLength, email } from 'remix/data-schema/checks'
+import { minLength, maxLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { redirect } from 'remix/response/redirect'
 
@@ -51,18 +51,39 @@ const CLIENT_FORM_KEYS = [
   '_filter',
 ] as const
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
+const CLIENT_OPTIONAL_FORM_KEYS = ['role', 'status', 'registered'] as const
+const CLIENT_ROLES = ['Admin', 'Editor', 'Viewer'] as const
+const CLIENT_STATUSES = ['Active', 'Inactive'] as const
+
+/**
+ * The lab's registered-date rule: a real calendar date in 2026. Date-only
+ * strings parse as UTC midnight; comparing the round-trip catches rollovers
+ * such as 2026-02-30 instead of accepting whatever the Date constructor did.
+ */
+function isClientRegisteredDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+  let date = new Date(value + 'T00:00:00Z')
+  if (Number.isNaN(date.getTime())) return false
+
+  return date.getUTCFullYear() === 2026 && date.toISOString().slice(0, 10) === value
+}
 
 const clientSaveSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '').pipe(minLength(8))),
-  email: f.field(s.defaulted(s.string(), '').pipe(email())),
-  role: f.field(s.defaulted(s.string(), '')),
-  status: f.field(s.defaulted(s.string(), '')),
+  name: f.field(
+    s
+      .defaulted(s.string(), '')
+      .pipe(minLength(8), maxLength(100))
+      .refine((value) => value.trim().length >= 8, 'Der Name muss mindestens 8 Zeichen enthalten.'),
+  ),
+  email: f.field(s.defaulted(s.string(), '').pipe(email(), maxLength(100))),
+  role: f.field(s.optional(s.enum_(CLIENT_ROLES))),
+  status: f.field(s.optional(s.enum_(CLIENT_STATUSES))),
   registered: f.field(
-    s.defaulted(s.string(), '0').refine((value) => {
+    s.defaulted(s.string(), '').refine((value) => {
       if (!value || value === '0') return true
-      let year = Number(value.split('-')[0])
-      return !isNaN(year) && year === 2026
-    }, 'Year must be 2026'),
+      return isClientRegisteredDate(value)
+    }, 'Bitte ein gültiges Datum aus 2026 angeben.'),
   ),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
@@ -70,9 +91,34 @@ const clientSaveSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-function parseDate(value: string): number {
-  let ts = new Date(value).getTime()
-  return Number.isFinite(ts) ? ts : Date.now()
+function parseDate(value: string): number | undefined {
+  if (!value || value === '0') return undefined
+  let ts = Date.parse(value + 'T00:00:00Z')
+  return Number.isFinite(ts) ? ts : undefined
+}
+
+/** Map the schema's built-in English check messages to the German UI copy. */
+function clientFieldErrors(
+  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> | undefined }>,
+): Record<string, string> {
+  let errors = issuesToFieldErrors(issues)
+
+  if (errors.name === 'Expected at least 8 characters') {
+    errors.name = 'Der Name muss mindestens 8 Zeichen enthalten.'
+  }
+  if (errors.name === 'Expected at most 100 characters') {
+    errors.name = 'Der Name darf höchstens 100 Zeichen enthalten.'
+  }
+  if (errors.email === 'Expected valid email') {
+    errors.email = 'Bitte eine gültige E-Mail-Adresse eingeben.'
+  }
+  if (errors.email === 'Expected at most 100 characters') {
+    errors.email = 'Die E-Mail-Adresse darf höchstens 100 Zeichen enthalten.'
+  }
+  if (errors.role) errors.role = 'Ungültige Rolle.'
+  if (errors.status) errors.status = 'Ungültiger Status.'
+
+  return errors
 }
 
 /** Builds the WHERE predicate for the grid from the single `filter` query param. */
@@ -109,15 +155,18 @@ async function loadGridData(
   return { rows: page, hasMore }
 }
 
-function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
-  return {
-    id,
-    name: raw.name ?? '',
-    email: raw.email ?? '',
-    role: (raw.role || 'Viewer') as Row['role'],
-    status: (raw.status || 'Active') as Row['status'],
-    registered: raw.registered ? parseDate(raw.registered) : Date.now(),
+/**
+ * Values for the edit panel after a failed update. Required fields are always
+ * present (empty when omitted, so their error stays visible); optional fields
+ * are omitted when absent so the panel falls back to the row's current value
+ * instead of inventing a role, status, or date.
+ */
+function readClientFormValues(formData: FormData): Record<string, string> {
+  let values = readFormFieldValues(CLIENT_FORM_KEYS, formData)
+  for (let key of CLIENT_OPTIONAL_FORM_KEYS) {
+    if (!formData.has(key)) delete values[key]
   }
+  return values
 }
 
 type ClientsRenderContext = {
@@ -168,7 +217,6 @@ async function renderClientsError(
         rows={page.rows}
         offset={page.offset}
         hasMore={page.hasMore}
-        prevOffset={Math.max(0, page.offset - page.pageSize)}
         nextOffset={page.offset + page.pageSize}
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
@@ -191,62 +239,92 @@ async function renderClientsError(
   })
 }
 
+type ClientsIndexContext = Pick<AppContext, 'db' | 'render' | 'session' | 'url'>
+
+/**
+ * Shared renderer for the clients grid. Reads the grid state (offset, sort,
+ * order, filter) from the request URL. Used by the index action and by the
+ * frame action-path resolvers, which re-render the grid when a stale frame
+ * reload GETs a POST/PUT/DELETE-only path.
+ */
+async function renderClientsIndex(
+  context: ClientsIndexContext,
+  overrides: { editingId?: number | null; creating?: boolean } = {},
+): Promise<Response> {
+  let pageKey = PAGE_SIZE_KEYS.adminClients
+  let effectivePageSize = getPageSize(context.session, PAGE_SIZE, pageKey)
+  let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
+  let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let filter = context.url.searchParams.get('filter') || undefined
+
+  let { column, direction } = parseSort(context.url, {
+    allowedColumns: SORTABLE_FIELDS,
+    defaultColumn: 'id',
+    defaultDirection: 'asc',
+  })
+
+  let { rows, hasMore } = await loadGridData(context.db, {
+    offset,
+    column,
+    direction: direction as 'asc' | 'desc',
+    filter,
+    pageSize: effectivePageSize,
+  })
+
+  let editingRowId =
+    overrides.editingId !== undefined
+      ? overrides.editingId
+      : parseId(context.url.searchParams.get('editing'))
+  let editRow: Row | null = null
+  if (editingRowId && editingRowId > 0) {
+    editRow = (await context.db.find(clients, { id: editingRowId })) as Row | null
+  }
+
+  let creating =
+    overrides.creating !== undefined
+      ? overrides.creating
+      : context.url.searchParams.get('creating') === 'true'
+
+  return renderAdminPage(
+    context.render,
+    'clients',
+    <ClientPage
+      rows={rows}
+      offset={offset}
+      hasMore={hasMore}
+      nextOffset={offset + effectivePageSize}
+      sortColumn={column}
+      sortDirection={direction as 'asc' | 'desc'}
+      filter={filter}
+      editRow={editRow}
+      creating={creating}
+      pageSize={effectivePageSize}
+      pageKey={pageKey}
+      pageSizeOverride={pageSizeOverride}
+    />,
+    { fullHeight: !(editRow || creating) },
+  )
+}
+
 export default createController(routes.admin.clients, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     // -- GET /admin/clients -- Render main page --
     async index(context) {
-      let db = context.db
-      let pageKey = PAGE_SIZE_KEYS.adminClients
-      let effectivePageSize = getPageSize(context.session, PAGE_SIZE, pageKey)
-      let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let filter = context.url.searchParams.get('filter') || undefined
+      return renderClientsIndex(context)
+    },
 
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'id',
-        defaultDirection: 'asc',
+    // -- GET /admin/clients/:id -- Resolve the PUT/DELETE form action path --
+    // The frame commits the form action path as its src; a later reload GETs
+    // it. Render the edit panel while the row exists, and the grid after a
+    // delete or for a stale id, instead of returning 404.
+    async show(context) {
+      let rowId = parseId(context.params.id)
+      return renderClientsIndex(context, {
+        editingId: rowId ?? null,
+        creating: false,
       })
-
-      let { rows, hasMore } = await loadGridData(db, {
-        offset,
-        column,
-        direction: direction as 'asc' | 'desc',
-        filter,
-        pageSize: effectivePageSize,
-      })
-
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: Row | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        editRow = (await db.find(clients, { id: editingRowId })) as Row | null
-      }
-
-      let creating = context.url.searchParams.get('creating') === 'true'
-
-      return renderAdminPage(
-        context.render,
-        'clients',
-        <ClientPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - effectivePageSize)}
-          nextOffset={offset + effectivePageSize}
-          sortColumn={column}
-          sortDirection={direction as 'asc' | 'desc'}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-          pageSize={effectivePageSize}
-          pageKey={pageKey}
-          pageSizeOverride={pageSizeOverride}
-        />,
-        { fullHeight: !(editRow || creating) },
-      )
     },
 
     // -- GET /admin/clients/edit/:rowId -- Redirect to inline edit via ?editing= --
@@ -278,10 +356,20 @@ export default createController(routes.admin.clients, {
       let parsed = s.parseSafe(clientSaveSchema, formData)
 
       if (!parsed.success) {
+        let existing = (await db.findOne(clients, { where: { id } })) as Row | null
+        if (!existing) {
+          context.session.flash('error', 'Kunde nicht gefunden.')
+          return editingRedirect(
+            routes.admin.clients.index.href(),
+            null,
+            gridStateFromForm(rawValues),
+          )
+        }
+
         return renderClientsError(context, {
-          editRow: buildEditRowFromRaw(id, rawValues),
-          formValues: rawValues,
-          fieldErrors: issuesToFieldErrors(parsed.issues),
+          editRow: existing,
+          formValues: readClientFormValues(formData),
+          fieldErrors: clientFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
@@ -291,20 +379,24 @@ export default createController(routes.admin.clients, {
       }
 
       let fields = parsed.value
-      let bulkFields = ['name', 'email', 'role', 'status', 'registered'] as const
-      let changes: Record<string, string | number> = {}
-      for (let field of bulkFields) {
-        let v = fields[field]
-        if (v) {
-          if (field === 'registered') {
-            changes[field] = parseDate(v)
-          } else {
-            changes[field] = v
-          }
-        }
+      let changes: Record<string, string | number> = {
+        name: fields.name,
+        email: fields.email,
       }
+      if (fields.role !== undefined) changes.role = fields.role
+      if (fields.status !== undefined) changes.status = fields.status
+      let registered = parseDate(fields.registered)
+      if (registered !== undefined) changes.registered = registered
 
-      await db.updateMany(clients, changes, { where: { id } })
+      let result = await db.updateMany(clients, changes, { where: { id } })
+      if (result.affectedRows === 0) {
+        context.session.flash('error', 'Kunde nicht gefunden.')
+        return editingRedirect(
+          routes.admin.clients.index.href(),
+          null,
+          gridStateFromForm(rawValues),
+        )
+      }
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
@@ -331,13 +423,20 @@ export default createController(routes.admin.clients, {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
+      let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
+
       try {
-        await db.delete(clients, { id })
+        let deleted = await db.delete(clients, { id })
+        if (!deleted) {
+          context.session.flash('error', 'Kunde nicht gefunden.')
+          return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
+        }
       } catch (error) {
-        let message = 'Delete failed. Please try again.'
-        if (isConstraintViolation(error))
-          message = 'Cannot delete: this client has related records.'
-        return context.json({ ok: false, error: message }, { status: 409 })
+        let message = isConstraintViolation(error)
+          ? 'Kunde kann nicht gelöscht werden: abhängige Datensätze vorhanden.'
+          : 'Löschen fehlgeschlagen. Bitte erneut versuchen.'
+        context.session.flash('error', message)
+        return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
       }
 
       let authIdentity = getAdminIdentity(context.auth)
@@ -351,7 +450,6 @@ export default createController(routes.admin.clients, {
         })
       }
 
-      let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
       return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
     },
 
@@ -398,6 +496,13 @@ export default createController(routes.admin.clients, {
       return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
 
+    // -- GET /admin/clients/:id/toggle-status -- Resolve the toggle action path --
+    // The frame commits the POST toggle action path as its src; a stale reload
+    // GETs it. Render the grid instead of returning 405.
+    async toggleStatusResolve(context) {
+      return renderClientsIndex(context)
+    },
+
     // -- POST /admin/clients -- Create a new client row --
     async create(context) {
       let db = context.db
@@ -411,7 +516,7 @@ export default createController(routes.admin.clients, {
         return renderClientsError(context, {
           creating: true,
           formValues: rawValues,
-          fieldErrors: issuesToFieldErrors(parsed.issues),
+          fieldErrors: clientFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
@@ -424,11 +529,11 @@ export default createController(routes.admin.clients, {
       let row = await db.create(
         clients,
         {
-          name: fields.name || 'New Client',
-          email: fields.email || `${Date.now()}@example.com`,
-          role: fields.role || 'Viewer',
-          status: fields.status || 'Active',
-          registered: fields.registered ? parseDate(fields.registered) : Date.now(),
+          name: fields.name,
+          email: fields.email,
+          role: fields.role ?? 'Viewer',
+          status: fields.status ?? 'Active',
+          registered: parseDate(fields.registered) ?? Date.now(),
         },
         { returnRow: true },
       )

@@ -101,11 +101,18 @@ export const routes = route({
 
     clients: route('clients', {
       index: get('/'),
+      // The frame commits the PUT/DELETE form action path as its src; a later
+      // reload GETs that path. Render the grid (with the edit panel while the
+      // row exists) so the action path resolves as a GET instead of 404ing.
+      show: get('/:id'),
       edit: get('/edit/:rowId'),
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),
       toggleStatus: post('/:id/toggle-status'),
+      // The frame commits the POST toggle action path as its src; a stale
+      // reload GETs it. Render the grid so it resolves instead of 405ing.
+      toggleStatusResolve: get('/:id/toggle-status'),
     }),
 
     chatlog: route('chatlog', {

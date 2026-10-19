@@ -9,6 +9,7 @@ import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { PendingSubmitButton } from '../../ui/pending-submit.browser.tsx'
+import { FormErrorFocus } from '../../ui/form-error-focus.browser.tsx'
 import { gridStateToParams } from '../../utils/grid-state.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { routes } from '../../routes.ts'
@@ -70,6 +71,14 @@ interface ClientCreatePageProps {
 function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let selectedRole =
+      formValues?.role === 'Admin' || formValues?.role === 'Editor' || formValues?.role === 'Viewer'
+        ? formValues.role
+        : 'Viewer'
+    let selectedStatus =
+      formValues?.status === 'Active' || formValues?.status === 'Inactive'
+        ? formValues.status
+        : 'Active'
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -89,7 +98,10 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-name">
-                  Name <span mix={requiredStarStyle}>*</span>
+                  Name{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="cf-name"
@@ -101,14 +113,29 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                   value={formValues?.name ?? ''}
                   placeholder="Vollständigen Namen eingeben"
                   required
+                  minLength={8}
                   maxLength={100}
+                  aria-invalid={fieldErrors?.name ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.name ? 'cf-name-hint cf-name-error' : 'cf-name-hint'
+                  }
                 />
-                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
+                <div id="cf-name-hint" mix={fieldHintStyle}>
+                  Mindestens 8 Zeichen.
+                </div>
+                {fieldErrors?.name ? (
+                  <div id="cf-name-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.name}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-email">
-                  E-Mail <span mix={requiredStarStyle}>*</span>
+                  E-Mail{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="cf-email"
@@ -123,46 +150,95 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                   placeholder="user@example.com"
                   required
                   maxLength={100}
+                  aria-invalid={fieldErrors?.email ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.email ? 'cf-email-error' : undefined}
                 />
-                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
+                {fieldErrors?.email ? (
+                  <div id="cf-email-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.email}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-role">
                   Rolle
                 </label>
-                <select id="cf-role" name="role" mix={[input.base, input.focus, selectStyle]}>
-                  <option value="Viewer" selected={!formValues || formValues.role === 'Viewer'}>
+                <select
+                  id="cf-role"
+                  name="role"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    fieldErrors?.role ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  aria-invalid={fieldErrors?.role ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.role ? 'cf-role-hint cf-role-error' : 'cf-role-hint'
+                  }
+                >
+                  <option value="Viewer" selected={selectedRole === 'Viewer'}>
                     Viewer
                   </option>
-                  <option value="Editor" selected={formValues?.role === 'Editor'}>
+                  <option value="Editor" selected={selectedRole === 'Editor'}>
                     Editor
                   </option>
-                  <option value="Admin" selected={formValues?.role === 'Admin'}>
+                  <option value="Admin" selected={selectedRole === 'Admin'}>
                     Admin
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Berechtigungsstufe</div>
+                <div id="cf-role-hint" mix={fieldHintStyle}>
+                  Berechtigungsstufe
+                </div>
+                {fieldErrors?.role ? (
+                  <div id="cf-role-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.role}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-status">
                   Status
                 </label>
-                <select id="cf-status" name="status" mix={[input.base, input.focus, selectStyle]}>
-                  <option value="Active" selected={!formValues || formValues.status === 'Active'}>
+                <select
+                  id="cf-status"
+                  name="status"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    fieldErrors?.status ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  aria-invalid={fieldErrors?.status ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.status ? 'cf-status-hint cf-status-error' : 'cf-status-hint'
+                  }
+                >
+                  <option value="Active" selected={selectedStatus === 'Active'}>
                     Active
                   </option>
-                  <option value="Inactive" selected={formValues?.status === 'Inactive'}>
+                  <option value="Inactive" selected={selectedStatus === 'Inactive'}>
                     Inactive
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Aktivierungsstatus</div>
+                <div id="cf-status-hint" mix={fieldHintStyle}>
+                  Aktivierungsstatus
+                </div>
+                {fieldErrors?.status ? (
+                  <div id="cf-status-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.status}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-registered">
-                  Registriert <span mix={requiredStarStyle}>*</span>
+                  Registriert{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="cf-registered"
@@ -175,9 +251,20 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                   ].filter(Boolean)}
                   value={formValues?.registered ?? todayString()}
                   required
+                  aria-invalid={fieldErrors?.registered ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.registered
+                      ? 'cf-registered-hint cf-registered-error'
+                      : 'cf-registered-hint'
+                  }
                 />
+                <div id="cf-registered-hint" mix={fieldHintStyle}>
+                  Datum aus 2026.
+                </div>
                 {fieldErrors?.registered ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.registered}</div>
+                  <div id="cf-registered-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.registered}
+                  </div>
                 ) : null}
               </div>
 
@@ -203,6 +290,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               </div>
             </div>
           </div>
+          <FormErrorFocus />
         </RestfulForm>
       </div>
     )

@@ -11,7 +11,6 @@ interface ClientPageProps {
   rows: Client[]
   offset: number
   hasMore: boolean
-  prevOffset: number
   nextOffset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
@@ -32,7 +31,6 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       rows,
       offset,
       hasMore,
-      prevOffset,
       nextOffset,
       sortColumn,
       sortDirection,
@@ -53,7 +51,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
         <ClientGridPage
           rows={rows}
           offset={offset}
-          hasPrev={prevOffset > 0}
+          hasPrev={offset > 0}
           hasNext={hasMore}
           sortField={sortColumn}
           sortOrder={sortDirection}
@@ -70,7 +68,11 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       return (
         <div mix={[table.page, dataGridFill]}>
           <h2 mix={table.title}>Client-Test</h2>
-          {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+          {formError ? (
+            <div role="alert" mix={table.errorBanner}>
+              {formError}
+            </div>
+          ) : null}
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -103,7 +105,11 @@ function ClientPage(handle: Handle<ClientPageProps>) {
     return (
       <div mix={[table.page, dataGridFill]}>
         <h2 mix={table.title}>Client-Test</h2>
-        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+        {formError ? (
+          <div role="alert" mix={table.errorBanner}>
+            {formError}
+          </div>
+        ) : null}
         {gridSection}
       </div>
     )

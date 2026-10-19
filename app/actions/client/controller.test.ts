@@ -53,6 +53,19 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Weiter'), 'should have pagination')
   })
 
+  it('enables the previous-page link on page 2', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?offset=15`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('href="/admin/clients?offset=0&amp;sort=id&amp;order=asc"'),
+      'page 2 should link back to page 1',
+    )
+  })
+
   it('renders status filter tabs and a status column', async () => {
     let response = await router.fetch(`${CLIENTS_URL}?filter=active`, {
       headers: authHeaders(),
@@ -137,6 +150,66 @@ describe('Client lab controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // GET /admin/clients/:id — frame action-path resolvers
+  // -----------------------------------------------------------------------
+  it('GET /admin/clients/:id resolves the frame update/destroy action path', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/5`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Kunde bearbeiten'), 'should render the edit panel')
+  })
+
+  it('GET /admin/clients/:id renders the grid for a missing row', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/99999`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('client-grid-content'), 'should render the grid')
+    assert.ok(!html.includes('Kunde bearbeiten'), 'should not render an edit panel')
+  })
+
+  it('GET /admin/clients/:id/toggle-status resolves the toggle action path', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/5/toggle-status`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('client-grid-content'), 'should render the grid')
+  })
+
+  it('preserves grid state on the frame action path', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/5?offset=15&sort=name&order=desc`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('action="/admin/clients/5?offset=15&amp;sort=name&amp;order=desc"'),
+      'the update form should carry the grid state',
+    )
+  })
+
+  it('carries grid state in the row action URLs', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?offset=15&sort=name&order=desc`, {
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('toggle-status?offset=15&amp;sort=name&amp;order=desc'),
+      'the toggle action should carry the grid state',
+    )
+  })
+
+  // -----------------------------------------------------------------------
   // PUT /admin/clients/:id — update a row (via methodOverride with _method=PUT)
   // -----------------------------------------------------------------------
   it('PUT /admin/clients/5 updates a row and redirects', async () => {
@@ -172,6 +245,36 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 400)
   })
 
+  it('PUT /admin/clients/99999 reports a missing row instead of silently succeeding', async () => {
+    let body = new URLSearchParams({
+      _method: 'PUT',
+      name: 'No Such Client',
+      email: 'no-such@example.com',
+      role: 'Viewer',
+      status: 'Active',
+      registered: '2026-05-01',
+      _offset: '0',
+      _sort: 'id',
+      _order: 'asc',
+      _filter: '',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(`${CLIENTS_URL}/99999`, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde nicht gefunden.'), 'should surface a flash message')
+  })
+
   it('PUT /admin/clients/5 with short name re-renders with validation error', async () => {
     let body = new URLSearchParams({
       _method: 'PUT',
@@ -194,6 +297,50 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Kunde bearbeiten'), 'should show edit form')
     assert.ok(html.includes('Ed'), 'should preserve submitted name value')
     assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
+  })
+
+  it('PUT with an invalid name and omitted role/status/date keeps the row values', async () => {
+    let email = `partial-${Date.now()}@example.com`
+    let create = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body: new URLSearchParams({
+        name: 'Known Role Client',
+        email,
+        role: 'Admin',
+        status: 'Inactive',
+        registered: '2026-07-04',
+        _csrf: csrfToken!,
+      }),
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+    assert.equal(create.status, 302)
+
+    let id = Number(new URL(create.headers.get('Location') || '', BASE).searchParams.get('editing'))
+    assert.ok(id > 0, 'create should return an id')
+
+    try {
+      let response = await router.fetch(`${CLIENTS_URL}/${id}`, {
+        method: 'POST',
+        body: new URLSearchParams({
+          _method: 'PUT',
+          name: 'Ed',
+          email,
+          _csrf: csrfToken!,
+        }),
+        redirect: 'manual',
+        headers: authHeaders(),
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('value="Ed"'), 'should preserve the invalid name')
+      assert.ok(html.includes('<option value="Admin" selected>'), 'should keep the row role')
+      assert.ok(html.includes('<option value="Inactive" selected>'), 'should keep the row status')
+      assert.ok(html.includes('value="2026-07-04"'), 'should keep the row registration date')
+    } finally {
+      await pool.query('DELETE FROM clients WHERE id = $1', [id])
+    }
   })
 
   // -----------------------------------------------------------------------
@@ -219,6 +366,30 @@ describe('Client lab controller', () => {
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
     assert.ok(location.includes('offset=0'), 'should preserve grid offset')
     assert.ok(location.includes('sort=name'), 'should preserve grid sort')
+  })
+
+  it('DELETE /admin/clients/99999 reports a missing row instead of silently succeeding', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}/99999`, {
+      method: 'POST',
+      body: new URLSearchParams({
+        _method: 'DELETE',
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        _csrf: csrfToken!,
+      }),
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
+
+    let follow = await router.fetch(`${BASE}${location}`, { headers: authHeaders() })
+    let html = await follow.text()
+    assert.ok(html.includes('Kunde nicht gefunden.'), 'should surface a flash message')
   })
 
   // -----------------------------------------------------------------------
@@ -280,8 +451,99 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('Neuer Kunde'), 'should show create form')
-    assert.ok(html.includes('Year must be 2026'), 'should show year validation error')
+    assert.ok(
+      html.includes('Bitte ein gültiges Datum aus 2026 angeben.'),
+      'should show the German year validation error',
+    )
     assert.ok(html.includes('value="2025-06-01"'), 'should preserve submitted date value')
+  })
+
+  it('POST /admin/clients with an invalid calendar date re-renders with a field error', async () => {
+    let body = new URLSearchParams({
+      name: 'ValidNameHere',
+      email: 'invaliddate@test.com',
+      registered: '2026-02-30',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Bitte ein gültiges Datum aus 2026 angeben.'))
+    assert.ok(html.includes('aria-invalid="true"'), 'the date field should be marked invalid')
+  })
+
+  it('POST /admin/clients rejects an unknown role or status', async () => {
+    let body = new URLSearchParams({
+      name: 'ValidNameHere',
+      email: 'badrole@test.com',
+      role: 'Superuser',
+      status: 'Pending',
+      registered: '2026-05-01',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Ungültige Rolle.'), 'should show a role validation error')
+    assert.ok(html.includes('Ungültiger Status.'), 'should show a status validation error')
+    assert.ok(html.includes('aria-invalid="true"'), 'invalid selects should be marked invalid')
+  })
+
+  it('POST /admin/clients with a whitespace-only name re-renders instead of throwing', async () => {
+    let body = new URLSearchParams({
+      name: '        ',
+      email: 'spaces@test.com',
+      role: 'Viewer',
+      status: 'Active',
+      registered: '2026-05-01',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Der Name muss mindestens 8 Zeichen enthalten.'))
+    assert.ok(html.includes('role="alert"'), 'the field error should be announced')
+  })
+
+  it('POST /admin/clients without registered uses the current date', async () => {
+    let email = `no-date-${Date.now()}@example.com`
+    let response = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body: new URLSearchParams({
+        name: 'No Date Client',
+        email,
+        _csrf: csrfToken!,
+      }),
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 302)
+    let result = await pool.query('SELECT registered FROM clients WHERE email = $1', [email])
+    assert.equal(result.rows.length, 1, 'the client should be created')
+    let registered = Number(result.rows[0]!.registered)
+    assert.ok(
+      Math.abs(registered - Date.now()) < 5 * 60 * 1000,
+      `registered should default to now, got ${registered}`,
+    )
   })
 
   it('POST /admin/clients with short name re-renders with validation error', async () => {
@@ -303,6 +565,9 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Neuer Kunde'), 'should show create form')
     assert.ok(html.includes('value="Bob"'), 'should preserve submitted name value')
     assert.ok(html.includes('value="bob@test.com"'), 'should preserve submitted email value')
+    assert.ok(html.includes('Der Name muss mindestens 8 Zeichen enthalten.'))
+    assert.ok(html.includes('aria-invalid="true"'), 'the name field should be marked invalid')
+    assert.ok(html.includes('role="alert"'), 'the field error should be announced')
   })
 
   it('POST /admin/clients creates a new row and redirects', async () => {

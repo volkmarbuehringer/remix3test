@@ -9,6 +9,7 @@ import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { PendingSubmitButton } from '../../ui/pending-submit.browser.tsx'
+import { FormErrorFocus } from '../../ui/form-error-focus.browser.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { routes } from '../../routes.ts'
@@ -87,13 +88,35 @@ function formatDate(ts: number): string {
 function ClientEditPage(handle: Handle<ClientEditPageProps>) {
   return () => {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
+    let rowRole =
+      row.role === 'Admin' || row.role === 'Editor' || row.role === 'Viewer' ? row.role : 'Viewer'
+    let rowStatus = row.status === 'Active' || row.status === 'Inactive' ? row.status : 'Active'
+    let selectedRole =
+      formValues?.role === 'Admin' || formValues?.role === 'Editor' || formValues?.role === 'Viewer'
+        ? formValues.role
+        : rowRole
+    let selectedStatus =
+      formValues?.status === 'Active' || formValues?.status === 'Inactive'
+        ? formValues.status
+        : rowStatus
+
+    // Keep the action URL (the frame's committed src) in sync with the grid so
+    // a reload of the resolver renders the same page, sort, and filter.
+    let actionParams = new URLSearchParams()
+    if (offset && offset !== '0') actionParams.set('offset', offset)
+    if (sort) actionParams.set('sort', sort)
+    if (order) actionParams.set('order', order)
+    if (filter) actionParams.set('filter', filter)
+    let actionQuery = actionParams.toString()
+    let actionSuffix = actionQuery ? '?' + actionQuery : ''
+
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
         <RestfulForm
           method="PUT"
-          action={routes.admin.clients.update.href({ id: row.id })}
+          action={routes.admin.clients.update.href({ id: row.id }) + actionSuffix}
           data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
@@ -107,7 +130,10 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-name">
-                  Name <span mix={requiredStarStyle}>*</span>
+                  Name{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="ef-name"
@@ -119,14 +145,29 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                   value={formValues?.name ?? row.name}
                   placeholder="Vollständigen Namen eingeben"
                   required
+                  minLength={8}
                   maxLength={100}
+                  aria-invalid={fieldErrors?.name ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.name ? 'ef-name-hint ef-name-error' : 'ef-name-hint'
+                  }
                 />
-                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
+                <div id="ef-name-hint" mix={fieldHintStyle}>
+                  Mindestens 8 Zeichen.
+                </div>
+                {fieldErrors?.name ? (
+                  <div id="ef-name-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.name}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-email">
-                  E-Mail <span mix={requiredStarStyle}>*</span>
+                  E-Mail{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="ef-email"
@@ -141,81 +182,95 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                   placeholder="user@example.com"
                   required
                   maxLength={100}
+                  aria-invalid={fieldErrors?.email ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.email ? 'ef-email-error' : undefined}
                 />
-                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
+                {fieldErrors?.email ? (
+                  <div id="ef-email-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.email}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-role">
                   Rolle
                 </label>
-                <select id="ef-role" name="role" mix={[input.base, input.focus, selectStyle]}>
-                  <option
-                    value="Admin"
-                    selected={
-                      formValues?.role !== undefined
-                        ? formValues.role === 'Admin'
-                        : row.role === 'Admin'
-                    }
-                  >
+                <select
+                  id="ef-role"
+                  name="role"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    fieldErrors?.role ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  aria-invalid={fieldErrors?.role ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.role ? 'ef-role-hint ef-role-error' : 'ef-role-hint'
+                  }
+                >
+                  <option value="Admin" selected={selectedRole === 'Admin'}>
                     Admin
                   </option>
-                  <option
-                    value="Editor"
-                    selected={
-                      formValues?.role !== undefined
-                        ? formValues.role === 'Editor'
-                        : row.role === 'Editor'
-                    }
-                  >
+                  <option value="Editor" selected={selectedRole === 'Editor'}>
                     Editor
                   </option>
-                  <option
-                    value="Viewer"
-                    selected={
-                      formValues?.role !== undefined
-                        ? formValues.role === 'Viewer'
-                        : row.role === 'Viewer'
-                    }
-                  >
+                  <option value="Viewer" selected={selectedRole === 'Viewer'}>
                     Viewer
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Berechtigungsstufe</div>
+                <div id="ef-role-hint" mix={fieldHintStyle}>
+                  Berechtigungsstufe
+                </div>
+                {fieldErrors?.role ? (
+                  <div id="ef-role-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.role}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-status">
                   Status
                 </label>
-                <select id="ef-status" name="status" mix={[input.base, input.focus, selectStyle]}>
-                  <option
-                    value="Active"
-                    selected={
-                      formValues?.status !== undefined
-                        ? formValues.status === 'Active'
-                        : row.status === 'Active'
-                    }
-                  >
+                <select
+                  id="ef-status"
+                  name="status"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    fieldErrors?.status ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  aria-invalid={fieldErrors?.status ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.status ? 'ef-status-hint ef-status-error' : 'ef-status-hint'
+                  }
+                >
+                  <option value="Active" selected={selectedStatus === 'Active'}>
                     Active
                   </option>
-                  <option
-                    value="Inactive"
-                    selected={
-                      formValues?.status !== undefined
-                        ? formValues.status === 'Inactive'
-                        : row.status === 'Inactive'
-                    }
-                  >
+                  <option value="Inactive" selected={selectedStatus === 'Inactive'}>
                     Inactive
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Aktivierungsstatus</div>
+                <div id="ef-status-hint" mix={fieldHintStyle}>
+                  Aktivierungsstatus
+                </div>
+                {fieldErrors?.status ? (
+                  <div id="ef-status-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.status}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-registered">
-                  Registriert <span mix={requiredStarStyle}>*</span>
+                  Registriert{' '}
+                  <span aria-hidden="true" mix={requiredStarStyle}>
+                    *
+                  </span>
                 </label>
                 <input
                   id="ef-registered"
@@ -228,9 +283,20 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                   ].filter(Boolean)}
                   value={formValues?.registered ?? formatDate(row.registered as number)}
                   required
+                  aria-invalid={fieldErrors?.registered ? 'true' : undefined}
+                  aria-describedby={
+                    fieldErrors?.registered
+                      ? 'ef-registered-hint ef-registered-error'
+                      : 'ef-registered-hint'
+                  }
                 />
+                <div id="ef-registered-hint" mix={fieldHintStyle}>
+                  Datum aus 2026.
+                </div>
                 {fieldErrors?.registered ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.registered}</div>
+                  <div id="ef-registered-error" role="alert" mix={fieldErrorStyle}>
+                    {fieldErrors.registered}
+                  </div>
                 ) : null}
               </div>
 
@@ -251,6 +317,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               </div>
             </div>
           </div>
+          <FormErrorFocus />
         </RestfulForm>
       </div>
     )

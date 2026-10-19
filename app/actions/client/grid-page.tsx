@@ -153,6 +153,16 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       filter: filter ?? '',
     }
 
+    // Row action URLs carry the same state as the hidden inputs so a reload of
+    // the frame's committed action path resolves to the same page and sort.
+    let rowActionParams = new URLSearchParams()
+    if (offset > 0) rowActionParams.set('offset', String(offset))
+    rowActionParams.set('sort', sortCol)
+    rowActionParams.set('order', sortOrder)
+    if (filter) rowActionParams.set('filter', filter)
+    let rowActionQuery = rowActionParams.toString()
+    let rowActionSuffix = rowActionQuery ? '?' + rowActionQuery : ''
+
     return (
       <div mix={dataGridFill} id="client-grid-content">
         <ConfirmDelete />
@@ -171,6 +181,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
+              aria-current={!isStatusFilter ? 'page' : undefined}
               mix={[table.filterTab, !isStatusFilter ? table.filterTabActive : undefined]}
             >
               Alle
@@ -178,6 +189,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('active', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
+              aria-current={filter === 'active' ? 'page' : undefined}
               mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
             >
               Aktiv
@@ -185,6 +197,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('inactive', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
+              aria-current={filter === 'inactive' ? 'page' : undefined}
               mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
             >
               Inaktiv
@@ -387,7 +400,9 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         </a>
                         <RestfulForm
                           method="POST"
-                          action={routes.admin.clients.toggleStatus.href({ id: row.id })}
+                          action={
+                            routes.admin.clients.toggleStatus.href({ id: row.id }) + rowActionSuffix
+                          }
                           data-toggle-form={row.id}
                           data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
@@ -408,7 +423,9 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         </RestfulForm>
                         <RestfulForm
                           method="DELETE"
-                          action={routes.admin.clients.destroy.href({ id: row.id })}
+                          action={
+                            routes.admin.clients.destroy.href({ id: row.id }) + rowActionSuffix
+                          }
                           data-delete-form={row.id}
                           data-confirm={`Kunde "${row.name}" wirklich löschen?`}
                           data-rmx-target={getSelfFrameTarget()}
