@@ -34,7 +34,7 @@ The runtime removes the node itself once the teardown settles (`reconcile.ts` `r
 
 **This app's seams:**
 
-- `app/utils/motion.ts` exports `entrance(config)` and `exit(config)` that return `false` when `matchMedia('(prefers-reduced-motion: reduce)').matches`, else the config. Server-rendered page modules apply motion as `animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))` (about fifteen admin/client pages do this). Reuse these helpers rather than adding another gate.
+- `app/utils/motion.ts` re-exports `prefersReducedMotion()` from `@remix-run/ui/animation` and exports `entrance(config)` / `exit(config)` that return `false` when it reports reduced motion, else the config. Server-rendered page modules apply motion as `animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))` (about fifteen admin/client pages do this). Reuse these helpers rather than adding another gate.
 - `app/assets/error-card.browser.tsx` spreads `spring('smooth')` into an `animateEntrance` config; `app/assets/entry.tsx` uses `spring('snappy')` imperatively.
 - These mixins run on server-rendered markup, not only inside a `clientEntry` — the app's page components apply them directly.
 
