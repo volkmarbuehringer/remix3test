@@ -1,8 +1,8 @@
-import type { animateEntrance } from '@remix-run/ui/animation'
+import { prefersReducedMotion, type animateEntrance } from '@remix-run/ui/animation'
 
-export function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-}
+// Re-exported so motion call sites keep importing one app-level facade. The
+// vendor helper is SSR-safe: it returns false without `window.matchMedia`.
+export { prefersReducedMotion }
 
 type AnimationConfig = Parameters<typeof animateEntrance>[0]
 
