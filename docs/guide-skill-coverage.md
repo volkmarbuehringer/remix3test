@@ -4,7 +4,7 @@
 
 **2026-10-17 consolidation.** The 29 learned skills were merged into 9 (`remix3-ui`, `remix3-styling`, `remix3-server`, `remix3-forms`, `remix3-data`, `remix3-tooling`, `mastra-deltas`, `dev-gotchas`, `agent-ops`). Former names are recorded as `_(formerly <old>)_` section markers inside each merged SKILL.md, and reference files are namespaced under `references/<former-skill>/`. Owner cells below use the new skill + section.
 
-**Anchor:** installed `remix 3.0.0` (build `3bb426e354`, from source `2e53e244`; the `packages/remix/guides` tree is unchanged since `7f900151`, which still carried the #11999 era §01/§03 `app/router.ts` samples importing `assets` and using `render({ assets })` with `RouterContext<typeof router>`) (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
+**Anchor:** installed `remix 3.0.0` (build `9b5b702b1b`, from source `af3ea2c`; the `packages/remix/guides` tree is unchanged since `7f900151`, which still carried the #11999 era §01/§03 `app/router.ts` samples importing `assets` and using `render({ assets })` with `RouterContext<typeof router>`) (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
 
 **Legend:** _state_ = authored | unfinished (chapter says so at its top). _coverage_ = owned (dedicated pointer skill) | good | partial | none.
 
