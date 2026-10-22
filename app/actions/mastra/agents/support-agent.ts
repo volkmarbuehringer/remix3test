@@ -44,9 +44,12 @@ export const MUTATING_INTENTS: ReadonlySet<string> = new Set([
   INTENTS.DELETE_APPOINTMENTS,
 ])
 
-/** True when a classified admin intent must be stopped by the mutation gate. */
-export function blocksMutation(intent: string): boolean {
-  return MUTATING_INTENTS.has(intent)
+/**
+ * True when a classified admin intent must be stopped by the mutation gate.
+ * A refusal has no intent, so `undefined` passes (the gate fails open).
+ */
+export function blocksMutation(intent: string | undefined): boolean {
+  return intent !== undefined && MUTATING_INTENTS.has(intent)
 }
 
 export const supportAgent = defineAppAgent({
@@ -131,6 +134,8 @@ Rules:
       lastMessageOnly: true,
       errorStrategy: 'warn',
       onResult: (answers, { abort }) => {
+        // A refusal has no choice, so `blocksMutation(undefined)` fails open
+        // like `errorStrategy: 'warn'`.
         if (blocksMutation(answers.intent.choice)) {
           abort(
             'Konto- und Terminänderungen laufen ausschließlich über die Agent-Events-Oberfläche.',

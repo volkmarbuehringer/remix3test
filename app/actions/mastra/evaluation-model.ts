@@ -1,4 +1,4 @@
-import type { MastraEvaluationModelInterface } from '@mastra/core/classifier'
+import type { MastraDecisionModelInterface } from '@mastra/core/classifier'
 import { OPENCODE_API_URL } from '../../utils/ai-provider.ts'
 import {
   OPENCODE_MODEL_ID,
@@ -19,8 +19,10 @@ import {
 //
 // Evaluation prompts are short and structured, so temperature 0 is used.
 
-type EvaluationModelResult = Awaited<ReturnType<MastraEvaluationModelInterface['doEvaluate']>>
-type ProviderQuestions = Parameters<MastraEvaluationModelInterface['doEvaluate']>[0]['questions']
+type DecisionModelResult = Awaited<ReturnType<MastraDecisionModelInterface['doDecide']>>
+type ProviderCallOptions = Parameters<MastraDecisionModelInterface['doDecide']>[0]
+type ProviderQuestions = ProviderCallOptions['questions']
+type ProviderState = ProviderCallOptions['state']
 
 type NormalizedAnswer =
   | { type: 'choice'; choice: string }
@@ -54,7 +56,7 @@ interface EvaluationModelOptions {
 
 export function createEvaluationModel(
   options: EvaluationModelOptions = {},
-): MastraEvaluationModelInterface {
+): MastraDecisionModelInterface {
   let modelId = options.modelId ?? OPENCODE_MODEL_ID
   let providerId = options.providerId ?? OPENCODE_PROVIDER_ID
   let baseUrl = (options.baseUrl ?? OPENCODE_API_URL).replace(/\/+$/, '')
@@ -62,64 +64,66 @@ export function createEvaluationModel(
   let getHeaders = options.headers ?? opencodeRequestHeaders
   let doFetch = options.fetchImpl ?? fetch
 
+  async function decide({ state, questions, abortSignal }: ProviderCallOptions) {
+    let response = await doFetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getApiKey()}`,
+        ...getHeaders(),
+      },
+      body: JSON.stringify({
+        model: modelId,
+        temperature: 0,
+        stream: false,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: JSON.stringify({ state: promptState(state), questions }) },
+        ],
+      }),
+      ...(abortSignal ? { signal: abortSignal } : {}),
+    })
+
+    if (!response.ok) {
+      let body = await response.text().catch(() => '')
+      throw new Error(`evaluation model request failed (${response.status}): ${body.slice(0, 300)}`)
+    }
+
+    let json = (await response.json()) as {
+      id?: string
+      usage?: { prompt_tokens?: number; completion_tokens?: number }
+      choices?: Array<{ message?: { content?: string } }>
+    }
+    let raw = extractAnswers(json.choices?.[0]?.message?.content ?? '')
+
+    return {
+      answers: normalizeAnswers(questions, raw),
+      warnings: [],
+      usage: {
+        ...(typeof json.usage?.prompt_tokens === 'number'
+          ? { inputTokens: json.usage.prompt_tokens }
+          : {}),
+        ...(typeof json.usage?.completion_tokens === 'number'
+          ? { outputTokens: json.usage.completion_tokens }
+          : {}),
+      },
+      response: {
+        ...(json.id ? { id: json.id } : {}),
+        timestamp: new Date(),
+        modelId,
+        body: json,
+      },
+    } satisfies DecisionModelResult
+  }
+
   return {
     specificationVersion: 'v4',
     provider: providerId,
     modelId,
     supportedQuestionTypes: ['choice', 'score', 'boolean'] as const,
-    async doEvaluate({ state, questions, abortSignal }) {
-      let response = await doFetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getApiKey()}`,
-          ...getHeaders(),
-        },
-        body: JSON.stringify({
-          model: modelId,
-          temperature: 0,
-          stream: false,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: JSON.stringify({ state, questions }) },
-          ],
-        }),
-        ...(abortSignal ? { signal: abortSignal } : {}),
-      })
-
-      if (!response.ok) {
-        let body = await response.text().catch(() => '')
-        throw new Error(
-          `evaluation model request failed (${response.status}): ${body.slice(0, 300)}`,
-        )
-      }
-
-      let json = (await response.json()) as {
-        id?: string
-        usage?: { prompt_tokens?: number; completion_tokens?: number }
-        choices?: Array<{ message?: { content?: string } }>
-      }
-      let raw = extractAnswers(json.choices?.[0]?.message?.content ?? '')
-
-      return {
-        answers: normalizeAnswers(questions, raw),
-        warnings: [],
-        usage: {
-          ...(typeof json.usage?.prompt_tokens === 'number'
-            ? { inputTokens: json.usage.prompt_tokens }
-            : {}),
-          ...(typeof json.usage?.completion_tokens === 'number'
-            ? { outputTokens: json.usage.completion_tokens }
-            : {}),
-        },
-        response: {
-          ...(json.id ? { id: json.id } : {}),
-          timestamp: new Date(),
-          modelId,
-          body: json,
-        },
-      } satisfies EvaluationModelResult
-    },
+    doDecide: decide,
+    // Required by `MastraDecisionModelInterface`; the runtime calls `doDecide`.
+    doEvaluate: decide,
   }
 }
 
@@ -137,6 +141,21 @@ function extractAnswers(content: string): Record<string, unknown> {
   let parsed = JSON.parse(content.slice(start, end + 1)) as Record<string, unknown>
   let answers = parsed.answers
   return answers && typeof answers === 'object' ? (answers as Record<string, unknown>) : parsed
+}
+
+/**
+ * Mastra 1.79 passes provider state as decision-model parts
+ * (`[{ type: 'json', value }]` or `[{ type: 'text', text }]`) instead of the
+ * original JSON input. Unwrap a single part so the prompt keeps the shape the
+ * system prompt describes (`{ message }`, not `[{ type: 'json', ... }]`).
+ */
+function promptState(state: ProviderState): unknown {
+  if (state.length === 1) {
+    let [part] = state
+    if (part?.type === 'text') return part.text
+    if (part?.type === 'json') return part.value
+  }
+  return state
 }
 
 /**

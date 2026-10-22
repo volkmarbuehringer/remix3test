@@ -161,11 +161,12 @@ async function classifyIntent(
   message: string,
   opts?: { abortSignal?: AbortSignal },
 ): Promise<{ choice: string }> {
-  let result = await adminIntentClassifier.evaluate({
+  let result = await adminIntentClassifier.decide({
     state: { message },
     ...(opts?.abortSignal ? { abortSignal: opts.abortSignal } : {}),
   })
-  return { choice: result.answers.intent.choice }
+  // A refusal is valid now; degrade it like any unknown choice to `unclear`.
+  return { choice: result.answers.intent.choice ?? 'unclear' }
 }
 
 /**

@@ -24,6 +24,10 @@ describe('support agent mutation gate policy', () => {
     }
   })
 
+  it('passes a refusal or missing intent', () => {
+    assert.equal(blocksMutation(undefined), false)
+  })
+
   it('keeps the blocked set to exactly the state-changing intents', () => {
     assert.deepEqual(
       [...MUTATING_INTENTS].toSorted(),

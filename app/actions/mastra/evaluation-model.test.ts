@@ -47,7 +47,7 @@ describe('createEvaluationModel', () => {
       },
     })
 
-    let result = await classifier.evaluate({ state: { message: 'Sperre den Benutzer' } })
+    let result = await classifier.decide({ state: { message: 'Sperre den Benutzer' } })
 
     assert.equal(result.answers.intent.choice, 'cancel')
     assert.equal(result.answers.urgent.probability, 0.9)
@@ -64,6 +64,9 @@ describe('createEvaluationModel', () => {
     }
     assert.match(body.messages[0]!.content, /evaluation model/)
     assert.match(body.messages[1]!.content, /Sperre den Benutzer/)
+    // State parts from Mastra are unwrapped to the original JSON shape.
+    let prompt = JSON.parse(body.messages[1]!.content) as { state: unknown }
+    assert.deepEqual(prompt.state, { message: 'Sperre den Benutzer' })
   })
 
   it('rejects an unknown choice instead of silently defaulting', async () => {
@@ -89,7 +92,7 @@ describe('createEvaluationModel', () => {
       },
     })
 
-    await assert.rejects(() => classifier.evaluate({ state: 'hi' }), /unknown option/)
+    await assert.rejects(() => classifier.decide({ state: 'hi' }), /unknown option/)
   })
 
   it('rejects a missing answer instead of fabricating one', async () => {
@@ -109,7 +112,7 @@ describe('createEvaluationModel', () => {
       },
     })
 
-    await assert.rejects(() => classifier.evaluate({ state: 'hi' }), /no answer for question/)
+    await assert.rejects(() => classifier.decide({ state: 'hi' }), /no answer for question/)
   })
 
   it('clamps present out-of-range numbers', async () => {
@@ -131,7 +134,7 @@ describe('createEvaluationModel', () => {
       },
     })
 
-    let result = await classifier.evaluate({ state: 'hi' })
+    let result = await classifier.decide({ state: 'hi' })
     assert.equal(result.answers.score.score, 2)
     assert.equal(result.answers.flag.probability, 1)
   })
@@ -141,8 +144,9 @@ describe('createEvaluationModel', () => {
     let model = createEvaluationModel({ apiKey: () => 'k', headers: () => ({}), fetchImpl })
     await assert.rejects(
       () =>
-        model.doEvaluate({
-          state: 'x',
+        model.doDecide({
+          // Mastra 1.79 types provider state as DecisionModelV4State parts.
+          state: [{ type: 'text', text: 'x' }],
           questions: { q: { type: 'boolean', instructions: 'y' } },
         }),
       /evaluation model request failed \(500\)/,
