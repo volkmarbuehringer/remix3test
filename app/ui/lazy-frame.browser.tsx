@@ -43,8 +43,10 @@ const defaultRootMargin = '320px 0px'
  * Two app-specific constraints, both verified against the pinned runtime:
  *
  * - `children` and `fallback` cross the client-entry boundary by serialization.
- *   An element carrying a `css()` mixin loses its descriptor's function `type`
- *   there (it serializes to `{ args: [...] }`), and hydration then fails with
+ *   Since remix #12067, JSX fragments and string/number keys survive that
+ *   boundary (fragments used to serialize as `null`), but an element carrying a
+ *   `css()` mixin still loses its descriptor's function `type` there (it
+ *   serializes to `{ args: [...] }`), and hydration then fails with
  *   `Framework invariant: Invalid mix prop` — which replaces the whole document
  *   with the error card. Pass plain text or mixin-free elements and style them
  *   from the server-rendered shell, as the upstream demo does.
