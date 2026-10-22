@@ -261,3 +261,5 @@ Then prove it was a same-document frame swap, not a reload: count `page.on('load
 **Validated:** 2026-10-04 in `/home/lucky/remix3test` against `remix` 3.0.0 / `@remix-run/component` 1.0.0 (installed `frame.ts` `hydrateContainer`); `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
 
 **Re-validated (2026-10-14):** against the now-installed build `2c9e033` (installable dist of source `e6a63ea`; `remix` `3.0.0`, `@remix-run/component` `1.0.0`). The ordering claim holds at the current lines: `hydrateContainer` is defined at `@remix-run/component` `src/runtime/frame.ts:1245`, calls `createSubFrames(container.childNodes, context, options)` at `:1279`, and only then schedules each hydration marker via `scheduleHydrationMarker(...)` at `:1281`.
+
+**Re-validated (2026-10-22):** against build `060b32a`/source `56f1fb6`. The prefetch/fragment changes shift the anchors by +8: `hydrateContainer` at `src/runtime/frame.ts:1253`, the `createSubFrames(container.childNodes, context, options)` call at `:1287`, and `scheduleHydrationMarker(...)` at `:1289`. The ordering claim is unchanged.

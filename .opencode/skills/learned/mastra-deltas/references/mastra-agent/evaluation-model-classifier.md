@@ -2,6 +2,7 @@
 
 **Source:** `app/actions/mastra/evaluation-model.ts`, `workflow-classifier.ts`, `agents/support-agent.ts`
 **Extracted:** 2026-10-03
+**Re-validated:** 2026-10-22 against `@mastra/core` 1.79.0 (provider state is now a parts array; classifier answers may be a `RefusalAnswer`; the adapter implements `doDecide` with a legacy `doEvaluate` alias)
 **Context:** Using `Classifier` / `ClassifierProcessor` when the app chat model is a
 custom OpenAI-compatible object rather than an AI SDK evaluation provider.
 
@@ -10,25 +11,26 @@ custom OpenAI-compatible object rather than an AI SDK evaluation provider.
 - `Classifier`, `ClassifierProcessor` and `ModelSelectionProcessor` accept only
   `EvaluationModelV4 | MastraEvaluationModel`. A plain custom chat model is not
   one, and no `@ai-sdk` evaluation provider is installed.
-- Even with an adapter, a `Classifier` answer is **choice / score / boolean only**
-  — it cannot return free text, so it cannot replace a structured-output extractor.
+- Even with an adapter, a `Classifier` answer is **choice / score / boolean**
+  (or a `RefusalAnswer`) — it cannot return free text, so it cannot replace a
+  structured-output extractor.
 - A `ClassifierProcessor` abort surfaces as a `tripwire` chunk that a stream
   mapper can silently drop.
 
 ## Solution
 
-### 1. Implement `MastraEvaluationModelInterface` directly (no new dependency)
+### 1. Implement `MastraDecisionModelInterface` directly (no new dependency)
 
 ```ts
-import type { MastraEvaluationModelInterface } from '@mastra/core/classifier'
+import type { MastraDecisionModelInterface } from '@mastra/core/classifier'
 
-export function createEvaluationModel(options = {}): MastraEvaluationModelInterface {
+export function createEvaluationModel(options = {}): MastraDecisionModelInterface {
   return {
     specificationVersion: 'v4',
     provider: 'opencode-go',
     modelId: 'deepseek-v4.1-flash',
     supportedQuestionTypes: ['choice', 'score', 'boolean'] as const,
-    async doEvaluate({ state, questions, abortSignal }) {
+    async doDecide({ state, questions, abortSignal }) {
       let httpResponse = await doFetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { /* bearer + provider headers */ },
@@ -37,7 +39,7 @@ export function createEvaluationModel(options = {}): MastraEvaluationModelInterf
           temperature: 0,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT }, // JSON-only instruction
-            { role: 'user', content: JSON.stringify({ state, questions }) },
+            { role: 'user', content: JSON.stringify({ state: promptState(state), questions }) },
           ],
         }),
         ...(abortSignal ? { signal: abortSignal } : {}),
@@ -55,10 +57,29 @@ export function createEvaluationModel(options = {}): MastraEvaluationModelInterf
 The system prompt asks for `{"answers":{"<questionId>": ...}}` only. Tolerate
 markdown and prose by slicing the first `{` to the last `}` before `JSON.parse`.
 
+`MastraDecisionModelInterface` still requires a legacy `doEvaluate`; assign it the
+same function (`doEvaluate: decide`) because `MastraDecisionModel` selects
+`doDecide` when the model provides it.
+
+**Mastra 1.79 state shape.** `DecisionModelV4CallOptions.state` is now a
+`DecisionModelV4State` parts array (`[{ type: 'json', value }]` for an object
+state, `[{ type: 'text', text }]` for a string), not the raw
+`DecisionModelV4Input` the adapter used to receive. Unwrap a single `json` or
+`text` part before stringifying into the prompt, otherwise every prompt gains a
+`[{"type":"json","value":...}]` wrapper the system prompt does not describe.
+
 ### 2. Normalize strictly — never fabricate an answer
 
 Choice `{type:'choice',choice}`, score `{type:'score',score}`, boolean
 `{type:'boolean',probability}`.
+
+**Mastra 1.79 refusals.** Every question type now also accepts a
+`RefusalAnswer` (`{ type: 'refusal' }`), so `answers.intent.choice`,
+`.score` and `.probability` are optional. Handle the missing choice; a
+`ClassifierProcessor` gate should fail open on a refusal (same policy as
+`errorStrategy: 'warn'`) or map it to the app's safe default (this app maps it
+to `unclear`). The app's `blocksMutation` accepts `string | undefined` and
+returns `false` for a refusal, so the gate needs no `type` check.
 
 - Missing or unrecognized answer → **throw**.
 - Present but out-of-range numbers → clamp; match a choice case-insensitively.
@@ -72,7 +93,7 @@ still fails open where the surrounding controls are safe.
 
 ```ts
 let [intent, extraction] = await Promise.all([
-  adminIntentClassifier.evaluate({ state: { message } }),
+  adminIntentClassifier.decide({ state: { message } }),
   extractionAgent.generate(message, {
     structuredOutput: { schema: entityExtractionSchema, jsonPromptInjection: 'system' },
   }),
@@ -94,6 +115,7 @@ new ClassifierProcessor({
   lastMessageOnly: true,
   errorStrategy: 'warn',
   onResult: (answers, { abort }) => {
+    // blocksMutation accepts string | undefined; a refusal (no choice) passes.
     if (blocksMutation(answers.intent.choice)) abort('...')
   },
 })
@@ -101,7 +123,7 @@ new ClassifierProcessor({
 
 Keep the blocked set in an exported predicate built from shared `INTENTS`
 constants so a rename cannot silently widen the gate, and unit-test the predicate
-(no LLM needed).
+(no LLM needed), including `undefined` for a refusal.
 
 ### 5. Forward the `tripwire` chunk, or the block is silent
 

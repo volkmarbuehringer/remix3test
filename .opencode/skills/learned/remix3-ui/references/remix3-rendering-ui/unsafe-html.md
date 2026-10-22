@@ -21,13 +21,13 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-10-14 against build `2c9e033` / source `e6a63ea`. PR #11988 reworded the invariant messages and shifted the line refs; the guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
+**Re-validated:** 2026-10-22 against build `060b32a` / source `56f1fb6` (previously `2c9e033`/`e6a63ea`). PR #11988 reworded the invariant messages and shifted the line refs; the only shift in this bump is the SSR normalization site below. The guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
 
 Enforcement sites in the installed source:
 
 - `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/to-vnode.ts:89-90` — `parseHostProps` calls `normalizeUnsafeHTMLProps`
 - `.../src/runtime/unsafe-html.ts:62-95` — the invariants: `Invalid innerHTML prop: expected a value created with unsafeHTML()` (`:68`), the same wording for `srcDoc` (`:74`) and `srcdoc` (`:80`), and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:85`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
-- `.../src/server/stream.ts:612` — the SSR path applies the same normalization
+- `.../src/server/stream.ts:622` — the SSR path applies the same normalization
 - `.../src/runtime/core/mix.ts:92-107` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps`) and logged (`sanitizeReturnedMixinProps`)
 
 ## Solution
