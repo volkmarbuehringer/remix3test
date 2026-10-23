@@ -148,6 +148,10 @@ For the streaming multipart parser, size limits, and the pluggable storage backe
 
 This skill only documents the hard-won deltas: storing files directly in a PostgreSQL `bytea` column, the middleware-ordering gotcha it exposes, the streaming-parser error-handling pattern (reject-without-throwing + wrapping `formData()` for never-suppressed limit errors), and the report-export pattern.
 
+Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-parser/future`, `remix/form-data-parser/future`, `remix/middleware/form-data/future`) that stream parts/uploads to the handler instead of buffering. This app does **not** use them: it buffers to enforce `MAX_UPLOAD_BYTES` and the per-user/total quota, then stores the bytes in a PostgreSQL `bytea` column. Read the vendor README "Future API" sections before changing the upload path.
+
+**Migration sketch if streaming is ever required:** the handler runs before the body is read, so stream each part to `remix/file-storage/fs`/`s3` while enforcing `MAX_UPLOAD_BYTES`; the final size is known only after the stream closes, so insert the row and re-check the per-user/total quota afterwards (delete the stored object on rejection). Downloads become `createFileResponse(openLazyFile(...))`, deletes must remove the object, and the multirow ZIP download needs a streaming archive.
+
 ### Load Only The References You Need
 
 | Task involves... | Start with |
