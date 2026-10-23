@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-16 (vendor facts below re-checked against the installed tree at unified build `7f900151` / source `b65325d`; versions still `remix 3.0.0` / `component 1.0.0` / `component-hmr 1.0.0` / `ui 0.12.1` — the `3.1.0` / `1.1.0` / `0.13.0` release remains staged via changesets, not yet installed; the previously staged #11978 release never landed on `preview/main` either)
+**Re-validated:** 2026-10-23 (vendor facts below re-checked against the installed tree at unified build `dfb4fc808` / source `5e5a244`; versions now `remix 3.1.0` / `component 1.1.0` / `component-hmr 1.1.0` / `ui 0.13.0` — the `3.1.0` / `1.1.0` / `0.13.0` release (PR #11978) landed, but its release commit only consumed the pending changesets, so the installed runtime code is unchanged from build `1e03013e1`)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -166,10 +166,19 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - Environment note (2026-10-23): this sandbox makes the global pnpm store read-only (`EROFS`), so the bump installed into a workspace-local `.pnpm-store` (`--store-dir`, gitignored). The lock/tarball refs are unaffected; an install outside this sandbox can relink from the global store.
 - Operational recipe for the store/prepare failures above: [`pnpm-git-hosted-installs.md`](pnpm-git-hosted-installs.md).
 
+**Bump recorded 2026-10-23 (third, same day): unified build `1e03013e1`/source `446179f5a` → `dfb4fc808`/source `5e5a244` (the v3.1.0 release: #11978 released the changesets, #12074 release-notes polish, #12055 headers README examples, #12072 API docs moved to docs.remix.run; two `chore: format` commits).**
+
+- Lock: all 268 tarball refs resolve to `dfb4fc808`; first build to install the release-day versions — `remix` 3.1.0, `@remix-run/ui` 0.13.0, `@remix-run/component`/`-hmr` 1.1.0, plus 1.0.1/1.1.0 bumps on the remaining 17 subpackages (`assets`, `cli`, `compression-middleware`, `cookie`, `cors-middleware`, `fetch-proxy`, `headers`, `render-middleware`, `response`, `session-middleware`, `spa`, `static-middleware`, `tar-parser` → 1.0.1; `file-storage-s3`, `form-data-middleware`, `form-data-parser`, `multipart-parser` → 1.1.0).
+- Package delta: **zero runtime source change**. A recursive `diff -rq` of the installed trees (`remix`, `@remix-run/component`, `@remix-run/ui`) shows only `package.json` version strings plus `guides/13-testing.md` and `src/{headers,route-pattern}/README.md` (doc-link host swaps from #12055/#12072). Every item in the 3.1.0 changelogs predates the old pin: `git merge-base --is-ancestor` puts #11938, #11939, #12004, #12019, #12061 and #12070 in `446179f5a`, and the release commit only deleted the pending `.changes/*.md` files. Read the changelog as what the version **number** now covers, not as a diff against the previous pin.
+- App-side clearance (2026-10-23): no source change. Grep for the 0.13.0 removed UI APIs (`toggle.control`, `Accordion*Props`, `AccordionHeadingLevel`, `Select*Props`, `Combobox*Props`) is empty, and `app/actions/lists/public/lists-drag-mixin.ts` already uses `createMixin(..., { ssr: false })`. Operator ran `npm run typecheck` + full `npm test` green after the lock update.
+- `.agents/skills/remix` repointed into the `dfb4fc808` CLI template (its guides are the 3.1.0 ones; the only §13 change is the `docs.remix.run` link host). `docs/guide-skill-coverage.md` anchor → `dfb4fc808`/`5e5a244`; `AGENTS.md` current pin updated; component/UI learned line refs stay at `060b32a` because those packages' source did not move.
+- Unrelated floats from the same re-resolution: `rollup` 4.64.12 → 4.65.0 (+ platform binaries), `@rollup/pluginutils` 5.4.0 → 5.5.1, `rollup-plugin-esbuild`, `@posthog/core` 1.59.3 → 1.59.4, `caniuse-lite`/`node-releases`/`baseline-browser-mapping`.
+
 **Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance.
 
 | Recorded  | Build        | Source      | Range highlights |
 | --------- | ------------ | ----------- | ---------------- |
+| 2026-10-23 (3) | `dfb4fc808` | `5e5a244` | v3.1.0 release (no runtime change); docs #12055 #12072 #12074 |
 | 2026-10-23 (2) | `1e03013e1` | `446179f5a` | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073 |
 | 2026-10-23 | `db58e1d9` | `32794c0` | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048 |
 | 2026-10-22 | `060b32a` | `56f1fb6` | #12004 #12061 #12067 |
@@ -186,11 +195,11 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 **Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
 
 ```jsonc
-"remix": "^3.0.0",          // stable 3.0.0 released 2026-10; no -rc suffix needed
-"@remix-run/ui": "^0.12.0"  // 0.12.1 lands under this caret (patch within the minor)
+"remix": "^3.1.0",          // stable 3.1.0 released 2026-10-23; no -rc suffix needed
+"@remix-run/ui": "^0.13.0"  // 0.13.0 lands under this caret (patch within the minor)
 ```
 
-**`0.x` caret caveat.** On a `0.x` package, `^0.12.0` means `>=0.12.0 <0.13.0` — it locks the minor and allows only patches. That is the correct pin: a `0.x` minor can be breaking (0.11 -> 0.12 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus the package-root runtime and JSX exports). Do not widen it to `>=0.12.0`.
+**`0.x` caret caveat.** On a `0.x` package, `^0.13.0` means `>=0.13.0 <0.14.0` — it locks the minor and allows only patches. That is the correct pin: a `0.x` minor can be breaking (0.11 -> 0.12 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus the package-root runtime and JSX exports; 0.12 -> 0.13 removed the styled wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen it to `>=0.13.0`.
 
 **Git-spec equivalent.** If the app keeps `github:` specs instead of npm versions there is no number to write — pin **both** `path:` entries to the same ref/SHA so only one `@remix-run/component` resolves:
 

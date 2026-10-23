@@ -4,7 +4,7 @@
 
 **2026-10-17 consolidation.** The 29 learned skills were merged into 9 (`remix3-ui`, `remix3-styling`, `remix3-server`, `remix3-forms`, `remix3-data`, `remix3-tooling`, `mastra-deltas`, `dev-gotchas`, `agent-ops`). Former names are recorded as `_(formerly <old>)_` section markers inside each merged SKILL.md, and reference files are namespaced under `references/<former-skill>/`. Owner cells below use the new skill + section.
 
-**Anchor:** installed `remix 3.0.0` (build `1e03013e1`, from source `446179f5a`; `packages/remix/guides` last changed by #12032, which normalized the §13 API-doc link hosts, while #12004 added §05 "Prefetch links before navigation" and the §06 pointer to it — the #11999 era §01/§03 `app/router.ts` samples importing `assets` and using `render({ assets })` with `RouterContext<typeof router>` are still carried forward) (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
+**Anchor:** installed `remix 3.1.0` (build `dfb4fc808`, from source `5e5a244`; the 3.1.0 release commit touched no guide prose, and `packages/remix/guides` last changed by #12072, which repointed the §13 API-doc links from `api.remix.run` to `docs.remix.run` after #12032 normalized their earlier hosts, while #12004 added §05 "Prefetch links before navigation" and the §06 pointer to it — the #11999 era §01/§03 `app/router.ts` samples importing `assets` and using `render({ assets })` with `RouterContext<typeof router>` are still carried forward) (`node_modules/remix/guides/NN-*.md`). Section refs are to that build.
 
 **Legend:** _state_ = authored | unfinished (chapter says so at its top). _coverage_ = owned (dedicated pointer skill) | good | partial | none.
 
