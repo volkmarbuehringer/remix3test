@@ -993,6 +993,54 @@ describe('Admin Uploads controller', () => {
     assert.equal(await head.text(), '')
   })
 
+  it('GET /admin/uploads/:id/download serves a zero-length file and ignores Range', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let content = Buffer.alloc(0)
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-empty.txt',
+        mimeType: 'text/plain',
+        buffer: content,
+        size: 0,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim empty test upload')
+
+    let url = `${BASE}${routes.admin.uploads.download.href({ id })}`
+    let response = await router.fetch(url, { headers: { Cookie: session.cookie } })
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Content-Length'), '0')
+    assert.equal(response.headers.get('Accept-Ranges'), 'bytes')
+    assert.equal(await response.text(), '')
+
+    let etag = response.headers.get('ETag')
+    assert.ok(etag, 'empty download should emit an ETag')
+    let notModified = await router.fetch(url, {
+      headers: { Cookie: session.cookie, 'If-None-Match': etag.slice(2) },
+    })
+    assert.equal(notModified.status, 304)
+
+    // RFC 9110 §14.2 lets a server ignore Range for an empty representation.
+    let ignoredRange = await router.fetch(url, {
+      headers: { Cookie: session.cookie, Range: 'bytes=0-' },
+    })
+    assert.equal(ignoredRange.status, 200, 'Range on an empty file is ignored')
+    assert.equal(ignoredRange.headers.get('Content-Length'), '0')
+    assert.equal(await ignoredRange.text(), '')
+
+    let head = await router.fetch(url, {
+      method: 'HEAD',
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(head.status, 200)
+    assert.equal(head.headers.get('Content-Length'), '0')
+    assert.equal(await head.text(), '')
+  })
+
   it('GET /admin/uploads/:id/download hides uploads the user has not claimed', async () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')
