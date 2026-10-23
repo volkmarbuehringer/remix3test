@@ -9,9 +9,9 @@ import {
 
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 import {
+  claimPrefetchedFrame,
   clearPrefetchedFrames,
   prefetchFrame,
-  takePrefetchedFrame,
 } from './frame-prefetch.browser.ts'
 import { resolveFrameResponse } from './frame-response.browser.tsx'
 
@@ -37,9 +37,10 @@ app = run({
     let url = new URL(src, window.location.href)
 
     // `data-rmx-prefetch` / `prefetch()` warmed this exact GET through the app
-    // resolver; claim it instead of paying for a second SSR.
+    // resolver; claim it instead of paying for a second SSR. A warm still in
+    // flight (the runtime starts it on pointerdown) is awaited, not duplicated.
     if (isPlainGet(options)) {
-      let cached = takePrefetchedFrame(url, options?.target)
+      let cached = await claimPrefetchedFrame(url, options?.target, options?.signal)
       if (cached) {
         // The warmed response already rendered (and so already consumed) any agent prefill.
         agentPrefillMap.delete(url.pathname + url.search)

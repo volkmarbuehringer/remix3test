@@ -2,6 +2,7 @@ import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import {
+  claimPrefetchedFrame,
   clearPrefetchedFrames,
   prefetchFrame,
   takePrefetchedFrame,
@@ -30,6 +31,20 @@ function stubFetch(response: Partial<Response>) {
 
 async function settlePrefetches(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 20))
+}
+
+function stubDeferredFetch() {
+  originalFetch ??= window.fetch
+  fetchCalls = 0
+  let resolveResponse!: (response: Response) => void
+  let pending = new Promise<Response>((resolve) => {
+    resolveResponse = resolve
+  })
+  window.fetch = (async () => {
+    fetchCalls += 1
+    return pending
+  }) as typeof window.fetch
+  return { resolve: (response: Response) => resolveResponse(response) }
 }
 
 afterEach(() => {
@@ -113,6 +128,45 @@ describe('frame prefetch cache', () => {
       undefined,
       'an uncached navigation invalidates the other warmed pages',
     )
+  })
+
+  it('awaits an in-flight warm instead of fetching the fragment twice', async () => {
+    let deferred = stubDeferredFetch()
+    let url = new URL('/admin/lists?status=empty', window.location.origin)
+
+    prefetchFrame(url.href, { target: 'admin-content' })
+    let claim = claimPrefetchedFrame(url, 'admin-content')
+    let response = okResponse()
+    deferred.resolve(response)
+
+    assert.equal(await claim, response)
+    assert.equal(fetchCalls, 1, 'the navigation must reuse the in-flight warm')
+    assert.equal(
+      takePrefetchedFrame(url, 'admin-content'),
+      undefined,
+      'a claimed warm is single use',
+    )
+  })
+
+  it('rejects a claim when the navigation aborts while waiting for the warm', async () => {
+    let deferred = stubDeferredFetch()
+    let url = new URL('/admin/lists?status=empty', window.location.origin)
+    let controller = new AbortController()
+
+    prefetchFrame(url.href, { target: 'admin-content' })
+    let claim = claimPrefetchedFrame(url, 'admin-content', controller.signal)
+    controller.abort(new Error('navigation cancelled'))
+
+    let rejected: unknown
+    try {
+      await claim
+    } catch (error) {
+      rejected = error
+    }
+    assert.ok(rejected instanceof Error, 'an aborted claim must reject like an aborted fetch')
+    assert.equal(rejected.message, 'navigation cancelled')
+
+    deferred.resolve(okResponse())
   })
 
   it('does not cache a response the resolver refused', async () => {

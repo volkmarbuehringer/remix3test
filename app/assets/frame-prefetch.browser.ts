@@ -26,7 +26,9 @@ interface PrefetchedFrame {
 }
 
 const frames = new Map<string, PrefetchedFrame>()
-const inFlight = new Set<string>()
+// The settled warm is kept as a promise, so a navigation that runs while it is still in
+// flight can await it instead of issuing a second request for the same fragment.
+const inFlight = new Map<string, Promise<void>>()
 
 // Bumped whenever the warmed set is invalidated, so a prefetch that was already in flight
 // cannot repopulate the cache after a navigation it predates.
@@ -50,8 +52,7 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
   if (frames.has(key) || inFlight.has(key)) return
 
   let startedIn = generation
-  inFlight.add(key)
-  void prefetchFrameResponse(url, options)
+  let warm = prefetchFrameResponse(url, options)
     .then((response) => {
       if (response && generation === startedIn) storePrefetchedFrame(key, response)
     })
@@ -61,6 +62,7 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
     .finally(() => {
       inFlight.delete(key)
     })
+  inFlight.set(key, warm)
 }
 
 /**
@@ -76,6 +78,49 @@ export function takePrefetchedFrame(url: URL, target?: string): Response | undef
   // Consuming a frame means a navigation happened, so everything else is suspect.
   clearPrefetchedFrames()
   return entry.response
+}
+
+/**
+ * Claims a warmed response for a navigation, waiting for a warm that is still in flight
+ * instead of fetching the same fragment twice.
+ *
+ * The runtime starts the prefetch on `pointerdown`, so a fast click races it: without this
+ * wait the resolver would find no stored entry, discard the in-flight warm through the
+ * generation bump, and start a second SSR for the same URL.
+ */
+export async function claimPrefetchedFrame(
+  url: URL,
+  target?: string,
+  signal?: AbortSignal,
+): Promise<Response | undefined> {
+  let stored = takePrefetchedFrame(url, target)
+  if (stored) return stored
+
+  let warm = inFlight.get(cacheKey(url, target))
+  if (!warm) return undefined
+
+  await abortable(warm, signal)
+  return takePrefetchedFrame(url, target)
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise
+  if (signal.aborted) return Promise.reject(signal.reason)
+
+  return new Promise<T>((resolve, reject) => {
+    let onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
 }
 
 /** Drops warmed responses after a navigation, including prefetches still in flight. */

@@ -189,7 +189,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 
 **Frame prefetching (`references/remix3-client-entries/frame-prefetch-cache.md`)**
 
-- `data-rmx-prefetch="intent"` / `prefetch()` only pay off with a custom `run({ prefetch })`: the runtime default fetches its own HTML and bypasses the app's `resolveFrame` (agent prefill, 4xx/5xx policy, redirect reconciliation, `no-store`), so the prefetched document is discarded and the navigation fetches again. `app/assets/frame-prefetch.browser.ts` keeps a single-use, target-keyed, 10 s cache warmed through `prefetchFrameResponse` and claimed by `resolveFrame`; prefetch mode must never call `window.location.assign` and must not consume `agentPrefillMap`, and only plain GETs (no `formData`) are warmable.
+- `data-rmx-prefetch="intent"` / `prefetch()` only pay off with a custom `run({ prefetch })`: the runtime default fetches its own HTML and bypasses the app's `resolveFrame` (agent prefill, 4xx/5xx policy, redirect reconciliation, `no-store`), so the prefetched document is discarded and the navigation fetches again. `app/assets/frame-prefetch.browser.ts` keeps a single-use, target-keyed, 10 s cache warmed through `prefetchFrameResponse` and claimed by `resolveFrame`; prefetch mode must never call `window.location.assign` and must not consume `agentPrefillMap`; only plain GETs (no `formData`) are warmable, and a click that races an in-flight warm must await it (`claimPrefetchedFrame`) rather than clear + refetch.
 
 ### When to Use
 
