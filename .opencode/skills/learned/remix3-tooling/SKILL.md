@@ -35,6 +35,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
 | A branch-pinned (`github:…#branch`) dependency may have upstream changes, you must judge whether to update, or you are pinning release-day versions across the post-#11948 split lines (currently `remix` 3.0.0 / `@remix-run/ui` 0.12.1 / `@remix-run/component` 1.0.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
+| `pnpm update`/`install` on the branch-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, `ERR_PNPM_PREPARE_PACKAGE`, codeload 429/retry storms), or you need to bump an unrelated package without re-preparing the monorepo tarball | `references/remix3-build-and-tooling/pnpm-git-hosted-installs.md` |
 
 ### Core Rules
 

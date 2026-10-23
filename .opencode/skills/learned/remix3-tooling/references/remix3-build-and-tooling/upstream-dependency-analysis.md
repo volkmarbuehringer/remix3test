@@ -164,6 +164,7 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - Verification at this pin (2026-10-23): `npm run typecheck` clean, `npm run lint` clean, and full `npm test` green — server 1857 tests (1856 pass), browser 808 (806 pass, 2 skipped), e2e 62/62 (281 s), all 0 fail. A `npm run test:server` failure seen mid-install (`ERR_MODULE_NOT_FOUND: Cannot find package 'remix' imported from app/data/seed.ts`) was a relink race while `node_modules` was being rewritten, not a pin regression; it does not reproduce afterwards.
 - Follow-up `nodemailer` `^10.2.0` → `^10.2.1`: `pnpm update nodemailer` failed while re-preparing the git-hosted remix package (nested `pnpm install`, `ERR_PNPM_PREPARE_PACKAGE`), so the lock was patched with the registry integrity and installed with `pnpm install --frozen-lockfile` (frozen check green).
 - Environment note (2026-10-23): this sandbox makes the global pnpm store read-only (`EROFS`), so the bump installed into a workspace-local `.pnpm-store` (`--store-dir`, gitignored). The lock/tarball refs are unaffected; an install outside this sandbox can relink from the global store.
+- Operational recipe for the store/prepare failures above: [`pnpm-git-hosted-installs.md`](pnpm-git-hosted-installs.md).
 
 **Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance.
 
