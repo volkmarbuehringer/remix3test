@@ -1,12 +1,10 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
-import { isFirefox } from '../../../test/utils.ts'
-import { pool } from '../../../test/pool.ts'
+import { createAuthCookieWithCsrfForUser, createTestUser, isFirefox } from '../../../test/utils.ts'
 import { __setAgent } from './handlers/classify.ts'
 import { __setRunFactory } from './controller.tsx'
 
@@ -33,11 +31,17 @@ import { __setRunFactory } from './controller.tsx'
 // incompatibility; revisit when the vendor fixes frame rendering in Firefox.
 // ---------------------------------------------------------------------------
 
+// The toggle targets a user this suite creates for itself. The e2e suite
+// shares one ephemeral DB across parallel forks, and disabling the seed
+// `user@newapp.com` de-authenticates concurrent suites (e.g. appointments-new)
+// that log in as that account.
+const TOGGLE_TARGET_EMAIL = `e2e-agent-toggle-${Date.now()}@newapp.com`
+
 const FAKE_CLASSIFY_TABLE: Record<string, object> = {
-  'cancel user@newapp.com': {
+  [`cancel ${TOGGLE_TARGET_EMAIL}`]: {
     type: 'user-action',
     action: 'cancel',
-    targetQuery: 'user@newapp.com',
+    targetQuery: TOGGLE_TARGET_EMAIL,
   },
 }
 
@@ -80,7 +84,7 @@ __setRunFactory(async (_workflowId, opts) => {
         suspendPayload: {
           question: 'Cancel user?',
           actionType: 'cancel',
-          targetUserName: 'user@newapp.com',
+          targetUserName: TOGGLE_TARGET_EMAIL,
         },
       },
     }),
@@ -90,25 +94,11 @@ __setRunFactory(async (_workflowId, opts) => {
 const AGENT_EVENTS_PATH = routes.admin.agentEvents.index.href()
 
 describe('admin agent-events panel: in-frame user toggle', () => {
-  // This test toggles the seed user `user@newapp.com`'s disabled state. The
-  // e2e suite shares one ephemeral DB across parallel forks, so leaving the
-  // user disabled corrupts other tests that log in as that seed user (e.g. the
-  // auth e2e). Record the original disabled_at and restore it after the test so
-  // the toggle does not leak state across tests.
-  let originalDisabledAt: string | null = null
-
+  // Own the row this suite mutates: create a throwaway user and toggle that,
+  // never a seed account other parallel forks log in as.
   before(async () => {
-    let rows = (
-      await pool.query('SELECT disabled_at FROM users WHERE email = $1', ['user@newapp.com'])
-    ).rows as { disabled_at: string | null }[]
-    originalDisabledAt = rows[0]?.disabled_at ?? null
-  })
-
-  after(async () => {
-    await pool.query('UPDATE users SET disabled_at = $1 WHERE email = $2', [
-      originalDisabledAt,
-      'user@newapp.com',
-    ])
+    let userId = await createTestUser(TOGGLE_TARGET_EMAIL)
+    assert.ok(userId != null, 'toggle target user must be created')
   })
 
   it('keeps the host agent page when toggling a user in the panel frame', async (t) => {
@@ -132,7 +122,7 @@ describe('admin agent-events panel: in-frame user toggle', () => {
       // up, but the nested frame never renders the users-grid toggle form due
       // to a remix-ui Firefox frame-navigation bug (see header). Keep this so
       // Firefox still exercises the page without asserting the broken frame.
-      await input.fill('cancel user@newapp.com')
+      await input.fill(`cancel ${TOGGLE_TARGET_EMAIL}`)
       await page.locator('#agent-events-submit').click()
       await page.locator('#agent-events-frame-container').waitFor({ timeout: 10_000 })
       assert.ok(
@@ -142,9 +132,9 @@ describe('admin agent-events panel: in-frame user toggle', () => {
       return
     }
 
-    // Send a command that resolves to the seeded non-admin user so the panel
+    // Send a command that resolves to this suite's throwaway user so the panel
     // navigates to the users grid (the trigger for the bug).
-    await input.fill('cancel user@newapp.com')
+    await input.fill(`cancel ${TOGGLE_TARGET_EMAIL}`)
     await page.locator('#agent-events-submit').click()
 
     // The SSE pipeline navigates the panel frame to /admin/users?filter=...;

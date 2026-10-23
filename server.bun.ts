@@ -49,6 +49,12 @@ const server = Bun.serve({
   port,
   hostname,
   development: !isProduction,
+  // SSE channels (/notifications/events, chat/agent streams) stay open and
+  // write a heartbeat every 30s (see app/utils/sse.ts). Bun's default 10s
+  // idleTimeout kills such a stream mid-request and logs "Bun.serve() timed
+  // out a request after 10 seconds", so give the socket room for the
+  // heartbeat plus slow LLM gaps. The Node entry has no equivalent timeout.
+  idleTimeout: 60,
   ...(isProduction ? { tls: loadTls() } : {}),
   fetch(request, runtime) {
     // requestIP() is the TCP socket address, so X-Client-Ip stays unspoofable
