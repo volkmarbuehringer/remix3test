@@ -33,8 +33,8 @@ importers:
         specifier: ^3.37.0
         version: 3.37.0
       nodemailer:
-        specifier: ^10.1.7
-        version: 10.1.7
+        specifier: ^10.2.0
+        version: 10.2.0
       pdfmake:
         specifier: ^0.3.12
         version: 0.3.12
@@ -3305,8 +3305,8 @@ packages:
     resolution: {integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==}
     engines: {node: '>=18'}
 
-  nodemailer@10.1.7:
-    resolution: {integrity: sha512-OQa6FDln5fLttmqSbjDiRYvFDOFNrBqfiOwHPlEbURil3b+vPB1v8xpi+Sp46drzNDlsTnNsS502vthmz56r4w==}
+  nodemailer@10.2.0:
+    resolution: {integrity: sha512-/XyGw6kX2stMdKGUJdAQmYAeY1FscWfdRydfd2NtK3A3KDfUUXCqZzExSNAt2xhh90X2qLCR+o2Gd48YPJcJwA==}
     engines: {node: '>=20.0.0'}
 
   normalize-path@3.0.0:
@@ -6724,7 +6724,7 @@ snapshots:
 
   node-releases@2.0.59: {}
 
-  nodemailer@10.1.7: {}
+  nodemailer@10.2.0: {}
 
   normalize-path@3.0.0: {}
 
