@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
 import { css, type Handle } from 'remix/component'
-import { SuperHeaders } from 'remix/headers'
+import { ContentDisposition, SuperHeaders } from 'remix/headers'
+import { createFileResponse } from 'remix/response/file'
 import { redirect } from 'remix/response/redirect'
 import {
   formCss,
@@ -392,18 +393,22 @@ export default createController(routes.admin.uploads, {
         return new Response('Not found', { status: 404 })
       }
 
-      let { filename, mime_type, data } = row
+      let { filename, mime_type, data, created_at } = row
 
       let cleanFilename = filename.replace(/[\r\n"]/g, '')
 
-      let downloadHeaders = new SuperHeaders()
-      downloadHeaders.contentType = mime_type
-      downloadHeaders.contentDisposition = {
-        type: 'attachment',
-        filename: cleanFilename,
-      }
-      downloadHeaders.set('X-Content-Type-Options', 'nosniff')
-      return new Response(data, { status: 200, headers: downloadHeaders })
+      // `File` only accepts ArrayBuffer-backed BlobParts; copy the DB Buffer
+      // (which is typed with an ArrayBufferLike) into a fresh Uint8Array.
+      let file = new File([new Uint8Array(data)], cleanFilename, {
+        type: mime_type,
+        lastModified: created_at,
+      })
+      let response = await createFileResponse(file, context.request, { acceptRanges: true })
+      response.headers.set(
+        'Content-Disposition',
+        new ContentDisposition({ type: 'attachment', filename: cleanFilename }).toString(),
+      )
+      return response
     },
 
     // Multirow download: zip the selected rows into a single attachment. The

@@ -356,6 +356,7 @@ const uploadDownloadRowSchema = z.object({
   filename: z.string(),
   mime_type: z.string(),
   data: z.custom<Buffer>(),
+  created_at: int8,
 })
 
 const uploadDownloadBatchRowSchema = z.object({
@@ -407,16 +408,21 @@ export async function getUploadDownload(
   db: Database,
   id: number,
   userId?: number,
-): Promise<{ filename: string; mime_type: string; data: BodyInit } | undefined> {
+): Promise<{ filename: string; mime_type: string; data: Buffer; created_at: number } | undefined> {
   let row = await queryRow(
     db,
     userId !== undefined
-      ? sql`SELECT filename, mime_type, data FROM uploads WHERE id = ${id} AND uploaded_by = ${userId}`
-      : sql`SELECT filename, mime_type, data FROM uploads WHERE id = ${id}`,
+      ? sql`SELECT filename, mime_type, data, created_at FROM uploads WHERE id = ${id} AND uploaded_by = ${userId}`
+      : sql`SELECT filename, mime_type, data, created_at FROM uploads WHERE id = ${id}`,
     uploadDownloadRowSchema,
   )
   if (!row) return undefined
-  return { filename: row.filename, mime_type: row.mime_type, data: row.data as BodyInit }
+  return {
+    filename: row.filename,
+    mime_type: row.mime_type,
+    data: row.data,
+    created_at: Number(row.created_at),
+  }
 }
 
 /**

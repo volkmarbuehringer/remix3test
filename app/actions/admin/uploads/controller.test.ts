@@ -2,6 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createSession } from 'remix/session'
 import { MaxFileSizeExceededError } from 'remix/form-data-parser'
+import { ContentDisposition } from 'remix/headers'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../../test/pool.ts'
@@ -930,6 +931,86 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('3 Dateien gelöscht.'), 'should render the deleted banner')
+  })
+
+  it('GET /admin/uploads/:id/download serves the claimed file with conditional and range support', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let content = Buffer.from('0123456789abcdef')
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-download.txt',
+        mimeType: 'text/plain',
+        buffer: content,
+        size: content.byteLength,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let url = `${BASE}${routes.admin.uploads.download.href({ id })}`
+    let response = await router.fetch(url, { headers: { Cookie: session.cookie } })
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Content-Type'), 'text/plain; charset=utf-8')
+    assert.equal(response.headers.get('Content-Length'), String(content.byteLength))
+    assert.equal(response.headers.get('Accept-Ranges'), 'bytes')
+    let disposition = ContentDisposition.from(response.headers.get('Content-Disposition'))
+    assert.equal(disposition.type, 'attachment')
+    assert.equal(disposition.filename, 'uplctl-download.txt')
+    assert.equal(await response.text(), content.toString())
+
+    let etag = response.headers.get('ETag')
+    assert.ok(etag, 'download should emit an ETag')
+    assert.ok(etag.startsWith('W/"'), 'download should emit a weak ETag')
+
+    let notModified = await router.fetch(url, {
+      headers: { Cookie: session.cookie, 'If-None-Match': etag.slice(2) },
+    })
+    assert.equal(notModified.status, 304)
+    assert.equal(notModified.headers.get('ETag'), etag)
+
+    let partial = await router.fetch(url, {
+      headers: { Cookie: session.cookie, Range: 'bytes=0-3' },
+    })
+    assert.equal(partial.status, 206)
+    assert.equal(partial.headers.get('Content-Range'), `bytes 0-3/${content.byteLength}`)
+    assert.equal(await partial.text(), '0123')
+
+    let unsatisfiable = await router.fetch(url, {
+      headers: { Cookie: session.cookie, Range: 'bytes=-0' },
+    })
+    assert.equal(unsatisfiable.status, 416)
+    assert.equal(unsatisfiable.headers.get('Content-Range'), `bytes */${content.byteLength}`)
+
+    let head = await router.fetch(url, {
+      method: 'HEAD',
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(head.status, 200)
+    assert.equal(head.headers.get('Content-Length'), String(content.byteLength))
+    assert.equal(await head.text(), '')
+  })
+
+  it('GET /admin/uploads/:id/download hides uploads the user has not claimed', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-download-unclaimed.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('unclaimed'),
+        size: 9,
+        now: Date.now(),
+      }),
+    )
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.download.href({ id })}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 404)
   })
 
   it('POST /admin/uploads/download-many returns a zip attachment of the selected rows', async () => {
