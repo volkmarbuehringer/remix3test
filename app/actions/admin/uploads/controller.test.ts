@@ -1013,6 +1013,36 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.status, 404)
   })
 
+  it('GET /admin/uploads/:id/download preserves quoted filenames without header injection', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-quote"\r\nname.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('quoted'),
+        size: 6,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.download.href({ id })}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let header = response.headers.get('Content-Disposition')
+    assert.ok(header, 'download should set Content-Disposition')
+    assert.ok(!header.includes('\r') && !header.includes('\n'), 'header must not contain CR/LF')
+
+    let disposition = ContentDisposition.from(header)
+    assert.equal(disposition.type, 'attachment')
+    assert.equal(disposition.filename, 'uplctl-quote"name.txt')
+    assert.equal(await response.text(), 'quoted')
+  })
+
   it('POST /admin/uploads/download-many returns a zip attachment of the selected rows', async () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')

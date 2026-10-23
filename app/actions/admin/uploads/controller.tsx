@@ -395,7 +395,9 @@ export default createController(routes.admin.uploads, {
 
       let { filename, mime_type, data, created_at } = row
 
-      let cleanFilename = filename.replace(/[\r\n"]/g, '')
+      // Strip CR/LF so the filename cannot inject a header; quotes are safe
+      // because ContentDisposition escapes them below.
+      let cleanFilename = filename.replace(/[\r\n]/g, '')
 
       // `File` only accepts ArrayBuffer-backed BlobParts; copy the DB Buffer
       // (which is typed with an ArrayBufferLike) into a fresh Uint8Array.
