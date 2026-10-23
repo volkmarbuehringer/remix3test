@@ -258,7 +258,29 @@ describe('resolveFrameResponse request encoding', () => {
 // resolver stores the returned response in the one-shot prefetch cache.
 // ---------------------------------------------------------------------------
 
+function requestPriority(init: RequestInit | undefined): unknown {
+  return (init as { priority?: unknown } | undefined)?.priority
+}
+
 describe('prefetchFrameResponse', () => {
+  it('marks the warm as a low-priority request', async () => {
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+    assert.equal(requestPriority(lastFetchInit), 'low')
+
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+    assert.equal(
+      requestPriority(lastFetchInit),
+      undefined,
+      'a navigation keeps the default request priority',
+    )
+  })
+
   it('resolves without navigating for a redirect with a frame target', async () => {
     stubFetch({ redirected: true, ok: true, url: 'https://remix.run/login', status: 200 })
 

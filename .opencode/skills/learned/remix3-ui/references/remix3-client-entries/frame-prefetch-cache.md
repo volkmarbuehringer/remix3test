@@ -23,6 +23,7 @@
 - **Only plain GETs are warmable.** Cache lookups are gated on `isPlainGet`; `frame.reload({ method, body })` POSTs and form-data GETs bypass the cache entirely (the key does not encode method or body).
 - **5xx is never cached.** The recovery card is a client-side component, not a reusable fragment; 4xx validation fragments are cached because a real navigation renders them.
 - **CSP nonces.** Frame fragments carry the nonce of the response that rendered them. Reuse is same-document and short-lived; the app's frame content has inert JSON scripts plus import maps that the runtime appends with the installed map's nonce. Do not introduce executable `nonce={getCspNonce()}` inline scripts into frame fragments — a warmed copy would carry a stale nonce.
+- **Warm requests are `priority: 'low'`**, matching the vendor default, so a hover warm does not compete with the navigation it accelerates; navigation requests keep the browser default.
 - **The override replaces the default prefetcher**, including its asset-hint discovery. Asset hints would have to be added inside `prefetchFrame` (read the warmed HTML, emit `<link rel="prefetch">`); not done, because the warm already removes the navigation round trip.
 
 ## Adoption points

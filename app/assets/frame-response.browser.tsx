@@ -70,6 +70,8 @@ async function fetchFrameResponse(
   let response = await fetch(url, {
     cache: 'no-store',
     headers,
+    // A hover warm must not compete with the navigation it is meant to accelerate.
+    ...(prefetching ? { priority: 'low' as const } : {}),
     ...(options?.method !== undefined ? { method: options.method } : {}),
     ...(body !== undefined ? { body } : {}),
     ...(options?.signal !== undefined ? { signal: options.signal } : {}),
