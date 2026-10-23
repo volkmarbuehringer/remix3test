@@ -8,9 +8,7 @@ import { ApiUser } from './api-token-auth.ts'
  * run. `requireApiAuth()` guarantees this at runtime; this helper gives callers
  * that guarantee as a non-optional type instead of a non-null assertion.
  */
-export function requireApiUser(context: {
-  get(key: typeof ApiUser): User | undefined
-}): User {
+export function requireApiUser(context: { get(key: typeof ApiUser): User | undefined }): User {
   let apiUser = context.get(ApiUser)
   if (!apiUser) {
     throw new Error('Expected an authenticated API user. Make sure requireApiAuth() runs first.')

@@ -218,11 +218,7 @@ describe('AgentEventsStreamController', () => {
       probe.abort()
       await pending
 
-      assert.equal(
-        calls(state, 'renderConfirmGate').length,
-        0,
-        'an aborted probe renders no gate',
-      )
+      assert.equal(calls(state, 'renderConfirmGate').length, 0, 'an aborted probe renders no gate')
     } finally {
       globalThis.fetch = originalFetch
     }

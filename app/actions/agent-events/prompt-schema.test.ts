@@ -37,7 +37,10 @@ describe('promptSchema', () => {
     let padded = '  ' + 'x'.repeat(MAX_MESSAGE_LENGTH + 1) + '  '
     let parsed = s.parseSafe(promptSchema, submission({ message: padded }))
     assert.ok(!parsed.success)
-    assert.equal(promptIssueMessage(parsed.issues[0]?.message), `Message too long (max ${MAX_MESSAGE_LENGTH})`)
+    assert.equal(
+      promptIssueMessage(parsed.issues[0]?.message),
+      `Message too long (max ${MAX_MESSAGE_LENGTH})`,
+    )
 
     // The same content, unpadded, fits and survives.
     let exact = 'x'.repeat(MAX_MESSAGE_LENGTH)
@@ -56,7 +59,10 @@ describe('promptSchema', () => {
 describe('promptIssueMessage', () => {
   it('passes the two canonical messages through verbatim', () => {
     assert.equal(promptIssueMessage('Message is required'), 'Message is required')
-    assert.equal(promptIssueMessage(`Message too long (max ${MAX_MESSAGE_LENGTH})`), `Message too long (max ${MAX_MESSAGE_LENGTH})`)
+    assert.equal(
+      promptIssueMessage(`Message too long (max ${MAX_MESSAGE_LENGTH})`),
+      `Message too long (max ${MAX_MESSAGE_LENGTH})`,
+    )
   })
 
   it('folds schema type messages into "Message is required"', () => {

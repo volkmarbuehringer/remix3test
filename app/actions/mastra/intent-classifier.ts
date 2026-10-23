@@ -92,8 +92,7 @@ export async function classifyWithAgent(
 
   if (classification.type === 'unclear') {
     return {
-      unclear:
-        classification.question?.trim() || `Could not resolve intent from: "${message}"`,
+      unclear: classification.question?.trim() || `Could not resolve intent from: "${message}"`,
     }
   }
 

@@ -170,7 +170,11 @@ export function createChannel<EventMap extends Record<string, unknown>>(
 
     let target = key === undefined ? null : subscriberGroup(key)
     let groups: Iterable<Set<ReadableStreamDefaultController>> =
-      target === null ? subscribers.values() : subscribers.get(target) ? [subscribers.get(target)!] : []
+      target === null
+        ? subscribers.values()
+        : subscribers.get(target)
+          ? [subscribers.get(target)!]
+          : []
 
     // Collect and drop dead subscribers during broadcast to avoid re-entrancy
     for (let set of groups) {

@@ -87,12 +87,7 @@ export async function deleteExpiredWebhookRequests(
   db: Database,
   retentionMs: number,
 ): Promise<number> {
-  return await deleteExpiredBatched(
-    db,
-    'webhook_requests',
-    'id',
-    Date.now() - retentionMs,
-  )
+  return await deleteExpiredBatched(db, 'webhook_requests', 'id', Date.now() - retentionMs)
 }
 
 export async function deleteExpiredAuditLogs(db: Database, retentionMs: number): Promise<number> {

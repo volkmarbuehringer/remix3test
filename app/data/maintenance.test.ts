@@ -88,7 +88,13 @@ describe('maintenance', () => {
 
   it('deleteExpiredBatched drains across multiple small batches', async () => {
     let now = Date.now()
-    let runIds = ['test-maint-b1', 'test-maint-b2', 'test-maint-b3', 'test-maint-b4', 'test-maint-b5']
+    let runIds = [
+      'test-maint-b1',
+      'test-maint-b2',
+      'test-maint-b3',
+      'test-maint-b4',
+      'test-maint-b5',
+    ]
     await pool.query(
       `INSERT INTO chat_runs (run_id, user_id, thread_id, created_at)
        VALUES ${runIds.map((_, i) => `('test-maint-b${i + 1}', $1, $2, ${now - 48 * HOUR_MS})`).join(', ')}`,
@@ -98,13 +104,7 @@ describe('maintenance', () => {
     // batchSize 2 with a 5-row backlog forces three statements: two full
     // batches plus one short closing batch (the old single-statement sweep
     // never exercised a second iteration).
-    let deleted = await deleteExpiredBatched(
-      db,
-      'chat_runs',
-      'run_id',
-      now - HOUR_MS,
-      2,
-    )
+    let deleted = await deleteExpiredBatched(db, 'chat_runs', 'run_id', now - HOUR_MS, 2)
     assert.equal(deleted, 5, 'every expired row must be counted exactly once')
 
     let remaining = await pool.query(
@@ -120,13 +120,7 @@ describe('maintenance', () => {
       [userId, Date.now() - 48 * HOUR_MS],
     )
     // batchSize far above the row count: one statement, no second iteration.
-    let deleted = await deleteExpiredBatched(
-      db,
-      'chat_runs',
-      'run_id',
-      Date.now() - HOUR_MS,
-      100,
-    )
+    let deleted = await deleteExpiredBatched(db, 'chat_runs', 'run_id', Date.now() - HOUR_MS, 100)
     assert.equal(deleted, 1)
   })
 })

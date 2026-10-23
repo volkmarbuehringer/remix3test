@@ -51,4 +51,3 @@ export const drag = createMixin<HTMLElement, [ListsDragContext]>(
 )
 
 export type ListsDragMixinDescriptor = ReturnType<typeof drag>
-
