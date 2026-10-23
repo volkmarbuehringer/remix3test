@@ -101,6 +101,7 @@ export function AppointmentSidebar(handle: Handle<AppointmentSidebarProps>) {
             <a
               href={weekHref(previous.year, previous.week)}
               data-rmx-target={frames.appointmentContent}
+              data-rmx-prefetch="intent"
               aria-label="Vorherige Woche"
               mix={navArrowStyle}
             >
@@ -110,6 +111,7 @@ export function AppointmentSidebar(handle: Handle<AppointmentSidebarProps>) {
             <a
               href={weekHref(next.year, next.week)}
               data-rmx-target={frames.appointmentContent}
+              data-rmx-prefetch="intent"
               aria-label="Nächste Woche"
               mix={navArrowStyle}
             >

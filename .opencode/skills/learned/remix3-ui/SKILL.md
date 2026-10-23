@@ -117,6 +117,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | Several `clientEntry`s repeat the same entry body (delegated listener + menu/popover shell + dispatch) and must be deduplicated without breaking hydration | `references/remix3-client-entries/client-entry-factory-extraction.md` |
 | An enhancer clientEntry renders `null`/a hidden div, scans server DOM, and registers module-scoped document listeners; converting it to component-owned DOM (or its `on(...)` can't hear a sibling input's events) | `references/remix3-client-entries/component-owned-dom-conversion.md` |
 | Per-element `ref()` event wiring for a DOM behavior that contributes no server HTML should become one delegated browser-only `createMixin(type, { ssr: false })` on a container (or its handlers must stop reading `e.currentTarget` as the row) | `references/remix3-client-entries/browser-only-behavior-mixin.md` |
+| Adding `data-rmx-prefetch` / `prefetch()` link warming, or a prefetch cost a second SSR because `run({ resolveFrame })` replaces the default resolver | `references/remix3-client-entries/frame-prefetch-cache.md` |
 | Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/remix3-client-entries/textarea-bulk-clear-wipe-history.md` |
 
 ### Core Rules
@@ -186,8 +187,13 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 - A DOM behavior that contributes no server HTML (drag-and-drop, pointer menus) belongs in `createMixin(setup, { ssr: false })` applied to its container, not in per-element `ref()` listeners re-created every render. Follow the vendor `on()` mixin's lifecycle: capture `handle.signal` in setup, bind on `insert` (`event.node`), rebind when a different node is inserted, let the scope signal own teardown. First application: `app/actions/lists/public/lists-drag-mixin.ts` (`drag(ctx)`) replacing the per-row drag `ref()`s in `lists-view.tsx`; commit `868aa6c`.
 - The delegation trap: `e.currentTarget` becomes the container, so row-scoped handlers must take the row explicitly (`handleDragStart(e, index, row)`); keep capture-phase listeners (edge auto-scroll) capture-phase, branch the single bubble-phase delegated handler on `target.closest('[role="listitem"]')`, and export the wiring function (`wireListsDragHost`) so the browser test drives the exact production path against a fixture.
 
+**Frame prefetching (`references/remix3-client-entries/frame-prefetch-cache.md`)**
+
+- `data-rmx-prefetch="intent"` / `prefetch()` only pay off with a custom `run({ prefetch })`: the runtime default fetches its own HTML and bypasses the app's `resolveFrame` (agent prefill, 4xx/5xx policy, redirect reconciliation, `no-store`), so the prefetched document is discarded and the navigation fetches again. `app/assets/frame-prefetch.browser.ts` keeps a single-use, target-keyed, 10 s cache warmed through `prefetchFrameResponse` and claimed by `resolveFrame`; prefetch mode must never call `window.location.assign` and must not consume `agentPrefillMap`, and only plain GETs (no `formData`) are warmable.
+
 ### When to Use
 
+- You are adding `data-rmx-prefetch` to navigation links, deciding whether link prefetching is worth it, or wondering why the runtime's prefetcher does not reuse this app's frame HTML.
 - You are building browser behavior in a Remix 3 `clientEntry` and the DOM does not do what the server render implies: an op must wait for `handle.update()`, client entries silently do nothing in Firefox, or same-page panels need to become hash-deep-linked ARIA tabs.
 - A page works in Chromium but client interactions, hover reveals, drag-and-drop, or textarea hydration fail in Firefox (especially after a remix/import-map upgrade); or a `requestAnimationFrame` focus/measure callback fires too early, too late, or after the element was removed.
 - Before adopting `requestAnimationFrame` for post-render DOM work, wiring the multiple-import-maps polyfill, or hand-rolling tabs over `hidden` panels.

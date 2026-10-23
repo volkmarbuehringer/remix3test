@@ -316,6 +316,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                 ADMIN_BASE + '?' + buildFilterParams(filter ?? '', sortColumn, sortDirection, 0)
               }
               data-rmx-target={getSelfFrameTarget()}
+              data-rmx-prefetch="intent"
               mix={[table.filterTab, !activeItemFilter ? table.filterTabActive : undefined]}
             >
               Alle
@@ -327,6 +328,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                 buildFilterParams(filter ?? '', sortColumn, sortDirection, 0, undefined, 'items')
               }
               data-rmx-target={getSelfFrameTarget()}
+              data-rmx-prefetch="intent"
               mix={[
                 table.filterTab,
                 activeItemFilter === 'items' ? table.filterTabActive : undefined,
@@ -341,6 +343,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                 buildFilterParams(filter ?? '', sortColumn, sortDirection, 0, undefined, 'empty')
               }
               data-rmx-target={getSelfFrameTarget()}
+              data-rmx-prefetch="intent"
               mix={[
                 table.filterTab,
                 activeItemFilter === 'empty' ? table.filterTabActive : undefined,
@@ -778,6 +781,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     activeItemFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="intent"
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
@@ -799,6 +803,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     activeItemFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="intent"
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

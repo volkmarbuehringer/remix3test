@@ -1,7 +1,12 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { resolveFrameResponse, isSameOriginFrameSource } from './frame-response.browser.tsx'
+import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
+import {
+  isSameOriginFrameSource,
+  prefetchFrameResponse,
+  resolveFrameResponse,
+} from './frame-response.browser.tsx'
 
 // ---------------------------------------------------------------------------
 // resolveFrameResponse — redirect handling on frame reload
@@ -41,6 +46,7 @@ afterEach(() => {
     originalFetch = undefined
   }
   lastFetchInit = undefined
+  agentPrefillMap.clear()
 })
 
 async function assertNeverSettles(promise: Promise<unknown>): Promise<void> {
@@ -241,5 +247,88 @@ describe('resolveFrameResponse request encoding', () => {
     let body = lastFetchInit?.body
     assert.ok(body instanceof Blob, 'body should be a text blob')
     assert.equal(body.type, 'text/plain')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// prefetchFrameResponse — warming a frame for `data-rmx-prefetch` / `prefetch()`
+//
+// A prefetch must never take over the document (redirect with a target, 401), must not
+// burn a one-shot agent prefill, and must not cache the 5xx recovery card. The entry
+// resolver stores the returned response in the one-shot prefetch cache.
+// ---------------------------------------------------------------------------
+
+describe('prefetchFrameResponse', () => {
+  it('resolves without navigating for a redirect with a frame target', async () => {
+    stubFetch({ redirected: true, ok: true, url: 'https://remix.run/login', status: 200 })
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined, 'a redirected document must not be warmed for the subframe')
+  })
+
+  it('resolves without navigating for a 401', async () => {
+    stubFetch({ redirected: false, ok: false, url: 'https://remix.run/admin/client', status: 401 })
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined)
+  })
+
+  it('does not cache the 5xx recovery card', async () => {
+    stubFetch({ redirected: false, ok: false, url: 'https://remix.run/admin/client', status: 500 })
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined)
+  })
+
+  it('caches a 4xx validation fragment exactly like a real navigation', async () => {
+    let response = {
+      redirected: false,
+      ok: false,
+      url: 'https://remix.run/admin/client',
+      status: 400,
+      text: async () => '<div>slot outside booking hours</div>',
+    } as Response
+    stubFetch(response)
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, response)
+  })
+
+  it('keeps a one-shot agent prefill for the real navigation', async () => {
+    agentPrefillMap.set('/admin/client', { message: 'hi' })
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.ok(result, 'expected a warmed response')
+    assert.ok(
+      agentPrefillMap.has('/admin/client'),
+      'a prefetch must not consume the prefill a real navigation would use',
+    )
+  })
+
+  it('still consumes the prefill on a real navigation', async () => {
+    agentPrefillMap.set('/admin/client', { message: 'hi' })
+    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.ok(!agentPrefillMap.has('/admin/client'))
   })
 })

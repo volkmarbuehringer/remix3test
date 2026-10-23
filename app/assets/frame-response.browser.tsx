@@ -18,15 +18,35 @@ export function isSameOriginFrameSource(url: URL): boolean {
   return url.origin === window.location.origin
 }
 
-export async function resolveFrameResponse(
+type FrameFetchResult =
+  | { kind: 'response'; response: Response }
+  | { kind: 'navigated' }
+  | { kind: 'error-card'; content: FrameContent }
+
+interface FrameFetchOptions extends ResolveFrameOptions {
+  /**
+   * Prefetches only warm the cache from a hover/focus intent: they must not navigate the
+   * document, must not consume a one-shot agent prefill, and must not cache the recovery
+   * card for a 5xx.
+   */
+  mode?: 'navigate' | 'prefetch'
+}
+
+/**
+ * Fetches a frame source and classifies the outcome, so the navigation and prefetch
+ * callers can share one request path while applying different side effects.
+ */
+async function fetchFrameResponse(
   url: URL,
-  options?: ResolveFrameOptions,
-): Promise<FrameContent | Response> {
+  options?: FrameFetchOptions,
+): Promise<FrameFetchResult> {
+  let prefetching = options?.mode === 'prefetch'
+
   if (!isSameOriginFrameSource(url)) {
     // Cross-origin sources fall back to document navigation, matching the runtime's
     // behavior for invalid/cross-origin frame navigation sources. Never fetched.
-    window.location.assign(url.href)
-    return new Promise<never>(() => {})
+    if (!prefetching) window.location.assign(url.href)
+    return { kind: 'navigated' }
   }
 
   let headers = new SuperHeaders()
@@ -55,20 +75,22 @@ export async function resolveFrameResponse(
     ...(options?.signal !== undefined ? { signal: options.signal } : {}),
   })
 
-  if (prefill && response.ok) {
+  // A prefetch only warms this URL; keep a one-shot prefill available for a real
+  // navigation that misses the cache (a cache hit deletes it in the entry resolver).
+  if (prefill && response.ok && !prefetching) {
     agentPrefillMap.delete(prefillKey)
   }
 
   // A redirected response may contain document UI that is not valid for the requested subframe.
   // The destination opts into subframe rendering by returning the matching target header.
   if (response.redirected && options?.target) {
-    window.location.assign(response.url)
-    return new Promise<never>(() => {})
+    if (!prefetching) window.location.assign(response.url)
+    return { kind: 'navigated' }
   }
 
   if (response.status === 401) {
-    window.location.assign(routes.auth.login.index.href())
-    return new Promise<never>(() => {})
+    if (!prefetching) window.location.assign(routes.auth.login.index.href())
+    return { kind: 'navigated' }
   }
 
   if (!response.ok) {
@@ -78,24 +100,52 @@ export async function resolveFrameResponse(
     // a generic crash card. Treat 5xx as a genuine server error, where the body
     // is not a usable fragment and a reload is the right recovery.
     if (response.status < 500) {
-      return response
+      return { kind: 'response', response }
     }
 
-    return (
-      <ErrorCard
-        eyebrow="Unexpected Error"
-        title="Reload required"
-        message="An unexpected error occurred. Please reload the page to try again."
-        action={
-          <a data-rmx-document href={window.location.href} mix={actionLinkCss}>
-            Reload
-          </a>
-        }
-      />
-    )
+    if (prefetching) return { kind: 'navigated' }
+
+    return {
+      kind: 'error-card',
+      content: (
+        <ErrorCard
+          eyebrow="Unexpected Error"
+          title="Reload required"
+          message="An unexpected error occurred. Please reload the page to try again."
+          action={
+            <a data-rmx-document href={window.location.href} mix={actionLinkCss}>
+              Reload
+            </a>
+          }
+        />
+      ),
+    }
   }
 
-  return response
+  return { kind: 'response', response }
+}
+
+export async function resolveFrameResponse(
+  url: URL,
+  options?: ResolveFrameOptions,
+): Promise<FrameContent | Response> {
+  let result = await fetchFrameResponse(url, options)
+  if (result.kind === 'response') return result.response
+  if (result.kind === 'error-card') return result.content
+  return new Promise<never>(() => {})
+}
+
+/**
+ * Warms a frame response for the runtime's prefetch hook. Returns the response only when a
+ * real navigation would render it; the paths that navigate the document, show the recovery
+ * card, or must not be reused (redirect with a target, 401, 5xx) yield undefined.
+ */
+export async function prefetchFrameResponse(
+  url: URL,
+  options?: ResolveFrameOptions,
+): Promise<Response | undefined> {
+  let result = await fetchFrameResponse(url, { ...options, mode: 'prefetch' })
+  return result.kind === 'response' ? result.response : undefined
 }
 
 /**

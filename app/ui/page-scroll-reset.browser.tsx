@@ -11,7 +11,8 @@ import { clientEntry, type Handle } from 'remix/component'
  *
  * Reset the app scroller after each same-document navigation, matching the
  * framework's after-transition default. A link/form that sets
- * data-rmx-reset-scroll="manual" (alias "false") opts out. SSE frame reloads
+ * data-rmx-reset-scroll="manual" opts out; the legacy boolean alias "false" is
+ * still honored because 3.1 keeps accepting it. SSE frame reloads
  * (handle.frame.reload()) are not Navigation API navigations and stay
  * unaffected, so a live grid does not yank the reader to the top.
  */
@@ -67,6 +68,7 @@ export const PageScrollReset = clientEntry(
               pendingReset = false
               return
             }
+            // "manual" is the 3.1 Navigation API value; "false" is the legacy boolean.
             let optOut = event.sourceElement?.getAttribute('data-rmx-reset-scroll')
             pendingReset = optOut !== 'manual' && optOut !== 'false'
           },

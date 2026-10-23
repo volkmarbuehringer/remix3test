@@ -1,4 +1,5 @@
 import { run } from 'remix/component'
+import type { FrameContent, ResolveFrameOptions } from 'remix/component'
 import { spring } from '@remix-run/ui/animation'
 import {
   detectMultipleImportMapSupport,
@@ -6,6 +7,12 @@ import {
   preloadShim,
 } from 'remix/multiple-import-maps-polyfill'
 
+import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
+import {
+  clearPrefetchedFrames,
+  prefetchFrame,
+  takePrefetchedFrame,
+} from './frame-prefetch.browser.ts'
 import { resolveFrameResponse } from './frame-response.browser.tsx'
 
 let app: ReturnType<typeof run>
@@ -23,20 +30,28 @@ app = run({
     void preloadShim(preloads)
     return []
   },
+  prefetch(src, options) {
+    prefetchFrame(src, options)
+  },
   async resolveFrame(src, options) {
-    let result = await resolveFrameResponse(new URL(src, window.location.href), options)
-    // An in-frame followed redirect (frameRedirects) returns a 200 fragment but
-    // is not marked `redirected`, so the frame runtime cannot infer the
-    // destination. Left unchecked, the frame's `src` stays at the POST action
-    // URL (e.g. /admin/users/2/toggle-disabled) and a later reload GETs it →
-    // 404. Read the header the middleware set and reconcile the frame's src.
-    if (result instanceof Response) {
-      let dest = result.headers.get('X-Remix-Redirect-To')
-      if (dest && options?.target) {
-        let frame = app.frames.get(options.target)
-        if (frame) frame.src = dest
+    let url = new URL(src, window.location.href)
+
+    // `data-rmx-prefetch` / `prefetch()` warmed this exact GET through the app
+    // resolver; claim it instead of paying for a second SSR.
+    if (isPlainGet(options)) {
+      let cached = takePrefetchedFrame(url, options?.target)
+      if (cached) {
+        // The warmed response already rendered (and so already consumed) any agent prefill.
+        agentPrefillMap.delete(url.pathname + url.search)
+        reconcileFrameRedirect(cached, options?.target)
+        return cached
       }
+      // An uncached navigation may change the data other warmed pages were built on.
+      clearPrefetchedFrames()
     }
+
+    let result = await resolveFrameResponse(url, options)
+    reconcileFrameRedirect(result, options?.target)
     return result
   },
 })
@@ -54,6 +69,23 @@ app.addEventListener('error', async (event) => {
     document.body.textContent = `Fatal error: ${message}`
   }
 })
+
+function isPlainGet(options?: ResolveFrameOptions): boolean {
+  return (options?.method ?? 'get').toLowerCase() === 'get' && options?.formData === undefined
+}
+
+function reconcileFrameRedirect(result: FrameContent | Response, target?: string): void {
+  // An in-frame followed redirect (frameRedirects) returns a 200 fragment but
+  // is not marked `redirected`, so the frame runtime cannot infer the
+  // destination. Left unchecked, the frame's `src` stays at the POST action
+  // URL (e.g. /admin/users/2/toggle-disabled) and a later reload GETs it →
+  // 404. Read the header the middleware set and reconcile the frame's src.
+  if (!(result instanceof Response)) return
+  let dest = result.headers.get('X-Remix-Redirect-To')
+  if (!dest || !target) return
+  let frame = app.frames.get(target)
+  if (frame) frame.src = dest
+}
 
 async function fadeOutBody() {
   let animation = document.body.animate(

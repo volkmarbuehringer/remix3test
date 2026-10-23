@@ -34,9 +34,7 @@ The vendor guidance says "keep the whole graph inside `public/`", but this app's
 allowFiles: [
   'app/**/public/**',          // route-owned + stream browser source
   'app/ui/**',                 // shared browser components AND their ui/ helpers (broad!)
-  'app/assets/entry.tsx',
-  'app/assets/frame-response.browser.tsx',
-  'app/assets/error-card.browser.tsx',
+  'app/assets/**',             // entry + resolver + prefetch cache (denyFiles still hides *.test.*/*.server.*)
   'app/routes.ts',
   'app/utils/**',
 ],

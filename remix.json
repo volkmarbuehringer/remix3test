@@ -10,9 +10,7 @@
     "allowFiles": [
       "app/**/public/**",
       "app/ui/**",
-      "app/assets/entry.tsx",
-      "app/assets/frame-response.browser.tsx",
-      "app/assets/error-card.browser.tsx",
+      "app/assets/**",
       "app/routes.ts",
       "app/utils/**"
     ],
