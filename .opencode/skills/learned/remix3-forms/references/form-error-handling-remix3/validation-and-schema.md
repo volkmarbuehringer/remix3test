@@ -6,110 +6,18 @@ The `parseSafe`-based direct re-render pattern and the schema traps that come wi
 
 - Re-rendering a form with `status: 400`, `formValues`, and `fieldErrors`
 - Preserving values in inputs and `<select>` elements
-- Choosing between `parse` and `parseSafe`, and writing declarative schemas
+- Using `parseSafe` with declarative schemas
 - The `coerce.number()` empty-select pitfall and Postgres `number` vs URL `string` mismatch
 - Cross-field validation and multi-step wizard state on POST
 - Testing validation failure (400) and success (302)
 
 For admin grid state and the 200-vs-400 grid path, see `admin-grid-state.md`.
 
-## Pattern 1: Direct Re-Render (Primary Pattern)
+## Pattern: direct re-render
 
-Use this pattern for all forms. On validation failure, re-render the page with `status: 400`, passing `formValues` and `fieldErrors` as props.
+Use the guide's `parseSafe` re-render pattern (`node_modules/remix/guides/09-forms-and-mutations.md` §"Return validation failures with the form"): parse first, and on failure re-render with the raw submitted values plus per-field issues and `{ status: 400 }`. The deltas below are what the guide cannot know.
 
-### Controller Setup
-
-```typescript
-import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
-import { minLength, email } from 'remix/data-schema/checks'
-
-// 1. Define schema with validation constraints
-const saveSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '').pipe(minLength(8))),
-  email: f.field(s.defaulted(s.string(), '').pipe(email())),
-  role: f.field(s.defaulted(s.string(), '')),
-})
-
-// 2. Extract raw form values BEFORE validation (to preserve on failure)
-function extractFormValues(formData: FormData): Record<string, string> {
-  let values: Record<string, string> = {}
-  for (let key of ['name', 'email', 'role'] as const) {
-    let v = formData.get(key)
-    values[key] = typeof v === 'string' ? v : ''
-  }
-  return values
-}
-
-// 3. Convert parseSafe issues to field-keyed errors
-function issuesToFieldErrors(
-  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>
-): Record<string, string> {
-  let errors: Record<string, string> = {}
-  for (let issue of issues) {
-    let field = issue.path?.[0]
-    if (typeof field === 'string' && !errors[field]) {
-      errors[field] = issue.message
-    }
-  }
-  return errors
-}
-
-// 4. In the action: validate, then branch
-async create(context) {
-  let formData = context.formData
-  let rawValues = extractFormValues(formData)
-  let parsed = s.parseSafe(saveSchema, formData)
-
-  if (!parsed.success) {
-    let fieldErrors = issuesToFieldErrors(parsed.issues)
-    return context.render(
-      <MyPage
-        formValues={rawValues}
-        fieldErrors={fieldErrors}
-      />,
-      { status: 400 },
-    )
-  }
-
-  // Use parsed.value for the happy path
-  let row = await db.create(table, parsed.value)
-  return redirect('/list')
-}
-```
-
-### Component: Render Errors and Preserved Values
-
-```tsx
-// Styles
-const inputErrorStyle = css({
-  borderColor: theme.colors.action.danger.background,
-})
-
-const fieldErrorStyle = css({
-  marginTop: theme.space.xs,
-  fontSize: theme.fontSize.xxs,
-  color: theme.colors.action.danger.background,
-})
-
-// Value priority: formValues (from validation failure) > row data (from DB)
-function EditForm(handle: Handle<EditFormProps>) {
-  return () => {
-    let { row, formValues, fieldErrors } = handle.props
-
-    return (
-      <div>
-        <input
-          name="name"
-          value={formValues?.name ?? row.name}
-          mix={fieldErrors?.name ? inputErrorStyle : null}
-        />
-        {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
-      </div>
-    )
-  }
-}
-```
+**Value priority:** on failure, `formValues` (raw submitted strings) > row data (DB) > defaults. Read them in the render function, not the factory closure — a clientEntry keeps setup state across frame reloads (see `remix3-ui § Frames`).
 
 ### Select Fields: Preserve Selection
 
@@ -134,37 +42,9 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 
 **Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. `remix/component` compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it.
 
-## Schema Validation: Choose the Right Approach
+## Schema Validation
 
-### `s.parse` — Throw on Failure (Avoid)
-
-```typescript
-// ❌ Don't use for form validation — throws, losing error details
-try {
-  parsed = s.parse(schema, formData)
-} catch {
-  return json({ ok: false, error: 'Invalid form data' }, { status: 400 })
-}
-```
-
-### `s.parseSafe` + Declarative Schemas (Recommended)
-
-Replace both `s.parse()` and custom validation functions with `s.parseSafe(schema, formData)` where the schema carries all rules via `.refine()` + `coerce.number()`:
-
-```typescript
-// ✅ Returns { success: true, value } or { success: false, issues }
-// Schemas defined once in app/utils/*-schema.ts — reusable across controllers
-
-let result = s.parseSafe(offeringSaveSchema, formData)
-
-if (!result.success) {
-  let fieldErrors = issuesToFieldErrors(result.issues)
-  // Pattern 1: render(<Page fieldErrors={...} />, { status: 400 })
-}
-
-// result.value has coerced types — NO parseInt() needed!
-let { resource_id, day, start_min, end_min } = result.value
-```
+Use `s.parseSafe` (never `s.parse`) with declarative `app/utils/*-schema.ts` schemas — the guide's §"Parse and save the submitted form" is canonical. The app deltas follow.
 
 ### Localize Built-In Check Messages by `code`, Not `message`
 
@@ -418,86 +298,7 @@ let wizardDayStr =
 
 ## Testing Form Validation
 
-### Test Validation Failure Returns 400 HTML
-
-```typescript
-it('POST /client with short name returns 400 with field error', async () => {
-  let body = new URLSearchParams({
-    name: 'Bob', // too short (minLength 8)
-    email: 'bob@test.com',
-    _csrf: csrfToken!,
-  })
-
-  let response = await router.fetch('https://remix.run/client', {
-    method: 'POST',
-    body,
-    redirect: 'manual',
-    headers: authHeaders(),
-  })
-
-  assert.equal(response.status, 400)
-
-  let html = await response.text()
-  // Assert error messaging
-  assert.ok(html.includes('New Record'), 'should show create form')
-  // Assert value preservation
-  assert.ok(html.includes('value="Bob"'), 'should preserve submitted name')
-  assert.ok(html.includes('value="bob@test.com"'), 'should preserve submitted email')
-  // Assert error message appears
-  assert.ok(html.includes('should be at least 8'), 'should show validation error')
-})
-```
-
-### Test Successful Validation Redirects
-
-```typescript
-it('POST /client creates a row and redirects', async () => {
-  let body = new URLSearchParams({
-    name: 'ValidNameHere', // 8+ chars
-    email: 'valid@test.com',
-    _csrf: csrfToken!,
-  })
-
-  let response = await router.fetch('https://remix.run/client', {
-    method: 'POST',
-    body,
-    redirect: 'manual',
-    headers: authHeaders(),
-  })
-
-  assert.equal(response.status, 302)
-  let location = response.headers.get('Location') || ''
-  assert.ok(location.startsWith('/client'), 'should redirect after create')
-})
-```
-
-**Key testing patterns:**
-
-- Use `redirect: 'manual'` to inspect response before following redirects
-- Assert `response.status` is 400 for validation failures
-- Search the response HTML for preserved form values and error messages
-- For success, assert the 302 redirect `Location` header points at the list/grid URL
-
-## Choosing Between Patterns
-
-**Use Pattern 1 (Direct Re-Render) for all new code.** The URL-param pattern is deprecated and should only be referenced when reading legacy code.
-
-| Criteria                   | Pattern 1: Direct Re-Render | URL Params (DEPRECATED)      |
-| -------------------------- | --------------------------- | ---------------------------- |
-| Form values preserved      | Yes (in server render)      | Yes (in URL)                 |
-| Implementation complexity  | Lower                       | Higher (need encode/decode)  |
-| Browser URL clean on error | Yes                         | No (bloated with fv_/fe_)    |
-| Grid state preserved       | Yes (via overrides)         | Yes (in URL)                 |
-| HTTP semantics             | Correct (400)               | Incorrect (302)              |
-
-## Common Mistakes
-
-1. **Using `s.parse` instead of `s.parseSafe`** — `parse` throws on validation failure, losing error details. Use `parseSafe` and check `.success`.
-2. **Not preserving form values on failure** — Users must re-type all fields after a validation error. Always pass `formValues` back to the component.
-3. **Forgetting `redirect: 'manual'` in tests** — Without it, the test follows the 302 redirect and cannot assert the 400 response.
-4. **Select fields not showing preserved values** — `formValues` (from failed submit) must take priority over row data (from DB) for `selected` attributes. Also, `defaultValue` on `<select>` does NOT work in Remix 3 — use `selected` on `<option>`. See "Select Fields: Preserve Selection" above.
-5. **Returning a 400 HTML re-render inside a Frame** — Frame navigation for non-GET responses must render the full page via the `ShellOrFragment` patch in `remix3-frame-cliententry`, not a bare fragment or URL-param redirect. Use Pattern 1 for the render; the shell patch handles Frame correctness.
-6. **Using `type="email"` with custom validation** — HTML5 email validation may conflict with schema validation. Use `type="text"` and rely on schema-based `email()`.
-7. **Returning `context.json()` for admin form errors** — renders raw JSON in the browser, not the form page. Re-render the form page with Pattern 1.
-8. **`coerce.number()` on empty select values** — `<option value="">` sends `""` which rejects with English `"Expected number"` before `.refine()` runs. Pre-check empty selects. Also watch the Postgres `number` vs URL `string` mismatch on `selected` — use `String()` on both sides.
-9. **Dropping the `if (!result.success)` guard** — When restructuring controller actions, ensure the parseSafe success check remains before accessing `result.value`.
+- Pass `redirect: 'manual'` to `router.fetch`; otherwise the test follows the 302 and cannot assert the 400 response.
+- Include `_csrf` in the `URLSearchParams` body for CSRF-protected routes.
+- Assert the 400 status, preserved `value="..."` in the returned HTML, and the localized error text. For success, assert the 302 `Location` header.
+- Reference tests: `app/actions/client/controller.test.ts`.

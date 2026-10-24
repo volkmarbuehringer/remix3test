@@ -97,41 +97,6 @@ Key facts (post-#11668):
 
 Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event while the `submit` event is still at **AT_TARGET (eventPhase 2)**, so the guard discards the snapshot, `pendingSubmissions` stays empty, and a detached-submitter GET form falls through to a full document navigation. Probe evidence: a `formdata` listener sees `{ phase: 2, defaultPrevented: false, submitterIsButton: true }`, `navigate` fires with `sourceElement: button, canIntercept: true`, and the document navigates anyway; the attached-submitter control stays in-frame in both engines. App impact: a Firefox form submitted through a removed/temporary submitter does a full page load. Guard: `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` (Chromium asserts the in-frame reload; Firefox is a smoke check, scoped with `isFirefox()` like `agent-events-frame-redirect.test.e2e.ts`).
 
-**Historical root cause (pre-#11668, for legacy builds only):** the Navigation API sets `event.canIntercept === false` for all non-GET navigations, and `getSourceElementNavigation` only read `data-rmx-target` from `<a>`/`<area>` — never from `<form>`. POST validation errors (`POST /admin/resource/:id → 400`) therefore did a full-page navigation, and `renderAdminPage()` without `X-Remix-Target` re-rendered `<Frame src={request.url}/>` against the POST URL → `GET /admin/resource/:id → 404`. On old builds, either render the sidebar directly on POST error paths (no frame wrapper) or use the event-delegation shim below.
-
-<details>
-<summary>Legacy pre-#11668 client shim</summary>
-
-Add one delegated `submit` listener on the frame container to catch all its forms:
-
-```typescript
-let container = document.getElementById('support-agent-frame-container')
-if (container) {
-  container.addEventListener('submit', async (e) => {
-    let form = (e.target as HTMLElement).closest('form')
-    if (!form || form.id === 'support-agent-form') return // skip the agent's own form
-    e.preventDefault()
-    let method = (form.method || 'GET').toUpperCase()
-    let action = form.getAttribute('action') || ''
-    let target = form.getAttribute('data-rmx-target')
-    let frame = target ? handle.frames.get(target) : handle.frame
-    if (!frame) return
-    if (method === 'GET') {
-      let qs = new URLSearchParams(new FormData(form) as any).toString()
-      frame.src = action + (qs ? '?' + qs : '')
-      frame.reload().catch(() => {})
-    } else {
-      await fetch(action, { method, body: new FormData(form) })
-      await frame.reload()
-    }
-  })
-}
-```
-
-Use `frame.reload()` (re-fetches the frame's `src` through the `resolveFrame` pipeline with the right headers) rather than `frame.replace()` (diffs raw HTML, which breaks when the POST response is a full document). Event delegation beats a per-form `clientEntry`.
-
-</details>
-
 ## Client resolveFrame Signature (ResolveFrameOptions)
 
 **Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails. Because the app **shadows the runtime's `defaultResolveFrame`**, upstream changes to the default's request encoding do not reach `app/assets/frame-response.browser.tsx`; re-sync it after every pin bump (see `remix3-build-and-tooling` → `references/upstream-dependency-analysis.md`).

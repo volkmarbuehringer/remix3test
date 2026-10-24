@@ -205,7 +205,7 @@ async function renderClientsError(context, opts): Promise<Response> {
 }
 ```
 
-**Contrast:** `context.render(<Page/>, { status: 400 })` (Pattern 1 in `validation-and-schema.md`) is for full-page / non-admin-frame forms. Inside the admin frame, route validation through `renderGridFormError` so inline errors appear at 200. When a spec/test says "returns 400" for a grid page that uses `renderGridFormError`, it describes stale behavior — correct it to 200 (see the users test `assert.equal(response.status, 200)`).
+**Contrast:** `context.render(<Page/>, { status: 400 })` (direct re-render in `validation-and-schema.md`) is for full-page / non-admin-frame forms. Inside the admin frame, route validation through `renderGridFormError` so inline errors appear at 200. When a spec/test says "returns 400" for a grid page that uses `renderGridFormError`, it describes stale behavior — correct it to 200 (see the users test `assert.equal(response.status, 200)`).
 
 ### Form Error Banner Styles
 

@@ -12,11 +12,8 @@ No skill indexes `@remix-run/ui/animation`; the presence and layout mixins are g
 
 ## Solution
 
-- Import from `@remix-run/ui/animation` and compose the mixins into the `mix` array alongside `css()`, `on()`, and `ref()`.
-- `animateEntrance(config)` animates a host node when it is inserted. `animateExit(config)` keeps a removed node in the DOM until its exit animation finishes, so it can animate out instead of vanishing.
-- Pass `true` for the default opacity animation or `false` to disable a mixin without changing the surrounding array. `animateEntrance({ initial: false })` skips the first insertion for a key but still animates later insertions. If a keyed element returns before its exit finishes, Remix reclaims that DOM node and animates it back toward its rendered styles.
+- Import from `@remix-run/ui/animation` and compose the mixins into the `mix` array alongside `css()`, `on()`, and `ref()`. For the `animateEntrance`/`animateExit`/`animateLayout` API — `initial: false`, disable-with-`false`, keyed reclamation, `size: false` — use the guide (§"Entrance and exit animations", §"Layout animations"); the deltas below are what it cannot know.
 - Keep `key`s stable when toggling related elements or reordering a list: the key is how the runtime knows which node is entering, exiting, or being replaced.
-- `animateLayout(config)` measures a host node before and after a render and animates the visual delta — sorted lists, expanding cards, and layout-shift elements. `key` is not optional in lists. Size projects by default; pass `size: false` when scaling contents would look wrong.
 
 **App delta (2026-10-17, tested): exit-teardown timing in browser tests.** The `animateExit` teardown is *created asynchronously*: `prepareMixinRemoval` runs teardowns through `Promise.resolve().then(...)`, so a single `document.getAnimations()` snapshot taken right after a close-click races the teardown and misses the animation (observed: 1 running animation at t=0, 2 at t≈100ms). In `remix test --type browser`, poll for DOM removal instead:
 

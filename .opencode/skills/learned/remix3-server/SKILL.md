@@ -36,7 +36,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 | Existing tests breaking after moving error handling into middleware | `references/remix-controllers/error-centralization-tests.md` |
 | Route contract: `resources()`/`resource()` options (`only` vs this app's `exclude`), `patch`/`head`/`options` or any-method/bare-string leaves, nested-map registration and startup throws, `context.has`/`context.router`/request-only `context.headers` | `references/remix-controllers/route-contract-and-controllers.md` |
 | Request pipeline: `createRequestListener` options and the `(request, client)` arg, root middleware order (`compression`/`staticFiles`/`logger`), `RouterContext` vs `MiddlewareContext`, `request.body`/`request.signal` streaming and cancellation | `references/remix-controllers/request-middleware.md` |
-| `RoutePattern` becomes opaque and `.pathname.tokens`/`_parts` access breaks; you need the pattern's variables/wildcards | `references/remix-controllers/routepattern-opaque-access.md` |
+| `RoutePattern` is opaque and `.pathname.tokens`/`_parts` access breaks; you need the pattern's variables/wildcards | `references/remix-controllers/routepattern-opaque-access.md` |
 | Constructing or parsing HTTP headers with the typed `remix/headers` classes (Content-Disposition quoting, `Content-Length`, browser-safe `ContentType`) | `references/remix-controllers/headers.md` |
 
 ### Core Rules
@@ -64,7 +64,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 **Opaque `RoutePattern` (`references/remix-controllers/routepattern-opaque-access.md`)**
 
-- `RoutePattern` is opaque on current builds: use `.source`/`toString()`, `.toJSON()`, or `getRoutePatternCaptures(pattern)`; never `.pathname.tokens`/`_parts`. The common parent-path rewrite is string-based: `route.pattern.source.replace(/\/[:*][^/]*$/, '/')`.
+- `RoutePattern` is opaque on current builds: use `.source`/`toString()`, `.toJSON()`, or `getRoutePatternCaptures(pattern)`; never `.pathname.tokens`/`_parts`. The common parent-path rewrite is string-based: `route.pattern.source.replace(/\/[:*][^/]*$/, '/')` (the app's `routeParentPath()` in `app/route-labels.ts`).
 
 **Typed headers (`references/remix-controllers/headers.md`)**
 

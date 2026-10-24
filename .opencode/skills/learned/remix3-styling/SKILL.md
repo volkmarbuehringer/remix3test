@@ -1,13 +1,13 @@
 ---
 name: remix3-styling
-description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors not emitted, theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, and interruptible imperative animations with @remix-run/ui/animation."
+description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors (nested parent→child rules now emit; legacy JS fallback), theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, interruptible imperative animations with @remix-run/ui/animation, `element.animate()`/WAAPI motion that bypasses the CSS reduced-motion guard, and `transitionend` teardowns that never fire when a stylesheet overrides the transition."
 user-invocable: false
 origin: consolidated
 ---
 
 # Remix 3 Styling: CSS, Theme Tokens & Motion
 
-Consolidated from 3 former learned skills (`remix3-css-and-layout`, `remix3-theme-conformance`, `remix3-animation`) on 2026-10-17. Reference files are namespaced under `references/<former-skill>/`. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
+Consolidated from 4 former learned skills (`remix3-css-and-layout`, `remix3-theme-conformance`, `remix3-animation`, `imperative-motion-gotchas`) between 2026-10-17 and 2026-10-24. Reference files are namespaced under `references/<former-skill>/`; the imperative-motion deltas live in `references/remix3-animation/reduced-motion.md`. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
 
 ## Load Only The Sections You Need
 
@@ -15,7 +15,7 @@ Consolidated from 3 former learned skills (`remix3-css-and-layout`, `remix3-them
 | --- | --- | --- |
 | Visually wrong styling — @layer rmx.* overrides, hover-reveal, flex/panel/sidebar traps, admin-grid columns, native <select> overflow, hidden not hiding | § CSS & Layout | `references/remix3-css-and-layout/` |
 | Styling with theme tokens — raw var(--rmx-...) strings, *.background misuse, missing contract tokens breaking light/dark contrast | § Theme Tokens | `references/remix3-theme-conformance/` |
-| Motion — entrance/exit presence, layout animation, spring()/tween(), reduced-motion gating, interruptible imperative animations | § Animation & Motion | `references/remix3-animation/` |
+| Motion — entrance/exit presence, layout animation, spring()/tween(), reduced-motion gating, interruptible imperative animations, WAAPI (`element.animate()`) and `transitionend` teardown leaks | § Animation & Motion | `references/remix3-animation/` |
 
 ## CSS & Layout
 
@@ -29,7 +29,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 
 | Task involves... | Start with |
 | --- | --- |
-| A hover/focus reveal (row actions, delete, tooltip) never appears; `&:hover > *` / `&:hover [attr]` in `css()` emits nothing | `references/remix3-css-and-layout/hover-reveal.md` |
+| A hover/focus reveal (row actions, delete, tooltip) never appears; `&:hover > *` / `&:hover [attr]` in `css()` emits nothing (pre-fix builds only) | `references/remix3-css-and-layout/hover-reveal.md` |
 | A `css()` override silently loses to vendor rules (double borders, wrong divider colour, `& > *` ignored) while sibling rules apply | `references/remix3-css-and-layout/cascade-layer-overrides.md` |
 | An inline icon/glyph sits on its own line above its label; a link/span containing an SVG wraps vertically | `references/remix3-css-and-layout/svg-reset-inline-wrap.md` |
 | A native `<select>` overflows its flex row because of long option text | `references/remix3-css-and-layout/native-select-flex-contain.md` |
@@ -47,9 +47,8 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 
 **Hover reveal (`references/remix3-css-and-layout/hover-reveal.md`)**
 
-- The `css()` runtime **never emits parent→child reveal selectors**: `&:hover > *`, `&:hover > [attr]`, `&:hover [attr]` are all silent no-ops, while `:hover` on the element itself and non-hover child combinators do apply. The rules land in an adopted/shadow stylesheet, so `document.styleSheets` shows nothing.
-- Drive the reveal from a `clientEntry` that toggles **inline** `style.opacity` (and `pointer-events`) on a stable-attributed child cluster, wired to `mouseenter`/`mouseleave` **and** `focusin`/`focusout`; re-init on frame `reloadComplete` and abort prior listeners. Provide the delegated (`mouseover` + `closest(...)`) variant for rows that re-render on every state change.
-- Resting state is `opacity: 0; pointer-events: none`, flipped to `auto` when revealed (the container's `pointer-events: none` is what lets clicks pass through to the row). Force-reveal an actively-editing row; add `@media (hover: none)` so touch devices always see and can click the actions (for dense rows whose cluster squeezes/overlays the label, switch to a kebab + inline menu — see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`); gate destructive actions separately (e.g. `data-confirm`), never by trapping clicks with `pointer-events`.
+- Nested parent→child rules **do work on the current build**: `&:hover > *`, `&:hover > [attr]`, and `&:hover [attr]` are emitted into the per-class `@layer rmx.<class>` rule and applied by the browser (verified in Chromium + Firefox, 2026-10-24). Drive the reveal from the row's `&:hover` / `&:focus-within` CSS instead of a `clientEntry`; `:focus-within` replaces the old `focusin`/`focusout` wiring and CSS survives frame replacement with no re-init. Resting state stays `opacity: 0; pointer-events: none` on the cluster, flipped to `auto` when revealed (the container's `pointer-events: none` is what lets clicks pass through to the row). Add `@media (hover: none)` so touch devices always see and can click the actions (for dense rows whose cluster squeezes/overlays the label, switch to a kebab + inline menu — see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`); gate destructive actions separately (e.g. `data-confirm`), never by trapping clicks with `pointer-events`.
+- **Legacy caveat (pre-fix builds only):** these selectors once emitted nothing, so the app still carries a delegated inline-style reveal in `lists-view.tsx` (`~:1526-1575`). That JS block is now unnecessary — replace it with the row CSS when touching the file. Inspect generated rules with CDP (`CSS.getMatchedStylesForNode`), not `document.styleSheets`: the rules live in an adopted stylesheet.
 
 **Cascade-layer overrides (`references/remix3-css-and-layout/cascade-layer-overrides.md`)**
 
@@ -183,9 +182,9 @@ This skill is the **index** for theme-token conformance — styling must go thro
 
 ## Animation & Motion
 
-_(formerly `remix3-animation` — references live under `references/remix3-animation/`)_
+_(formerly `remix3-animation` and `imperative-motion-gotchas` — references live under `references/remix3-animation/`)_
 
-**Extracted:** 2026-09-26
+**Extracted:** 2026-09-26 (imperative-motion delta folded 2026-10-24)
 
 This skill is the **pointer/delta index** for guide `node_modules/remix/guides/07-animation.md` (the canonical motion model). The component primitives it composes with (`clientEntry`, `on`, `ref`, `mix`) are covered by the vendor `remix` skill and `remix3-ui § Client Entries`.
 
@@ -195,7 +194,7 @@ This skill is the **pointer/delta index** for guide `node_modules/remix/guides/0
 | --- | --- |
 | A node enters/exits, toggles presence, or a keyed list reorders/expands | `references/remix3-animation/presence-and-layout.md` |
 | Choosing `spring()` vs `spring.transition()` vs `tween()`; imperatively animating a node; interruption | `references/remix3-animation/motion-values.md` |
-| `prefers-reduced-motion`, gating animation before JS loads, or the app's motion helper | `references/remix3-animation/reduced-motion.md` |
+| `prefers-reduced-motion`, gating animation before JS loads, or the app's motion helper — including WAAPI (`element.animate()`) and `transitionend` teardown leaks | `references/remix3-animation/reduced-motion.md` |
 
 ### Core Rules
 
@@ -215,6 +214,8 @@ This skill is the **pointer/delta index** for guide `node_modules/remix/guides/0
 **Reduced motion (`references/remix3-animation/reduced-motion.md`)**
 
 - Respect it at the CSS boundary first (`@media (prefers-reduced-motion: reduce)` inside `css()`), because it works before JS and for server-rendered frames; then check `matchMedia` for JS-driven motion.
+- The shell's CSS guard does **not** reach `element.animate()`: gate every imperative animation on `prefersReducedMotion()` yourself. The same `transition: none !important` also beats inline `element.style.transition`, so `transitionend` never fires under reduced motion — pair every `transitionend` teardown with a timeout fallback (`app/ui/toast.ts`).
+- Exit teardowns are created asynchronously, so browser tests must poll for DOM removal instead of awaiting one `getAnimations()` snapshot (`references/remix3-animation/presence-and-layout.md`).
 - Reduced motion is not "no feedback" — prefer shorter fades, instant layout, or non-motion state changes.
 
 ### When to Use

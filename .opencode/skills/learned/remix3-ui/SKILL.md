@@ -118,7 +118,6 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | An enhancer clientEntry renders `null`/a hidden div, scans server DOM, and registers module-scoped document listeners; converting it to component-owned DOM (or its `on(...)` can't hear a sibling input's events) | `references/remix3-client-entries/component-owned-dom-conversion.md` |
 | Per-element `ref()` event wiring for a DOM behavior that contributes no server HTML should become one delegated browser-only `createMixin(type, { ssr: false })` on a container (or its handlers must stop reading `e.currentTarget` as the row) | `references/remix3-client-entries/browser-only-behavior-mixin.md` |
 | Adding `data-rmx-prefetch` / `prefetch()` link warming, or a prefetch cost a second SSR because `run({ resolveFrame })` replaces the default resolver | `references/remix3-client-entries/frame-prefetch-cache.md` |
-| Historical: the `diffChildren` bulk-clear wipe of an unchanged textarea `value`/`defaultValue` (fixed upstream #11880) | `references/remix3-client-entries/textarea-bulk-clear-wipe-history.md` |
 
 ### Core Rules
 
@@ -169,10 +168,6 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 **Finalize streamed markdown once (`references/remix3-client-entries/streamed-chat-markdown-finalize.md`)**
 
 - Stream the reply as plain `textContent` and render markdown **once** in the terminal `complete` handler, targeting a `data-kind="text"` bubble (a tool-result card/approval gate can be the last element); build the DOM with `createTextNode`/property assignment, never `innerHTML`, and restrict links to `http(s)`.
-
-**Textarea bulk-clear (historical, `references/remix3-client-entries/textarea-bulk-clear-wipe-history.md`)**
-
-- The `diffChildren` bulk-clear fast path that wiped an unchanged textarea `value`/`defaultValue` is **fixed** (upstream `f5b5c5340`, #11880; the guard now requires `curr.length > 0`). Do not re-apply the old children-based workaround — use plain `defaultValue`.
 
 **Decomposing a large `clientEntry` (`references/remix3-client-entries/client-entry-decomposition.md`)**
 

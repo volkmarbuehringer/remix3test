@@ -17,7 +17,7 @@ For event listeners re-attaching after frame reload, see `cliententry-lifecycle.
 
 **Context:** Creating a joined "Edit | Del" button group where the parent needs to style child Button components inside a `clientEntry` component.
 
-`clientEntry` props must be JSON-serializable. Since build `a4d62e199` (#11918) they no longer have to extend `SerializableProps` — a plain `interface` (including nested objects whose properties are all optional) type-checks, and the vendor's own template/demo dropped the index-signature workarounds. Functions and non-serializable objects are still rejected at the type level. CSS `MixinDescriptor` objects (produced by `css()`) are **not** serializable, so you cannot pass `btnMix` or similar styling props to a `clientEntry` component. This blocks the common joined "Edit | Del" button group.
+`clientEntry` props must be JSON-serializable — a plain `interface` type-checks, but functions and non-serializable objects are rejected at the type level. CSS `MixinDescriptor` objects (produced by `css()`) are **not** serializable, so you cannot pass `btnMix` or similar styling props to a `clientEntry` component. This blocks the common joined "Edit | Del" button group.
 
 Use **parent-container CSS with child selectors** instead of passing mixins as props:
 

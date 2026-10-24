@@ -1,6 +1,6 @@
 ---
 name: remix3-data
-description: "Use when working with remix/data-table grids/writes, database migrations, or Postgres from a Remix 3 app — typed db.findMany/findOne/create pitfalls (dynamic sort columns, unknown json/bigint columns, row adapters), counting filtered rows (`db.count` typed where / grid totals), write-returning (returnRow/returning: '*', zero-row update), inList() multi-ID filters, raw-SQL (sql/rawSql/db.exec) sort/filter grids, DDL migrations on a dedicated client, data-table migration checksum drift recovery, constraint-violation error handling in controllers, decoding db.exec rows with wire-honest zod schemas, idempotent FK alterations, LIMIT without ORDER BY, locale-dependent error matching, node-postgres returning int8 as strings, and index-drop safety (idx_scan = 0 is not proof)."
+description: "Use when working with remix/data-table grids/writes, database migrations, or Postgres from a Remix 3 app — typed db.findMany/findOne/create pitfalls (dynamic sort columns, unknown json/bigint columns, row adapters), counting filtered rows (`db.count` typed where / grid totals), write-returning (returnRow/returning: '*', zero-row update), inList() multi-ID filters, raw-SQL (sql/rawSql/db.exec) sort/filter grids, DDL bootstrap/catalog races (db/schema.sql, parallel test init), data-table migration checksum drift recovery, constraint-violation error handling in controllers, decoding db.exec rows with wire-honest zod schemas, idempotent FK alterations, LIMIT without ORDER BY, locale-dependent error matching, node-postgres returning int8 as strings, and index-drop safety (idx_scan = 0 is not proof)."
 user-invocable: false
 origin: consolidated
 ---
@@ -14,7 +14,7 @@ Consolidated from 3 former learned skills (`remix3-data-table`, `database-gotcha
 | You need... | Section | References |
 | --- | --- | --- |
 | data-table grids/writes — inList(), dynamic sort columns, raw-SQL sort/filter, row adapters, write-returning | § Data-Table Grids & Writes | `references/remix3-data-table/` |
-| Postgres from a Remix 3 app — DDL on a dedicated client, migration checksum drift, constraint violations, wire-honest db.exec decoding | § Database & Migrations | `references/database-gotchas/` |
+| Postgres from a Remix 3 app — DDL bootstrap/catalog races, migration checksum drift, constraint violations, wire-honest db.exec decoding | § Database & Migrations | `references/database-gotchas/` |
 | PostgreSQL quirks — idempotent FK alterations, LIMIT without ORDER BY, locale-dependent error matching, int8-as-string, index-drop safety | § Postgres | `references/postgres-gotchas/` |
 
 ## Data-Table Grids & Writes
@@ -31,7 +31,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| Querying by multiple IDs — `inList()` vs `= ANY($1)` order-preserving fallback | `references/remix3-data-table/array-in-clause.md` |
+| Querying by multiple IDs — `inList()` (and its input-order caveat) | `references/remix3-data-table/array-in-clause.md` |
 | `db.findMany({ orderBy })` rejecting a dynamic sort column (TS2322 OrderByTuple) | `references/remix3-data-table/dynamic-sort-order-by.md` |
 | Raw-SQL grid (`sql`/`rawSql`/`db.exec`) needing safe sort + filter columns | `references/remix3-data-table/raw-sql-sort-filter.md` |
 | `TableRow<typeof table>` won't assign to a UI row type (unknown json/bigint columns) | `references/remix3-data-table/row-adapter.md` |
@@ -71,17 +71,16 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| DDL (CREATE/ALTER/CREATE INDEX/EXTENSION) times out on a shared `pg.Pool`, holds a pool connection, or causes lock contention / parallel-init self-deadlock; intermittent `pg_class_*` / `pg_extension_*` catalog duplicate-key in the full suite | `references/database-gotchas/ddl-migration-dedicated-client.md` |
+| DDL bootstrap via `db/schema.sql` inherits the pool `statement_timeout`; parallel init races to a `pg_class_*` / `pg_extension_*` catalog duplicate-key; a config-backed pool has no `'error'` listener | `references/database-gotchas/ddl-bootstrap-and-catalog-races.md` |
 | App startup fails with `Migration checksum drift detected` or `Applied migration ... is missing from current migrations`; you need to edit, delete, or roll back an applied `data-table` migration | `references/database-gotchas/migration-drift-recovery.md` |
 | A controller catches a PostgreSQL constraint violation (`23001`/`23503`/`23505`/`23P01`), the adapter wraps the real error, or you must re-render the page with `formError` instead of returning JSON | `references/database-gotchas/database-errors.md` |
 | A raw `db.exec` query returns untyped rows and you are about to write `as unknown as SomeRow[]`; decoding `int4`/`int8`/aggregate/JSONB/UUID columns | `references/database-gotchas/raw-sql-wire-honest-rows.md` |
 
 ### Core Rules
 
-**DDL migrations on a dedicated client (`references/database-gotchas/ddl-migration-dedicated-client.md`)**
+**DDL bootstrap and catalog races (`references/database-gotchas/ddl-bootstrap-and-catalog-races.md`)**
 
-- DDL run on a shared `pg.Pool` inherits the pool's `statement_timeout` (e.g. 30s), so long CREATE/ALTER dies during `beforeAll`/on constrained hardware, holds a pool connection for its whole duration, and can self-deadlock parallel domain init (e.g. Mastra `PostgresStoreVNext`). The fallback pattern is a dedicated `pg.Client` constructed with `statement_timeout: 0`, all DDL inside `BEGIN`/`COMMIT` for atomicity, a database-scoped session-level `pg_advisory_lock(287140921)`, and `client.end()` in `finally` (closing the connection releases any remaining session locks).
-- Current newapp retires both that path and the data-table migration runner: `app/db.ts` builds the driver from a caller-owned `pg.Pool` (so it can attach a pool `'error'` listener) and bootstraps an idempotent `db/schema.sql` via `db.executeScript()` with no journal/checksum; `test/setup.ts` creates a fresh test DB, resets `public` through a throwaway pool, then calls `initializeAppDatabase()`. `db.executeScript()` uses the simple-query path (so it inherits pool `statement_timeout: 30000`), whereas `db.exec(sql, [])` cannot run multi-statement DDL (parameterized extended protocol rejects it). `CREATE EXTENSION IF NOT EXISTS` is **not** advisory-lock-serialized, so concurrent cold boots can race to a `pg_extension_name_index` duplicate key — the whole implicit-transaction script rolls back, making a single retry a safe no-op; `CREATE TABLE/INDEX IF NOT EXISTS` are catalog-lock-serialized and safe. A config-backed pool attaches **no** `pool.on('error')` listener, while passing your own `pg.Pool` re-enables the listener but disables `wipe()`/`reset()` — newapp now takes the caller-owned-pool route (which is why `test/setup.ts` resets the schema itself). An intermittent catalog duplicate (`pg_class_relname_nsp_index`/`pg_extension_name_index`) that passes when the file runs alone but varies across the full suite is an infra race — serialize DDL with `--concurrency 1`.
+- newapp builds the driver from a caller-owned `pg.Pool` (so it can attach a pool `'error'` listener) and bootstraps an idempotent `db/schema.sql` via `db.executeScript()` with no journal/checksum; `test/setup.ts` creates a fresh test DB, resets `public` through a throwaway pool, then calls `initializeAppDatabase()`. `db.executeScript()` uses the simple-query path (so it inherits pool `statement_timeout: 30000`), whereas `db.exec(sql, [])` cannot run multi-statement DDL (parameterized extended protocol rejects it). `CREATE EXTENSION IF NOT EXISTS` is **not** advisory-lock-serialized, so concurrent cold boots can race to a `pg_extension_name_index` duplicate key — the whole implicit-transaction script rolls back, making a single retry a safe no-op; `CREATE TABLE/INDEX IF NOT EXISTS` are catalog-lock-serialized and safe. A config-backed pool attaches **no** `pool.on('error')` listener, while passing your own `pg.Pool` re-enables the listener but disables `wipe()`/`reset()` — newapp takes the caller-owned-pool route. An intermittent catalog duplicate (`pg_class_relname_nsp_index`/`pg_extension_name_index`) that passes when the file runs alone but varies across the full suite is an infra race — serialize DDL with `--concurrency 1`. The retired dedicated-`pg.Client` migration workaround is not needed here; do not reintroduce it.
 
 **Data-table migration checksum drift recovery (`references/database-gotchas/migration-drift-recovery.md`)**
 
@@ -156,6 +155,6 @@ Covers five PostgreSQL pitfalls:
 ### Related Skills
 
 - `mastra-deltas § Agent` — Mastra agent patterns, including PostgresStore observability and storage-API cleanup
-- `remix3-data § Database` — DDL migrations on a dedicated `pg.Client` and migration checksum-drift recovery (`references/database-gotchas/ddl-migration-dedicated-client.md`)
+- `remix3-data § Database` — DDL bootstrap/catalog-race diagnosis and migration checksum-drift recovery (`references/database-gotchas/ddl-bootstrap-and-catalog-races.md`, `references/database-gotchas/migration-drift-recovery.md`)
 - `postgres-patterns` — general PostgreSQL schema, query, and indexing patterns
 - `database-reviewer` — the review workflow that surfaces `pg_stat_user_indexes`; apply this reference's caveat before acting on a 0-scan row

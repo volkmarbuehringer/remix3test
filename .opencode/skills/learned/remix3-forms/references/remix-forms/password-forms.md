@@ -74,63 +74,9 @@ if (!parsed.success) {
 
 ## Solution 3: Password visibility toggle via `data-toggle-pw`
 
-> **App re-checked 2026-10-14:** this app no longer uses a `clientEntry` for the toggle. `PasswordToggle` in `app/ui/password-toggle.browser.tsx` renders a nonce'd `<script>` containing `PASSWORD_TOGGLE_SCRIPT` (`app/ui/password-toggle.script.ts`); the `clientEntry` snippet below is historical.
+> **Current app pattern (re-checked 2026-10-24):** no `clientEntry`. `PasswordToggle` in `app/ui/password-toggle.browser.tsx` renders a nonce'd `<script>` containing `PASSWORD_TOGGLE_SCRIPT` (`app/ui/password-toggle.script.ts`), so the listener is registered synchronously at parse time (no `import()` gap). See `remix3-server § Security` → `references/security-gotchas/csp-inline-scripts.md`.
 
-Create a `clientEntry` in `app/assets/` (NOT in `app/ui/`) that uses document-level event delegation:
-
-```typescript
-// app/ui/password-toggle.browser.tsx
-import { clientEntry, type Handle } from 'remix/component'
-
-const eyeSvg = `<svg xmlns="..." width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
-
-const eyeOffSvg = `<svg xmlns="..." ...><path d="M17.94 17.94..."/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
-
-export const PasswordToggle = clientEntry(
-  import.meta.url + '#PasswordToggle',
-  function PasswordToggleEntry(_handle: Handle) {
-    let initialized = false
-    return () => {
-      if (!initialized && typeof document !== 'undefined') {
-        initialized = true
-        document.addEventListener('click', (e) => {
-          let btn = (e.target as HTMLElement).closest('[data-toggle-pw]') as HTMLElement | null
-          if (!btn) return
-          let fieldName = btn.getAttribute('data-toggle-pw')
-          if (!fieldName) return
-          let form = btn.closest('form')
-          if (!form) return
-          let input = form.querySelector<HTMLInputElement>(`[name="${fieldName}"]`)
-          if (!input) return
-          let isPassword = input.type === 'password'
-          input.type = isPassword ? 'text' : 'password'
-          btn.innerHTML = isPassword ? eyeOffSvg : eyeSvg
-          btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password')
-        })
-      }
-      return null
-    }
-  },
-)
-```
-
-Render the toggle once via a shared component (e.g., in `AuthForm`):
-
-```typescript
-// app/ui/auth-card.tsx (or your shared form component)
-import { PasswordToggle } from '../ui/password-toggle.browser.tsx'
-
-export function AuthForm(handle: Handle<AuthFormProps>) {
-  return () => (
-    <form ...>
-      <PasswordToggle />   {/* renders nothing, just registers listener */}
-      ...
-    </form>
-  )
-}
-```
-
-Server-render the toggle buttons with `data-toggle-pw` pointing to the input's `name`:
+Server-render the toggle button with `data-toggle-pw` pointing at the input's `name`; the script delegates at document level, so it survives frame swaps:
 
 ```tsx
 <div mix={inputWrapperCss}>
@@ -197,14 +143,10 @@ export const toggleButtonCss = css({
 })
 ```
 
-### Why clientEntry must be in `app/assets/`, not `app/ui/`
+### Why the toggle is an inline script, not a `clientEntry`
 
-Placing `clientEntry(import.meta.url, ...)` in a file under `app/ui/` (like `auth-card.tsx`) triggers the Remix asset server to trace all imports from that file for client-side bundling. The trace follows `remix/component` → `remix/middleware/async-context` → `@remix-run/async-context-middleware`, which imports `node:async_hooks` — a Node.js built-in that cannot be resolved for client bundles. This produces:
+- Wrapped in `clientEntry`, the listener exists only after the async module import — clicks during hydration are lost.
+- The shared script listens on `document`, so it serves every rendered form without a per-form mount.
+- The markup + `data-toggle-pw` contract stays; only the registration mechanism changed.
 
-```
-AssetServerCompilationError: Failed to resolve import "node:async_hooks"
-```
-
-The fix: keep `clientEntry` components in `app/assets/` (the designated directory for browser modules) and use `data-*` attributes + event delegation to bridge to server-rendered components.
-
-> **App re-checked 2026-10-14:** the app now also ships `clientEntry` components under `app/ui/` (e.g. `app/ui/confirm-delete.browser.tsx`) and `remix.json`'s `assets.allowFiles` includes `app/ui/**`; treat the "must live in `app/assets/`" conclusion as historical — this toggle moved to a server-rendered nonce'd `<script>` entirely.
+The old "`clientEntry` must live in `app/assets/`" rationale is obsolete: this app's `remix.json` `assets.allowFiles` includes `app/ui/**` and other `app/ui/*.browser.tsx` entries ship from there.

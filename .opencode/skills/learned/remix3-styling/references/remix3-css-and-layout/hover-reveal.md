@@ -3,49 +3,73 @@
 **Source:** `remix3-css-hover-reveal`
 
 **Extracted:** 2026-08-24
-**Context:** Styling a sidebar/row whose action buttons (rename, delete, etc.) should appear only while the row is hovered or keyboard-focused, in a Remix 3 `remix/component` app.
+**Revalidated:** 2026-10-24 against the installed `@remix-run/component@1.1.0` (build `1e03013e1`, shipped in `remix` 3.1.0) — **the old "no rule emitted" behavior is fixed.**
 
-## Problem
-In the `remix/component` `css()` runtime (this app's nightly `remix`), a reveal rule that selects a **descendant/child only while a hovered ancestor** is applied silently generates *nothing*. All of these are no-ops:
+## Status: the CSS selector works now
+
+On current builds `css()` emits nested parent→child rules verbatim and the browser applies them inside the adopted `@layer rmx.*` stylesheet. Verified in Chromium and Firefox with an adopted stylesheet and the runtime's `@layer` wrapper:
 
 ```ts
 css({
-  '&:hover > *': { opacity: '1' },                 // no rule emitted
-  '&:hover > [data-row-action]': { opacity: '1' }, // no rule emitted
-  '&:hover [data-row-action]': { opacity: '1' },   // no rule emitted
+  '&:hover > *': { opacity: '1' },
+  '&:hover > [data-row-action]': { opacity: '1' },
+  '&:hover [data-row-action]': { opacity: '1' },
 })
 ```
 
-Meanwhile `:hover` on the element itself **does** apply (button hover works), and a non-hover child combinator **does** apply (e.g. `& > * { pointerEvents: 'auto' }`). Because the rule is never emitted, you can't diagnose it from the DOM: the row's `:hover` matches (`el.matches(':hover') === true`) yet the child's `getComputedStyle(el).opacity` never changes — and all its rules are missing from `document.styleSheets` (the styles get shadow/adopted stylesheet treatment, so dumping `cssRules` shows nothing).
+All three now match. Complex child selectors (`& > form > button`, `& > a`) also work, so per-button group styling can live on the container.
 
-## Solution
-Drive the reveal from a `clientEntry` that toggles **inline** `style.opacity` on the targeted children, wired to the row's `mouseenter/mouseleave` and `focusin/focusout`. Give each hidden button a stable attribute (e.g. `data-list-row-actions`) and set its resting opacity via `css()`.
+**Legacy note (pre-fix builds only):** the original delta reported that these selectors emitted nothing, while `:hover` on the element itself and non-hover child combinators worked; the fallback was a `clientEntry` toggling inline `style.opacity`. Do not apply that fallback on current builds.
 
-The working implementation is in this repo:
+## Preferred solution
 
-- `app/actions/lists/public/lists-row-actions.tsx` — the clientEntry that toggles inline `opacity`/`pointer-events` on the row-actions cluster from `mouseenter`/`mouseleave`/`focusin`/`focusout`, re-inits on frame `reloadComplete`, and aborts prior listeners (`AbortController`). The **delegated** variant (`mouseover`/`closest('[role="listitem"]')` on a stable container, for lists whose rows re-render on every state change) lives in `app/actions/lists/public/lists-view.tsx:1090-1135` (paths re-checked 2026-10-14; both moved out of `lists-client.tsx` in the decomposition).
-- `app/ui/lists-layout.tsx` — the `rowActionsStyle`/`deleteFormStyle`/`renameBtnStyle` cluster styles (resting `opacity: 0; pointerEvents: none`, plus the `@media (hover: none)` override).
-
-### Key details
-
-- **Reveal toggles both `opacity` and `pointer-events`** on the cluster: `pointer-events: none` on the container is what lets clicks pass through to the row beneath, and it must be turned back to `auto` to be interactive.
-- **Touch devices: hover-only reveals are unreachable.** Add `@media (hover: none)` so the cluster is always visible and interactive on touch while keeping the hover reveal on pointer devices. Prefer `@media (hover: none)` over a width-based or touch-capability sniff. For **dense rows**, an always-visible 4-button cluster squeezes/overlays the label and doubles row height; switch to one 44px kebab + inline menu — see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`.
-- **Force-visibly reveal an actively-editing row** by adding a conditional style (`opacity: 1; pointer-events: auto`) when that row is in edit mode, so its Save/Cancel actions are always visible instead of waiting for hover.
-- **Keyboard reachability** — handle `focusin`/`focusout`, not just `mouseenter`/`mouseleave`.
-
-## How to verify
-In a browser, hover the row then assert the child's computed opacity changed:
+Keep the resting state on the cluster and reveal it from the row's hover/focus state:
 
 ```ts
-let before = await btn.evaluate((el) => getComputedStyle(el).opacity) // "0.3"
-await row.hover(); await page.waitForTimeout(200)
-let after  = await btn.evaluate((el) => getComputedStyle(el).opacity) // "1"
+const rowStyle = css({
+  position: 'relative',
+  '&:hover [data-item-actions]': { opacity: '1', pointerEvents: 'auto' },
+  '&:focus-within [data-item-actions]': { opacity: '1', pointerEvents: 'auto' },
+  '@media (hover: none)': { /* touch: rely on the kebab menu, below */ },
+})
+
+const itemActionsStyle = css({
+  position: 'absolute',
+  top: '50%',
+  right: theme.space.sm,
+  transform: 'translateY(-50%)',
+  display: 'inline-flex',
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 0.12s ease',
+})
 ```
 
-Use a still-clickable resting state (so `pointer-events` never traps clicks); gate destructive actions separately (e.g. a `data-confirm` delete) rather than via `pointer-events: none` on the hidden button.
+- `:focus-within` replaces the JS `focusin`/`focusout` wiring, so keyboard users reveal the cluster without a listener.
+- No frame-reload re-init is needed — the CSS class survives DOM replacement.
+- Keep `pointer-events: none` at rest so clicks reach the row; reveal sets it back to `auto`.
 
-## When to Use
-- A hover/focus reveal of per-row actions in a remix3 `remix/component` app isn't appearing.
-- You reached for `&:hover > child` / `&:hover [child]` in `css()` and it does nothing.
-- The row matches `:hover` but the child's computed style never changes; `:hover` on the element itself still works.
-- You need keyboard reachability as well — handle `focusin`/`focusout`, not just `mouseenter`/`mouseleave`.
+## App state (2026-10-24)
+
+The old workaround is still present and can be deleted:
+
+- `app/actions/lists/public/lists-view.tsx` — the delegated `mouseover`/`mouseleave`/`focusin`/`focusout` block (~`:1526-1575`) that writes inline `opacity`/`pointerEvents` on `[data-item-actions]`. Replace with the row CSS above.
+- `app/actions/lists/public/lists-styles.ts` — `itemActionsStyle` resting state stays; the comment claiming `css()` won't emit descendant `> button` selectors is stale, and `itemButton*` per-button styles can move into a container rule if desired.
+- `app/actions/lists/public/lists-row-actions.tsx` is **not** the hover reveal — it is the kebab/inline menu controller (touch/dense-row alternative), still needed.
+
+## Touch and dense rows
+
+- Hover-only reveals are unreachable on touch. Prefer a kebab + inline menu (see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`) or an always-visible cluster under `@media (hover: none)`.
+- Force-reveal an actively-editing row with a conditional style/class (`opacity: 1; pointerEvents: auto`).
+
+## How to verify
+
+In a browser, hover the row and assert the child's computed opacity changed:
+
+```ts
+let before = await btn.evaluate((el) => getComputedStyle(el).opacity) // "0"
+await row.hover()
+let after = await btn.evaluate((el) => getComputedStyle(el).opacity) // "1"
+```
+
+If a rule still seems missing, inspect the adopted stylesheet/CDP (`CSS.getMatchedStylesForNode`), not `document.styleSheets` — the generated rules live in an adopted sheet and do not show up in the document's `cssRules`.
