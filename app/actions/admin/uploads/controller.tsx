@@ -70,6 +70,15 @@ import {
   mobileSortLabelCss,
   mobileSortLinkCss,
   mobileSortLinkActiveCss,
+  kindTabCss,
+  kindCountCss,
+  kindCountActiveCss,
+  filenameLinkCss,
+  pageNavCss,
+  pageNumbersCss,
+  pageNumberLinkCss,
+  pageCurrentCss,
+  pageGapCss,
 } from './uploads-grid-css.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
@@ -77,6 +86,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import {
   getUploadsPage,
+  getUploadKindCounts,
   getUploadsQuotaUsage,
   uploadErrorMessages,
   claimUploads,
@@ -121,6 +131,7 @@ import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.ts
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
 import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
+import { UploadsFilterAutoSubmit } from '../public/admin-uploads-filter-autosubmit.tsx'
 import { getQuotaStats, type QuotaStats } from './uploads-quota.ts'
 import type { AppContext } from '../../../types/context.ts'
 
@@ -247,6 +258,26 @@ function uploadsKindHref(
   return uploadsPageHref(1, sortColumn, sortDirection, filter, kind)
 }
 
+/**
+ * Compact page window for the pagination bar: every page for short result sets,
+ * otherwise the first and last page plus the current page's neighbours, with
+ * `'gap'` marking an omitted run.
+ */
+function paginationWindow(page: number, totalPages: number): (number | 'gap')[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1)
+  let pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
+    .filter((candidate) => candidate >= 1 && candidate <= totalPages)
+    .toSorted((a, b) => a - b)
+  let window: (number | 'gap')[] = []
+  let previous = 0
+  for (let candidate of pages) {
+    if (previous !== 0 && candidate - previous > 1) window.push('gap')
+    window.push(candidate)
+    previous = candidate
+  }
+  return window
+}
+
 type UploadsGridOpts = {
   page?: number | undefined
   sortColumn?: string | undefined
@@ -291,22 +322,14 @@ async function renderUploadsPage(
   })
   let sortColumn = opts.sortColumn ?? column
   let sortDirection = opts.sortDirection ?? direction
-  let {
-    rows,
-    total,
-    totalPages,
-    page: effectivePage,
-  } = await getUploadsPage(
-    context.db,
-    user.role === 'admin' ? undefined : user.id,
-    page,
-    pageSize,
-    sortColumn,
-    sortDirection,
-    filter,
-    kind,
-  )
-  let quota = await getUploadsQuotaUsage(context.db, user.role === 'admin' ? undefined : user.id)
+  // Admins see every upload; everyone else only the rows they claimed. The
+  // counts query uses the same scope so the tab badges cannot drift from the grid.
+  let ownerId = user.role === 'admin' ? undefined : user.id
+  let [{ rows, total, totalPages, page: effectivePage }, quota, kindCounts] = await Promise.all([
+    getUploadsPage(context.db, ownerId, page, pageSize, sortColumn, sortDirection, filter, kind),
+    getUploadsQuotaUsage(context.db, ownerId),
+    getUploadKindCounts(context.db, ownerId, filter),
+  ])
   return renderAdminPage(
     context.render,
     'uploads',
@@ -322,6 +345,7 @@ async function renderUploadsPage(
       sortDirection={sortDirection}
       filter={filter}
       kind={kind}
+      kindCounts={kindCounts}
       quota={quota}
       pageSize={pageSize}
       pageKey={pageKey}
@@ -546,6 +570,8 @@ type UploadsContentProps = {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   kind: UploadKind | undefined
+  /** Upload count per MIME grouping, scoped by the active search (see the tabs). */
+  kindCounts: Record<UploadKind, number>
   pageSize: number
   pageKey: PageSizeKey
   pageSizeOverride: number | null
@@ -571,6 +597,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
       sortDirection,
       filter,
       kind,
+      kindCounts,
       pageSize,
       pageKey,
       pageSizeOverride,
@@ -673,11 +700,15 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             {quotaBar(quotaStats)}
           </div>
           <div mix={toolsRowCss}>
+            {/* `data-rmx-reset-focus="manual"` keeps the frame runtime from
+                moving focus to the document after a live-search reload, so the
+                auto-submit entry can put the caret back in the new input. */}
             <form
               method="GET"
               action={routes.admin.uploads.index.href()}
               data-rmx-target={getSelfFrameTarget()}
               data-uploads-filter
+              data-rmx-reset-focus="manual"
               mix={filterBarCss}
             >
               {/* Kind tabs reset to page 1 — a stale page can be out of range for
@@ -688,17 +719,35 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 role="group"
                 aria-label="Nach Dateityp filtern"
               >
-                {UPLOAD_KIND_TABS.map((tab) => (
-                  <a
-                    key={tab.label}
-                    href={uploadsKindHref(tab.value, sortColumn, sortDirection, filter)}
-                    data-rmx-target={getSelfFrameTarget()}
-                    aria-current={kind === tab.value ? 'true' : undefined}
-                    mix={[table.filterTab, kind === tab.value ? table.filterTabActive : undefined]}
-                  >
-                    {tab.label}
-                  </a>
-                ))}
+                {UPLOAD_KIND_TABS.map((tab) => {
+                  // The active tab's count is the filtered total; the others
+                  // count the same search under each kind, so the badges always
+                  // add up to the "Alle" tab.
+                  let active = kind === tab.value
+                  let count = tab.value ? kindCounts[tab.value] : total
+                  return (
+                    <a
+                      key={tab.label}
+                      href={uploadsKindHref(tab.value, sortColumn, sortDirection, filter)}
+                      data-rmx-target={getSelfFrameTarget()}
+                      aria-current={active ? 'true' : undefined}
+                      aria-label={`${tab.label}: ${count} ${count === 1 ? 'Datei' : 'Dateien'}`}
+                      mix={[
+                        table.filterTab,
+                        kindTabCss,
+                        active ? table.filterTabActive : undefined,
+                      ]}
+                    >
+                      {tab.label}
+                      <span
+                        aria-hidden="true"
+                        mix={[kindCountCss, active ? kindCountActiveCss : undefined]}
+                      >
+                        {count}
+                      </span>
+                    </a>
+                  )
+                })}
               </span>
               <input type="hidden" name="page" value="1" />
               <input type="hidden" name="sort" value={sortColumn} />
@@ -749,6 +798,10 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 })}
               </span>
             </form>
+            {/* Debounced live search: typing re-runs the current filter instead
+                of waiting for the "Suchen" button (which stays for the no-JS
+                path). */}
+            <UploadsFilterAutoSubmit />
             {uploads.length > 0 ? (
               <div mix={bulkGroupCss} data-bulk-group>
                 <form
@@ -920,7 +973,18 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       </td>
                       <td mix={idCellCss}>{u.id}</td>
                       <td mix={filenameCellCss} title={u.filename}>
-                        <span mix={filenameTextCss}>{u.filename}</span>
+                        {/* The name is the row's primary affordance: clicking it
+                            downloads the file, so users do not have to discover
+                            the small download button in the actions column. */}
+                        <a
+                          href={routes.admin.uploads.download.href({ id: u.id })}
+                          download
+                          data-filename-link
+                          aria-label={`${u.filename} herunterladen`}
+                          mix={[filenameTextCss, filenameLinkCss]}
+                        >
+                          {u.filename}
+                        </a>
                         {/* Narrow screens hide the Typ/Größe/Datum columns; this
                             line keeps that metadata visible without the grid
                             scrolling sideways. */}
@@ -957,7 +1021,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                             data-download-link
                             data-rmx-target={getSelfFrameTarget()}
                             mix={iconActionCss}
-                            aria-label="Datei herunterladen"
+                            aria-label={`${u.filename} herunterladen`}
                             title="Datei herunterladen"
                           >
                             <Glyph name="download" width={14} height={14} />
@@ -980,7 +1044,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                             <button
                               type="submit"
                               mix={[iconActionCss, iconActionDangerCss]}
-                              aria-label="Datei löschen"
+                              aria-label={`${u.filename} löschen`}
                               title="Datei löschen"
                             >
                               <Glyph name="trash" width={14} height={14} />
@@ -1023,32 +1087,60 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             </span>
             <div mix={paginationButtonsCss}>
               {total > 0 ? (
-                <>
+                <nav mix={pageNavCss} aria-label="Seitennavigation">
                   {page > 1 ? (
                     <a
                       href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter, kind)}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.pageLink}
-                      aria-label={`Seite ${page - 1}`}
+                      aria-label="Vorherige Seite"
                     >
                       Zurück
                     </a>
                   ) : (
                     <span mix={table.pageLinkDisabled}>Zurück</span>
                   )}
+                  {/* Direct page links: jumping to a page should not require
+                      stepping through every page with "Vor". The window shrinks
+                      to a few neighbours plus the first/last page. */}
+                  {totalPages > 1 ? (
+                    <span mix={pageNumbersCss}>
+                      {paginationWindow(page, totalPages).map((entry, index) =>
+                        entry === 'gap' ? (
+                          <span key={`gap-${index}`} aria-hidden="true" mix={pageGapCss}>
+                            …
+                          </span>
+                        ) : entry === page ? (
+                          <span key={`page-${entry}`} aria-current="page" mix={pageCurrentCss}>
+                            {entry}
+                          </span>
+                        ) : (
+                          <a
+                            key={`page-${entry}`}
+                            href={uploadsPageHref(entry, sortColumn, sortDirection, filter, kind)}
+                            data-rmx-target={getSelfFrameTarget()}
+                            aria-label={`Seite ${entry}`}
+                            mix={[table.pageLink, pageNumberLinkCss]}
+                          >
+                            {entry}
+                          </a>
+                        ),
+                      )}
+                    </span>
+                  ) : null}
                   {page < totalPages ? (
                     <a
                       href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter, kind)}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.pageLink}
-                      aria-label={`Seite ${page + 1}`}
+                      aria-label="Nächste Seite"
                     >
                       Vor
                     </a>
                   ) : (
                     <span mix={table.pageLinkDisabled}>Vor</span>
                   )}
-                </>
+                </nav>
               ) : null}
               <div mix={pageSizeSlotCss}>
                 <PageSizeControl

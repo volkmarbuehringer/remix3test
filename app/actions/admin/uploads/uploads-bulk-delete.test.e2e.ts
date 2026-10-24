@@ -94,12 +94,9 @@ describe('admin uploads: multirow delete banner', () => {
     let bulkGroup = page.locator('[data-bulk-group]')
     await bulkGroup.waitFor({ state: 'hidden', timeout: 5_000 })
 
-    // Accept the native confirm() dialog the clientEntry shows on submit.
-    let confirmMessage = ''
-    page.once('dialog', (dialog) => {
-      confirmMessage = dialog.message()
-      void dialog.accept()
-    })
+    // The bulk form confirms through the page's shared (styled) confirm dialog,
+    // so wait for that entry to hydrate before submitting.
+    await page.locator('[data-confirm-ready]').waitFor({ state: 'attached', timeout: 15_000 })
 
     let bulkButton = page.locator('[data-bulk-delete-form] button[type="submit"]')
     // The bulk button starts disabled; checking rows enables it (the clientEntry
@@ -113,12 +110,18 @@ describe('admin uploads: multirow delete banner', () => {
     await bulkGroup.waitFor({ state: 'visible', timeout: 5_000 })
     await bulkButton.click()
 
+    // Confirm through the shared dialog instead of a native window.confirm.
+    let confirmDialog = page.locator('[data-confirm-dialog]')
+    await confirmDialog.waitFor({ timeout: 15_000 })
+    let confirmMessage = await page.locator('#confirm-delete-message').innerText()
+    assert.ok(confirmMessage.includes('2 Dateien wirklich löschen?'), `got: ${confirmMessage}`)
+    await page.locator('[data-confirm-accept]').click()
+
     // The POST to /delete-many redirects; frameRedirects follows it in-frame and
     // re-fetches the grid with `deleted=N`, so the banner appears and shows the count.
     let banner = page.locator('[data-deleted-banner]')
     await banner.waitFor({ timeout: 15_000 })
     assert.equal(await banner.textContent(), '2 Dateien gelöscht.')
-    assert.ok(confirmMessage.includes('2 Dateien wirklich löschen?'), `got: ${confirmMessage}`)
 
     // Both selected rows are gone; the third remains. Assert by filename so
     // parallel rows from other uploads tests do not affect the outcome.
@@ -143,15 +146,15 @@ describe('admin uploads: multirow delete banner', () => {
     // to the new nodes — otherwise selecting rows a second time leaves the
     // button disabled and nothing can be deleted. The replaced form starts
     // without the hydration marker, so wait for the new one.
-    page.once('dialog', (dialog) => {
-      void dialog.accept()
-    })
     await bulkReady.waitFor({ state: 'attached', timeout: 15_000 })
+    await page.locator('[data-confirm-ready]').waitFor({ state: 'attached', timeout: 15_000 })
     await page.locator('[data-upload-filename="test-e2e-3.txt"] input[name="ids"]').check()
     await page.locator('[data-selected-count]').filter({ hasText: '1 ausgewählt' }).waitFor({
       timeout: 10_000,
     })
     await bulkButton.click()
+    await page.locator('[data-confirm-dialog]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-confirm-accept]').click()
     let secondBanner = page
       .locator('[data-deleted-banner]')
       .filter({ hasText: '1 Datei gelöscht.' })
@@ -161,6 +164,89 @@ describe('admin uploads: multirow delete banner', () => {
       await page.locator('[data-upload-filename="test-e2e-3.txt"]').count(),
       0,
       'the last upload should be gone after the second delete',
+    )
+  })
+
+  it('deletes exactly the confirmed rows when the selection grows while the dialog is open', async (t) => {
+    let ids: number[] = []
+    for (let i = 1; i <= 3; i++) {
+      let id = Number(
+        await insertUpload(db, {
+          filename: `test-e2e-scope-${i}.txt`,
+          mimeType: 'text/plain',
+          buffer: Buffer.from(`x${i}`),
+          size: i,
+          now: Date.now(),
+        }),
+      )
+      ids.push(id)
+    }
+    let claimed = await claimUploads(db, ids, adminId, Number.MAX_SAFE_INTEGER)
+    assert.ok(claimed, 'seeded uploads must be claimed by the admin')
+
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page
+      .context()
+      .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
+
+    await page.goto(routes.admin.uploads.index.href())
+    await page.locator('[data-uploads-table]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-bulk-delete-form][data-bulk-delete-ready]').waitFor({
+      state: 'attached',
+      timeout: 15_000,
+    })
+    await page.locator('[data-confirm-ready]').waitFor({ state: 'attached', timeout: 15_000 })
+
+    // Two rows are confirmed; the dialog names both.
+    await page.locator('[data-upload-filename="test-e2e-scope-1.txt"] input[name="ids"]').check()
+    await page.locator('[data-upload-filename="test-e2e-scope-2.txt"] input[name="ids"]').check()
+    await page.locator('[data-selected-count]').filter({ hasText: '2 ausgewählt' }).waitFor({
+      timeout: 10_000,
+    })
+    await page.locator('[data-bulk-delete-form] button[type="submit"]').click()
+    await page.locator('[data-confirm-dialog]').waitFor({ timeout: 15_000 })
+    assert.ok(
+      (await page.locator('#confirm-delete-message').innerText()).includes(
+        '2 Dateien wirklich löschen?',
+      ),
+      'the dialog should name the confirmed count',
+    )
+
+    // Simulate a keyboard/AT user reaching the grid behind the modal: focus the
+    // third row's checkbox programmatically and toggle it. Before the fix the
+    // second submit pass re-read the live selection, so this row was deleted
+    // even though the dialog never mentioned it.
+    await page.locator('[data-upload-filename="test-e2e-scope-3.txt"] input[name="ids"]').focus()
+    await page.keyboard.press('Space')
+    await page.locator('[data-selected-count]').filter({ hasText: '3 ausgewählt' }).waitFor({
+      timeout: 10_000,
+    })
+
+    await page.locator('[data-confirm-accept]').click()
+
+    // Exactly the two confirmed rows are deleted...
+    let banner = page.locator('[data-deleted-banner]')
+    await banner.waitFor({ timeout: 15_000 })
+    assert.equal(await banner.textContent(), '2 Dateien gelöscht.')
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-scope-1.txt"]').count(),
+      0,
+      'the first confirmed row should be gone',
+    )
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-scope-2.txt"]').count(),
+      0,
+      'the second confirmed row should be gone',
+    )
+    // ...and the row added after the dialog opened must survive.
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-scope-3.txt"]').count(),
+      1,
+      'a row selected while the dialog was open must not be deleted',
     )
   })
 })

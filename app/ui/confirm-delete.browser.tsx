@@ -200,7 +200,9 @@ export const ConfirmDelete = clientEntry(
     }
 
     return () => {
-      if (!pending) return <div mix={css({ display: 'none' })} />
+      // The idle marker tells callers (and e2e) that the dialog is hydrated and
+      // can take over a confirmation instead of the native window.confirm.
+      if (!pending) return <div data-confirm-ready="true" mix={css({ display: 'none' })} />
       let current = pending
       return (
         <div

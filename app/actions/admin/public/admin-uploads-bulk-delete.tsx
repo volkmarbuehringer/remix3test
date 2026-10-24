@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
+import { requestConfirmDecision } from '../../../ui/confirm-delete.browser.tsx'
 import {
   ensureSelectionScope,
   isSelected,
@@ -106,31 +107,87 @@ export const UploadBulkDelete = clientEntry(
         update()
       }
 
+      // Ids frozen when the user confirmed. The dialog names N files, so exactly
+      // those must be deleted even if the selection changes while it is open —
+      // the grid behind the modal is still reachable by keyboard/AT. Also the
+      // payload onFormData writes; replaced by the next confirmation.
+      let confirmedIds: number[] | null = null
+      // Set while re-submitting after the confirmation dialog was accepted, so
+      // the second submit pass goes straight through instead of asking again.
+      let confirmed = false
+
+      /**
+       * Rewrite the outgoing payload to exactly the confirmed ids.
+       *
+       * The row checkboxes are associated with this form
+       * (`form="bulk-delete-form"`) and submit themselves, so a row checked
+       * while the dialog was open would otherwise be deleted too. The browser
+       * builds the payload from the live form in the `formdata` event — which
+       * runs *after* `requestSubmit()` returns (verified in Chromium) — so the
+       * ids are replaced here instead of mutating the checkboxes around the
+       * submit call. This also carries rows selected on other pages.
+       *
+       * The event can fire more than once for one submission (Chromium builds
+       * the payload again when the frame runtime replays the navigation), so
+       * every payload is rewritten while the scope is set; the scope is only
+       * set immediately before a confirmed submit and is overwritten by the
+       * next confirmation.
+       */
+      function onFormData(event: FormDataEvent) {
+        if (!confirmedIds) return
+        event.formData.delete('ids')
+        for (let id of confirmedIds) event.formData.append('ids', String(id))
+      }
+
+      /** Submit exactly the ids the confirmation named. */
+      function submitConfirmed() {
+        // A frame reload may have replaced the form while the dialog was open;
+        // the detached form cannot submit, so leave the selection untouched.
+        if (!form!.isConnected || !confirmedIds) return
+
+        confirmed = true
+        try {
+          form!.requestSubmit(submit)
+        } finally {
+          confirmed = false
+        }
+
+        // The confirmed rows are gone; anything selected elsewhere (e.g. a row
+        // checked while the dialog was open) stays selected for the next action.
+        deselectIds(confirmedIds)
+      }
+
       function onSubmit(event: Event) {
+        if (confirmed) {
+          // Second pass: onFormData writes the confirmed ids into the payload,
+          // so let the frame runtime submit.
+          return
+        }
+
         let ids = selectedIds()
         let n = ids.length
         if (n === 0) {
           event.preventDefault()
           return
         }
-        if (!confirm(`${n} Dateien wirklich löschen?`)) {
-          event.preventDefault()
+
+        event.preventDefault()
+        let message = n === 1 ? '1 Datei wirklich löschen?' : `${n} Dateien wirklich löschen?`
+
+        // Prefer the page's styled confirm dialog so a bulk delete looks the
+        // same as deleting a single row. It is not mounted in headless browser
+        // tests, so fall back to the native dialog there.
+        let decision = requestConfirmDecision({ message, confirmLabel: 'Löschen' })
+        let confirmedByUser = (accepted: boolean) => {
+          if (!accepted) return
+          confirmedIds = ids
+          submitConfirmed()
+        }
+        if (decision === null) {
+          if (confirm(message)) confirmedByUser(true)
           return
         }
-
-        // Carry every selected id (across pages) into the form. Clear any
-        // ids injected by a previous submit to avoid dupes.
-        form!.querySelectorAll('input[data-bulk-delete-id]').forEach((el) => el.remove())
-        for (let id of ids) {
-          let hidden = document.createElement('input')
-          hidden.type = 'hidden'
-          hidden.name = 'ids'
-          hidden.value = String(id)
-          hidden.dataset.bulkDeleteId = 'true'
-          form!.appendChild(hidden)
-        }
-        // The submitted rows are being deleted, so drop them from the store.
-        clearSelection()
+        void decision.then(confirmedByUser)
       }
 
       function onClear() {
@@ -150,6 +207,7 @@ export const UploadBulkDelete = clientEntry(
         cb.addEventListener('change', onRowChange, { signal: ac.signal })
       }
       form.addEventListener('submit', onSubmit, { signal: ac.signal })
+      form.addEventListener('formdata', onFormData, { signal: ac.signal })
       clearBtn?.addEventListener('click', onClear, { signal: ac.signal })
 
       // When an individual row is deleted via its own form, drop it from the

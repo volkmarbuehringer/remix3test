@@ -257,6 +257,36 @@ export const mobileSortLinkActiveCss = css({
   },
 })
 
+// ── Kind filter tabs with counts ───────────────────────────────
+// The tabs carry the number of files each grouping would show (scoped by the
+// active search), so an empty grouping is obvious before it is clicked.
+export const kindTabCss = css({
+  gap: theme.space.xs,
+})
+
+export const kindCountCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '18px',
+  padding: '0 4px',
+  borderRadius: 999,
+  background: theme.surface.lvl3,
+  // Secondary, not muted: the badge carries real information (how many files a
+  // filter would show) at 11px, and muted text on lvl3 measured ~2.9:1 in dark
+  // mode (below the 4.5:1 minimum for small text).
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xxs,
+  fontWeight: theme.fontWeight.semibold,
+  lineHeight: 1.5,
+})
+
+export const kindCountActiveCss = css({
+  background: 'transparent',
+  color: 'inherit',
+  opacity: 0.85,
+})
+
 export const sortArrowCss = css({
   fontSize: theme.fontSize.xs,
   lineHeight: 1,
@@ -279,6 +309,10 @@ export const pageSectionCss = css({
   flex: 1,
   minHeight: 0,
   gap: theme.space.xs,
+  // Phones: stop filling the viewport. Inside the full-height admin shell a
+  // bounded grid leaves only a ~4-row scroll hole in the middle of the page;
+  // letting the page itself scroll shows the whole file list at once.
+  '@media (max-width: 720px)': { flex: '0 0 auto' },
 })
 
 // Compact the upload/search panel so it takes less vertical space on screen
@@ -297,12 +331,18 @@ export const tablePanelCss = css({
   // that space back to the scrollable table so more rows are visible.
   padding: theme.space.sm,
   gap: theme.space.sm,
+  // Phones: content-sized panel, so the page scrolls instead of a tiny row
+  // region (see pageSectionCss).
+  '@media (max-width: 720px)': { flex: '0 0 auto', overflow: 'visible' },
 })
 
 export const tableScrollCss = css({
   flex: 1,
   minHeight: 0,
   overflow: 'auto',
+  // Phones: the row region grows with its rows and the page scrolls instead, so
+  // the last visible row is never cut in half by a fixed-height scroll box.
+  '@media (max-width: 720px)': { flex: '0 0 auto', overflow: 'visible' },
 })
 
 export const paginationCss = css({
@@ -313,9 +353,9 @@ export const paginationCss = css({
   // No top margin: the panel's own row gap separates the pagination bar from the
   // grid, and every pixel saved here is a pixel the grid can show another row in.
   flexShrink: 0,
-  // Phones: give the footer its own two rows instead of squeezing the info,
-  // page links and page-size control into one very narrow line.
-  '@media (max-width: 720px)': {
+  // Narrow viewports: give the footer its own two rows instead of squeezing the
+  // info, page links and page-size control into one line that wraps mid-control.
+  '@media (max-width: 1100px)': {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: theme.space.sm,
@@ -327,7 +367,48 @@ export const paginationButtonsCss = css({
   alignItems: 'center',
   gap: theme.space.sm,
   flexWrap: 'wrap',
-  '@media (max-width: 720px)': { justifyContent: 'space-between' },
+  '@media (max-width: 1100px)': { justifyContent: 'space-between' },
+})
+
+/** Prev / page numbers / next cluster. Wraps as a unit on narrow screens. */
+export const pageNavCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: theme.space.xs,
+})
+
+export const pageNumbersCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '2px',
+})
+
+/** Compact page-number link; table.pageLink supplies padding, colour and hover. */
+export const pageNumberLinkCss = css({
+  justifyContent: 'center',
+  minWidth: '28px',
+})
+
+/** Current page: highlighted, not interactive, announced via aria-current. */
+export const pageCurrentCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '28px',
+  padding: theme.space.xs + ' ' + theme.space.sm,
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  borderRadius: theme.radius.md,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+export const pageGapCss = css({
+  padding: '0 2px',
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
 })
 
 /** Keeps the page-size control pinned right on desktop and full-width on phones. */
@@ -336,6 +417,10 @@ export const pageSizeSlotCss = css({
   '@media (max-width: 720px)': {
     marginLeft: 0,
     width: '100%',
+    // Phones: the save button used to wrap under the slider as a narrow,
+    // left-aligned orphan. Stretch it across the row so the control reads as
+    // one block.
+    '& form > button': { flex: '1 1 auto' },
   },
 })
 
@@ -550,6 +635,21 @@ export const filenameTextCss = css({
   whiteSpace: 'nowrap',
 })
 
+// The filename is a download link (the row's primary action). It reads as plain
+// text until hovered/focused so the grid does not turn into a wall of blue
+// links, but it is a real anchor: middle-click, "save link as" and keyboard
+// activation all work like the actions-column download button.
+export const filenameLinkCss = css({
+  color: theme.colors.text.primary,
+  textDecoration: 'none',
+  '&:hover': { textDecoration: 'underline' },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.action.primary.background}`,
+    outlineOffset: '2px',
+    borderRadius: theme.radius.sm,
+  },
+})
+
 // Secondary metadata for narrow screens, where the dedicated Typ/Größe/Datum
 // columns are hidden from the grid. On desktop the columns speak for themselves.
 export const filenameMetaCss = css({
@@ -597,6 +697,12 @@ export const emptyStateCss = css({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
+  // Absorb the bounded panel's leftover height so the message sits in the
+  // middle of the grid area instead of at its top with a large blank block
+  // underneath. `1 1 auto` (not `1`) keeps it content-sized on phones, where
+  // the panel is no longer viewport-bounded.
+  flex: '1 1 auto',
+  minHeight: 0,
   gap: theme.space.sm,
   padding: theme.space.lg,
   color: theme.colors.text.muted,

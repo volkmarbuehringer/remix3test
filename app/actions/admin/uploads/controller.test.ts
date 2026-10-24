@@ -250,6 +250,15 @@ describe('Admin Uploads controller', () => {
     assert.ok(html2.includes('Seite 2 von 2'), 'page 2 should be the second page')
     assert.ok(html2.includes('uplctl-page-1.txt'), 'oldest upload should appear on page 2')
     assert.ok(html2.includes('Zurück'), 'page 2 should offer a back link')
+    assert.ok(
+      html1.includes('aria-current="page"'),
+      'the current page number should be announced as current',
+    )
+    assert.ok(html1.includes('aria-label="Seite 2"'), 'page numbers should link directly')
+    assert.ok(
+      html1.includes('aria-label="Nächste Seite"'),
+      'the next-page link should not duplicate the page-number label',
+    )
   })
 
   it('uploadLimitErrorCode maps parser limit errors to stable codes', async () => {
@@ -378,6 +387,79 @@ describe('Admin Uploads controller', () => {
       'filter box should render the descriptive search input',
     )
     assert.ok(html.includes('data-kind-tabs'), 'filter box should render the kind tabs')
+  })
+
+  it('GET /admin/uploads shows per-kind counts scoped by the search', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let [filename, mimeType] of [
+      ['uplctl-counts-a.pdf', 'application/pdf'],
+      ['uplctl-counts-b.txt', 'text/plain'],
+    ] as [string, string][]) {
+      let id = await insertUpload(db, {
+        filename,
+        mimeType,
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?filter=uplctl-counts`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    // Counts follow the active search, so the badges always describe what a
+    // click on each tab would show.
+    assert.ok(html.includes('aria-label="Alle: 2 Dateien"'), 'Alle should count both matches')
+    assert.ok(html.includes('aria-label="PDF: 1 Datei"'), 'PDF should count its single match')
+    assert.ok(html.includes('aria-label="Text: 1 Datei"'), 'Text should count its single match')
+    assert.ok(html.includes('aria-label="Bilder: 0 Dateien"'), 'Bilder should show an empty tab')
+  })
+
+  it('GET /admin/uploads makes the filename a download link and labels row actions', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-name-link.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    let linkTag = html.match(/<a[^>]*data-filename-link[^>]*>/)?.[0] ?? ''
+    assert.ok(linkTag, 'the filename should render as a link')
+    assert.ok(linkTag.includes(`href="${routes.admin.uploads.download.href({ id })}"`))
+    assert.ok(linkTag.includes('download'), 'the filename link should download the file')
+    assert.ok(
+      linkTag.includes('aria-label="uplctl-name-link.txt herunterladen"'),
+      'the filename link should carry a descriptive label',
+    )
+
+    // Repeated per-row icon buttons need the filename in their labels, otherwise
+    // a screen reader announces the same "Datei löschen" for every row.
+    assert.ok(html.includes('aria-label="uplctl-name-link.txt herunterladen"'))
+    assert.ok(html.includes('aria-label="uplctl-name-link.txt löschen"'))
   })
 
   it('GET /admin/uploads shows a no-match message when the filter finds nothing', async () => {

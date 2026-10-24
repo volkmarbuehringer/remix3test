@@ -183,6 +183,37 @@ export async function countUploads(
   return row?.total ?? 0
 }
 
+const uploadKindCountsSchema = z.object({
+  pdf: int8Aggregate,
+  image: int8Aggregate,
+  text: int8Aggregate,
+})
+
+/**
+ * Number of uploads per MIME grouping (see {@link UPLOAD_KINDS}), narrowed by the
+ * same ownership and search filter as the grid. The kind tabs use it to show how
+ * many files each filter would reveal, so an empty tab is obvious before the
+ * user clicks it. Each count is a static FILTER fragment from
+ * {@link kindCondition}, never an interpolated URL value.
+ */
+export async function getUploadKindCounts(
+  db: Database,
+  userId?: number,
+  filter?: string,
+): Promise<Record<UploadKind, number>> {
+  let where = whereStatement(userId, filter)
+  let row = await queryRow(
+    db,
+    sql`SELECT
+        COUNT(*) FILTER (WHERE ${rawSql(kindCondition('pdf') ?? 'FALSE')}) AS pdf,
+        COUNT(*) FILTER (WHERE ${rawSql(kindCondition('image') ?? 'FALSE')}) AS image,
+        COUNT(*) FILTER (WHERE ${rawSql(kindCondition('text') ?? 'FALSE')}) AS text
+      FROM uploads ${where}`,
+    uploadKindCountsSchema,
+  )
+  return { pdf: row?.pdf ?? 0, image: row?.image ?? 0, text: row?.text ?? 0 }
+}
+
 /**
  * Fetch one page of uploads with its total count and page count. `page` is
  * 1-based and `pageSize` is the configured page size (session-aware).
