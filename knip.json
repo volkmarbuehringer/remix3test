@@ -19,6 +19,9 @@
   ],
   "project": ["app/**/*.{ts,tsx}", "test/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
   "ignoreDependencies": ["@fission-ai/openspec"],
+  "ignoreIssues": {
+    "app/data/rows.ts": ["duplicates"]
+  },
   "typescript": {
     "config": "tsconfig.json"
   }

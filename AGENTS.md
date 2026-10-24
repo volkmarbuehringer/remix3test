@@ -11,6 +11,7 @@ npm test
 npm run typecheck
 npm run format
 npm run format:fix
+npm run knip
 npm run dev:mastra
 ```
 

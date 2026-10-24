@@ -116,7 +116,9 @@ TypeScript 7 native-preview API.
 - `npm run typecheck` — clean (both tsconfig targets)
 - `npm run lint` — oxlint `--max-warnings=0` + theme conformance OK
 - `npm run format` — oxfmt clean (662 files)
-- `knip` — only the known `int8|int8Aggregate` duplicate-export alias
+- `knip` (installed as a devDependency; run via `npm run knip`) — clean; the
+  intentional `int8|int8Aggregate` alias is silenced via `ignoreIssues` in
+  `knip.json`
 - `depcheck` — no unused/missing dependencies
 - Full server suite: 1858 tests, 1857 pass / 0 fail / 1 todo (a single
   timing-sensitive failure on one intermediate re-run passed on a clean rerun)
