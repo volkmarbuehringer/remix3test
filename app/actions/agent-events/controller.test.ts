@@ -417,7 +417,7 @@ describe('classify handler', () => {
   it('emits intent.unclear when the agent rejects after abort', async () => {
     let result = await classifyWithAgent(
       {
-        async generate(message, opts) {
+        async generate(_message, opts) {
           return new Promise((_resolve, reject) => {
             if (opts?.abortSignal) {
               opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))

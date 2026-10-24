@@ -1178,7 +1178,7 @@ export const AppointmentGrid = clientEntry(
       }
     }
 
-    function onWindowPointerCancel(event: PointerEvent) {
+    function onWindowPointerCancel(_event: PointerEvent) {
       // pointercancel = system interrupted gesture — revert, don't save
       if (activeGesture === 'drag') {
         cancelDrag()

@@ -331,7 +331,7 @@ function buildListHref(listId: number, pagination?: PaginationState): string {
 
 function buildPageHref(
   offset: number,
-  pagination: PaginationState,
+  _pagination: PaginationState,
   activeId: number | null,
 ): string {
   let params = new URLSearchParams()

@@ -18,7 +18,7 @@ export function buildSortUrl(
   field: string,
   currentSort: string,
   currentOrder: 'asc' | 'desc',
-  offset: number,
+  _offset: number,
   filter?: string,
   period?: string,
   status?: string,

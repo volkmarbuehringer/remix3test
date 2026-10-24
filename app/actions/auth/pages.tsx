@@ -287,7 +287,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
   }
 }
 
-export function RegisterSentPage(handle: Handle<{}>) {
+export function RegisterSentPage(_handle: Handle<{}>) {
   return () => (
     <Layout title="Check your email">
       <AuthShell
@@ -362,7 +362,7 @@ export function ForgotPage(handle: Handle<ForgotPageProps>) {
   }
 }
 
-export function ForgotSentPage(handle: Handle<{}>) {
+export function ForgotSentPage(_handle: Handle<{}>) {
   return () => (
     <Layout title="Check your email">
       <AuthShell

@@ -34,7 +34,7 @@ function toggleTheme(): void {
 
 export const ThemeToggle = clientEntry(
   import.meta.url + '#ThemeToggle',
-  function ThemeToggle(handle: Handle) {
+  function ThemeToggle(_handle: Handle) {
     return () => (
       <button
         id="theme-toggle"

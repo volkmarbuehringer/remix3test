@@ -67,7 +67,7 @@ const clearBtnStyle = css({
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
 })
 
-export function AgentEventsPage(handle: Handle) {
+export function AgentEventsPage(_handle: Handle) {
   return () => (
     <AgentChatShell
       variant="fullHeight"

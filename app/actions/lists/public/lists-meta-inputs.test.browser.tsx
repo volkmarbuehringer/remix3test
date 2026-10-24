@@ -26,7 +26,7 @@ let cleanup: (() => void) | null = null
 let removeCsrf: (() => void) | null = null
 
 function stubFetch(echoItems: unknown) {
-  window.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+  window.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
     let body = init?.body ? JSON.parse(String(init.body)) : {}
     calls.push({ method: String(init?.method ?? 'GET'), body })
     let items = Array.isArray(body.items) ? body.items : echoItems

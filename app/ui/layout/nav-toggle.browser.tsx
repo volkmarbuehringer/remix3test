@@ -3,7 +3,7 @@ import { lockScroll } from '../../utils/scroll-lock.ts'
 
 export const NavToggle = clientEntry(
   import.meta.url + '#NavToggle',
-  function NavToggleEntry(handle: Handle) {
+  function NavToggleEntry(_handle: Handle) {
     let initialized = false
     let previousFocus: HTMLElement | null = null
     let unlockScroll: (() => void) | null = null

@@ -33,7 +33,7 @@ describe('App-Webhook controller', () => {
     process.env.WEBHOOK_CALLBACK_URL = 'http://127.0.0.1:44100/callback'
 
     await new Promise<void>((resolve) => {
-      hermesServer = createServer((req, res) => {
+      hermesServer = createServer((_req, res) => {
         res.writeHead(202, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ status: 'accepted', delivery_id: 'test-delivery-1' }))
       })

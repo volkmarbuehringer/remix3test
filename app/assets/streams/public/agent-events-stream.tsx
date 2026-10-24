@@ -223,7 +223,7 @@ export const AgentEventsStream = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((el) => {
+          ref((_el) => {
             let form = document.getElementById('agent-events-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })

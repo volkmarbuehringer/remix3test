@@ -236,7 +236,7 @@ const exampleChipStyle = css({
   },
 })
 
-export function SupportAgentEmptyState(handle: Handle<{}>) {
+export function SupportAgentEmptyState(_handle: Handle<{}>) {
   return () => (
     <div mix={emptyStateStyle}>
       <div mix={emptyTitleStyle}>Womit kann ich helfen?</div>

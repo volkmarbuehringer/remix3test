@@ -8,7 +8,7 @@ export const ListNameEdit = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((el) => {
+          ref((_el) => {
             let activeInput: HTMLInputElement | null = null
             let originalSpan: HTMLElement | null = null
             let originalText = ''

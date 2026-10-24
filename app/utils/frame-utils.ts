@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 
 const CONTAINER_IDS = ['support-agent-frame-container'] as const
 
-function getActiveFrame(handle: Handle): string | null {
+function getActiveFrame(_handle: Handle): string | null {
   for (let id of CONTAINER_IDS) {
     let frame = activeFrameNameOrNull(id)
     if (frame) {

@@ -23,7 +23,7 @@ export const IntervalBounds = clientEntry(
         <div
           mix={[
             css({ display: 'none' }),
-            ref((el) => {
+            ref((_el) => {
               let startEl = document.getElementById(startId) as HTMLSelectElement | null
               let endEl = document.getElementById(endId) as HTMLSelectElement | null
               if (!startEl || !endEl) return

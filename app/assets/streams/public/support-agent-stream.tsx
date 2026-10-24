@@ -545,7 +545,7 @@ export const SupportAgentStream = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((el) => {
+          ref((_el) => {
             ensureSupportStyles()
 
             let form = document.getElementById('support-agent-form') as HTMLFormElement | null

@@ -33,7 +33,7 @@ const panelStyle = {
  */
 export const ScrollRestorationList = clientEntry(
   import.meta.url,
-  function ScrollRestorationList(handle: Handle<{ loadedAt: string }>) {
+  function ScrollRestorationList(_handle: Handle<{ loadedAt: string }>) {
     return () => (
       <ul
         id="scroll-restoration-list"

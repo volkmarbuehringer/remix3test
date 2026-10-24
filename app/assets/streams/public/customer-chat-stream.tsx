@@ -176,7 +176,7 @@ export const CustomerChatStream = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((el) => {
+          ref((_el) => {
             let form = document.getElementById('chat-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: lifecycleSignal })

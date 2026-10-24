@@ -9,7 +9,7 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
  */
 export const FormErrorFocus = clientEntry(
   import.meta.url + '#FormErrorFocus',
-  function FormErrorFocus(handle: Handle) {
+  function FormErrorFocus(_handle: Handle) {
     return () => (
       <div
         mix={[
