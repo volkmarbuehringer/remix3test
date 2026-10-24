@@ -1521,59 +1521,6 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 // drag-and-drop wiring (row reorder, cross-list move, merge)
                 // to this container; see lists-drag-mixin.ts.
                 view.drag,
-                ref((el) => {
-                  let ac = new AbortController()
-
-                  // Reveal/hide a row's action cluster on hover or focus.
-                  // Delegated on the container so it survives re-renders.
-                  function setRowActions(row: HTMLElement, op: string) {
-                    let cluster = row.querySelector<HTMLElement>('[data-item-actions]')
-                    if (cluster) {
-                      cluster.style.opacity = op
-                      cluster.style.pointerEvents = op === '1' ? 'auto' : 'none'
-                    }
-                  }
-                  let activeRow: HTMLElement | null = null
-                  function revealRow(row: HTMLElement) {
-                    if (activeRow && activeRow !== row) setRowActions(activeRow, '')
-                    setRowActions(row, '1')
-                    activeRow = row
-                  }
-                  function hideRowActions() {
-                    if (activeRow) {
-                      setRowActions(activeRow, '')
-                      activeRow = null
-                    }
-                  }
-                  el.addEventListener(
-                    'mouseover',
-                    (e) => {
-                      let row = (e.target as HTMLElement).closest<HTMLElement>('[role="listitem"]')
-                      if (row) revealRow(row)
-                    },
-                    { signal: ac.signal },
-                  )
-                  el.addEventListener('mouseleave', hideRowActions, { signal: ac.signal })
-                  el.addEventListener(
-                    'focusin',
-                    (e) => {
-                      let row = (e.target as HTMLElement).closest<HTMLElement>('[role="listitem"]')
-                      if (row) revealRow(row)
-                    },
-                    { signal: ac.signal },
-                  )
-                  el.addEventListener(
-                    'focusout',
-                    (e) => {
-                      let row = (e.target as HTMLElement).closest<HTMLElement>('[role="listitem"]')
-                      let related = e.relatedTarget as Node | null
-                      if (row && (!related || !row.contains(related))) setRowActions(row, '')
-                    },
-                    { signal: ac.signal },
-                  )
-
-                  return () => ac.abort()
-                }),
               ]}
             >
               {vis.map((item, index) => {
@@ -1605,6 +1552,19 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             ? `1px solid ${theme.colors.border.subtle}`
                             : 'none',
                         backgroundColor: index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                        // CSS hover/focus reveal replaces the old delegated
+                        // mouseover/focusin JS: `css()` emits nested
+                        // parent→child selectors on current builds. !important
+                        // wins the per-class @layer contest against the
+                        // cluster's own resting opacity/pointer-events.
+                        '&:hover [data-item-actions]': {
+                          opacity: '1 !important',
+                          pointerEvents: 'auto !important',
+                        },
+                        '&:focus-within [data-item-actions]': {
+                          opacity: '1 !important',
+                          pointerEvents: 'auto !important',
+                        },
                         '&:focus-visible': {
                           outline: `2px solid ${theme.colors.focus.ring}`,
                           outlineOffset: '-2px',

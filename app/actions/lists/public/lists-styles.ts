@@ -967,9 +967,9 @@ export const clearFilterBtnStyle = css({
 // (the label) can span the full row width — the actions never consume layout
 // space, letting rows be longer. The buttons are joined into a flat button
 // group (matching /admin/lists): square, shared border, rounded only on the
-// outer corners. Each button carries its own style (the remix-ui css()
-// runtime won't emit descendant `> button` group selectors, so we apply the
-// styles per-button instead of via a container rule).
+// outer corners. Each button currently carries its own style; the vendor
+// runtime now emits descendant selectors (`& > form > button`), so this can be
+// collapsed into one container rule when the file is next touched.
 export const itemActionsStyle = css({
   position: 'absolute',
   top: '50%',
