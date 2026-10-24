@@ -204,3 +204,45 @@ To test the **fallback** path headlessly, a fake `globalThis.document` must impl
 reaches the stubbed `window.confirm`. A stub with only `getElementById`/`querySelector` throws
 `document.dispatchEvent is not a function` (seen in `app/ui/row-context-menu.test.ts`, where the
 styled-dialog commit added the `requestConfirm` call without updating the stub).
+
+### Freezing the confirmed scope for bulk actions
+
+A bulk delete confirms "N rows", but the browser builds the payload from the **live
+form** at submit time. An in-app dialog is not automatically modal: `aria-modal="true"`
+is advisory, and the shared `ConfirmDelete` does not trap focus or inert the page, so
+keyboard and screen-reader users can still check more rows while it is open. Re-reading
+the selection when the dialog is accepted then deletes rows the confirmation never named
+(observed on `/admin/uploads`: two confirmed, a third checked behind the dialog, POST
+carried all three).
+
+Freeze the ids when the dialog is accepted and rewrite the outgoing payload instead of
+trusting the checkboxes. The reliable seam is the `formdata` event on the form:
+
+```ts
+let confirmedIds: number[] | null = null
+form.addEventListener('formdata', (event) => {
+  if (!confirmedIds) return
+  event.formData.delete('ids')
+  for (let id of confirmedIds) event.formData.append('ids', String(id))
+})
+// on accept:
+confirmedIds = ids
+form.requestSubmit(submit)
+```
+
+Two gotchas, verified in Chromium + Firefox at the installed pin (2026-10-24):
+
+- `formdata` fires **after** `requestSubmit()` returns, so removing/restoring checkbox
+  `name` (or `checked`) around the call is racy: Chromium reads the form after the
+  restore and submits the extra row (the same code passed in Firefox).
+- Chromium fires `formdata` **more than once** for one frame-intercepted submission
+  (first payload = the selection when the dialog opened, second = the live selection),
+  so rewriting once and clearing the frozen ids on the first event is not enough —
+  rewrite every event while the confirmed ids are set. The next confirmation replaces
+  them.
+
+`app/actions/admin/public/admin-uploads-bulk-delete.tsx` implements this, and
+`uploads-bulk-delete.test.e2e.ts` ("deletes exactly the confirmed rows when the selection
+grows while the dialog is open") covers it — it checks the extra row behind the dialog,
+accepts, and asserts only the two confirmed rows are gone. The modal gap itself (no focus
+trap/inert) is still open in the shared dialog.

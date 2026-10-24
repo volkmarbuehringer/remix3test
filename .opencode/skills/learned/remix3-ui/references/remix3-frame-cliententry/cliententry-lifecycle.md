@@ -238,6 +238,15 @@ export const MyEditor = clientEntry(
 
 The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts:944` at build `060b32a`, dispatched by `completeReload` defined at `:939`; the inherited-reload variant dispatches at `:979`). At this point `handle.frame.src` contains the just-rendered URL.
 
+### Keeping focus in a field that lives inside the reloaded frame
+
+A GET form inside the frame can submit after a debounce (live search). Two separate problems decide whether the user can keep typing:
+
+- **The runtime's post-navigation focus reset moves focus to `document.body`.** Mark the submitted form `data-rmx-reset-focus="manual"` — `resolveFormNavigation` maps it to the Navigation API's `focusReset: 'manual'` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/navigation.ts`, `normalizeResetBehavior`, confirmed at the installed pin 2026-10-24), so the runtime stops stealing focus after the transition.
+- **The attribute alone is not enough when the field itself is re-rendered.** A frame navigation replaces the fragment's DOM (including the `<input>`), so focus still drops even with `focusReset: 'manual'`; verified on `/admin/uploads`, where the attribute alone left `document.activeElement === body`. Re-focus in `reloadComplete` (the new input exists there), and only when *this* entry initiated the navigation, so an unrelated reload cannot pull focus back. Keep the restore flag in the factory closure and clear it once used.
+
+First application: `app/actions/admin/public/admin-uploads-filter-autosubmit.tsx` + `form[data-uploads-filter]` in `app/actions/admin/uploads/controller.tsx`; e2e `uploads-ux.test.e2e.ts` asserts the field keeps focus after the filter navigation.
+
 ### `reloadStart` — synchronous pre-reload hook
 
 `reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts:835` at build `060b32a`, inside `startReload` at `:832`; the ancestor and inherited variants dispatch at `:850` and `:951`). Use it for work that must still see the outgoing frame state:
