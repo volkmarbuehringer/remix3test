@@ -17,14 +17,12 @@ describe('Admin Offerings Controller', () => {
   let adminCookie: string
   let adminCsrfToken: string
   let resourceId: number
-  let resource2Id: number
 
   before(async () => {
     let env = await setupTestEnvironment()
     adminCookie = env.adminCookie
     adminCsrfToken = env.adminCsrfToken
     resourceId = env.resourceId
-    resource2Id = env.resource2Id
     testResourceId = env.resourceId
     testResource2Id = env.resource2Id
   })

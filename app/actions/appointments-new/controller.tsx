@@ -15,7 +15,6 @@ import {
 } from '../../data/appointofferings.ts'
 import { parseDuring } from '../../utils/during.ts'
 import { requireAuth } from '../../middleware/auth.ts'
-import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
@@ -45,14 +44,6 @@ import {
   getAppointmentRow,
   deleteAppointmentRecord,
 } from '../../data/appointments.ts'
-
-function redirectToLogin(context: { url: AppContext['url'] }): Response {
-  let returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? context.url.pathname
-  let location = returnTo
-    ? `${routes.auth.login.index.href()}?returnTo=${encodeURIComponent(returnTo)}`
-    : routes.auth.login.index.href()
-  return redirect(location)
-}
 
 const CACHE_TTL_MS = 60_000
 let resourcesCache: { data: ResourceOption[]; expiresAt: number } | null = null
@@ -84,7 +75,6 @@ interface AppointmentsNewPageData {
   deletingRow: AppointmentsNewRow | null
   creating: boolean
   error: string | undefined
-  defaultStartMin: number
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
@@ -252,7 +242,6 @@ async function loadAppointmentsNewPageData(
       : undefined
 
   let daysWithSlots: DayWithSlots[] | undefined
-  let defaultStartMin = 480
 
   if (creating && step === 2 && wizardResourceId) {
     let resourceIdNum = parseInt(wizardResourceId, 10)
@@ -292,9 +281,6 @@ async function loadAppointmentsNewPageData(
         slots = await loadWeekSlots(context.db, resourceIdNum, baseWeek)
       }
       daysWithSlots = slots
-      if (daysWithSlots.length > 0 && daysWithSlots[0]!.slots.length > 0) {
-        defaultStartMin = daysWithSlots[0]!.slots[0]!
-      }
     }
   }
 
@@ -332,7 +318,6 @@ async function loadAppointmentsNewPageData(
     deletingRow,
     creating,
     error,
-    defaultStartMin,
     formValues,
     fieldErrors,
     formError,
@@ -379,7 +364,6 @@ function renderAppointmentsNewPage(
       creating={data.creating}
       resources={data.resources}
       error={data.error}
-      defaultStartMin={data.defaultStartMin}
       formValues={data.formValues}
       fieldErrors={data.fieldErrors}
       formError={data.formError}
@@ -537,10 +521,9 @@ export default createController(routes.appointmentsNew, {
 
         let during = `[${startMin},${end_min})`
         let now = Date.now()
-        let newId: number
 
         try {
-          newId = await createAppointmentRecord(context.db, {
+          await createAppointmentRecord(context.db, {
             userId,
             resourceId: resource_id,
             title,

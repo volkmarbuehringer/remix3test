@@ -10,13 +10,12 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
-import { isDateInPast, getPeriodRange, getTodayUtcMidnight } from '../../../utils/date-utils.ts'
+import { isDateInPast } from '../../../utils/date-utils.ts'
 import Holidays from 'date-holidays'
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import {
-  gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
   gridStateOverrides,
@@ -59,16 +58,6 @@ const OFFERINGS_SORTABLE_FIELDS = [
   'ao.created_at',
   'ao.updated_at',
 ] as const
-
-const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
-  'ao.id': 'ao.id',
-  'ao.day': 'ao.day',
-  'ao.resource_id': 'ao.resource_id',
-  'r.description': 'r.name',
-  'ao.during': 'ao.during',
-  'ao.created_at': 'ao.created_at',
-  'ao.updated_at': 'ao.updated_at',
-}
 
 interface OfferingPageData {
   rows: OfferingRow[]

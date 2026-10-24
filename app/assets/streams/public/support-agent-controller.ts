@@ -50,13 +50,13 @@ export function deferPanelFormToRuntime(
 export interface SupportAgentFrame {
   reload(options?: { src?: string }): Promise<unknown>
 }
-export type SupportAgentNavigationInfo = {
+type SupportAgentNavigationInfo = {
   href: string
   target?: string | undefined
   history?: string | undefined
 }
 
-export type SupportAgentQuestionData = {
+type SupportAgentQuestionData = {
   runId?: string | undefined
   toolCallId?: string | undefined
   question: string
@@ -64,7 +64,7 @@ export type SupportAgentQuestionData = {
   selectionMode: string
 }
 
-export type SupportAgentSuspensionData = {
+type SupportAgentSuspensionData = {
   runId?: string | undefined
   toolCallId?: string | undefined
   toolName?: string | undefined
@@ -106,7 +106,7 @@ export interface SupportAgentUiDelegate {
   removeApprovalGate(): void
 }
 
-export interface SupportAgentControllerOptions {
+interface SupportAgentControllerOptions {
   /** Abort signal of the containing component; readEventStream lifetime signal. */
   signal: AbortSignal
   /** Resolves the frame that hosts the active panel content. */

@@ -36,13 +36,7 @@ export interface LayoutResult {
   unresolved: boolean
 }
 
-interface BlockGroup {
-  date: number
-  end_min: number
-  start_min: number
-}
-
-export const defaultLayoutPolicy: LayoutPolicy = {
+const defaultLayoutPolicy: LayoutPolicy = {
   dayMinutes: 1440,
   minimumMinute: 0,
   minimumDuration: 15,

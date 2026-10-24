@@ -14,7 +14,6 @@ describe('Verwaltung Users Export Controller', () => {
   let adminCsrfToken: string
   let userCookie: string
   let resourceId: number
-  let userId: number
   let createdUserEmails: string[] = []
 
   before(async () => {
@@ -22,7 +21,6 @@ describe('Verwaltung Users Export Controller', () => {
     adminCookie = env.adminCookie
     userCookie = env.userCookie
     resourceId = env.resourceId
-    userId = env.userId
 
     let adminAuth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     assert.ok(

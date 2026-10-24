@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 
-import button, { buttonLink } from '../ui/theme/button.ts'
+import { buttonLink } from '../ui/theme/button.ts'
 import type { ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { frames, routes } from '../routes.ts'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'

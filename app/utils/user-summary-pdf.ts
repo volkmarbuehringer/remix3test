@@ -1,10 +1,8 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 
-import { generatePdfBuffer } from './pdf-utils.ts'
+import { generatePdfBuffer, PDF_TRUNCATED_NOTE } from './pdf-utils.ts'
 import { formatMinOption, formatUtcDateDE } from './date-utils.ts'
 import type { UserSummaryRow } from '../data/user-summary-rows.ts'
-
-const TRUNCATED_NOTE = ' \u2014 Hinweis: Ergebnis auf 10.000 Eintr\u00e4ge begrenzt.'
 
 interface BuildUserSummaryPdfOptions {
   /** Main title, e.g. "Benutzer-Export". */
@@ -31,7 +29,7 @@ export async function buildUserSummaryPdf(options: BuildUserSummaryPdfOptions): 
   }
   content.push(
     {
-      text: countLabel + (truncated ? TRUNCATED_NOTE : ''),
+      text: countLabel + (truncated ? PDF_TRUNCATED_NOTE : ''),
       style: 'subheader',
       margin: [0, 0, 0, 20],
     },

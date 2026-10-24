@@ -19,16 +19,6 @@ function currentMonday(): number {
   return monday.getTime()
 }
 
-function isoWeekFromMonday(ms: number): { year: number; week: number } {
-  let d = new Date(ms)
-  d.setUTCDate(d.getUTCDate() + 3)
-  let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  let weekNum = Math.ceil(
-    ((d.getTime() - yearStart.getTime()) / 86_400_000 + yearStart.getUTCDay() + 1) / 7,
-  )
-  return { year: d.getUTCFullYear(), week: weekNum }
-}
-
 /**
  * Build a `{ date, during }` pair for an appointment starting about
  * `minutesFromNow` minutes in the future and fitting inside a single UTC day.
@@ -58,7 +48,6 @@ describe('Appointments New Controller', () => {
   let firstResourceId: number
   let futureDateMs: number
   let futureDateStr: string
-  let appointmentWeekUrl: string
 
   before(async () => {
     await initializeAppDatabase()
@@ -84,9 +73,6 @@ describe('Appointments New Controller', () => {
     let m = String(d.getUTCMonth() + 1).padStart(2, '0')
     let day = String(d.getUTCDate()).padStart(2, '0')
     futureDateStr = `${y}-${m}-${day}`
-
-    let { year, week } = isoWeekFromMonday(mondayMs)
-    appointmentWeekUrl = `${APPT_URL}?year=${year}&week=${week}`
   })
 
   // ── Auth guards ──
@@ -590,7 +576,6 @@ describe('Appointments New Controller', () => {
   // ── Status filter ──
 
   it('GET /appointments/new defaults to pending (future appointments)', async () => {
-    let futureDate = futureDateStr
     let response = await router.fetch(APPT_URL, {
       headers: { Cookie: userCookie },
     })
@@ -612,13 +597,12 @@ describe('Appointments New Controller', () => {
   it('GET /appointments/new with status=expired shows past appointments', async () => {
     // Insert a past appointment directly (POST blocks past dates)
     let pastDayMs = new Date('2020-06-01T00:00:00Z').getTime()
-    let pastResult = await pool.query(
+    await pool.query(
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Past Appointment For Status Test', $2, '[480,540)', $3, $3)
        RETURNING id`,
       [firstResourceId, pastDayMs, Date.now()],
     )
-    let pastId = pastResult.rows[0].id as number
 
     let response = await router.fetch(`${APPT_URL}?status=expired`, {
       headers: { Cookie: userCookie },

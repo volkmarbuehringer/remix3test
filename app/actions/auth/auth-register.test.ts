@@ -201,9 +201,7 @@ describe('Auth Register controller', () => {
   // POST /register — rate limiting
   // -----------------------------------------------------------------------
   it('POST /register with repeated attempts for same email returns 429 after limit', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(
-      `${BASE}${routes.auth.register.index.href()}`,
-    )
+    await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}ratelimit@example.com`
 
     // Fire 6 attempts — the first succeeds (new user, resets counter), then

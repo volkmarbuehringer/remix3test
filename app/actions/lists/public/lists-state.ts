@@ -212,7 +212,7 @@ export function countItemsByStatus(items: ListItem[], nowMs: number = Date.now()
   return counts
 }
 
-export type ViewOrderOptions = {
+type ViewOrderOptions = {
   reverse?: boolean
   /** Stable random ranking (item ids in display order). Overrides `mode`. */
   shuffleOrder?: readonly string[] | null
@@ -242,7 +242,7 @@ export function orderViewItems(
   return options.reverse ? reverseItems(next) : next
 }
 
-export type ItemViewOptions = {
+type ItemViewOptions = {
   query?: string
   status?: StatusFilter
   hideDone?: boolean

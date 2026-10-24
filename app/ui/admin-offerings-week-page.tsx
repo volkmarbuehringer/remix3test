@@ -11,11 +11,9 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { mondayOfWeek } from '../data/offering-configs.ts'
-import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import { isoWeeksInYear } from '../utils/date-utils.ts'
 
 interface AdminOfferingsWeekPageProps {
-  resources: OfferingsResourceOption[]
   offset: string
   sort: string
   order: string
@@ -42,7 +40,7 @@ const noteStyle = css({
 
 export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProps>) {
   return () => {
-    let { resources, offset, sort, order, filter, period, status } = handle.props
+    let { offset, sort, order, filter, period, status } = handle.props
     let years = Array.from({ length: 5 }, (_, i) => 2026 + i)
 
     return (

@@ -19,12 +19,9 @@ import { clamp } from '../utils/math.ts'
 import { prefersReducedMotion } from '../utils/motion.ts'
 
 import {
-  HOURS,
   LABEL_WIDTH,
   DRAG_THRESHOLD,
   COLLISION_STATUS,
-  SUB_SLOT_HEIGHT,
-  SUB_SLOTS,
   SLOT_HEIGHT,
   type AppData,
   type DragState,
@@ -139,7 +136,6 @@ export const AppointmentGrid = clientEntry(
 
     // Current visible days (computed from offerings) — updated each render
     let currentVisibleDays: AppData['days'] = []
-    let currentVisibleDayDates: number[] = []
     // Offering time range for positioning calculations — the grid rows start
     // at currentOfferingStartMin, so all absolute pixel positions must be
     // relative to this offset rather than absolute midnight.
@@ -202,7 +198,6 @@ export const AppointmentGrid = clientEntry(
 
       // Store visible days and offering range for event handler access
       currentVisibleDays = visibleDays
-      currentVisibleDayDates = visibleDays.map((d) => d.date)
       currentOfferingStartMin = offeringRange.startMin
       currentOfferingEndMin = offeringRange.endMin
 

@@ -5,7 +5,7 @@ import { redirect } from 'remix/response/redirect'
 import { routes } from '../../../routes.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { generatePdfBuffer, PDF_TRUNCATED_NOTE } from '../../../utils/pdf-utils.ts'
 import { listAllAppointments } from '../../../data/pdf.ts'
 import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 
@@ -17,18 +17,6 @@ function formatDate(date: string | number): string {
     month: '2-digit',
     year: 'numeric',
   })
-}
-
-interface AppointmentRow {
-  id: number
-  user_name: string | null
-  user_email: string
-  resource_name: string | null
-  resource_description: string | null
-  title: string
-  date: number
-  start_min: number
-  end_min: number
 }
 
 export default createController(routes.verwaltung.pdf, {
@@ -57,7 +45,7 @@ export default createController(routes.verwaltung.pdf, {
               style: 'subheader',
             },
             {
-              text: `Insgesamt ${rows.length} Termine${truncated ? ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.' : ''}`,
+              text: `Insgesamt ${rows.length} Termine${truncated ? PDF_TRUNCATED_NOTE : ''}`,
               style: 'subheader',
               margin: [0, 0, 0, 20],
             },

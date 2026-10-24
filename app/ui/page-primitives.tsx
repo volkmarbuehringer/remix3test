@@ -1,5 +1,5 @@
 import { css } from 'remix/component'
-import type { Handle, RemixNode, MixValue, ElementProps } from 'remix/component'
+import type { Handle, RemixNode, MixValue } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 
 interface PageSectionProps {

@@ -1,12 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import type { AppointmentLayoutBlock } from './schedule-layout.ts'
-import {
-  previewDeleteBlock,
-  previewMoveBlock,
-  previewResizeBlockTime,
-  defaultLayoutPolicy,
-} from './schedule-layout.ts'
+import { previewDeleteBlock, previewMoveBlock, previewResizeBlockTime } from './schedule-layout.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers

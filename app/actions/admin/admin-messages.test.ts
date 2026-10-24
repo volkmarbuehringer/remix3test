@@ -14,7 +14,6 @@ import { routes } from '../../routes.ts'
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const LOGIN_URL = `${BASE}${routes.auth.login.index.href()}`
 const ADMIN_MESSAGES_URL = `${BASE}/admin/messages`
 
 describe('Admin Messages controller', () => {

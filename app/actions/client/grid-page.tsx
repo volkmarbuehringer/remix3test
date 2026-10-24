@@ -30,7 +30,6 @@ import { formatUtcDateDE } from '../../utils/date-utils.ts'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
 type Row = Client
-type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null
 
 interface ClientGridPageProps {
   rows: Row[]

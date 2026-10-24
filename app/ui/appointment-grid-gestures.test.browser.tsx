@@ -25,7 +25,6 @@ import {
   createFixtureData,
   embedFixtureData,
   removeFixtureData,
-  dispatchDragSequence,
   dispatchDragWithThreshold,
   installFetchCapture,
   uninstallFetchCapture,
@@ -292,12 +291,6 @@ describe('AppointmentGrid rendering', () => {
 // -----------------------------------------------------------------------
 
 describe('Drag gesture coordinate calculations', () => {
-  let data: ReturnType<typeof createFixtureData>
-
-  beforeEach(() => {
-    data = createFixtureData()
-  })
-
   it('DRAG_THRESHOLD is 4px', () => {
     assert.equal(DRAG_THRESHOLD, 4, 'drag threshold should be 4px')
   })

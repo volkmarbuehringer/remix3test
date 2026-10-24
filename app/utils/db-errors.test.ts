@@ -1,6 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import { isConstraintViolation, isExclusionConstraintError, type PgErr } from './db-errors.ts'
+import { isConstraintViolation, isExclusionConstraintError } from './db-errors.ts'
 
 function pgError(overrides: Partial<{ code: string; message: string; constraint: string }>): Error {
   return { ...{ code: '23503', message: 'violation' }, ...overrides } as unknown as Error

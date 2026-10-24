@@ -1,5 +1,3 @@
-import { readEventStream } from './read-sse.ts'
-
 /**
  * Shared HTTP transport for the `fetch`-based SSE endpoints.
  *
@@ -27,7 +25,7 @@ export function isAbortError(err: unknown): boolean {
  * and a `data:` line that is not JSON must degrade to the status text, not
  * throw out of `fetchSseStream`'s documented `{ ok: false; message }` shape.
  */
-export function describeSseFailure(text: string, statusText: string): string {
+function describeSseFailure(text: string, statusText: string): string {
   let match = text.match(/data: (.*)\n?/)
   if (!match) return statusText
   try {
@@ -42,7 +40,7 @@ export type SseInit = Omit<RequestInit, 'headers' | 'signal'> & {
   headers?: Record<string, string> | undefined
 }
 
-export type SseStreamResult = { ok: true; res: Response } | { ok: false; message: string }
+type SseStreamResult = { ok: true; res: Response } | { ok: false; message: string }
 
 /** POSTs to an SSE endpoint and either the streaming response or a failure message. */
 export async function fetchSseStream(

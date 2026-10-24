@@ -5,14 +5,12 @@ import { render } from 'remix/component/test'
 import { CustomerChatStream } from './public/customer-chat-stream.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { SupportAgentStream } from './public/support-agent-stream.tsx'
-import { AgentEventsStream } from './public/agent-events-stream.tsx'
 import { ConnectionIndicator } from '../../ui/connection-indicator.browser.tsx'
 import {
   installSseMock,
   uninstallSseMock,
   getCreatedEventSources,
   resetCreatedEventSources,
-  type MockEventSource,
 } from '../../../test/sse-mock.ts'
 
 // -----------------------------------------------------------------------
@@ -415,7 +413,6 @@ describe('SSE stream DOM rendering', () => {
 
   it('tool card renders with header, args body, and result footer', () => {
     let container = document.getElementById('chat-messages')!
-    let toolCallId = 'call_123'
 
     // Create card like appendToolCard does
     let card = document.createElement('div')
@@ -1951,7 +1948,7 @@ describe('Support agent chat UX', () => {
     dom = setupSupportDom()
 
     let originalFetch = window.fetch
-    window.fetch = async (url, init) => {
+    window.fetch = async (url) => {
       if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
       return sse([
         { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
@@ -1988,7 +1985,7 @@ describe('Support agent chat UX', () => {
     dom = setupSupportDom()
 
     let originalFetch = window.fetch
-    window.fetch = async (url, init) => {
+    window.fetch = async (url) => {
       if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
       return sse([
         { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
@@ -2193,7 +2190,7 @@ describe('Support agent chat UX', () => {
     dom = setupSupportDom()
 
     let originalFetch = window.fetch
-    window.fetch = async (url, init) => {
+    window.fetch = async (url) => {
       if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
       return sse([
         { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 'page-thread-1' }) },
@@ -2227,7 +2224,7 @@ describe('Support agent chat UX', () => {
     dom = setupSupportDom()
 
     let originalFetch = window.fetch
-    window.fetch = async (url, init) => {
+    window.fetch = async (url) => {
       if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
       return sse([
         { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },

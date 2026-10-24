@@ -4,7 +4,6 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { pool } from '../../../test/pool.ts'
 import {
-  BASE,
   ADMIN_APPT_URL,
   setupTestEnvironment,
   teardownTestEnvironment,
@@ -37,7 +36,6 @@ function nextSlot(): { startMin: number; endMin: number } {
 describe('Admin Appointments Controller', () => {
   let adminCookie: string
   let adminCsrfToken: string
-  let userCookie: string
   let resourceId: number
   let resource2Id: number
   let userId: number
@@ -47,7 +45,6 @@ describe('Admin Appointments Controller', () => {
     let env = await setupTestEnvironment()
     adminCookie = env.adminCookie
     adminCsrfToken = env.adminCsrfToken
-    userCookie = env.userCookie
     resourceId = env.resourceId
     resource2Id = env.resource2Id
     userId = env.userId

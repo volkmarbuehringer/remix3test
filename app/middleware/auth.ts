@@ -1,7 +1,6 @@
 import { createCredentialsAuthProvider } from 'remix/auth'
 import {
   auth,
-  Auth,
   requireAuth as requireAuthenticatedUser,
   createSessionAuthScheme,
 } from 'remix/middleware/auth'

@@ -11,15 +11,12 @@ import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange } from '../../../data/appointofferings.ts'
 import { parseDuring } from '../../../utils/during.ts'
 import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
-import Holidays from 'date-holidays'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { appointmentChannel } from '../../../utils/appointments-sse.ts'
 import { appointmentSaveSchema, APPOINTMENT_FORM_KEYS } from '../../../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import {
-  gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
   gridStateOverrides,
@@ -88,19 +85,6 @@ const APPOINTMENTS_SORTABLE_FIELDS = [
   'a.created_at',
   'a.updated_at',
 ] as const
-
-const APPOINTMENTS_ORDER_BY_COLUMNS: Record<string, string> = {
-  'a.id': 'a.id',
-  'a.title': 'a.title',
-  'u.email': 'u.email',
-  'r.description': 'r.name',
-  'a.date': 'a.date',
-  'a.during': 'a.during',
-  'a.created_at': 'a.created_at',
-  'a.updated_at': 'a.updated_at',
-}
-
-const hd = new Holidays('DE', 'rp')
 
 interface AppointmentPageData {
   rows: AppointmentRow[]

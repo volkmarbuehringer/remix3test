@@ -2,7 +2,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createCookie } from 'remix/cookie'
-import { Session } from 'remix/session'
 import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 

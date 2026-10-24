@@ -147,8 +147,6 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs?editing='))
-
-      let match = location.match(/editing=(\d+)/)
     })
 
     it('rejects duplicate resource_id', async () => {

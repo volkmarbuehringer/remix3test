@@ -2,7 +2,7 @@ const PG_RESTRICT_VIOLATION = '23001' as const
 const PG_FOREIGN_KEY_VIOLATION = '23503' as const
 const PG_UNIQUE_VIOLATION = '23505' as const
 
-export type PgErr = { code?: string; message?: string; constraint?: string; cause?: PgErr }
+type PgErr = { code?: string; message?: string; constraint?: string; cause?: PgErr }
 
 /**
  * Minimal guard for a Postgres/Node error object. The predicates below only

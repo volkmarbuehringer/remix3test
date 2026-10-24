@@ -148,14 +148,10 @@ describe('Admin page — frame streaming', () => {
 
 describe('Fragment endpoints — standalone rendering', () => {
   let adminCookie: string
-  let userCookie: string
 
   before(async () => {
     let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     adminCookie = adminResult?.cookie ?? ''
-
-    let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
-    userCookie = userResult?.cookie ?? ''
   })
 
   it('/admin/fragments/stats renders without Layout wrapper', async () => {

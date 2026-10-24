@@ -1,5 +1,5 @@
 import { css } from 'remix/component'
-import type { CSSMixinDescriptor, MixinDescriptor, ElementProps } from 'remix/component'
+import type { CSSMixinDescriptor, MixinDescriptor } from 'remix/component'
 import upstreamButton from './upstream-button.ts'
 
 import { theme } from './theme.ts'

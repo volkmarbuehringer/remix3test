@@ -31,7 +31,7 @@ export type ListsDragContext = {
 // Row-scoped handlers receive the row element explicitly: the browser-only
 // `drag()` mixin wires them through event delegation on the list container,
 // so `e.currentTarget` is the container, never the row.
-export type ListsDragController = {
+type ListsDragController = {
   handleDragStart: (e: DragEvent, index: number, row: HTMLElement) => void
   handleDragOver: (e: DragEvent, index: number, row: HTMLElement) => void
   handleContainerDragOver: (e: DragEvent) => void
@@ -514,12 +514,6 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
       ctx.setSaveError('Zusammenführen fehlgeschlagen (Netzwerkfehler)')
       ctx.update()
     }
-  }
-
-  let handleListDragEnd = () => {
-    if (dragKind !== 'list') return
-    cleanupListDrag()
-    ctx.update()
   }
 
   // Delegated listener: catches dragstart on any sidebar row regardless of

@@ -17,10 +17,6 @@ function hermesUrl(): string {
 const HERMES_TIMEOUT_MS = 3_000
 const MAX_PAYLOAD_BYTES = 256 * 1024
 
-interface WebhookInsertResult {
-  id: string
-}
-
 export default createAction(system.appWebhook, {
   middleware: [apiTokenAuth(), requireApiAdmin()],
   handler: async (context) => {

@@ -2,7 +2,6 @@ import type { Handle, RemixNode } from 'remix/component'
 import { css } from 'remix/component'
 import { ImportMap } from 'remix/component/server'
 import { getContext } from 'remix/middleware/async-context'
-import { createCookie } from 'remix/cookie'
 import { Cookie } from 'remix/headers/cookie'
 import { theme as themeTokens, RMX_01_GLYPHS } from '../ui/theme/theme.ts'
 
@@ -21,8 +20,6 @@ interface DocumentProps {
 }
 
 const DEFAULT_TITLE = readAppDisplayName('Newapp')
-
-const themeCookie = createCookie('theme', {})
 
 function getThemeFromCookie(): string | null {
   try {

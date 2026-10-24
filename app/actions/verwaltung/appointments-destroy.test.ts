@@ -5,7 +5,6 @@ import { router } from '../../test-router.ts'
 import { pool } from '../../../test/pool.ts'
 import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 import {
-  BASE,
   ADMIN_APPT_URL,
   setupTestEnvironment,
   teardownTestEnvironment,
@@ -20,21 +19,15 @@ let testResource2Id: number
 describe('Admin Appointments Controller', () => {
   let adminCookie: string
   let adminCsrfToken: string
-  let userCookie: string
   let resourceId: number
-  let resource2Id: number
   let userId: number
-  let offeringDateStr: string
 
   before(async () => {
     let env = await setupTestEnvironment()
     adminCookie = env.adminCookie
     adminCsrfToken = env.adminCsrfToken
-    userCookie = env.userCookie
     resourceId = env.resourceId
-    resource2Id = env.resource2Id
     userId = env.userId
-    offeringDateStr = env.offeringDateStr
     testResourceId = env.resourceId
     testResource2Id = env.resource2Id
   })

@@ -1,5 +1,138 @@
 # Code Deletion Log
 
+## [2026-10-24] Unused-symbol & duplicate-review pass (`refactor/dead-code-cleanup` branch)
+
+Post-drift audit after the `202e08e` → HEAD window (prefetch warming, lists row
+hover actions, remix 3.1.0 pin, uploads download work). Detection: `knip` 6.43.0
+(with the maintained `knip.json`), `depcheck` 1.4.7, `oxlint -D no-unused-vars`
+(the repo disables the rule in `.oxlintrc.json`), a whole-repo entry export/usage
+scan (knip treats every `app/**/public/**` browser entry as an entry, so their
+unused exports are invisible to it), and `jscpd` 4.3.0 (min-tokens 70) for
+duplicate measurement. `ts-prune` remains unusable: it crashes on this repo's
+TypeScript 7 native-preview API.
+
+### Unused Exports Unexported (19 symbols; export keyword only, symbol stays live)
+
+- `app/actions/lists/public/lists-api.ts` — `MoveOutcome` (return type of the
+  exported request fn; no consumer names it).
+- `app/actions/lists/public/lists-drag.ts` — `ListsDragController`.
+- `app/actions/lists/public/lists-state.ts` — `ViewOrderOptions`, `ItemViewOptions`.
+- `app/assets/streams/public/agent-events-controller.ts` — `AgentEventsControllerOptions`.
+  `AgentEventsRowKind` was DELETED outright (unused alias; `RowKind` itself stays).
+- `app/assets/streams/public/customer-chat-controller.ts` — `CustomerChatReconnectPayload`,
+  `CustomerChatControllerOptions`, `CustomerChatController`.
+- `app/assets/streams/public/sse-post.ts` — `describeSseFailure`, `SseStreamResult`.
+- `app/assets/streams/public/support-agent-controller.ts` — `SupportAgentNavigationInfo`,
+  `SupportAgentQuestionData`, `SupportAgentSuspensionData`, `SupportAgentControllerOptions`.
+- `app/ui/confirm-delete.browser.tsx` — `ConfirmRequestOptions`, `ConfirmRequestDetail`.
+- `app/data/schema.ts` — `notifications` table object. The `notifications` table is
+  accessed exclusively through raw SQL; its only remaining consumer is the
+  exported `Notification = TableRow<typeof notifications>` type, so the table
+  object stays defined and module-private (same resolution as `chatRuns` in the
+  2026-08-31 pass).
+- `app/ui/schedule-layout.ts` — `defaultLayoutPolicy` (still used by
+  `resolveLayoutPolicy` in-module).
+- `app/utils/db-errors.ts` — `PgErr` (still used by `isPgErr`/`matchPg`).
+
+### Dead Code Removed
+
+- `app/actions/app-webhook/controller.tsx` — `WebhookInsertResult` interface.
+- `app/actions/appointments-new/controller.tsx` — `redirectToLogin()` (zero
+  callers; the appointments-new surface redirects via route middleware), the
+  unused `newId` binding, and the whole `defaultStartMin` data/prop chain
+  (controller → page → none of the page's children used it).
+- `app/actions/client/grid-page.tsx` — `SortField` type alias.
+- `app/actions/lists/public/lists-drag.ts` — `handleListDragEnd` (never wired).
+- `app/actions/verwaltung/pdf/controller.tsx` — `AppointmentRow` interface.
+- `app/actions/verwaltung/{offerings,appointments}/controller.tsx` — two
+  `*_ORDER_BY_COLUMNS` maps (the data layer owns the live copies), plus the
+  appointments controller's unused `Holidays`/`hd` and `f` imports.
+- `app/ui/appointment-grid.browser.tsx` — `currentVisibleDayDates` (written,
+  never read) and unused `HOURS`/`SUB_SLOT_HEIGHT`/`SUB_SLOTS` imports.
+- `app/ui/appointment-grid-test-helpers.ts` — `dispatchDragSequence()` test helper
+  (no remaining test imports it; `dispatchDragWithThreshold` stays).
+- `app/ui/document.tsx` — `themeCookie` const and its `createCookie` import
+  (the document reads the cookie via `Cookie.from`).
+- `app/ui/admin-offerings-week-page.tsx` — unused `resources` prop (and the
+  caller's pass-through).
+- `app/ui/appointments-new-step2.tsx` — unused `ws` parameter on `buildBackUrl`.
+- `app/ui/schedule-layout.ts` — module-private `BlockGroup` interface.
+- `app/ui/theme/contract.ts` — module-private `ThemeUtility` alias (and its
+  now-unused `css` type import).
+- `app/actions/settings/controller.tsx` — unused `catch (err)` binding → `catch`.
+- Unused imports/locals across 26 test files (streams browser test fetch mocks,
+  verwaltung appointment fixtures, admin/router/chat/support-agent setup
+  variables, auth-register CSRF destructure, `schedule-layout`/`db-errors`/
+  `rate-limiter` helpers, etc.). Notably the `sql` import that the
+  2026-10-14 note warned about had been re-introduced in
+  `app/actions/lists/controller.test.ts`; removed again.
+
+### Duplicate Code Consolidated
+
+- `PDF_TRUNCATED_NOTE` is now single-sourced in `app/utils/pdf-utils.ts`.
+  Replaces three copies of the user-facing truncation string
+  (`report1-pdf.ts`, `user-summary-pdf.ts`, and the inline template in
+  `verwaltung/pdf/controller.tsx`). Runtime strings were byte-identical
+  (one copy used `\u2014`/`\u00e4` escapes for the same characters).
+
+### Remaining (manual review — measured, deferred as refactor work)
+
+- `admin-offerings-create-page.tsx` ↔ `admin-offerings-edit-page.tsx` — the
+  largest clone in the repo (109 lines / 828 tokens, ~74% similar); same
+  create/edit form family pattern as `client/create-page` ↔ `client/edit-page`.
+- Admin grid controllers/pages: `client/controller` ↔ `admin/lists/controller`
+  (79 lines), `admin/lists` ↔ `admin/users` (72 lines), and 37–77 line clones
+  across `admin-{appointments,offerings,offering-configs,resources,users,messages}-page`.
+- `question-form.tsx` ↔ `support-question-form.tsx` — 37–48 line clone; differs
+  in form id/class/action and style tokens (padding/font size), so a shared
+  component would need a variant contract.
+- `lock-user-workflow.ts` ↔ `unlock-user-workflow.ts` — validate step is
+  identical except the self-target message and lock's admin check; execute step
+  differs only in SQL/action type/output field name. A `createUserStateWorkflow`
+  factory is the natural follow-up but touches approval-gated admin workflows.
+- `agent-chat-durable.ts` ↔ `agent-chat.ts` — four 8–14 line blocks, intentional
+  until the durable engine proves parity (see 2026-10-01 entry).
+- `report1-pdf.ts` ↔ `user-summary-pdf.ts` — the note is now shared; the
+  page-size/margins/styles skeleton still duplicates (different table schemas).
+- `app/data/rows.ts int8|int8Aggregate` — intentional semantic alias, kept.
+- Unused callback parameters (`ref((el) => …)`, component `handle`, mixin
+  `handle`, event params) — signature-driven, not dead code; the repo keeps
+  `no-unused-vars` off for this reason. Left untouched.
+
+### Impact
+
+- Files deleted: 0
+- Symbols removed: 18 (types/interfaces/functions/locals listed above)
+- Exports privatized: 19
+- Unused imports/locals removed: ~45 across 42 production files and 26 test files
+- Code diff: +59 / −273 (net −214) over 68 code files, excluding the
+  pre-existing `package.json` bump
+- jscpd after the pass: 349 exact clones / 5.31% duplicated lines at
+  min-tokens 70 (from 350 / 5.36% at the start); the remaining clone families
+  are the deferred refactors documented above.
+
+### Verification
+
+- `npm run typecheck` — clean (both tsconfig targets)
+- `npm run lint` — oxlint `--max-warnings=0` + theme conformance OK
+- `npm run format` — oxfmt clean (662 files)
+- `knip` — only the known `int8|int8Aggregate` duplicate-export alias
+- `depcheck` — no unused/missing dependencies
+- Full server suite: 1858 tests, 1857 pass / 0 fail / 1 todo (a single
+  timing-sensitive failure on one intermediate re-run passed on a clean rerun)
+- Full browser suite: 838 tests, 836 pass / 0 fail / 2 skipped (the lists
+  autosave undo test flaked once under parallel load, passed isolated and on a
+  full rerun)
+- Full e2e suite: 64 pass / 0 fail
+- Post-final-edit targeted reruns: schedule-layout/db-errors/notifications
+  server tests 66 pass; appointment-grid gestures browser tests 68 pass
+
+### Pre-existing (not touched)
+
+- `package.json` carries an uncommitted `oxlint-tsgolint` patch bump from before
+  this session (the same auto-bump class the 2026-10-14 entry reverted). Left as
+  found rather than folded into this cleanup diff.
+
 ## [2026-10-17] knip-configured cleanup pass (`refactor/dead-code-cleanup` branch)
 
 For the first time with a proper `knip.json` (knip now understands the `remix test`

@@ -25,6 +25,8 @@ function ensureFonts() {
   initialized = true
 }
 
+export const PDF_TRUNCATED_NOTE = ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.'
+
 export async function generatePdfBuffer(docDef: TDocumentDefinitions): Promise<Buffer> {
   ensureFonts()
   let doc = pdfmake.createPdf({

@@ -31,7 +31,7 @@ export interface CustomerChatQuestionData {
   threadId?: string | undefined
 }
 
-export interface CustomerChatReconnectPayload {
+interface CustomerChatReconnectPayload {
   status?: string
   runId?: string
   threadId?: string
@@ -78,14 +78,14 @@ export interface CustomerChatUiDelegate {
   getThreadIdFromDom(): string | null
 }
 
-export interface CustomerChatControllerOptions {
+interface CustomerChatControllerOptions {
   /** Abort signal of the containing component; a pending fetch cannot outlive the component. */
   lifecycleSignal?: AbortSignal | null
   /** Reconnect probe endpoint (should also emit `resume` payloads). */
   reconnectHref: string
 }
 
-export interface CustomerChatController {
+interface CustomerChatController {
   /**
    * Which conversation the next turn belongs to. Null while the page is in
    * fresh-conversation mode (`?new=1`) or before a thread exists.

@@ -97,23 +97,6 @@ function createPointerEvent(
   })
 }
 
-export function dispatchDragSequence(
-  target: HTMLElement,
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-) {
-  let pointerId = 1
-  target.dispatchEvent(
-    createPointerEvent('pointerdown', { clientX: startX, clientY: startY, pointerId }),
-  )
-  target.dispatchEvent(
-    createPointerEvent('pointermove', { clientX: endX, clientY: endY, pointerId }),
-  )
-  target.dispatchEvent(createPointerEvent('pointerup', { clientX: endX, clientY: endY, pointerId }))
-}
-
 export function dispatchDragWithThreshold(
   target: HTMLElement,
   startX: number,

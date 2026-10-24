@@ -549,7 +549,7 @@ export const apiTokens = table({
   },
 })
 
-export const notifications = table({
+const notifications = table({
   name: 'notifications',
   primaryKey: ['id'],
   columns: {

@@ -140,7 +140,7 @@ export default createController(routes.settings, {
 
         try {
           await deleteUser(context.db, user.id)
-        } catch (err) {
+        } catch {
           deleteAccountLimiter.reset(user.id)
           return context.render(
             <SettingsView

@@ -103,7 +103,7 @@ export async function copyItemsRequest(
   }
 }
 
-export type MoveOutcome =
+type MoveOutcome =
   | { status: 'ok'; source: ServerListState; target: ServerListState }
   | { status: 'conflict'; state: ServerListState }
   | { status: 'not_found' }

@@ -158,14 +158,10 @@ const CHAT_RECONNECT_URL = `${BASE}${routes.admin.supportAgent.reconnect.href()}
 const JSON_HEADERS = { Accept: 'application/json', 'X-Sse-Request': '1' }
 
 describe('Mastra Chat controller', () => {
-  let adminCookie: string
   let createdUserEmails: string[] = []
 
   before(async () => {
     await initializeAppDatabase()
-
-    let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
-    adminCookie = adminResult?.cookie ?? ''
   })
 
   after(async () => {

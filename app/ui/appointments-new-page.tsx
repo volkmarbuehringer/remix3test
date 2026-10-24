@@ -59,7 +59,6 @@ interface AppointmentsNewPageProps {
   creating?: boolean
   resources: ResourceOption[]
   error?: string | undefined
-  defaultStartMin?: number
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
@@ -163,7 +162,6 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       creating = false,
       resources,
       error,
-      defaultStartMin,
       formValues,
       fieldErrors,
       formError,

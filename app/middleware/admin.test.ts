@@ -30,14 +30,11 @@ function createMockContext(
     captureForbidden?: (node: RemixNode | null) => void
   },
 ): RequestContext {
-  let capturedNode: RemixNode | null = null
-
   return {
     get: (key: symbol) => {
       if (key === Auth) return auth
       if (key === Renderer) {
         return (node: RemixNode, init?: ResponseInit) => {
-          capturedNode = node
           if (options?.captureForbidden) {
             options.captureForbidden(node)
           }
@@ -56,8 +53,6 @@ function createMockContext(
     request: new Request(options?.url ?? 'https://remix.run/admin/messages'),
   } as unknown as RequestContext
 }
-
-const FORBIDDEN_TEXT = 'ForbiddenPage rendered'
 
 // ---------------------------------------------------------------------------
 // Tests

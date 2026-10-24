@@ -25,8 +25,6 @@ export interface AgentEventsFrame {
   reload(options?: { src?: string }): Promise<unknown>
 }
 
-export type AgentEventsRowKind = RowKind
-
 export interface AgentEventsUiDelegate {
   /** Appends a status row at the bottom of the status bar. */
   showInfo(text: string, opts?: { kind?: RowKind }): void
@@ -46,7 +44,7 @@ export interface AgentEventsUiDelegate {
   clearStatusBar(): void
 }
 
-export interface AgentEventsControllerOptions {
+interface AgentEventsControllerOptions {
   /** Resolves the frame rendering the pipeline log (or null when absent). */
   getPipelineFrame(): AgentEventsFrame | null
   /** Resolves a named frame, or the component's own frame for no target. */

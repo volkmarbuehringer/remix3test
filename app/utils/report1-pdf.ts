@@ -1,10 +1,8 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 
-import { generatePdfBuffer } from './pdf-utils.ts'
+import { generatePdfBuffer, PDF_TRUNCATED_NOTE } from './pdf-utils.ts'
 import { formatUtcDateDE } from './date-utils.ts'
 import type { Report1Row } from '../data/report1.ts'
-
-const TRUNCATED_NOTE = ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.'
 
 interface BuildReport1PdfOptions {
   /** e.g. "September 2026". */
@@ -37,7 +35,7 @@ export async function buildReport1Pdf(options: BuildReport1PdfOptions): Promise<
   if (filterLabel) content.push({ text: filterLabel, style: 'subheader' })
   content.push(
     {
-      text: `Insgesamt ${rows.length} Benutzer${truncated ? TRUNCATED_NOTE : ''}`,
+      text: `Insgesamt ${rows.length} Benutzer${truncated ? PDF_TRUNCATED_NOTE : ''}`,
       style: 'subheader',
       margin: [0, 0, 0, 20],
     },

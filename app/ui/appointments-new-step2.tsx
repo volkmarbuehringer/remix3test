@@ -255,7 +255,7 @@ export function Step2(handle: Handle<Step2Props>) {
       return base + '?' + params.toString()
     }
 
-    function buildBackUrl(ws: number): string {
+    function buildBackUrl(): string {
       let params = new URLSearchParams()
       params.set('creating', 'true')
       params.set('step', '1')
@@ -293,7 +293,7 @@ export function Step2(handle: Handle<Step2Props>) {
               <span mix={table.panelTitle}>Neuer Termin</span>
             </div>
             <div mix={table.panelBody}>
-              <WizardSteps current={2} backHref={buildBackUrl(weekStart)} />
+              <WizardSteps current={2} backHref={buildBackUrl()} />
               {resourceName ? (
                 <div mix={resourceSummary}>
                   <span mix={resourceSummaryLabel}>Gewählte Ressource</span>
@@ -379,7 +379,7 @@ export function Step2(handle: Handle<Step2Props>) {
                     die Woche (◀ / ▶) oder wählen Sie eine andere Ressource.
                   </p>
                   <a
-                    href={buildBackUrl(weekStart)}
+                    href={buildBackUrl()}
                     data-rmx-target={frames.appointmentsNewContent}
                     mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
                   >
@@ -464,7 +464,7 @@ export function Step2(handle: Handle<Step2Props>) {
                   Termin anlegen
                 </button>
                 <a
-                  href={buildBackUrl(weekStart)}
+                  href={buildBackUrl()}
                   data-rmx-target={frames.appointmentsNewContent}
                   mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), css({ width: '100%' })]}
                 >

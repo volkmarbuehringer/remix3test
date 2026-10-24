@@ -1,4 +1,4 @@
-import type { css, Handle, RemixElement } from 'remix/component'
+import type { Handle, RemixElement } from 'remix/component'
 
 export interface ThemeVariableTree {
   [key: string]: string | ThemeVariableTree
@@ -197,8 +197,6 @@ export type ThemeComponent = ThemeRenderer & {
 }
 
 export const theme: ThemeContract = createThemeContract(themeVariableNames)
-
-type ThemeUtility = ReturnType<typeof css>
 
 function createThemeContract<tree extends ThemeVariableTree>(tree: tree): MapLeaves<tree, string> {
   return mapTreeLeaves(tree, (variableName) => `var(${variableName})`) as MapLeaves<tree, string>

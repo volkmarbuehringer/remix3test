@@ -181,7 +181,6 @@ function makeMockAgent(overrides?: Partial<MockAgent>): MockAgent {
 }
 
 describe('Customer Chat controller', () => {
-  let adminCookie: string
   let userCookie: string
   let mockAgent: MockAgent
   // Users this suite authenticates as, and therefore the only rows it owns.
@@ -194,8 +193,6 @@ describe('Customer Chat controller', () => {
   before(async () => {
     await initializeAppDatabase()
 
-    let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
-    adminCookie = adminResult?.cookie ?? ''
     let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
     userCookie = userResult?.cookie ?? ''
     suiteUserIds = (

@@ -5,7 +5,7 @@ import { pool } from '../../test/pool.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../test-router.ts'
 import { listResources } from '../data/resources.ts'
-import { appointments, appointofferings, appointtypes } from '../data/schema.ts'
+import { appointtypes } from '../data/schema.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { routes } from '../routes.ts'
 

@@ -1,5 +1,5 @@
 import { createElement, createMixin, css } from 'remix/component'
-import type { CSSMixinDescriptor, ElementProps, MixinDescriptor } from 'remix/component'
+import type { CSSMixinDescriptor, MixinDescriptor } from 'remix/component'
 
 type ButtonSize = 'md' | 'lg'
 type ButtonTone = 'neutral' | 'primary' | 'ghost'

@@ -1,7 +1,7 @@
 import { sql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
-import { notifications, type Notification } from './schema.ts'
+import type { Notification } from './schema.ts'
 import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const

@@ -17,7 +17,7 @@ interface PendingConfirm {
 
 const CONFIRM_EVENT = 'app:confirm-request'
 
-export interface ConfirmRequestOptions {
+interface ConfirmRequestOptions {
   message: string
   /** Defaults to "Löschen bestätigen". */
   title?: string
@@ -27,7 +27,7 @@ export interface ConfirmRequestOptions {
   tone?: 'danger' | 'primary'
 }
 
-export interface ConfirmRequestDetail extends ConfirmRequestOptions {
+interface ConfirmRequestDetail extends ConfirmRequestOptions {
   onConfirm: () => void
   onCancel?: (() => void) | undefined
 }

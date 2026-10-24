@@ -4,7 +4,6 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { pool } from '../../../test/pool.ts'
 import {
-  BASE,
   ADMIN_APPT_URL,
   setupTestEnvironment,
   teardownTestEnvironment,
@@ -17,45 +16,20 @@ const createdAppointmentIds: number[] = []
 let testResourceId: number
 let testResource2Id: number
 
-const offeringBoundsStart = 480
-const offeringBoundsEnd = 1080
-let _slotCounter = 0
-// Returns a unique 1-hour slot within the offering, so tests don't collide.
-// Each call OUTSIDE a test (e.g., in before/after hooks) should NOT use this.
-function nextSlot(): { startMin: number; endMin: number } {
-  let slotWidth = 30
-  let startMin = offeringBoundsStart + 60 + _slotCounter * slotWidth
-  let maxStart = offeringBoundsEnd - slotWidth
-  if (startMin >= maxStart) {
-    throw new Error(
-      `nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`,
-    )
-  }
-  _slotCounter++
-  return { startMin, endMin: startMin + slotWidth }
-}
-
 describe('Admin Appointments Controller', () => {
   let adminCookie: string
-  let adminCsrfToken: string
   let userCookie: string
   let resourceId: number
-  let resource2Id: number
   let userId: number
-  let offeringDateStr: string
 
   before(async () => {
     let env = await setupTestEnvironment()
     adminCookie = env.adminCookie
-    adminCsrfToken = env.adminCsrfToken
     userCookie = env.userCookie
     resourceId = env.resourceId
-    resource2Id = env.resource2Id
     userId = env.userId
-    offeringDateStr = env.offeringDateStr
     testResourceId = env.resourceId
     testResource2Id = env.resource2Id
-    _slotCounter = 0
   })
 
   after(async () => {

@@ -835,7 +835,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   />
                 ) : addWeek ? (
                   <AdminOfferingsWeekPage
-                    resources={resources}
                     offset={String(offset)}
                     sort={sortColumn}
                     order={sortDirection}

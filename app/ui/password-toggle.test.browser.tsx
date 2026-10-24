@@ -18,10 +18,8 @@ function installScriptOnce() {
   let script = document.createElement('script')
   script.textContent = PASSWORD_TOGGLE_SCRIPT
   document.body.appendChild(script)
-  injected = script
 }
 
-let injected: HTMLScriptElement | null = null
 let fixture: HTMLElement | null = null
 
 function mountForm(): void {
