@@ -207,7 +207,7 @@ describe('uploads bulk actions', () => {
     assert.equal(asked, false, 'no confirmation should be shown for an empty selection')
   })
 
-  it('injects the selected ids on an accepted bulk delete and clears the store', () => {
+  it('submits exactly the confirmed ids on an accepted bulk delete and clears the store', () => {
     let host = mount()
     mountEntries()
     change(rowCb(host, '1'), true)
@@ -218,25 +218,39 @@ describe('uploads bulk actions', () => {
       return true
     }
 
-    let notCancelled = submit(deleteFormOf(host))
+    let form = deleteFormOf(host)
+    let notCancelled = submit(form)
 
+    // The native-confirm fallback is synchronous, so the accepted submit must
+    // continue in the original pass.
     assert.equal(notCancelled, true, 'an accepted confirmation must let the submit through')
     assert.equal(asked, '2 Dateien wirklich löschen?')
-    let hidden = deleteFormOf(host).querySelectorAll('input[data-bulk-delete-id]')
-    assert.deepEqual([...hidden].map((el) => (el as HTMLInputElement).value).toSorted(), ['1', '2'])
+
+    // The formdata rewrite carries the frozen ids, even if the live selection
+    // changed while the dialog was open.
+    let payload = new FormData()
+    payload.append('ids', '3')
+    form.dispatchEvent(new FormDataEvent('formdata', { formData: payload }))
+    assert.deepEqual(payload.getAll('ids').toSorted(), ['1', '2'])
+
     assert.equal(selectedCount(), 0, 'submitted rows leave the selection store')
   })
 
-  it('cancels the bulk delete without injecting ids when the confirmation is declined', () => {
+  it('cancels the bulk delete without re-submitting when the confirmation is declined', () => {
     let host = mount()
     mountEntries()
     change(rowCb(host, '1'), true)
+    let form = deleteFormOf(host)
+    let resubmits = 0
+    form.requestSubmit = () => {
+      resubmits++
+    }
     window.confirm = () => false
 
-    let notCancelled = submit(deleteFormOf(host))
+    let notCancelled = submit(form)
 
     assert.equal(notCancelled, false)
-    assert.equal(deleteFormOf(host).querySelectorAll('input[data-bulk-delete-id]').length, 0)
+    assert.equal(resubmits, 0, 'a declined dialog must not re-submit')
     assert.equal(selectedCount(), 1, 'a declined submit keeps the selection')
   })
 

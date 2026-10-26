@@ -171,21 +171,31 @@ export const UploadBulkDelete = clientEntry(
           return
         }
 
-        event.preventDefault()
         let message = n === 1 ? '1 Datei wirklich löschen?' : `${n} Dateien wirklich löschen?`
 
         // Prefer the page's styled confirm dialog so a bulk delete looks the
         // same as deleting a single row. It is not mounted in headless browser
         // tests, so fall back to the native dialog there.
         let decision = requestConfirmDecision({ message, confirmLabel: 'Löschen' })
+        if (decision === null) {
+          // The native fallback is synchronous, so let an accepted submit
+          // continue in this pass. Re-submitting with requestSubmit() from
+          // inside a submit listener is ignored (the form is already firing
+          // submission events), which would silently cancel the delete.
+          if (confirm(message)) {
+            confirmedIds = ids
+            deselectIds(ids)
+          } else {
+            event.preventDefault()
+          }
+          return
+        }
+
+        event.preventDefault()
         let confirmedByUser = (accepted: boolean) => {
           if (!accepted) return
           confirmedIds = ids
           submitConfirmed()
-        }
-        if (decision === null) {
-          if (confirm(message)) confirmedByUser(true)
-          return
         }
         void decision.then(confirmedByUser)
       }

@@ -241,8 +241,32 @@ Two gotchas, verified in Chromium + Firefox at the installed pin (2026-10-24):
   rewrite every event while the confirmed ids are set. The next confirmation replaces
   them.
 
-`app/actions/admin/public/admin-uploads-bulk-delete.tsx` implements this, and
-`uploads-bulk-delete.test.e2e.ts` ("deletes exactly the confirmed rows when the selection
-grows while the dialog is open") covers it — it checks the extra row behind the dialog,
-accepts, and asserts only the two confirmed rows are gone. The modal gap itself (no focus
-trap/inert) is still open in the shared dialog.
+**Third gotcha: never `requestSubmit()` from inside the `submit` listener.** On a real
+submission the form is already "firing submission events", so a re-entrant
+`requestSubmit()` is silently ignored by both Chromium and Firefox — the delete is
+prevented and never re-issued. (Chromium *does* re-enter for a manually dispatched
+synthetic event, so a naive browser test can pass there and fail in Firefox; the real
+engines agree.) Only the async styled-dialog path may cancel and re-submit from a
+promise continuation. For a synchronous fallback (`window.confirm()` accepted), set the
+frozen ids and let the original submit continue in the same pass:
+
+```ts
+if (confirm(message)) {
+  confirmedIds = ids
+  deselectIds(ids)
+} else {
+  event.preventDefault()
+}
+```
+
+Verified 2026-10-26 at pin `8ae2f755`/`0b35d81` on a real submit click in Chromium and
+Firefox. Guard: `admin-uploads-bulk-actions.test.browser.tsx` asserts the accepted
+native path returns `true` from `dispatchEvent` and that the `formdata` rewrite still
+replaces a stray id.
+
+`app/actions/admin/public/admin-uploads-bulk-delete.tsx` implements the styled-dialog
+path plus this native fallback, and `uploads-bulk-delete.test.e2e.ts` ("deletes exactly
+the confirmed rows when the selection grows while the dialog is open") covers the
+dialog path — it checks the extra row behind the dialog, accepts, and asserts only the
+two confirmed rows are gone. The modal gap itself (no focus trap/inert) is still open
+in the shared dialog.
