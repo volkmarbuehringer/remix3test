@@ -102,6 +102,7 @@ function renderWithSpy(items: ListItem[]): Counts {
       counts.reorderLocked++
       return false
     },
+    visibleReorderLocked: () => false,
     viewOrderActive: () => false,
     statusCounts: () => ({ all: items.length, open: items.length, done: 0, overdue: 0 }),
     scheduleAutosave: noop,
@@ -149,6 +150,7 @@ function renderWithSpy(items: ListItem[]): Counts {
     toggleItemMenu: noop,
     closeItemMenu: noop,
     focusItemTrigger: noop,
+    focusItemAction: noop,
     setTitle: noop,
     setDescription: noop,
     setDescriptionMode: noop,

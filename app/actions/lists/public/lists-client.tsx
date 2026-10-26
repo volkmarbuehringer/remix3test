@@ -228,9 +228,16 @@ export const ListsClient = clientEntry(
       sortMode !== 'manual' || reverseView || shuffleOrder !== null
     // Position-based reordering is only meaningful while rows are displayed in
     // their persisted order. Any hidden row (text/tag, status, hide-done) or any
-    // view-only sort/reverse/shuffle makes "up/down" ambiguous.
+    // view-only sort/reverse/shuffle makes an *array-adjacent* move ambiguous.
     let reorderLocked = (): boolean =>
       filterActive() || statusFilter !== 'all' || hideDone || viewOrderActive()
+    // The ↑/↓ buttons (and the touch menu's move actions) step through the
+    // *visible* order instead: swapping a row with its neighbouring visible
+    // item keeps hidden rows in their slots, so "Erledigte ausblenden" no
+    // longer removes the buttons. View-only orders and the text/status
+    // filters still hide them because those views are not the persisted order.
+    let visibleReorderLocked = (): boolean =>
+      filterActive() || statusFilter !== 'all' || viewOrderActive()
     let visibleItems = (): ListItem[] =>
       buildVisibleItems(items, {
         query: listFilter,
@@ -695,6 +702,27 @@ export const ListsClient = clientEntry(
           }
         }
         newItemRef?.focus()
+      })
+    }
+
+    // Re-focus the same ↑/↓ button in the moved row. Reordering re-inserts the
+    // row DOM node (up) or leaves it in place (down), and moving a focused
+    // node detaches/blurs it; restoring the button keeps repeated Enter/click
+    // moves on the same row and stops keyboard users landing on <body>. The
+    // cluster's reveal is focus-visible-gated, so this mouse-restored focus
+    // does not pin the toolbar open next to the row that slid under the
+    // pointer.
+    let focusItemAction = (id: string, label: 'Nach oben' | 'Nach unten') => {
+      handle.queueTask(() => {
+        let row = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`)
+        let button = row?.querySelector<HTMLButtonElement>(
+          `[data-item-actions] button[aria-label="${label}"]`,
+        )
+        if (button && !button.disabled) {
+          button.focus()
+          return
+        }
+        row?.focus()
       })
     }
 
@@ -1512,12 +1540,11 @@ export const ListsClient = clientEntry(
       scheduleAutosave(true)
     }
 
+    // Full-array reorder for the keyboard quick-move / grab paths. Those stay
+    // locked whenever `reorderLocked()` is true (including hide-done); the
+    // ↑/↓ buttons use `moveVisibleStep` so they also work while done rows are
+    // hidden.
     let moveItem = (from: number, to: number) => {
-      // Position-based reordering is disabled whenever the view hides rows or
-      // shows a view-only order: moving relative to a hidden neighbour is
-      // ambiguous and the visible order often does not change. Hide the menu
-      // actions too, but keep the invariant enforced here as a single choke
-      // point.
       if (reorderLocked()) return
       disarmClear()
       if (from < 0 || from >= items.length) return
@@ -1531,8 +1558,34 @@ export const ListsClient = clientEntry(
       scheduleAutosave(true)
     }
 
-    let moveUp = (index: number) => moveItem(index, index - 1)
-    let moveDown = (index: number) => moveItem(index, index + 1)
+    // Move a row one step within the visible order by swapping it with its
+    // nearest visible neighbour. With "Erledigte ausblenden" active the full
+    // order can contain hidden rows between the two visible rows; swapping the
+    // visible pair (instead of splicing into an array-adjacent slot) changes
+    // exactly one visible step and leaves every hidden row in its slot.
+    let moveVisibleStep = (index: number, direction: -1 | 1): boolean => {
+      if (visibleReorderLocked()) return false
+      let item = items[index]
+      if (!item) return false
+      let vis = visibleItems()
+      let position = vis.findIndex((candidate) => candidate.id === item.id)
+      if (position === -1) return false
+      let neighbour = vis[position + direction]
+      if (!neighbour) return false
+      let target = items.findIndex((candidate) => candidate.id === neighbour.id)
+      if (target === -1 || target === index) return false
+      disarmClear()
+      let next = items.slice()
+      ;[next[index], next[target]] = [next[target]!, next[index]!]
+      items = next
+      setDirty()
+      void handle.update()
+      scheduleAutosave(true)
+      return true
+    }
+
+    let moveUp = (index: number) => moveVisibleStep(index, -1)
+    let moveDown = (index: number) => moveVisibleStep(index, 1)
 
     let startEditing = (index: number) => {
       openItemMenuId = null
@@ -1951,6 +2004,7 @@ export const ListsClient = clientEntry(
       isDirty,
       activeItemId,
       reorderLocked,
+      visibleReorderLocked,
       viewOrderActive,
       statusCounts: visibleStatusCounts,
       scheduleAutosave,
@@ -2005,6 +2059,7 @@ export const ListsClient = clientEntry(
       toggleItemMenu,
       closeItemMenu,
       focusItemTrigger,
+      focusItemAction,
       setTitle: (value) => {
         title = value
         setDirty()

@@ -160,6 +160,7 @@ export type ListsEditorView = {
   isDirty: () => boolean
   activeItemId: () => string | null
   reorderLocked: () => boolean
+  visibleReorderLocked: () => boolean
   viewOrderActive: () => boolean
   statusCounts: () => StatusCounts
 
@@ -208,6 +209,7 @@ export type ListsEditorView = {
   toggleItemMenu: (id: string) => void
   closeItemMenu: () => void
   focusItemTrigger: (id: string | null) => void
+  focusItemAction: (id: string, label: 'Nach oben' | 'Nach unten') => void
 
   setTitle: (value: string) => void
   setDescription: (value: string) => void
@@ -318,6 +320,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     isDirty,
     activeItemId,
     reorderLocked,
+    visibleReorderLocked,
     viewOrderActive,
     statusCounts,
     scheduleAutosave,
@@ -364,6 +367,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
     toggleItemMenu,
     closeItemMenu,
     focusItemTrigger,
+    focusItemAction,
   } = view
 
   let vis = visibleItems()
@@ -385,6 +389,9 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
   // members. Compute them once here.
   let activeId = activeItemId()
   let rowDraggable = !reorderLocked()
+  // ↑/↓ stepping works on the visible subsequence, so the buttons stay
+  // available when "Erledigte ausblenden" hides completed rows.
+  let rowMovable = !visibleReorderLocked()
   // Progress reflects the whole list, not the filtered view: hiding done rows
   // must not turn "4 von 10 erledigt" into a misleading "0 von 6".
   let doneCount = items.filter((item) => item.done === true).length
@@ -1555,11 +1562,25 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         // parent→child selectors on current builds. !important
                         // wins the per-class @layer contest against the
                         // cluster's own resting opacity/pointer-events.
+                        //
+                        // Keyboard focus must still reveal the cluster, but
+                        // `:focus-within` also matches a button a *mouse*
+                        // click just focused. Moving a row down leaves the
+                        // clicked row's DOM node in place, so its cluster
+                        // stayed pinned open while the row that slid under the
+                        // stationary cursor revealed its own — two toolbars
+                        // visible at once. `:focus-visible` keeps pointer focus
+                        // from pinning a cluster; it still matches the row and
+                        // any descendant focused by keyboard.
                         '&:hover [data-item-actions]': {
                           opacity: '1 !important',
                           pointerEvents: 'auto !important',
                         },
-                        '&:focus-within [data-item-actions]': {
+                        '&:focus-visible [data-item-actions]': {
+                          opacity: '1 !important',
+                          pointerEvents: 'auto !important',
+                        },
+                        '&:has(:focus-visible) [data-item-actions]': {
                           opacity: '1 !important',
                           pointerEvents: 'auto !important',
                         },
@@ -1859,11 +1880,17 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           >
                             <Glyph name="trash" width={16} height={16} />
                           </button>
-                          {rowDraggable && (
+                          {rowMovable && (
                             <>
                               <button
-                                mix={[iconActionStyle, on('click', () => moveUp(realIndex))]}
-                                disabled={realIndex === 0}
+                                mix={[
+                                  iconActionStyle,
+                                  on('click', () => {
+                                    moveUp(realIndex)
+                                    focusItemAction(item.id, 'Nach oben')
+                                  }),
+                                ]}
+                                disabled={index === 0}
                                 title="Nach oben"
                                 aria-label="Nach oben"
                               >
@@ -1873,9 +1900,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 mix={[
                                   iconActionStyle,
                                   iconActionLastStyle,
-                                  on('click', () => moveDown(realIndex)),
+                                  on('click', () => {
+                                    moveDown(realIndex)
+                                    focusItemAction(item.id, 'Nach unten')
+                                  }),
                                 ]}
-                                disabled={realIndex === items.length - 1}
+                                disabled={index === vis.length - 1}
                                 title="Nach unten"
                                 aria-label="Nach unten"
                               >
@@ -1915,12 +1945,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         >
                           Bearbeiten
                         </button>
-                        {/* Reordering is disabled while an in-list filter
-                            hides rows: moving relative to a hidden neighbour
-                            would change the saved order without a visible
-                            effect. The same guard exists on the desktop
-                            cluster (rowDraggable) and in moveItem. */}
-                        {rowDraggable && (
+                        {/* ↑/↓ step through the visible order, so they stay
+                            available when only completed rows are hidden.
+                            Text/status filters and view-only orders still
+                            hide them (visibleReorderLocked). The same guard
+                            is enforced in moveVisibleStep. */}
+                        {rowMovable && (
                           <>
                             <button
                               type="button"
@@ -1933,7 +1963,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                   focusItemTrigger(item.id)
                                 }),
                               ]}
-                              disabled={realIndex === 0}
+                              disabled={index === 0}
                             >
                               Nach oben
                             </button>
@@ -1948,7 +1978,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                   focusItemTrigger(item.id)
                                 }),
                               ]}
-                              disabled={realIndex === items.length - 1}
+                              disabled={index === vis.length - 1}
                             >
                               Nach unten
                             </button>

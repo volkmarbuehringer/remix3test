@@ -970,6 +970,11 @@ export const clearFilterBtnStyle = css({
 // outer corners. Each button currently carries its own style; the vendor
 // runtime now emits descendant selectors (`& > form > button`), so this can be
 // collapsed into one container rule when the file is next touched.
+//
+// No opacity transition: when reordering shifts a row out from under the
+// cursor while the neighbouring row slides in, a cross-fade leaves both
+// action clusters partially visible for ~120ms — the row toolbar looks
+// duplicated. An instant swap keeps exactly one cluster visible.
 export const itemActionsStyle = css({
   position: 'absolute',
   top: '50%',
@@ -979,7 +984,6 @@ export const itemActionsStyle = css({
   alignItems: 'stretch',
   opacity: 0,
   pointerEvents: 'none',
-  transition: 'opacity 0.12s ease',
   // Touch devices get the row menu (the kebab below) instead of this
   // hover-reveal cluster. Removing it from layout keeps the row dense and
   // lets the label use the full width.

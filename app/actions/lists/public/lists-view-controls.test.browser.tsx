@@ -50,6 +50,16 @@ function hideDone(container: HTMLElement): HTMLInputElement {
   return container.querySelector('[data-hide-done]') as HTMLInputElement
 }
 
+function moveButton(
+  container: HTMLElement,
+  id: string,
+  label: 'Nach oben' | 'Nach unten',
+): HTMLButtonElement | null {
+  return container.querySelector(
+    `[data-item-id="${id}"] [data-item-actions] button[aria-label="${label}"]`,
+  )
+}
+
 function filterInput(container: HTMLElement): HTMLInputElement {
   return container.querySelector('#lists-inner-filter') as HTMLInputElement
 }
@@ -145,6 +155,62 @@ describe('lists view controls', () => {
     assert.ok(await waitFor(() => itemIds(container).join(',') === 'b'))
     assert.equal(hideDone(container).checked, false)
     assert.equal(hideDone(container).disabled, true)
+  })
+
+  it('keeps ↑/↓ available while done rows are hidden and steps over them', async () => {
+    let seededItems: ListInitialState['items'] = [
+      { id: 'x', label: 'Done first', done: true },
+      { id: 'a', label: 'Alpha' },
+      { id: 'b', label: 'Beta' },
+      { id: 'y', label: 'Done last', done: true },
+    ]
+    let result = mount(seededItems)
+    let container = result.container as HTMLElement
+    await waitFor(() => hideDone(container) !== null)
+
+    await result.act(() => hideDone(container).click())
+    assert.ok(await waitFor(() => itemIds(container).join(',') === 'a,b'))
+
+    // Boundaries follow the *visible* subset: 'a' and 'b' are neither the
+    // first nor last item in the persisted array, but they are the first/last
+    // visible rows.
+    assert.equal(moveButton(container, 'a', 'Nach oben')?.disabled, true)
+    assert.equal(moveButton(container, 'b', 'Nach unten')?.disabled, true)
+    let upB = moveButton(container, 'b', 'Nach oben')
+    assert.ok(upB)
+    assert.equal(upB!.disabled, false)
+
+    // Capture the autosave payload so we can prove hidden rows keep their
+    // slots: moving 'b' over 'a' swaps their positions, leaving x/y in place.
+    let sent: Array<{ id: string }> | null = null
+    window.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      let body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
+      let items = Array.isArray(body.items) ? (body.items as Array<{ id: string }>) : seededItems
+      sent = items
+      return new Response(
+        JSON.stringify({ id: 7, title: 'Ansicht', description: '', items, updated_at: 333 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }) as typeof window.fetch
+
+    await result.act(() => upB!.click())
+    assert.ok(await waitFor(() => itemIds(container).join(',') === 'b,a'))
+    assert.equal(moveButton(container, 'b', 'Nach oben')?.disabled, true)
+    assert.equal(moveButton(container, 'a', 'Nach unten')?.disabled, true)
+
+    assert.ok(await waitFor(() => sent !== null, 2000))
+    assert.deepEqual(
+      sent!.map((item) => item.id),
+      ['x', 'b', 'a', 'y'],
+      'only the two visible rows swap; hidden done rows keep their slots',
+    )
+
+    // The text filter still locks stepping: the buttons disappear.
+    let filter = filterInput(container)
+    filter.value = 'Alpha'
+    filter.dispatchEvent(new Event('input', { bubbles: true }))
+    assert.ok(await waitFor(() => itemIds(container).join(',') === 'a'))
+    assert.equal(moveButton(container, 'a', 'Nach oben'), null)
   })
 
   it('keeps selected hidden rows and labels them', async () => {
