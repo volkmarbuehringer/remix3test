@@ -176,6 +176,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/remix3-testing/state-isolation-and-e2e-serve.md` |
 | A Playwright navigation/submit hangs on a page that mounts an SSE/EventSource channel (`networkidle` never settles) | `references/remix3-testing/sse-networkidle-never-settles.md` |
 | A remix `on('change')` handler on a native `<select>` does not fire for `selectOption` in Firefox, or for a dispatched `change` in Chromium | `references/remix3-testing/select-change-events.md` |
+| A hover/focus-revealed control behaves differently with a real pointer vs programmatic `.click()`/`.focus()`; you need to test `:hover`/`:focus-visible`, transient opacity, or focus retention across a reorder | `references/remix3-testing/input-modality-and-hover-testing.md` |
 | An e2e types into an input right after `goto` and the field settles missing leading keystrokes (passes idle/alone, fails under suite load); you need baseline attribution for a flaky e2e | `references/remix3-testing/keystroke-loss-hydration-race.md` |
 | A `*.test.browser.tsx` hangs after code calls `window.location.reload()`/`assign`/`replace`/`href` | `references/remix3-testing/location-reload-unforgeable.md` |
 | A generic crash card hides the real exception stack from `pageerror`/console | `references/remix3-testing/crash-card-swallowed-stack.md` |
@@ -248,6 +249,12 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - **Crash cards swallow the stack**: the app's `try/catch` consumes the exception before Playwright sees it. Wrap the throwing DOM method in `page.addInitScript` (runs before app code, re-arms per document) and stash the stack on `window` (or `sessionStorage` when the failure navigates); wrap **one** named method (`Node.insertBefore`) or the usual `insertBefore`/`appendChild`/`removeChild`, and capture `this.nodeName`/`node.nodeName`.
 - **DOMException messages are browser-specific** (Firefox `Node.insertBefore: Cannot insert a Text as a child of a Document` vs Chromium `Failed to execute 'insertBefore' on 'Node': …`): reproduce in the engine whose wording matches the report.
 
+**Input modality and reorder focus (`references/remix3-testing/input-modality-and-hover-testing.md`)**
+
+- A `*.test.browser.tsx` cannot reproduce pointer modality: `.click()` never sets `:hover`, and `.focus()` keeps the last input modality, so a `:focus-within`-pinned control can pass there and fail with a real mouse. Drive the pointer path in `*.test.e2e.ts` with `row.hover()` → `action.hover()` → `click()`; switch to keyboard modality with a real key before `.focus()`/`Enter` and assert `document.activeElement.matches(':focus-visible')`.
+- Count revealed instances with `getComputedStyle(cluster).opacity > 0.5` (not `isVisible()`: the cluster is laid out at opacity 0), identify the hovered row with `document.elementFromPoint(x, y)?.closest('[data-item-id]')`, and retry the interaction through the hydration gap until the expected DOM change.
+- A keyed reorder may reinsert the focused row (focus falls to `<body>`) or move a sibling and leave the clicked row in place (focus survives). Don't infer focus from node identity; assert the active row/label, and restore the action by id after the update when it must continue.
+
 ### When to Use
 
 - You are writing or debugging a Remix 3 `remix test` suite (server-render or `*.test.browser.tsx`) and an assertion fails for a reason the test code does not explain.
@@ -262,6 +269,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - A Playwright/e2e navigation or submit hangs on a page with an SSE/EventSource channel, or a browser test hangs after a `window.location` navigation.
 - You are manually verifying a UI change in the running app and the flow contains a delete/reset/confirm action.
 - A crash card hides the real exception stack from `pageerror`/console capture.
+- A hover/focus-revealed control behaves differently with a real pointer than with programmatic `.click()`/`.focus()`, or a reorder pins/loses focus in a way a component test cannot reproduce.
 
 ### Related Skills
 

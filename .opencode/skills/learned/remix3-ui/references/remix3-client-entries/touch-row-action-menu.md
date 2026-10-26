@@ -36,18 +36,20 @@ Known result on the 35-item fixture at 390px: row height stays **63px**, label w
 
 ### Reorder guard
 
-The menu must mirror the view invariant, not just look disabled:
+The menu must mirror the view invariant, not just look disabled. There are two guards:
 
 ```ts
-let moveItem = (from: number, to: number) => {
-  // A filtered subset makes "up/down" ambiguous: moving against a hidden
-  // neighbour can leave the visible order unchanged while saving a new order.
-  if (filterActive()) return
-  // ...
-}
+// Array-adjacent moves (drag, keyboard grab/quick-move): ambiguous whenever a
+// view filters or reorders rows.
+if (reorderLocked()) return
+
+// Visible-step moves (↑/↓ menu actions): hide-done is safe — swap with the
+// nearest visible neighbour so hidden done rows keep their slots. Text/status
+// filters and view-only sort/reverse/shuffle still lock.
+if (visibleReorderLocked()) return
 ```
 
-Also hide the menu’s `Nach oben` / `Nach unten` entries when the row is not draggable (`rowDraggable = !filterActive()`), matching the desktop cluster. For delete, compute the next/previous **visible** id before removing the row so focus lands on a surviving neighbour.
+Hide the menu’s `Nach oben` / `Nach unten` entries with `rowMovable = !visibleReorderLocked()` (desktop cluster uses the same flag). Keep the row’s `draggable` and the grip-vs-arrows distinction on the stricter `rowDraggable = !reorderLocked()`. When the actions render, disable them at the **visible** boundaries (`index === 0`, `index === vis.length - 1`), not at `realIndex === 0` / `items.length - 1` — a hidden done row may precede or follow the visible subset. For delete, compute the next/previous **visible** id before removing the row so focus lands on a surviving neighbour.
 
 ### Focus restoration
 
@@ -94,16 +96,18 @@ The `/lists` sidebar rows are rendered by the server (not by `ListsClient` state
 - Escape closes it and focuses the row (desktop) / kebab (touch)
 - `Nach unten` keeps focus on the moved item
 - `Löschen` focuses the next surviving row
-- a filtered menu contains only `Bearbeiten` / `Löschen`
+- a text-filtered menu contains only `Bearbeiten` / `Löschen`
+- hide-done keeps the move actions; the visible-step move swaps only the visible pair and leaves hidden done rows in their slots (`lists-view-controls.test.browser.tsx`)
 
 Wait ~350ms after move/delete so the fast autosave hits the stub, then assert focus survived the server-echo re-render.
 
 ## Verify
 
 - 390px: row 63px, label no longer 22px, no horizontal overflow.
-- Filtered list: menu has no move actions, and `moveItem` returns without reordering (defense in depth).
+- Text/status-filtered or view-sorted list: menu has no move actions, and the move functions return without reordering (defense in depth).
+- Hide-done list: menu keeps the move actions; ↑/↓ disabled at the visible boundaries; hidden done rows keep their array slots.
 - `document.activeElement` is the kebab on touch and the row on pointer devices after Escape/action; delete focuses the next/previous visible row.
-- Current suite result: **174 lists browser tests pass** (including the sidebar menu open/close/focus/tab-stop suite, the view controls in `view-only-list-controls.md`, the bulk actions/picker in `bulk-actions-and-target-picker.md`, and the undo/help/sidebar polish in `lists-undo-help-and-sidebar-controls.md`); `app/actions/lists/lists-sidebar-menu.test.e2e.ts` checks the real SSR markup and 44px geometry at 390x844 and 1440x900 in Chromium and Firefox. Typecheck, format, lint, theme conformance, and the full `npm test` are green.
+- Current suite result: **176 lists browser tests pass** (including the sidebar menu open/close/focus/tab-stop suite, the view controls in `view-only-list-controls.md`, the bulk actions/picker in `bulk-actions-and-target-picker.md`, and the undo/help/sidebar polish in `lists-undo-help-and-sidebar-controls.md`); `app/actions/lists/lists-sidebar-menu.test.e2e.ts` checks the real SSR markup and 44px geometry at 390x844 and 1440x900 in Chromium and Firefox. Typecheck, format, lint, theme conformance, and the full `npm test` are green.
 
 ## When to Use
 
