@@ -16,21 +16,28 @@ interface NotificationBellProps {
  * Subscribes to the per-user notification SSE channel and bumps the badge on a
  * live `new` event — no page reload. The initial count is fetched from
  * `unreadCountUrl` on mount so the badge is correct on a fresh page load, then
- * kept live by the stream.
+ * kept live by the stream. A `read` event (marking one/all notifications read)
+ * triggers a refetch because the bell survives the inbox's soft navigation and
+ * would otherwise keep the mount-time count.
  */
 export const NotificationBell = clientEntry(
   import.meta.url + '#NotificationBell',
   function NotificationBellEntry(handle: Handle<NotificationBellProps>) {
     let count = 0
+    let syncToken = 0
     let eventSource: EventSource | null = null
     let started = false
 
     function syncCount() {
       let { unreadCountUrl } = handle.props
       if (!unreadCountUrl) return
+      // Ignore superseded responses: a `new` event can land while a read-event
+      // refetch is in flight, and the older count must not overwrite it.
+      let token = ++syncToken
       fetch(unreadCountUrl)
         .then((r) => r.json())
         .then((data) => {
+          if (token !== syncToken) return
           count = typeof data?.count === 'number' ? data.count : 0
           void handle.update()
         })
@@ -49,6 +56,12 @@ export const NotificationBell = clientEntry(
       eventSource.addEventListener('new', () => {
         count++
         void handle.update()
+        // Reconcile: a read refetch started before this event would otherwise
+        // settle on a pre-new count.
+        syncCount()
+      })
+      eventSource.addEventListener('read', () => {
+        syncCount()
       })
       handle.signal.addEventListener('abort', () => {
         eventSource?.close()

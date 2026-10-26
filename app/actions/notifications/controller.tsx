@@ -21,7 +21,7 @@ import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { PageSizeControl } from '../../ui/page-size-control.tsx'
-import { notificationsChannel } from '../../utils/notifications-sse.ts'
+import { notificationsChannel, broadcastNotificationRead } from '../../utils/notifications-sse.ts'
 import {
   listUserNotifications,
   markRead,
@@ -91,14 +91,18 @@ export default createController(routes.notifications, {
       let user = getCurrentUser()
       let id = parseId(context.params.id)
       if (id != null) {
-        await markRead(context.db, user.id, id)
+        let changed = await markRead(context.db, user.id, id)
+        // The inbox posts through a soft navigation, so the persistent nav bell
+        // needs an out-of-band signal to refetch its unread count.
+        if (changed) broadcastNotificationRead(user.id)
       }
       return redirect(backUrl(context.url, routes.notifications.index.href()))
     },
 
     async markAllRead(context) {
       let user = getCurrentUser()
-      await markAllRead(context.db, user.id)
+      let changed = await markAllRead(context.db, user.id)
+      if (changed > 0) broadcastNotificationRead(user.id)
       return redirect(backUrl(context.url, routes.notifications.index.href()))
     },
   },

@@ -17,9 +17,21 @@ interface NotificationStreamEvent {
  *
  * Broadcast: `broadcastNotification(userId, event)` pushes only to that user's
  * subscription, so private appointment data never leaks to other subscribers.
+ *
+ * `read` is an invalidation signal: the nav bell survives soft navigations, so
+ * marking rows read would otherwise leave its mount-time badge count stale. It
+ * refetches the count endpoint on this event instead of trusting a pushed
+ * number, which keeps every tab consistent with the database.
  */
-export const notificationsChannel = createChannel<{ new: NotificationStreamEvent }>()
+export const notificationsChannel = createChannel<{
+  new: NotificationStreamEvent
+  read: void
+}>()
 
 export function broadcastNotification(userId: number, event: NotificationStreamEvent): void {
   notificationsChannel.broadcast('new', event, String(userId))
+}
+
+export function broadcastNotificationRead(userId: number): void {
+  notificationsChannel.broadcast('read', undefined, String(userId))
 }
