@@ -3,6 +3,7 @@ import * as https from 'node:https'
 import * as fs from 'node:fs'
 import { createRequestListener, type ClientAddress } from 'remix/node-fetch-server'
 
+import { assetServer } from './app/assets.ts'
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
 import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
@@ -92,7 +93,7 @@ function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
   void closeAppDatabase()
-  server.close(() => process.exit(0))
+  server.close(() => assetServer.close().finally(() => process.exit(0)))
   server.closeAllConnections()
 }
 

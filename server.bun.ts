@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 
+import { assetServer } from './app/assets.ts'
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
 import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
@@ -86,7 +87,7 @@ async function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
   server.stop()
-  await closeAppDatabase()
+  await Promise.allSettled([closeAppDatabase(), assetServer.close()])
   process.exit(0)
 }
 
