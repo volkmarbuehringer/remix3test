@@ -216,12 +216,29 @@ describe('admin uploads: multirow delete banner', () => {
       'the dialog should name the confirmed count',
     )
 
-    // Simulate a keyboard/AT user reaching the grid behind the modal: focus the
-    // third row's checkbox programmatically and toggle it. Before the fix the
-    // second submit pass re-read the live selection, so this row was deleted
-    // even though the dialog never mentioned it.
-    await page.locator('[data-upload-filename="test-e2e-scope-3.txt"] input[name="ids"]').focus()
-    await page.keyboard.press('Space')
+    // The native modal now makes the grid inert, so keyboard/AT users cannot
+    // reach the rows behind it. Verify that, then mutate the selection
+    // programmatically to keep covering the frozen-id payload (a script or a
+    // buggy AT could still change it): before the formdata rewrite the second
+    // submit pass re-read the live selection, so this row was deleted even
+    // though the dialog never mentioned it.
+    let backgroundFocused = await page.evaluate(() => {
+      let cb = document.querySelector<HTMLInputElement>(
+        '[data-upload-filename="test-e2e-scope-3.txt"] input[name="ids"]',
+      )
+      cb?.focus()
+      return document.activeElement === cb
+    })
+    assert.equal(backgroundFocused, false, 'the modal must make the grid inert')
+
+    await page.evaluate(() => {
+      let cb = document.querySelector<HTMLInputElement>(
+        '[data-upload-filename="test-e2e-scope-3.txt"] input[name="ids"]',
+      )
+      if (!cb) throw new Error('missing third row checkbox')
+      cb.checked = true
+      cb.dispatchEvent(new Event('change', { bubbles: true }))
+    })
     await page.locator('[data-selected-count]').filter({ hasText: '3 ausgewählt' }).waitFor({
       timeout: 10_000,
     })

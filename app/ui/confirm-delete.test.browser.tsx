@@ -112,6 +112,46 @@ describe('ConfirmDelete', () => {
     assert.deepEqual(submitted, [], 'a cancelled confirm must not submit the form')
   })
 
+  it('traps focus in the modal and restores it to the trigger on close', async () => {
+    let { btn } = mountForm('data-confirm="Wirklich löschen?"')
+    mountEntry()
+    btn.focus()
+    await result!.act(() => btn.click())
+
+    let accept = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    assert.equal(document.activeElement, accept, 'focus starts on the confirm button')
+
+    // The native modal makes the rest of the document inert, so a background
+    // focus attempt must not move focus out of the dialog.
+    btn.focus()
+    assert.equal(document.activeElement, accept, 'the background is inert while the dialog is open')
+
+    let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
+    await result!.act(() => cancel.click())
+    await waitDialogGone()
+    // The dialog is closed after animateExit removes the retained node; give
+    // the removal observer a tick to run its native focus restoration.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.equal(document.activeElement, btn, 'focus returns to the trigger')
+  })
+
+  it('closes on the native cancel event without submitting', async () => {
+    let { btn } = mountForm('data-confirm="Wirklich löschen?"')
+    mountEntry()
+    await result!.act(() => btn.click())
+
+    let nativeDialog = dialog()!.closest('dialog') as HTMLDialogElement
+    assert.ok(nativeDialog, 'the dialog is a native modal')
+    await result!.act(() => {
+      nativeDialog.dispatchEvent(new Event('cancel', { cancelable: true }))
+    })
+    await waitDialogGone()
+
+    assert.equal(dialog(), null, 'the cancel event closes the dialog')
+    assert.deepEqual(submitted, [], 'a cancelled confirm must not submit the form')
+  })
+
   it('falls back to the default message for an empty data-confirm', async () => {
     let { btn } = mountForm('data-confirm=""')
     mountEntry()

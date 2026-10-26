@@ -208,12 +208,13 @@ styled-dialog commit added the `requestConfirm` call without updating the stub).
 ### Freezing the confirmed scope for bulk actions
 
 A bulk delete confirms "N rows", but the browser builds the payload from the **live
-form** at submit time. An in-app dialog is not automatically modal: `aria-modal="true"`
-is advisory, and the shared `ConfirmDelete` does not trap focus or inert the page, so
-keyboard and screen-reader users can still check more rows while it is open. Re-reading
-the selection when the dialog is accepted then deletes rows the confirmation never named
-(observed on `/admin/uploads`: two confirmed, a third checked behind the dialog, POST
-carried all three).
+form** at submit time. The shared `ConfirmDelete` now uses a native modal `<dialog>` +
+`showModal()`, so user focus and pointer interaction cannot reach the grid behind it
+(Tab is contained, the rest of the document is inert, Escape fires `cancel`). The freeze
+still matters for programmatic changes (scripts, extensions, a buggy AT) and for the
+native-confirm fallback: re-reading the selection when accepted would delete rows the
+confirmation never named (observed on `/admin/uploads` before the modal/freeze fix: two
+confirmed, a third checked behind the dialog, POST carried all three).
 
 Freeze the ids when the dialog is accepted and rewrite the outgoing payload instead of
 trusting the checkboxes. The reliable seam is the `formdata` event on the form:
@@ -230,7 +231,7 @@ confirmedIds = ids
 form.requestSubmit(submit)
 ```
 
-Two gotchas, verified in Chromium + Firefox at the installed pin (2026-10-24):
+`formdata` gotchas, verified in Chromium + Firefox at the installed pin (2026-10-24):
 
 - `formdata` fires **after** `requestSubmit()` returns, so removing/restoring checkbox
   `name` (or `checked`) around the call is racy: Chromium reads the form after the
@@ -265,8 +266,26 @@ native path returns `true` from `dispatchEvent` and that the `formdata` rewrite 
 replaces a stray id.
 
 `app/actions/admin/public/admin-uploads-bulk-delete.tsx` implements the styled-dialog
-path plus this native fallback, and `uploads-bulk-delete.test.e2e.ts` ("deletes exactly
-the confirmed rows when the selection grows while the dialog is open") covers the
-dialog path — it checks the extra row behind the dialog, accepts, and asserts only the
-two confirmed rows are gone. The modal gap itself (no focus trap/inert) is still open
-in the shared dialog.
+path plus this native fallback. `uploads-bulk-delete.test.e2e.ts` ("deletes exactly the
+confirmed rows when the selection grows while the dialog is open") now asserts the grid is
+inert while the dialog is open, then mutates the checkbox programmatically and accepts,
+proving only the two confirmed rows are gone. `admin-uploads-bulk-actions.test.browser.tsx`
+mounts the real `ConfirmDelete` and covers both the dialog path and the fallback.
+
+### Native modal dialog details (`ConfirmDelete`)
+
+- Render a native `<dialog>` and call `showModal()` from a `ref` on insert. This gives
+  focus containment, page inertness and Escape/`cancel` handling without a hand-rolled
+  trap.
+- Do **not** call `dialog.close()` when dismissing: the `animateExit` mixin retains the
+  node for its exit animation, and `close()` removes `open`, hiding the dialog before the
+  animation. Leave it open until removal.
+- Restore focus manually after the retained node disconnects. `close()` on a
+  **disconnected** dialog no longer restores focus (the native "previously focused
+  element" state is gone), so capture `document.activeElement` before `showModal()` and
+  focus it from a `MutationObserver` when the node leaves the DOM.
+- Playwright/browser tests: `[data-confirm-dialog]` is the inner card; the native
+  `<dialog>` is `[data-confirm-overlay]` (dispatch `cancel` there, not on the card).
+- An open modal makes the rest of the page inert, so e2e tests that need to change
+  background state while the dialog is open must do so programmatically
+  (`page.evaluate(...)`) rather than with `locator.click()/check()`.

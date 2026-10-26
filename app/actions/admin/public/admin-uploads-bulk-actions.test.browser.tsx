@@ -4,6 +4,7 @@ import { render } from 'remix/component/test'
 
 import { UploadBulkDelete } from './admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from './admin-uploads-bulk-download.tsx'
+import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { clearSelection, isSelected, selectedCount } from '../../../utils/upload-selection.ts'
 
 // Client-assertion half of the uploads bulk actions. The in-frame PRG, banner and
@@ -50,6 +51,12 @@ function mount(html = TABLE_HTML): HTMLElement {
 function mountEntries() {
   cleanups.push(render(<UploadBulkDelete />).cleanup)
   cleanups.push(render(<UploadBulkDownload />).cleanup)
+}
+
+function mountConfirmDialog() {
+  let result = render(<ConfirmDelete />)
+  cleanups.push(result.cleanup)
+  return result
 }
 
 function deleteFormOf(host: HTMLElement): HTMLFormElement {
@@ -250,6 +257,83 @@ describe('uploads bulk actions', () => {
     let notCancelled = submit(form)
 
     assert.equal(notCancelled, false)
+    assert.equal(resubmits, 0, 'a declined dialog must not re-submit')
+    assert.equal(selectedCount(), 1, 'a declined submit keeps the selection')
+  })
+
+  it('confirms through the styled dialog and re-submits exactly the confirmed ids', async () => {
+    let host = mount()
+    mountEntries()
+    let dialogResult = mountConfirmDialog()
+    change(rowCb(host, '1'), true)
+    change(rowCb(host, '2'), true)
+
+    let nativeAsks = 0
+    window.confirm = () => {
+      nativeAsks++
+      return false
+    }
+
+    let form = deleteFormOf(host)
+    let resubmitted: HTMLElement | null | undefined
+    form.requestSubmit = (submitter?: HTMLElement | null) => {
+      resubmitted = submitter ?? null
+    }
+
+    let notCancelled = submit(form)
+
+    // The dialog path is async, so the first submit is always canceled and the
+    // accepted decision re-submits through requestSubmit().
+    assert.equal(notCancelled, false, 'the dialog path cancels the first pass')
+    assert.equal(nativeAsks, 0, 'the styled dialog must replace the native confirm')
+
+    await dialogResult.act(() => undefined)
+    let dialog = document.querySelector('[data-confirm-dialog]') as HTMLElement
+    assert.ok(dialog, 'the styled dialog opens')
+    assert.ok(
+      dialog.textContent?.includes('2 Dateien wirklich löschen?'),
+      'the dialog names the selected count',
+    )
+
+    let accept = dialog.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    await dialogResult.act(() => accept.click())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.equal(
+      resubmitted,
+      deleteSubmitOf(host),
+      'accepting re-submits through the submit button',
+    )
+
+    // The resumed submit still writes the frozen ids, not the live selection.
+    let payload = new FormData()
+    payload.append('ids', '3')
+    form.dispatchEvent(new FormDataEvent('formdata', { formData: payload }))
+    assert.deepEqual(payload.getAll('ids').toSorted(), ['1', '2'])
+
+    assert.equal(selectedCount(), 0, 'submitted rows leave the selection store')
+  })
+
+  it('cancels the styled dialog without re-submitting', async () => {
+    let host = mount()
+    mountEntries()
+    let dialogResult = mountConfirmDialog()
+    change(rowCb(host, '1'), true)
+
+    let form = deleteFormOf(host)
+    let resubmits = 0
+    form.requestSubmit = () => {
+      resubmits++
+    }
+
+    submit(form)
+    await dialogResult.act(() => undefined)
+
+    let cancel = document.querySelector<HTMLButtonElement>('[data-confirm-cancel]')
+    assert.ok(cancel, 'the styled dialog opens')
+    await dialogResult.act(() => cancel.click())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     assert.equal(resubmits, 0, 'a declined dialog must not re-submit')
     assert.equal(selectedCount(), 1, 'a declined submit keeps the selection')
   })

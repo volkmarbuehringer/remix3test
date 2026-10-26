@@ -30,7 +30,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| Adding a `confirm()` dialog to server-rendered delete forms; intercepting a form submit before frame navigation; replacing native `confirm()` with a styled dialog, reusing it from context-menu or bulk triggers, or freezing a bulk action's confirmed id set against a selection that changes behind the dialog (`formdata` rewrite) | `references/remix-forms/delete-confirmation.md` |
+| Adding a `confirm()` dialog to server-rendered delete forms; intercepting a form submit before frame navigation; replacing native `confirm()` with a styled native modal `<dialog>` (focus containment, inert page, focus restoration), reusing it from context-menu or bulk triggers, or freezing a bulk action's confirmed id set against a selection that changes behind the dialog (`formdata` rewrite) | `references/remix-forms/delete-confirmation.md` |
 | Password confirmation (cross-field), keeping passwords out of `defaultValue`, visibility toggle (`data-toggle-pw`), the `app/ui` vs `app/assets` `clientEntry` trap | `references/remix-forms/password-forms.md` |
 | One-shot UI state after a POST (routing card) that must self-clear on refresh — `session.flash()` vs `session.set()` | `references/remix-forms/session-flash-routing.md` |
 | A session value you mutated in place is missing on the next request — storing a map/array/set in the session | `references/remix-forms/session-value-persistence.md` |

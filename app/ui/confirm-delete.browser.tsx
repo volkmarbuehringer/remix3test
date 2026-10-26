@@ -75,12 +75,19 @@ export function requestConfirmDecision(detail: ConfirmRequestOptions): Promise<b
 const overlayStyle = css({
   position: 'fixed',
   inset: 0,
-  zIndex: 1000,
+  width: '100%',
+  height: '100%',
+  maxWidth: 'none',
+  maxHeight: 'none',
+  margin: 0,
+  padding: theme.space.lg,
+  border: 0,
+  background: 'rgba(0, 0, 0, 0.45)',
+  color: 'inherit',
+  boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: theme.space.lg,
-  background: 'rgba(0, 0, 0, 0.45)',
 })
 
 const dialogStyle = css({
@@ -130,6 +137,9 @@ const actionsStyle = css({
  * in-app dialog instead of the blocking, unstyled window.confirm. The click is
  * always prevented; confirming re-submits the original form with requestSubmit,
  * which still fires a submit event so the frame runtime intercepts it normally.
+ *
+ * The dialog is a native modal `<dialog>` opened with showModal(), so focus is
+ * contained, the page behind it is inert, and Escape arrives as `cancel`.
  *
  * Rendered once per grid, so the delegated listeners are registered once.
  */
@@ -185,18 +195,52 @@ export const ConfirmDelete = clientEntry(
       )
     }
 
-    function close() {
+    let dialogEl: HTMLDialogElement | null = null
+    let removalObserver: MutationObserver | null = null
+    let returnFocusTo: HTMLElement | null = null
+
+    /**
+     * Use a native modal `<dialog>` for real focus containment, inertness and
+     * Escape handling. `showModal()` happens on insert rather than from state,
+     * and the dialog stays open while animateExit fades the retained node.
+     * Closing immediately would hide it before the exit transition, so restore
+     * focus manually once the retained node is disconnected — `close()` on a
+     * disconnected dialog no longer restores focus.
+     */
+    function watchForRemoval(dialog: HTMLDialogElement) {
+      if (removalObserver) return
+      removalObserver = new MutationObserver(() => {
+        if (dialog.isConnected) return
+        removalObserver?.disconnect()
+        removalObserver = null
+        let target = returnFocusTo
+        returnFocusTo = null
+        if (dialogEl === dialog) dialogEl = null
+        if (target?.isConnected) target.focus()
+      })
+      removalObserver.observe(document.body, { childList: true, subtree: true })
+    }
+
+    handle.signal.addEventListener('abort', () => {
+      removalObserver?.disconnect()
+      removalObserver = null
+      returnFocusTo = null
+      dialogEl = null
+    })
+
+    function dismiss(): PendingConfirm | null {
       let current = pending
       pending = null
       void handle.update()
-      current?.onCancel?.()
+      return current
+    }
+
+    function close() {
+      dismiss()?.onCancel?.()
     }
 
     function accept() {
-      let current = pending
-      pending = null
-      void handle.update()
-      current?.onConfirm()
+      dismiss()?.onConfirm()
     }
 
     return () => {
@@ -205,13 +249,32 @@ export const ConfirmDelete = clientEntry(
       if (!pending) return <div data-confirm-ready="true" mix={css({ display: 'none' })} />
       let current = pending
       return (
-        <div
+        <dialog
           key="confirm-dialog"
           data-confirm-overlay="true"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-title"
+          aria-describedby="confirm-delete-message"
           mix={[
             overlayStyle,
             overlayEntrance,
             overlayExit,
+            ref((el) => {
+              if (!el) return
+              dialogEl = el
+              if (!el.open) {
+                let active = document.activeElement
+                returnFocusTo =
+                  active instanceof HTMLElement && active !== document.body ? active : null
+                el.showModal()
+              }
+              watchForRemoval(el)
+            }),
+            on('cancel', (event) => {
+              event.preventDefault()
+              close()
+            }),
             on('click', (event) => {
               if (event.target === event.currentTarget) close()
             }),
@@ -220,21 +283,7 @@ export const ConfirmDelete = clientEntry(
           <div
             key="confirm-card"
             data-confirm-dialog="true"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="confirm-delete-title"
-            aria-describedby="confirm-delete-message"
-            mix={[
-              dialogStyle,
-              dialogEntrance,
-              dialogExit,
-              on('keydown', (event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault()
-                  close()
-                }
-              }),
-            ]}
+            mix={[dialogStyle, dialogEntrance, dialogExit]}
           >
             <h2 id="confirm-delete-title" mix={titleStyle}>
               {current.title}
@@ -253,17 +302,14 @@ export const ConfirmDelete = clientEntry(
               <button
                 type="button"
                 data-confirm-accept="true"
-                mix={[
-                  button({ tone: current.tone }),
-                  on('click', accept),
-                  ref((el) => el?.focus()),
-                ]}
+                autoFocus
+                mix={[button({ tone: current.tone }), on('click', accept)]}
               >
                 {current.confirmLabel}
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       )
     }
   },
