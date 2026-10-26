@@ -34,7 +34,7 @@
     "@mastra/observability": "^1.21.0",
     "@mastra/pg": "^1.32.0",
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
-    "date-holidays": "^3.37.0",
+    "date-holidays": "^3.38.0",
     "nodemailer": "^10.2.1",
     "pdfmake": "^0.3.12",
     "pg": "^8.23.1",
@@ -42,7 +42,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.14.3",
+    "@fission-ai/openspec": "^1.15.0",
     "@oxlint/plugins": "^1.89.0",
     "@types/bun": "^1.4.4",
     "@types/node": "26.6.5",
@@ -50,7 +50,7 @@
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.23.1",
     "html-validate": "^11.17.0",
-    "knip": "^6.42.1",
+    "knip": "^6.43.0",
     "mastra": "^1.35.0",
     "oxfmt": "^0.74.0",
     "oxlint": "^1.89.0",

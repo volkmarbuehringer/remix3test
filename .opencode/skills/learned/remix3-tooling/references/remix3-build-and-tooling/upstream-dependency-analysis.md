@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-23 (vendor facts below re-checked against the installed tree at unified build `dfb4fc808` / source `5e5a244`; versions now `remix 3.1.0` / `component 1.1.0` / `component-hmr 1.1.0` / `ui 0.13.0` — the `3.1.0` / `1.1.0` / `0.13.0` release (PR #11978) landed, but its release commit only consumed the pending changesets, so the installed runtime code is unchanged from build `1e03013e1`)
+**Re-validated:** 2026-10-26 (vendor facts below re-checked against the installed tree at unified build `8ae2f755` / source `0b35d81`; versions unchanged at `remix 3.1.0` / `component 1.1.0` / `component-hmr 1.0.0` / `ui 0.13.0` — the `3.1.0` / `1.1.0` / `0.13.0` release (PR #11978) landed 2026-10-23, and only `component-hmr` moved since, via #11982. The earlier record's `component-hmr 1.1.0` was inaccurate: it stayed at 1.0.0, and the pending 3.1.1 release moves it to 1.0.1)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -175,10 +175,20 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - Unrelated floats from the same re-resolution: `rollup` 4.64.12 → 4.65.0 (+ platform binaries), `@rollup/pluginutils` 5.4.0 → 5.5.1, `rollup-plugin-esbuild`, `@posthog/core` 1.59.3 → 1.59.4, `caniuse-lite`/`node-releases`/`baseline-browser-mapping`.
 - Post-bump adaptation (2026-10-23): adopted 3.1 link prefetching with a one-shot fragment cache — `run({ prefetch })` + `prefetchFrameResponse` claimed by the custom `resolveFrame`; see `remix3-ui` § Client Entries → `references/remix3-client-entries/frame-prefetch-cache.md`. The `frame.reload({ method, encType, body })` option was re-audited and still has **no** app call site: the remaining fetch-then-reload flows need JSON/`If-Match` bodies (`list-name-edit.tsx`), `X-Sse-Request`/`X-Agent-Thread` headers (`support-agent-controller.ts`), or stream framing, none of which a FormData reload can carry; list/grid mutations are already native frame POSTs (`data-rmx-target`) and all 8 navigation sites use the `{ src }` form.
 
+**Bump recorded 2026-10-26: mixed lock (top-level `dfb4fc808`/source `5e5a244`; all 260 transitive `@remix-run/*` at `73b4cad2`/source `8905f39`) → unified build `8ae2f755`/source `0b35d81` (#11982 component-hmr clientEntry HMR fix; docs-only #12075 docs-site link previews, #12076 §11 files-guide `/future` form-data paragraph).**
+
+- Lock: all 268 tarball refs resolve to `8ae2f755`; the pre-bump lock had split again (8 top-level refs at `dfb4fc808`, 260 transitive refs at `73b4cad2`), so this update unified the set. Versions unchanged: `remix` 3.1.0, `@remix-run/ui` 0.13.0, `@remix-run/component` 1.1.0, `@remix-run/component-hmr` 1.0.0.
+- Package delta: `packages/component-hmr/src/lib/transform.ts` (+ its tests/e2e and a patch changeset) is the only runtime change; `packages/remix/guides/11-files-and-assets.md` and the docs site are docs-only. `packages/component`, `packages/ui`, and the rest of `packages/remix` are byte-identical to the prior source.
+- #11982 records each module's exported `clientEntry` names in `import.meta.hot.data.clientEntryNamesByModuleUrl` and invalidates when that list changes, so adding/removing a `clientEntry` during HMR restarts the app server instead of hydrating against stale boundaries. Release status: pending patch changeset; `origin/release-pr/main` (unmerged) bumps `remix` 3.1.0 → 3.1.1 and `component-hmr` 1.0.0 → 1.0.1 (confirming component-hmr was 1.0.0 at 3.1.0, not 1.1.0 as the 2026-10-23 (3) entry above says).
+- App-side clearance: dev-only. `hmr.ts` (`--import remix/component-hmr/node`) and `app/assets.ts` (`componentHmr()`) wire the package; 65 files under `app/` export `clientEntry`. No app source change. `.agents/skills/remix` repointed into the `8ae2f755` CLI template, so the guide delta (#12076) is now visible.
+- Unrelated floats from the same `pnpm update`: `date-holidays` ^3.37.0 → ^3.38.0, `@fission-ai/openspec` ^1.14.3 → ^1.15.0, `knip` ^6.42.1 → ^6.43.0.
+- Verification (2026-10-26): `npm run typecheck`, `npm run lint`, `oxfmt --check` clean; full browser suite 838 tests (836 pass, 0 fail, 2 skipped); targeted `uploads-bulk-delete` e2e 4/4 (Chromium + Firefox). A pre-existing browser-test failure in `admin-uploads-bulk-actions.test.browser.tsx` was app-side (stale contract from commit `639a41f`), not this bump — see the `remix3-forms` delete-confirmation delta.
+
 **Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance.
 
 | Recorded  | Build        | Source      | Range highlights |
 | --------- | ------------ | ----------- | ---------------- |
+| 2026-10-26 | `8ae2f755` | `0b35d81` | #11982; docs #12075 #12076 |
 | 2026-10-23 (3) | `dfb4fc808` | `5e5a244` | v3.1.0 release (no runtime change); docs #12055 #12072 #12074 |
 | 2026-10-23 (2) | `1e03013e1` | `446179f5a` | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073 |
 | 2026-10-23 | `db58e1d9` | `32794c0` | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048 |
