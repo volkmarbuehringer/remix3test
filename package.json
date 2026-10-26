@@ -36,7 +36,7 @@
     "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "date-holidays": "^3.38.0",
     "nodemailer": "^10.2.1",
-    "pdfmake": "^0.3.12",
+    "pdfmake": "^0.3.13",
     "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.6.7"
