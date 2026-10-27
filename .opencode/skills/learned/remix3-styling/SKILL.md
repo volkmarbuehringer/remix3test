@@ -107,7 +107,8 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 **Responsive admin grids and two-column panels (`references/remix3-css-and-layout/admin-grid-responsive-panels.md`)**
 
 - A `table.wrap` grid without `table.mobileCards` keeps `min-width: 840px` and scrolls its right-hand columns off a phone; `mobileCards` also needs `data-label` on every `<td>` (including the actions cell) or cards render unlabelled values.
-- The two-column edit/create panel (`minmax(0, 1fr) 340px`) clips the grid because `table.page` caps at 1000px while `table` floors at `min-width: 840px`. Use `pageWide` plus a `twoColumnGrid` override scoped to `@media (min-width: 1101px)` with `min-width: 640px !important`; the media query keeps it from fighting `mobileCards` `min-width: 0 !important`.
+- The two-column edit/create panel (`minmax(0, 1fr) 340px`) clips the grid because `table.page` caps at 1000px while `table` floors at `min-width: 840px`. Use `pageWide` plus a `twoColumnGrid` override scoped to `@media (min-width: 1101px)` with `min-width: 640px !important`; the media query keeps it from fighting `mobileCards` `min-width: 0 !important`. In the narrower sidebar shell (`/admin/users`) 640px still clips: drop `twoColumnGrid` in panel mode, render a focused column set (identity/role/status/actions), and set a page-local `min-width: 480px !important`. Add `order: -1` to the stacked panel at ≤1100px so the frame scroll reset lands on the opened editor.
+- `dataGridWrap` (`flex: 1 1 auto`) grows under a short result set and leaves a tall empty bordered panel; use a `flex: 0 1 auto` wrapper for content height with shrink-to-scroll.
 - Verify by measurement: `wrap.scrollWidth === wrap.clientWidth` with the panel open, and `getComputedStyle(thead).display === "none"` plus `td[data-label]` on mobile.
 
 ### When to Use
@@ -117,6 +118,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - Flex/scroll geometry is wrong: panels collapse, lists clip instead of scroll, or a page in the sidebar shell overflows.
 - You are adding a new hand-rolled link/span with an inline SVG, a `<select>` in a flex row, or a content-sized panel inside a bounded shell.
 - You are adding a data grid or a two-column edit panel and need it to survive a phone and a desktop without clipping.
+- An admin grid's row actions disappear while the inline edit panel is open, or a short result set leaves a tall empty bordered grid panel.
 - Before trusting a `css()` override or a computed style, use these references' CDP / recursive-rule-walk recipes rather than `document.styleSheets`.
 
 ### Related Skills
