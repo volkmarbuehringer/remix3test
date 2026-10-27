@@ -6,7 +6,6 @@ import { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
-import { input } from './mixins/input.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -14,6 +13,8 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
+import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
+import { UserAccountFields, fieldHintStyle } from './admin-users-fields.tsx'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
@@ -29,7 +30,9 @@ import {
 import { AdminUsersContextMenu } from '../actions/admin/public/admin-users-context-menu.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
-import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import { dataGridFill } from './mixins/data-grid.ts'
+import { PASSWORD_MIN_LENGTH } from '../utils/password-complexity.ts'
+import type { UserStatus } from '../utils/user-status.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.admin.users.index.href()
@@ -50,11 +53,14 @@ interface AdminUsersPageProps {
   rows: DisplayUser[]
   offset: number
   hasMore: boolean
+  total?: number | undefined
   prevOffset: number
   nextOffset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  status?: UserStatus | undefined
+  currentUserId?: number | null
   editRow?: DisplayUser | null
   creating?: boolean
   pageSize: number
@@ -67,48 +73,164 @@ interface AdminUsersPageProps {
 
 // ── Styles ──
 
-const inputErrorStyle = css({
-  borderColor: theme.colors.action.danger.background,
-  '&:focus': {
-    borderColor: theme.colors.action.danger.background,
-  },
+const userCellStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  minWidth: 0,
 })
 
-const fieldErrorStyle = css({
-  marginTop: theme.space.xs,
-  fontSize: theme.fontSize.xxs,
-  color: theme.colors.action.danger.background,
-})
-
-const fieldHintStyle = css({
-  marginTop: theme.space.xs,
-  fontSize: theme.fontSize.xxs,
-  color: theme.colors.text.muted,
-})
-
-const verifiedBadgeStyle = css({
+const avatarStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '4px',
+  justifyContent: 'center',
+  flexShrink: 0,
+  width: '28px',
+  height: '28px',
+  borderRadius: theme.radius.full,
+  background: theme.surface.lvl3,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xxs,
+  fontWeight: theme.fontWeight.bold,
+  letterSpacing: '0.02em',
+})
+
+const avatarAdminStyle = css({
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+})
+
+const avatarLargeStyle = css({
+  width: '40px',
+  height: '40px',
+  fontSize: theme.fontSize.xs,
+})
+
+const userTextStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  minWidth: 0,
+})
+
+const userNameLinkStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  color: theme.colors.text.primary,
+  fontWeight: theme.fontWeight.medium,
+  textDecoration: 'none',
+  '&:hover': { color: theme.colors.action.primary.background, textDecoration: 'underline' },
+})
+
+const emailLineStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  minWidth: 0,
+})
+
+const userEmailStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xs,
+})
+
+const verifiedIconStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  color: theme.colors.success.foreground,
+})
+
+const pendingChipStyle = css({
+  flexShrink: 0,
+  padding: '0 4px',
+  borderRadius: theme.radius.sm,
+  background: theme.surface.lvl0,
+  border: `1px solid ${theme.colors.border.default}`,
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xxxs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+const roleBadgeStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
   padding: `2px ${theme.space.sm}`,
   borderRadius: theme.radius.full,
+  background: theme.surface.lvl2,
+  border: `1px solid ${theme.colors.border.default}`,
+  color: theme.colors.text.secondary,
   fontSize: theme.fontSize.xs,
   fontWeight: theme.fontWeight.semibold,
   whiteSpace: 'nowrap',
 })
 
-const verifiedBadgeOnStyle = css({
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
+const roleBadgeAdminStyle = css({
+  background: theme.colors.action.primary.background,
+  borderColor: theme.colors.action.primary.border,
+  color: theme.colors.action.primary.foreground,
 })
 
-const verifiedBadgeOffStyle = css({
+const statusPillStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '5px',
+  padding: `2px ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  border: '1px solid transparent',
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+const statusPillActiveStyle = css({
+  background: theme.colors.success.background,
+  borderColor: theme.colors.success.border,
+  color: theme.colors.success.foreground,
+})
+
+const statusPillDisabledStyle = css({
   background: theme.surface.lvl0,
-  color: theme.colors.text.muted,
-  border: `1px solid ${theme.colors.border.default}`,
+  borderColor: theme.colors.action.danger.border,
+  color: theme.colors.action.danger.background,
 })
 
-const colActionsWidth = css({ width: '120px' })
+const statusDotStyle = css({
+  width: '6px',
+  height: '6px',
+  borderRadius: theme.radius.full,
+  background: 'currentColor',
+})
+
+const idChipStyle = css({
+  fontFamily: theme.fontFamily.mono,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const dateStackStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  lineHeight: theme.lineHeight.tight,
+})
+
+const dateMainStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  whiteSpace: 'nowrap',
+})
+
+const dateTimeStyle = css({
+  fontSize: theme.fontSize.xxxs,
+  color: theme.colors.text.muted,
+  whiteSpace: 'nowrap',
+})
 
 const pageBadgeStyle = css({
   padding: `${theme.space.xs} ${theme.space.sm}`,
@@ -120,6 +242,233 @@ const pageBadgeStyle = css({
   whiteSpace: 'nowrap',
 })
 
+const emptyStateStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.space.md,
+  padding: theme.space.xxl,
+  textAlign: 'center',
+  color: theme.colors.text.muted,
+})
+
+const emptyActionsStyle = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  gap: theme.space.sm,
+})
+
+const colActionsWidth = css({ width: '112px' })
+const colStatusWidth = css({ width: '124px' })
+const colRoleWidth = css({ width: '96px' })
+const colDateWidth = css({ width: '140px' })
+const colIdWidth = css({ width: '64px' })
+
+/**
+ * Focused grid shown beside the edit/create panel: the panel already repeats
+ * the user ID and timestamps, so those columns are dropped and the table is
+ * allowed to shrink below the shared 840px floor. Without this the row actions
+ * sat outside the narrow grid column (behind a horizontal scrollbar) and were
+ * effectively invisible while editing.
+ */
+const focusedTableStyle = css({
+  minWidth: '480px !important',
+})
+
+const actionSegDisabledStyle = css({
+  opacity: 0.4,
+  cursor: 'not-allowed',
+  '&:hover': { background: theme.surface.lvl2, color: theme.colors.text.secondary },
+})
+
+/**
+ * Bounded scroll region for the grid.
+ *
+ * `dataGridWrap` grows to fill the shell, which leaves a tall empty bordered
+ * panel under a short result set. This variant keeps the table at content
+ * height while it fits and shrinks (scrolling internally) only once the rows
+ * exceed the available space, so the pagination bar stays reachable.
+ */
+const usersGridScrollStyle = css({
+  flex: '0 1 auto',
+  minHeight: 0,
+  overflowY: 'auto',
+  scrollbarGutter: 'stable',
+})
+
+const panelIdentityStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  padding: `${theme.space.md} ${theme.space.lg}`,
+  borderBottom: `1px solid ${theme.colors.border.subtle}`,
+  background: theme.surface.lvl0,
+})
+
+const panelIdentityTextStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  minWidth: 0,
+})
+
+const panelIdentityNameStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+})
+
+const panelIdentityEmailStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const panelIdStyle = css({
+  marginLeft: 'auto',
+  fontFamily: theme.fontFamily.mono,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const panelCloseStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '1.75rem',
+  height: '1.75rem',
+  marginLeft: theme.space.xs,
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.muted,
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const panelMetaStyle = css({
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: `${theme.space.xs} ${theme.space.md}`,
+  padding: `${theme.space.sm} ${theme.space.lg}`,
+  borderBottom: `1px solid ${theme.colors.border.subtle}`,
+  background: theme.surface.lvl0,
+})
+
+const panelMetaItemStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+})
+
+const panelMetaLabelStyle = css({
+  fontSize: theme.fontSize.xxxs,
+  fontWeight: theme.fontWeight.semibold,
+  letterSpacing: theme.letterSpacing.meta,
+  textTransform: 'uppercase',
+  color: theme.colors.text.muted,
+})
+
+const panelMetaValueStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  whiteSpace: 'nowrap',
+})
+
+const toggleRowStyle = css({
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: theme.space.md,
+  padding: theme.space.sm,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl0,
+})
+
+const toggleTextStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  minWidth: 0,
+})
+
+const toggleLabelStyle = css({
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+  cursor: 'pointer',
+})
+
+const toggleCheckboxStyle = css({
+  flexShrink: 0,
+  width: '18px',
+  height: '18px',
+  marginTop: '2px',
+  accentColor: theme.colors.action.primary.background,
+  cursor: 'pointer',
+  '&:disabled': { cursor: 'not-allowed', opacity: 0.5 },
+})
+
+/**
+ * Stacked (<=1100px) layout puts the edit/create panel below the grid, where a
+ * frame navigation to `?editing=` scrolled back to the top would leave the
+ * panel out of view. Order it first so the panel the user just opened is the
+ * first thing they see.
+ */
+const mobilePanelFirstStyle = css({
+  '@media (max-width: 1100px)': { order: -1 },
+})
+
+const srOnlyStyle = css({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+  border: 0,
+})
+
+// ── Helpers ──
+
+function userInitials(name: string, email: string): string {
+  let parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
+  }
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return email.slice(0, 2).toUpperCase()
+}
+
+function roleLabel(role: string): string {
+  return role === 'admin' ? 'Admin' : 'Kunde'
+}
+
+function formatDatePart(ts: number | null | undefined): string {
+  if (!ts) return '—'
+  return new Date(Number(ts)).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatTimePart(ts: number | null | undefined): string {
+  if (!ts) return ''
+  return new Date(Number(ts)).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 // ── Component ──
 
 export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
@@ -128,11 +477,14 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
       rows,
       offset,
       hasMore,
+      total,
       prevOffset,
       nextOffset,
       sortColumn,
       sortDirection,
       filter,
+      status,
+      currentUserId = null,
       editRow = null,
       creating = false,
       pageSize,
@@ -145,71 +497,121 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
+    let hasPanel = Boolean(editRow || creating)
+    let activeStatus: UserStatus | undefined = status
+    let searchValue = filter ?? ''
+    let hasFilters = searchValue.length > 0 || activeStatus !== undefined
+    let stalePage = rows.length === 0 && offset > 0
+
+    let emptyMessage: string
+    if (stalePage) {
+      // A delete or a filter change can leave the URL on a page that no longer
+      // exists; "no disabled users" would wrongly claim the result set is empty.
+      emptyMessage = 'Keine Benutzer auf dieser Seite.'
+    } else if (searchValue && activeStatus) {
+      emptyMessage = 'Keine Benutzer für diese Filter gefunden.'
+    } else if (searchValue) {
+      emptyMessage = 'Keine Benutzer für diese Suche gefunden.'
+    } else if (activeStatus === 'enabled') {
+      emptyMessage = 'Keine aktiven Benutzer vorhanden.'
+    } else if (activeStatus === 'disabled') {
+      emptyMessage = 'Keine deaktivierten Benutzer vorhanden.'
+    } else {
+      emptyMessage = 'Noch keine Benutzer vorhanden.'
+    }
 
     let gridSection = (
-      <div mix={[table.minWidth0, editRow || creating ? undefined : dataGridFill]}>
+      <div mix={[table.minWidth0, hasPanel ? undefined : dataGridFill]}>
         <ConfirmDelete />
 
         {/* Toolbar + Filter */}
         <form
           method="GET"
           action={routes.admin.users.index.href()}
+          role="search"
+          aria-label="Benutzer suchen und filtern"
           data-rmx-target={getSelfFrameTarget()}
+          data-rmx-history="replace"
           mix={table.filterBar}
         >
-          <div mix={table.filterGroup}>
-            {/* Status tabs always reset to the first page: keeping the previous
-                offset while the result set changes can land on an empty page. */}
+          <div mix={table.filterGroup} role="group" aria-label="Status filtern">
+            {/* Switching status keeps the text search but always restarts on page
+                1: keeping the previous offset while the result set changes can
+                land on an empty page. */}
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, 0)}
+              href={ADMIN_BASE + '?' + buildFilterParams(searchValue, sortColumn, sortDirection, 0)}
               data-rmx-target={getSelfFrameTarget()}
-              mix={[
-                table.filterTab,
-                !filter || (filter !== 'enabled' && filter !== 'disabled')
-                  ? table.filterTabActive
-                  : undefined,
-              ]}
+              data-rmx-prefetch="intent"
+              aria-current={!activeStatus ? 'page' : undefined}
+              mix={[table.filterTab, !activeStatus ? table.filterTabActive : undefined]}
             >
               Alle
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, 0)}
+              href={
+                ADMIN_BASE +
+                '?' +
+                buildFilterParams(searchValue, sortColumn, sortDirection, 0, undefined, 'enabled')
+              }
               data-rmx-target={getSelfFrameTarget()}
-              mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
+              data-rmx-prefetch="intent"
+              aria-current={activeStatus === 'enabled' ? 'page' : undefined}
+              mix={[
+                table.filterTab,
+                activeStatus === 'enabled' ? table.filterTabActive : undefined,
+              ]}
             >
               Aktiv
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, 0)}
+              href={
+                ADMIN_BASE +
+                '?' +
+                buildFilterParams(searchValue, sortColumn, sortDirection, 0, undefined, 'disabled')
+              }
               data-rmx-target={getSelfFrameTarget()}
-              mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
+              data-rmx-prefetch="intent"
+              aria-current={activeStatus === 'disabled' ? 'page' : undefined}
+              mix={[
+                table.filterTab,
+                activeStatus === 'disabled' ? table.filterTabActive : undefined,
+              ]}
             >
               Deaktiviert
             </a>
           </div>
-          {/* Preserve the active sort when searching so submitting the query does
-              not silently reset the ordering. */}
+          {/* Preserve the active sort and status while searching; the offset is
+              intentionally absent so a new search starts on page 1. */}
           <input type="hidden" name="sort" value={sortColumn} />
           <input type="hidden" name="order" value={sortDirection} />
+          {activeStatus ? <input type="hidden" name="status" value={activeStatus} /> : null}
           <input
             type="text"
             name="filter"
-            placeholder="Suche nach Name, E-Mail oder ID..."
-            defaultValue={filter && filter !== 'enabled' && filter !== 'disabled' ? filter : ''}
+            placeholder="Name, E-Mail oder ID…"
+            defaultValue={searchValue}
             aria-label="Nach Name, E-Mail oder ID suchen"
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
-          {filter && (
+          {hasFilters ? (
             <a href={routes.admin.users.index.href()} mix={table.clearLink}>
               Zurücksetzen
             </a>
-          )}
+          ) : null}
           <span mix={table.spacer} />
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+            href={buildCreateUrl(
+              ADMIN_BASE,
+              offset,
+              sortColumn,
+              sortDirection,
+              searchValue,
+              undefined,
+              activeStatus,
+            )}
             data-rmx-target={getSelfFrameTarget()}
             mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
           >
@@ -218,45 +620,102 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true" data-users-table="true">
+        <div
+          mix={[table.wrap, table.mobileCards, usersGridScrollStyle]}
+          data-grid-scroll="true"
+          data-users-table="true"
+        >
           {rows.length === 0 ? (
-            <div mix={table.empty}>
-              {filter ? 'Keine Benutzer gefunden für diese Suche.' : 'Keine Benutzer vorhanden.'}
+            <div mix={emptyStateStyle}>
+              <span>{emptyMessage}</span>
+              <div mix={emptyActionsStyle}>
+                {stalePage ? (
+                  <a
+                    href={buildPaginationUrl(
+                      ADMIN_BASE,
+                      0,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      undefined,
+                      activeStatus,
+                    )}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+                  >
+                    Zur ersten Seite
+                  </a>
+                ) : null}
+                {hasFilters ? (
+                  <a
+                    href={routes.admin.users.index.href()}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+                  >
+                    Filter zurücksetzen
+                  </a>
+                ) : null}
+                {!hasPanel ? (
+                  <a
+                    href={buildCreateUrl(
+                      ADMIN_BASE,
+                      offset,
+                      sortColumn,
+                      sortDirection,
+                      searchValue,
+                      undefined,
+                      activeStatus,
+                    )}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
+                  >
+                    <Glyph name="add" width={14} height={14} /> Benutzer anlegen
+                  </a>
+                ) : null}
+              </div>
             </div>
           ) : (
-            <table mix={table.table}>
+            <table mix={[table.table, hasPanel ? focusedTableStyle : undefined]}>
+              <caption mix={srOnlyStyle}>Benutzerliste</caption>
               <colgroup>
-                <col mix={css({ width: '60px' })} />
+                {!hasPanel ? <col mix={colIdWidth} /> : null}
                 <col />
-                <col />
-                <col mix={css({ width: '100px' })} />
-                <col mix={css({ width: '80px' })} />
-                <col mix={css({ width: '120px' })} />
-                <col mix={css({ width: '120px' })} />
+                <col mix={colRoleWidth} />
+                <col mix={colStatusWidth} />
+                {!hasPanel ? <col mix={colDateWidth} /> : null}
                 <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable} aria-sort={sortRule('id', sortColumn, sortDirection)}>
-                    <a
-                      href={buildSortUrl(
-                        ADMIN_BASE,
-                        'id',
-                        sortColumn,
-                        sortDirection,
-                        offset,
-                        filter,
-                      )}
-                      data-rmx-target={getSelfFrameTarget()}
-                      mix={table.sortLink}
+                  {!hasPanel ? (
+                    <th
+                      scope="col"
+                      mix={table.thSortable}
+                      aria-sort={sortRule('id', sortColumn, sortDirection)}
                     >
-                      ID
-                      <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
+                      <a
+                        href={buildSortUrl(
+                          ADMIN_BASE,
+                          'id',
+                          sortColumn,
+                          sortDirection,
+                          offset,
+                          filter,
+                          undefined,
+                          activeStatus,
+                        )}
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={table.sortLink}
+                      >
+                        ID
+                        <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                          {sortArrow('id', sortColumn, sortDirection)}
+                        </span>
+                      </a>
+                    </th>
+                  ) : null}
                   <th
+                    scope="col"
                     mix={table.thSortable}
                     aria-sort={sortRule('name', sortColumn, sortDirection)}
                   >
@@ -268,39 +727,21 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         sortDirection,
                         offset,
                         filter,
+                        undefined,
+                        activeStatus,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
+                      title="Nach Name sortieren"
                     >
-                      Name
+                      Benutzer
                       <span mix={'name' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('name', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th
-                    mix={table.thSortable}
-                    aria-sort={sortRule('email', sortColumn, sortDirection)}
-                  >
-                    <a
-                      href={buildSortUrl(
-                        ADMIN_BASE,
-                        'email',
-                        sortColumn,
-                        sortDirection,
-                        offset,
-                        filter,
-                      )}
-                      data-rmx-target={getSelfFrameTarget()}
-                      mix={table.sortLink}
-                    >
-                      E-Mail
-                      <span mix={'email' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('email', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
-                  <th
+                    scope="col"
                     mix={table.thSortable}
                     aria-sort={sortRule('role', sortColumn, sortDirection)}
                   >
@@ -312,6 +753,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         sortDirection,
                         offset,
                         filter,
+                        undefined,
+                        activeStatus,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
@@ -322,38 +765,50 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Status</th>
-                  <th mix={table.th}>Verifiziert</th>
-                  <th
-                    mix={table.thSortable}
-                    aria-sort={sortRule('created_at', sortColumn, sortDirection)}
-                  >
-                    <a
-                      href={buildSortUrl(
-                        ADMIN_BASE,
-                        'created_at',
-                        sortColumn,
-                        sortDirection,
-                        offset,
-                        filter,
-                      )}
-                      data-rmx-target={getSelfFrameTarget()}
-                      mix={table.sortLink}
-                    >
-                      Erstellt
-                      <span
-                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
-                      >
-                        {sortArrow('created_at', sortColumn, sortDirection)}
-                      </span>
-                    </a>
+                  <th scope="col" mix={table.th}>
+                    Status
                   </th>
-                  <th mix={table.th}>Aktionen</th>
+                  {!hasPanel ? (
+                    <th
+                      scope="col"
+                      mix={table.thSortable}
+                      aria-sort={sortRule('created_at', sortColumn, sortDirection)}
+                    >
+                      <a
+                        href={buildSortUrl(
+                          ADMIN_BASE,
+                          'created_at',
+                          sortColumn,
+                          sortDirection,
+                          offset,
+                          filter,
+                          undefined,
+                          activeStatus,
+                        )}
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={table.sortLink}
+                      >
+                        Erstellt
+                        <span
+                          mix={
+                            'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow
+                          }
+                        >
+                          {sortArrow('created_at', sortColumn, sortDirection)}
+                        </span>
+                      </a>
+                    </th>
+                  ) : null}
+                  <th scope="col" mix={table.th}>
+                    Aktionen
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   let isDisabled = !!row.disabled_at
+                  let isSelf = currentUserId != null && row.id === currentUserId
+                  let toggleBlocked = isSelf && !isDisabled
                   let editHref = buildEditUrl(
                     ADMIN_BASE,
                     row.id,
@@ -361,65 +816,106 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeStatus,
                   )
+                  let createdTitle = formatTimestamp(row.created_at)
                   return (
                     <tr
                       key={row.id}
-                      mix={[
-                        table.row,
-                        editRow?.id === row.id ? table.editingRow : undefined,
-                        isDisabled ? table.disabledRow : undefined,
-                      ]}
+                      mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
                       data-row-id={row.id}
                       data-disabled-at={row.disabled_at ?? ''}
+                      data-self={isSelf ? 'true' : undefined}
                     >
-                      <td mix={table.td} title={String(row.id)}>
-                        {row.id}
+                      {!hasPanel ? (
+                        <td mix={table.td} data-label="ID" title={String(row.id)}>
+                          <span mix={idChipStyle}>#{row.id}</span>
+                        </td>
+                      ) : null}
+                      <td mix={table.td} data-label="Benutzer" title={row.email}>
+                        <div mix={userCellStyle}>
+                          <span
+                            mix={[avatarStyle, row.role === 'admin' ? avatarAdminStyle : undefined]}
+                            aria-hidden="true"
+                          >
+                            {userInitials(row.name, row.email)}
+                          </span>
+                          <div mix={userTextStyle}>
+                            <a
+                              href={editHref}
+                              data-rmx-target={getSelfFrameTarget()}
+                              mix={userNameLinkStyle}
+                              title={`${row.name} bearbeiten`}
+                            >
+                              {row.name}
+                            </a>
+                            <span mix={emailLineStyle}>
+                              <span mix={userEmailStyle} title={row.email}>
+                                {row.email}
+                              </span>
+                              {row.email_verified ? (
+                                <span
+                                  mix={verifiedIconStyle}
+                                  role="img"
+                                  title="E-Mail-Adresse bestätigt"
+                                  aria-label="E-Mail-Adresse bestätigt"
+                                >
+                                  <Glyph name="check" width={11} height={11} />
+                                </span>
+                              ) : (
+                                <span
+                                  mix={pendingChipStyle}
+                                  title="E-Mail-Adresse noch nicht bestätigt"
+                                >
+                                  unbestätigt
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                      <td mix={table.td} title={row.name}>
-                        {row.name}
-                      </td>
-                      <td mix={table.td} title={row.email}>
-                        {row.email}
-                      </td>
-                      <td mix={table.td}>{row.role}</td>
-                      <td mix={table.td}>
+                      <td mix={table.td} data-label="Rolle">
                         <span
                           mix={[
-                            table.statusBadge,
-                            isDisabled ? table.statusBadgeDisabled : table.statusBadgeActive,
+                            roleBadgeStyle,
+                            row.role === 'admin' ? roleBadgeAdminStyle : undefined,
                           ]}
                         >
+                          {roleLabel(row.role)}
+                        </span>
+                      </td>
+                      <td mix={table.td} data-label="Status">
+                        <span
+                          mix={[
+                            statusPillStyle,
+                            isDisabled ? statusPillDisabledStyle : statusPillActiveStyle,
+                          ]}
+                          title={
+                            isDisabled
+                              ? 'Konto ist deaktiviert'
+                              : 'Konto ist aktiv und kann sich anmelden'
+                          }
+                        >
+                          <span mix={statusDotStyle} aria-hidden="true" />
                           {isDisabled ? 'Deaktiviert' : 'Aktiv'}
                         </span>
                       </td>
-                      <td mix={table.td}>
-                        {row.email_verified ? (
-                          <span
-                            mix={[verifiedBadgeStyle, verifiedBadgeOnStyle]}
-                            title="E-Mail-Adresse bestätigt"
-                          >
-                            <Glyph name="check" width={12} height={12} /> Verifiziert
+                      {!hasPanel ? (
+                        <td mix={table.td} data-label="Erstellt" title={createdTitle}>
+                          <span mix={dateStackStyle}>
+                            <span mix={dateMainStyle}>{formatDatePart(row.created_at)}</span>
+                            <span mix={dateTimeStyle}>{formatTimePart(row.created_at)}</span>
                           </span>
-                        ) : (
-                          <span
-                            mix={[verifiedBadgeStyle, verifiedBadgeOffStyle]}
-                            title="E-Mail-Adresse noch nicht bestätigt"
-                          >
-                            Ausstehend
-                          </span>
-                        )}
-                      </td>
-                      <td mix={table.td} title={formatTimestamp(row.created_at)}>
-                        {formatTimestamp(row.created_at)}
-                      </td>
-                      <td mix={table.actionCell}>
+                        </td>
+                      ) : null}
+                      <td mix={table.actionCell} data-label="Aktionen">
                         <div mix={table.actionGroup}>
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
                             mix={table.actionSeg}
-                            aria-label="Bearbeiten"
+                            aria-label={`${row.name} bearbeiten`}
                             title="Bearbeiten"
                           >
                             <Glyph name="edit" width={13} height={13} />
@@ -438,13 +934,30 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                                 sort: sortColumn,
                                 order: sortDirection,
                                 filter: filter ?? '',
+                                status: activeStatus ?? '',
                               }}
                             />
                             <button
                               type="submit"
-                              mix={table.actionSeg}
-                              aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
-                              title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                              disabled={toggleBlocked}
+                              mix={[
+                                table.actionSeg,
+                                toggleBlocked ? actionSegDisabledStyle : undefined,
+                              ]}
+                              aria-label={
+                                toggleBlocked
+                                  ? 'Das eigene Konto kann nicht deaktiviert werden'
+                                  : isDisabled
+                                    ? `${row.name} aktivieren`
+                                    : `${row.name} deaktivieren`
+                              }
+                              title={
+                                toggleBlocked
+                                  ? 'Das eigene Konto kann nicht deaktiviert werden.'
+                                  : isDisabled
+                                    ? 'Konto aktivieren'
+                                    : 'Konto deaktivieren'
+                              }
                             >
                               <Glyph
                                 name={isDisabled ? 'check' : 'shield'}
@@ -468,13 +981,25 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                                 sort: sortColumn,
                                 order: sortDirection,
                                 filter: filter ?? '',
+                                status: activeStatus ?? '',
                               }}
                             />
                             <button
                               type="submit"
-                              mix={[table.actionSeg, table.actionSegDanger]}
-                              aria-label="Löschen"
-                              title="Löschen"
+                              disabled={isSelf}
+                              mix={[
+                                table.actionSeg,
+                                table.actionSegDanger,
+                                isSelf ? actionSegDisabledStyle : undefined,
+                              ]}
+                              aria-label={
+                                isSelf
+                                  ? 'Das eigene Konto kann nicht gelöscht werden'
+                                  : `${row.name} löschen`
+                              }
+                              title={
+                                isSelf ? 'Das eigene Konto kann nicht gelöscht werden.' : 'Löschen'
+                              }
                             >
                               <Glyph name="trash" width={13} height={13} />
                             </button>
@@ -496,6 +1021,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               {rows.length > 0 ? (
                 <span mix={table.paginationInfo}>
                   Zeige {pageStart}–{pageEnd}
+                  {typeof total === 'number' ? ` von ${total}` : ''}
                 </span>
               ) : null}
               {currentPage > 0 ? (
@@ -513,9 +1039,12 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeStatus,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
+                  aria-label="Vorherige Seite"
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
@@ -532,9 +1061,12 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeStatus,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
+                  aria-label="Nächste Seite"
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
@@ -562,20 +1094,21 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           sort={sortColumn}
           order={sortDirection}
           filter={filter}
+          status={activeStatus}
         />
         <AdminUsersContextMenu />
       </div>
     )
 
     // Two-column layout when editing or creating
-    if (editRow || creating) {
+    if (hasPanel) {
       return (
-        <div mix={[table.page, dataGridFill]}>
+        <div mix={[table.pageWide, table.minWidth0]}>
           <h2 mix={table.title}>Benutzer</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={table.stickyPanel}>
+            <div mix={[table.stickyPanel, mobilePanelFirstStyle]}>
               {editRow ? (
                 <AdminUsersEditPanel
                   row={editRow}
@@ -583,6 +1116,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  status={activeStatus}
+                  isSelf={currentUserId != null && editRow.id === currentUserId}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />
@@ -592,6 +1127,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  status={activeStatus}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />
@@ -619,6 +1155,8 @@ interface EditPanelProps {
   sort?: string | undefined
   order?: string | undefined
   filter?: string | undefined
+  status?: string | undefined
+  isSelf?: boolean
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
@@ -631,9 +1169,24 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
       sort = '',
       order = '',
       filter = '',
+      status = '',
+      isSelf = false,
       formValues,
       fieldErrors,
     } = handle.props
+    let cancelHref = buildCancelUrl(
+      routes.admin.users.index.href(),
+      offset,
+      sort,
+      order,
+      filter,
+      undefined,
+      status,
+    )
+    let disabled =
+      formValues?.disabled !== undefined ? formValues.disabled === 'true' : !!row.disabled_at
+    let displayName = formValues?.name || row.name
+    let displayEmail = formValues?.email || row.email
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -644,123 +1197,115 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Benutzer bearbeiten</span>
+              <span mix={panelIdStyle}>#{row.id}</span>
+              <a href={cancelHref} mix={panelCloseStyle} aria-label="Panel schließen">
+                <Glyph name="close" width={15} height={15} />
+              </a>
+            </div>
+
+            <div mix={panelIdentityStyle}>
+              <span
+                mix={[
+                  avatarStyle,
+                  avatarLargeStyle,
+                  row.role === 'admin' ? avatarAdminStyle : undefined,
+                ]}
+                aria-hidden="true"
+              >
+                {userInitials(displayName, displayEmail)}
+              </span>
+              <span mix={panelIdentityTextStyle}>
+                <span mix={panelIdentityNameStyle}>{displayName}</span>
+                <span mix={emailLineStyle}>
+                  <span mix={panelIdentityEmailStyle}>{displayEmail}</span>
+                  {row.email_verified ? (
+                    <span
+                      mix={verifiedIconStyle}
+                      role="img"
+                      title="E-Mail-Adresse bestätigt"
+                      aria-label="E-Mail-Adresse bestätigt"
+                    >
+                      <Glyph name="check" width={11} height={11} />
+                    </span>
+                  ) : (
+                    <span mix={pendingChipStyle} title="E-Mail-Adresse noch nicht bestätigt">
+                      unbestätigt
+                    </span>
+                  )}
+                </span>
+              </span>
+              <span mix={[roleBadgeStyle, row.role === 'admin' ? roleBadgeAdminStyle : undefined]}>
+                {roleLabel(row.role)}
+              </span>
+            </div>
+
+            <div mix={panelMetaStyle}>
+              <span mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>Erstellt</span>
+                <span mix={panelMetaValueStyle}>
+                  {row.created_at ? formatTimestamp(row.created_at) : '—'}
+                </span>
+              </span>
+              <span mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>Aktualisiert</span>
+                <span mix={panelMetaValueStyle}>
+                  {row.updated_at ? formatTimestamp(row.updated_at) : '—'}
+                </span>
+              </span>
             </div>
 
             <div mix={table.panelBody}>
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-name">
-                  Name
-                </label>
-                <input
-                  id="au-name"
-                  name="name"
-                  type="text"
-                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
-                    Boolean,
-                  )}
-                  value={formValues?.name ?? row.name ?? ''}
-                />
-                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-email">
-                  E-Mail
-                </label>
-                <input
-                  id="au-email"
-                  name="email"
-                  type="email"
-                  mix={[
-                    input.base,
-                    input.focus,
-                    fieldErrors?.email ? inputErrorStyle : null,
-                  ].filter(Boolean)}
-                  value={formValues?.email ?? row.email ?? ''}
-                />
-                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-role">
-                  Rolle
-                </label>
-                <select
-                  id="au-role"
-                  name="role"
-                  mix={[input.base, input.focus, table.select]}
-                  aria-invalid={fieldErrors?.role ? true : undefined}
-                >
-                  <option value="customer" selected={(formValues?.role ?? row.role) === 'customer'}>
-                    Kunde
-                  </option>
-                  <option value="admin" selected={(formValues?.role ?? row.role) === 'admin'}>
-                    Admin
-                  </option>
-                </select>
-                {fieldErrors?.role ? <div mix={fieldErrorStyle}>{fieldErrors.role}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label}>
-                  <input
-                    type="checkbox"
-                    name="disabled"
-                    value="true"
-                    checked={
-                      formValues?.disabled !== undefined
-                        ? formValues.disabled === 'true'
-                        : !!row.disabled_at
-                    }
-                    mix={css({ marginRight: '6px' })}
-                  />
-                  Deaktiviert
-                </label>
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-password">
-                  Neues Passwort
-                </label>
-                <input
-                  id="au-password"
-                  name="password"
-                  type="password"
-                  minLength={6}
-                  placeholder="Unverändert lassen"
-                  autoComplete="new-password"
-                  mix={[
-                    input.base,
-                    input.focus,
-                    fieldErrors?.password ? inputErrorStyle : null,
-                  ].filter(Boolean)}
-                />
-                <div mix={fieldHintStyle}>Leer lassen, um das aktuelle Passwort beizubehalten.</div>
-                {fieldErrors?.password ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.password}</div>
-                ) : null}
-              </div>
+              <UserAccountFields
+                idPrefix="au"
+                formValues={formValues}
+                fieldErrors={fieldErrors}
+                defaultName={row.name ?? ''}
+                defaultEmail={row.email ?? ''}
+                defaultRole={row.role}
+                passwordPlaceholder="Unverändert lassen"
+                passwordHint={`Leer lassen, um das aktuelle Passwort beizubehalten. Mindestens ${PASSWORD_MIN_LENGTH} Zeichen, eine Zahl und ein Sonderzeichen.`}
+                statusSlot={
+                  <div mix={table.fieldGroup}>
+                    <div mix={toggleRowStyle}>
+                      <span mix={toggleTextStyle}>
+                        <label htmlFor="au-disabled" mix={toggleLabelStyle}>
+                          Konto deaktiviert
+                        </label>
+                        <span id="au-disabled-hint" mix={fieldHintStyle}>
+                          {isSelf
+                            ? 'Das eigene Konto kann nicht deaktiviert werden.'
+                            : 'Deaktivierte Konten können sich nicht anmelden. Bestehende Sitzungen und API-Tokens werden ungültig.'}
+                        </span>
+                      </span>
+                      <input
+                        id="au-disabled"
+                        name="disabled"
+                        type="checkbox"
+                        value="true"
+                        checked={disabled}
+                        disabled={isSelf}
+                        mix={toggleCheckboxStyle}
+                        aria-describedby="au-disabled-hint"
+                      />
+                    </div>
+                  </div>
+                }
+              />
 
               <div mix={table.actions}>
                 <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
-                  href={buildCancelUrl(
-                    routes.admin.users.index.href(),
-                    offset,
-                    sort,
-                    order,
-                    filter,
-                  )}
+                  href={cancelHref}
                   mix={[
                     table.spacer,
                     table.linkPlain,
                     buttonLink({ tone: 'secondary' }),
-                    css({ width: '100%' }),
+                    css({ flex: 1 }),
                   ]}
                 >
                   Abbrechen
@@ -768,6 +1313,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
             </div>
           </div>
+          <DirtyFormGuard />
         </RestfulForm>
       </div>
     )
@@ -781,13 +1327,31 @@ interface CreatePanelProps {
   sort?: string | undefined
   order?: string | undefined
   filter?: string | undefined
+  status?: string | undefined
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      status = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
+    let cancelHref = buildCancelUrl(
+      routes.admin.users.index.href(),
+      offset,
+      sort,
+      order,
+      filter,
+      undefined,
+      status,
+    )
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -798,109 +1362,38 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Neuer Benutzer</span>
+              <a href={cancelHref} mix={panelCloseStyle} aria-label="Panel schließen">
+                <Glyph name="close" width={15} height={15} />
+              </a>
             </div>
 
             <div mix={table.panelBody}>
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-name-c">
-                  Name
-                </label>
-                <input
-                  id="au-name-c"
-                  name="name"
-                  type="text"
-                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
-                    Boolean,
-                  )}
-                  value={formValues?.name ?? ''}
-                  required
-                />
-                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-email-c">
-                  E-Mail
-                </label>
-                <input
-                  id="au-email-c"
-                  name="email"
-                  type="email"
-                  mix={[
-                    input.base,
-                    input.focus,
-                    fieldErrors?.email ? inputErrorStyle : null,
-                  ].filter(Boolean)}
-                  value={formValues?.email ?? ''}
-                  required
-                />
-                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-role-c">
-                  Rolle
-                </label>
-                <select
-                  id="au-role-c"
-                  name="role"
-                  mix={[input.base, input.focus, table.select]}
-                  aria-invalid={fieldErrors?.role ? true : undefined}
-                >
-                  <option
-                    value="customer"
-                    selected={(formValues?.role ?? 'customer') === 'customer'}
-                  >
-                    Kunde
-                  </option>
-                  <option value="admin" selected={formValues?.role === 'admin'}>
-                    Admin
-                  </option>
-                </select>
-                {fieldErrors?.role ? <div mix={fieldErrorStyle}>{fieldErrors.role}</div> : null}
-              </div>
-
-              <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-password-c">
-                  Passwort
-                </label>
-                <input
-                  id="au-password-c"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  mix={[
-                    input.base,
-                    input.focus,
-                    fieldErrors?.password ? inputErrorStyle : null,
-                  ].filter(Boolean)}
-                />
-                {fieldErrors?.password ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.password}</div>
-                ) : null}
-              </div>
+              <UserAccountFields
+                idPrefix="au-c"
+                formValues={formValues}
+                fieldErrors={fieldErrors}
+                defaultName=""
+                defaultEmail=""
+                defaultRole="customer"
+                emailHint="Wird als Login verwendet und muss eindeutig sein."
+                passwordRequired
+                passwordHint={`Mindestens ${PASSWORD_MIN_LENGTH} Zeichen, eine Zahl und ein Sonderzeichen.`}
+              />
 
               <div mix={table.actions}>
                 <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
-                  href={buildCancelUrl(
-                    routes.admin.users.index.href(),
-                    offset,
-                    sort,
-                    order,
-                    filter,
-                  )}
+                  href={cancelHref}
                   mix={[
                     table.spacer,
                     table.linkPlain,
                     buttonLink({ tone: 'secondary' }),
-                    css({ width: '100%' }),
+                    css({ flex: 1 }),
                   ]}
                 >
                   Abbrechen
@@ -908,6 +1401,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
             </div>
           </div>
+          <DirtyFormGuard />
         </RestfulForm>
       </div>
     )

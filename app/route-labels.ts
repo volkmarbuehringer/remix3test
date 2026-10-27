@@ -28,7 +28,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.admin.fragments.stats.href()]: 'Stats',
   [routes.admin.fragments.recentActivity.href()]: 'Recent Activity',
   [routeParentPath(routes.admin.fragments.userDetail)]: 'User Detail',
-  [routes.admin.users.index.href()]: 'Users',
+  [routes.admin.users.index.href()]: 'Benutzer',
   [routes.admin.uploads.index.href()]: 'Uploads',
   [routes.admin.webhookRequests.index.href()]: 'Webhooks',
 

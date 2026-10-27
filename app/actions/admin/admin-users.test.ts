@@ -207,8 +207,8 @@ describe('Admin Users Controller', () => {
         'no hidden "..." overflow trigger should be used',
       )
       assert.ok(
-        text.includes('aria-label="Löschen"'),
-        'delete button should be visible with an accessible label',
+        text.includes(' löschen"'),
+        'delete button should be visible with a row-specific accessible label',
       )
     })
 
@@ -247,19 +247,97 @@ describe('Admin Users Controller', () => {
 
     it('resets the page offset when switching status filter tabs', async () => {
       // Switching from page 2 to the Aktiv/Deaktiviert tabs must start at page 1,
-      // otherwise the smaller result set can land on an empty page.
+      // otherwise the smaller result set can land on an empty page. Status is a
+      // separate axis from the text search since the UX pass: tabs use `status`
+      // while `filter` carries the search term.
       let response = await router.fetch(`${USERS_URL}?offset=15&sort=name&order=asc`, {
         headers: { Cookie: adminCookie },
       })
       assert.equal(response.status, 200)
       let text = await response.text()
       assert.ok(
-        text.includes('?filter=enabled&amp;sort=name&amp;order=asc'),
+        text.includes('?sort=name&amp;order=asc&amp;status=enabled'),
         'Aktiv tab should reset the offset',
       )
       assert.ok(
-        !text.includes('filter=enabled&amp;sort=name&amp;order=asc&amp;offset'),
+        !text.includes('status=enabled&amp;offset'),
         'Aktiv tab must not carry the previous page offset',
+      )
+    })
+
+    it('combines the text search with the status filter', async () => {
+      let email = `test-status-search-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user for status+search must be created')
+      try {
+        await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), id])
+
+        // Search by name and status together: previously the two axes shared
+        // one param, so typing a name silently dropped "Deaktiviert".
+        let response = await router.fetch(
+          `${USERS_URL}?filter=${encodeURIComponent('test-status-search')}&status=disabled`,
+          { headers: { Cookie: adminCookie } },
+        )
+        assert.equal(response.status, 200)
+        let text = await response.text()
+        assert.ok(text.includes(email), 'disabled user should match the combined filter')
+
+        let enabledResponse = await router.fetch(
+          `${USERS_URL}?filter=${encodeURIComponent('test-status-search')}&status=enabled`,
+          { headers: { Cookie: adminCookie } },
+        )
+        let enabledText = await enabledResponse.text()
+        assert.ok(
+          !enabledText.includes(email),
+          'enabled + same search must not show the disabled user',
+        )
+      } finally {
+        await pool.query('DELETE FROM users WHERE id = $1', [id])
+      }
+    })
+
+    it('preserves the status filter in the search form', async () => {
+      let response = await router.fetch(`${USERS_URL}?status=disabled`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('name="status" value="disabled"'),
+        'search form should carry the active status filter',
+      )
+    })
+
+    it('preserves the search term when switching status tabs', async () => {
+      let response = await router.fetch(`${USERS_URL}?filter=Admin&sort=name&order=asc`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('filter=Admin&amp;sort=name&amp;order=asc&amp;status=disabled'),
+        'Deaktiviert tab should carry the text search',
+      )
+      assert.ok(
+        text.includes('filter=Admin&amp;sort=name&amp;order=asc'),
+        'Alle tab should keep the text search',
+      )
+    })
+
+    it('disables destructive row actions for the signed-in admin', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = Number(adminRow.rows[0]?.id)
+      assert.ok(adminId, 'admin user must exist')
+
+      let response = await router.fetch(USERS_URL, { headers: { Cookie: adminCookie } })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      let selfRow = text.match(/<tr[^>]*data-self="true"[^>]*>[\s\S]*?<\/tr>/)?.[0]
+      assert.ok(selfRow, 'own row should be marked as self')
+      assert.ok(selfRow.includes('disabled'), 'own row actions should be disabled')
+      assert.ok(
+        selfRow.includes('Das eigene Konto kann nicht gelöscht werden'),
+        'own delete action should explain why it is unavailable',
       )
     })
 
@@ -298,7 +376,7 @@ describe('Admin Users Controller', () => {
       )
     })
 
-    it('renders a page indicator without exposing a total count', async () => {
+    it('renders the current page and result range', async () => {
       for (let i = 0; i < 16; i++) {
         let id = await createTestUser(`page-indicator-${i}-${Date.now()}@example.com`)
         assert.ok(id, 'test user for page indicator must be created')
@@ -309,6 +387,8 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 200)
       let text = await response.text()
       assert.ok(text.includes('Seite 2'), 'should show the current page number')
+      assert.ok(text.includes('Zeige 16–'), 'should show the visible row range')
+      assert.ok(text.includes(' von '), 'should show the total result count')
     })
   })
 
@@ -381,6 +461,35 @@ describe('Admin Users Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
       assert.ok(text.includes('not-an-email'), 'should preserve the submitted email value')
+    })
+
+    it('keeps the status filter on a create validation error', async () => {
+      let body = new URLSearchParams({
+        name: 'Test User',
+        email: 'not-an-email',
+        role: 'customer',
+        password: 'testpass123!',
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        _status: 'disabled',
+      })
+      let response = await router.fetch(USERS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('name="_status" value="disabled"'),
+        'the error re-render should carry the status filter into the panel forms',
+      )
     })
 
     it('re-renders the create form with a password error message', async () => {
@@ -683,6 +792,36 @@ describe('Admin Users Controller', () => {
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
+    })
+
+    it('preserves the status filter in the toggle redirect', async () => {
+      let email = `test-toggle-status-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        _status: 'disabled',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(
+        location.includes('status=disabled'),
+        'PRG should return to the disabled tab, got: ' + location,
+      )
     })
 
     it('enables a disabled user', async () => {

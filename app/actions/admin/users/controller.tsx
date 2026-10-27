@@ -1,11 +1,12 @@
 import {
+  and,
   ilike,
   isNull,
   notNull,
   or,
   type Database,
+  type SingleTableWhere,
   type TableRow,
-  type WhereInput,
 } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
@@ -35,6 +36,7 @@ import {
 } from '../../../utils/grid-state.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { validatePasswordComplexity } from '../../../utils/password-complexity.ts'
+import { parseUserStatus, type UserStatus } from '../../../utils/user-status.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
@@ -64,7 +66,31 @@ const USERS_FORM_KEYS = [
   '_sort',
   '_order',
   '_filter',
+  '_status',
 ] as const
+
+/**
+ * Resolve the status filter from the dedicated `status` param, falling back to
+ * the legacy `filter=enabled|disabled` form (bookmarks, agent navigation, and
+ * the users-export links still use it). The text search and the status filter
+ * are independent axes, so a disabled account can also be found by name.
+ */
+function resolveUserStatus(
+  filter: string | undefined,
+  statusParam: string | undefined,
+): UserStatus | undefined {
+  return parseUserStatus(statusParam) ?? parseUserStatus(filter)
+}
+
+/**
+ * The text-search term. A legacy `filter=enabled|disabled` token is always a
+ * status, never a search term — including when a `status` param is also
+ * present, so `?filter=enabled&status=disabled` cannot accidentally search
+ * names for the literal string "enabled".
+ */
+function resolveUserFilter(filter: string | undefined): string | undefined {
+  return parseUserStatus(filter) ? undefined : filter
+}
 
 const userCreateSchema = f.object({
   name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
@@ -111,16 +137,25 @@ function likePattern(value: string): string {
   return `%${value.replace(/[%_\\]/g, '\\$&')}%`
 }
 
-function buildUsersFilterPredicate(filter?: string): WhereInput | undefined {
-  return filter === 'enabled'
-    ? isNull('disabled_at')
-    : filter === 'disabled'
-      ? notNull('disabled_at')
-      : filter && /^\d+$/.test(filter)
-        ? { id: Number(filter) }
-        : filter
-          ? or(ilike('name', likePattern(filter)), ilike('email', likePattern(filter)))
-          : undefined
+function buildUsersFilterPredicate(
+  filter?: string,
+  status?: UserStatus,
+): SingleTableWhere<typeof users> | undefined {
+  let term = filter?.trim()
+  let filterPredicate: SingleTableWhere<typeof users> | undefined = term
+    ? /^\d+$/.test(term)
+      ? { id: Number(term) }
+      : or(ilike('name', likePattern(term)), ilike('email', likePattern(term)))
+    : undefined
+  let statusPredicate: SingleTableWhere<typeof users> | undefined =
+    status === 'enabled'
+      ? isNull('disabled_at')
+      : status === 'disabled'
+        ? notNull('disabled_at')
+        : undefined
+
+  if (filterPredicate && statusPredicate) return and(filterPredicate, statusPredicate)
+  return filterPredicate ?? statusPredicate
 }
 
 async function loadGridData(
@@ -130,19 +165,24 @@ async function loadGridData(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: UserStatus | undefined
     pageSize: number
   },
-): Promise<{ rows: SafeUser[]; hasMore: boolean }> {
+): Promise<{ rows: SafeUser[]; hasMore: boolean; total: number }> {
   let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
-  let { items: page, hasMore } = (await paginate(db, users, {
-    pageSize: opts.pageSize,
-    page: pageNum,
-    orderBy: [[opts.column, opts.direction]],
-    where: buildUsersFilterPredicate(opts.filter),
-  })) as { items: User[]; page: number; hasMore: boolean }
+  let where = buildUsersFilterPredicate(opts.filter, opts.status)
+  let [total, { items: page, hasMore }] = await Promise.all([
+    db.count(users, where ? { where } : undefined),
+    paginate(db, users, {
+      pageSize: opts.pageSize,
+      page: pageNum,
+      orderBy: [[opts.column, opts.direction]],
+      ...(where ? { where } : {}),
+    }),
+  ])
 
-  let rows = page.map(toSafeUser)
-  return { rows, hasMore }
+  let rows = (page as User[]).map(toSafeUser)
+  return { rows, hasMore, total }
 }
 
 /** Strips sensitive/private fields before passing form values to the UI. Password
@@ -196,6 +236,7 @@ type UsersRenderContext = {
   db: Database
   render: Parameters<typeof renderAdminPage>[0]
   session: AppContext['session']
+  auth: AppContext['auth']
 }
 
 /**
@@ -218,6 +259,7 @@ async function renderUsersError(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: UserStatus | undefined
     pageSize: number
   },
 ): Promise<Response> {
@@ -228,9 +270,28 @@ async function renderUsersError(
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
+    status: opts.status,
     pageSize: opts.pageSize,
     pageKey,
     pageSizeOverride,
+  }
+  // The raw edit row is built from the submitted fields (so the form keeps the
+  // user's input), but the metadata line must show persisted values — building
+  // it from the raw row would render 1970 dates and a bogus "unverified" badge.
+  let editRow = opts.editRow ?? null
+  let currentUserId = getAdminIdentity(context.auth)?.id ?? null
+  if (editRow) {
+    let stored = (await context.db.findOne(users, { where: { id: editRow.id } })) as
+      | User
+      | undefined
+    if (stored) {
+      editRow = {
+        ...editRow,
+        email_verified: stored.email_verified,
+        created_at: stored.created_at,
+        updated_at: stored.updated_at,
+      }
+    }
   }
   return renderGridFormError<SafeUser>({
     render: context.render,
@@ -241,6 +302,7 @@ async function renderUsersError(
         column: opts.column,
         direction: opts.direction,
         filter: opts.filter,
+        status: opts.status,
         pageSize: opts.pageSize,
       }),
     buildPage: (page) => (
@@ -248,12 +310,15 @@ async function renderUsersError(
         rows={page.rows}
         offset={page.offset}
         hasMore={page.hasMore}
+        total={page.total}
         prevOffset={Math.max(0, page.offset - page.pageSize)}
         nextOffset={page.offset + page.pageSize}
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
         filter={page.filter}
-        editRow={opts.editRow ?? null}
+        status={parseUserStatus(page.status)}
+        currentUserId={currentUserId}
+        editRow={editRow}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
         pageKey={page.pageKey}
@@ -266,7 +331,7 @@ async function renderUsersError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
-    fullHeight: !(opts.editRow || opts.creating),
+    fullHeight: !(editRow || opts.creating),
     grid,
   })
 }
@@ -278,13 +343,19 @@ async function renderUsersError(
  * reload GETs the POST toggle path.
  */
 async function renderUsersIndex(
-  context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
+  context: Pick<AppContext, 'db' | 'render' | 'session' | 'url' | 'auth'>,
 ): Promise<Response> {
   let pageKey = PAGE_SIZE_KEYS.adminUsers
   let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-  let filter = context.url.searchParams.get('filter') || undefined
+  let rawOffset = Number(context.url.searchParams.get('offset')) || 0
+  // `offset=Infinity`/`1e21` would otherwise reach the SQL OFFSET and 500 the
+  // page; keep the value inside the safe-integer range.
+  let offset = Number.isSafeInteger(rawOffset) && rawOffset > 0 ? rawOffset : 0
+  let filterParam = context.url.searchParams.get('filter') || undefined
+  let statusParam = context.url.searchParams.get('status') || undefined
+  let status = resolveUserStatus(filterParam, statusParam)
+  let filter = resolveUserFilter(filterParam)
 
   let { column, direction } = parseSort(context.url, {
     allowedColumns: SORTABLE_FIELDS,
@@ -292,11 +363,12 @@ async function renderUsersIndex(
     defaultDirection: 'asc',
   })
 
-  let { rows, hasMore } = await loadGridData(context.db, {
+  let { rows, hasMore, total } = await loadGridData(context.db, {
     offset,
     column,
     direction,
     filter,
+    status,
     pageSize: effectivePageSize,
   })
 
@@ -317,11 +389,14 @@ async function renderUsersIndex(
       rows={rows}
       offset={offset}
       hasMore={hasMore}
+      total={total}
       prevOffset={Math.max(0, offset - effectivePageSize)}
       nextOffset={offset + effectivePageSize}
       sortColumn={column}
       sortDirection={direction}
       filter={filter}
+      status={status}
+      currentUserId={getAdminIdentity(context.auth)?.id ?? null}
       editRow={editRow}
       creating={creating}
       pageSize={effectivePageSize}
@@ -369,6 +444,7 @@ export default createController(routes.admin.users, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
           pageSize: effectivePageSize,
         })
       }
@@ -383,6 +459,7 @@ export default createController(routes.admin.users, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
           pageSize: effectivePageSize,
         })
       }
@@ -396,6 +473,7 @@ export default createController(routes.admin.users, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
           pageSize: effectivePageSize,
         })
       }
@@ -412,6 +490,7 @@ export default createController(routes.admin.users, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
           pageSize: effectivePageSize,
         })
       }
@@ -476,6 +555,7 @@ export default createController(routes.admin.users, {
           column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
           pageSize: effectivePageSize,
         })
       }
@@ -494,6 +574,7 @@ export default createController(routes.admin.users, {
             column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
+            status: parseUserStatus(rawValues._status),
             pageSize: effectivePageSize,
           })
         }
@@ -510,6 +591,7 @@ export default createController(routes.admin.users, {
             column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
+            status: parseUserStatus(rawValues._status),
             pageSize: effectivePageSize,
           })
         }
@@ -589,7 +671,10 @@ export default createController(routes.admin.users, {
       }
 
       let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity && id === authIdentity.id) {
+      if (!authIdentity) {
+        return context.json({ ok: false, error: 'Nicht autorisiert.' }, { status: 403 })
+      }
+      if (id === authIdentity.id) {
         return context.json(
           { ok: false, error: 'Das eigene Konto kann nicht gelöscht werden.' },
           { status: 403 },
@@ -673,10 +758,14 @@ export default createController(routes.admin.users, {
       }
 
       let user = existing as User
+      let authIdentity = getAdminIdentity(context.auth)
+      if (!authIdentity) {
+        return fail('Nicht autorisiert.')
+      }
       // Guard self-disable / last-admin-disable (mirrors the destroy guards)
       // before turning an active account into a disabled one.
       if (user.disabled_at == null) {
-        let reason = await disableGuardReason(db, user, getAdminIdentity(context.auth))
+        let reason = await disableGuardReason(db, user, authIdentity)
         if (reason) {
           return fail(reason)
         }
@@ -688,7 +777,6 @@ export default createController(routes.admin.users, {
       )
 
       let newDisabledState = now !== null
-      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,

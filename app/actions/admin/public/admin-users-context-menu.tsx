@@ -30,6 +30,7 @@ export const AdminUsersContextMenu = clientEntry(
     reactive: true,
     items: (target) => {
       let isDisabled = (target?.row.getAttribute('data-disabled-at') ?? '') !== ''
+      let isSelf = (target?.row.getAttribute('data-self') ?? '') === 'true'
       return (
         <>
           <MenuItem name="edit">
@@ -39,11 +40,18 @@ export const AdminUsersContextMenu = clientEntry(
           {isDisabled ? (
             <MenuItem name="activate">Aktivieren</MenuItem>
           ) : (
-            <MenuItem name="deactivate">Deaktivieren</MenuItem>
+            <MenuItem name="deactivate" disabled={isSelf}>
+              {isSelf ? 'Deaktivieren (eigenes Konto)' : 'Deaktivieren'}
+            </MenuItem>
           )}
           <Separator />
-          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
-            <Glyph name="trash" width={14} height={14} /> Löschen
+          <MenuItem
+            name="delete"
+            disabled={isSelf}
+            mix={css({ color: theme.colors.action.danger.background })}
+          >
+            <Glyph name="trash" width={14} height={14} />
+            {isSelf ? 'Löschen (eigenes Konto)' : 'Löschen'}
           </MenuItem>
         </>
       )
@@ -54,10 +62,16 @@ export const AdminUsersContextMenu = clientEntry(
           navigateGridParam(handle, navigation, 'editing', target.rowId)
           break
         case 'activate':
+          submitRowForm(target.rowId, 'data-toggle-form')
+          break
         case 'deactivate':
+          // Self-disable is blocked; enabling your own (impossible while
+          // disabled and signed in) stays consistent with the row button.
+          if (target.row.dataset.self === 'true') return
           submitRowForm(target.rowId, 'data-toggle-form')
           break
         case 'delete':
+          if (target.row.dataset.self === 'true') return
           confirmAndSubmitRowForm(target.rowId, 'Wirklich löschen?')
           break
       }
