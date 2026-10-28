@@ -104,6 +104,20 @@ function describedBy(contentError?: string, formError?: string): string {
 export const MessageCompose = clientEntry(
   import.meta.url + '#MessageCompose',
   function MessageCompose(handle: Handle<MessageComposeProps>) {
+    // The factory closure survives a frame reload, so the guard is cleared when
+    // the swap finishes instead of staying latched for the rest of the page.
+    let submitting = false
+
+    if (typeof document !== 'undefined') {
+      handle.frame.addEventListener(
+        'reloadComplete',
+        () => {
+          submitting = false
+        },
+        { signal: handle.signal },
+      )
+    }
+
     return () => {
       let { maxLength, strippableWarning, value = '', contentError, formError } = handle.props
 
@@ -156,6 +170,11 @@ export const MessageCompose = clientEntry(
                     if (event.isComposing || event.keyCode === 229) return
                     if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
                     event.preventDefault()
+                    // The shared pending button disables itself, but a second
+                    // shortcut would still submit and race the first POST
+                    // (duplicate message or a rate-limit error). The form
+                    // submit listener below sets the guard synchronously.
+                    if (submitting) return
                     textarea.form?.requestSubmit()
                   },
                   { signal },
@@ -170,6 +189,7 @@ export const MessageCompose = clientEntry(
                   form.addEventListener(
                     'submit',
                     () => {
+                      submitting = true
                       clearDraft()
                     },
                     { capture: true, signal },

@@ -107,6 +107,28 @@ describe('Admin Messages controller', () => {
     assert.ok(text.includes('Zur ersten Seite'), 'the empty state should offer a way back')
   })
 
+  it('GET /admin/messages points a stale page at the last valid page', async () => {
+    let token = `MSG_STALE_PAGE_${Date.now()}`
+    let ids = await seedMessages(12, token)
+
+    try {
+      let response = await adminMessagesGet(`filter=${token}&offset=99999`)
+      let text = await response.text()
+
+      assert.ok(text.includes('Keine Nachrichten auf dieser Seite'))
+      assert.ok(
+        text.includes('Seite 2 von 2'),
+        'the footer should clamp the stale page number to the last page',
+      )
+      assert.ok(
+        text.includes(`href="/admin/messages?offset=10&amp;filter=${token}"`),
+        'Zurück should link to the last page that has rows',
+      )
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [ids])
+    }
+  })
+
   it('POST /admin/messages re-renders an inline error for empty content (200, not 400)', async () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
@@ -415,14 +437,21 @@ describe('Admin Messages controller', () => {
   // -----------------------------------------------------------------------
 
   it('GET /admin/messages?offset=10 renders the requested page number', async () => {
-    // With only a few seeded messages a non-zero offset renders an empty grid,
-    // but the pagination bar still shows the computed "Seite N" badge + back link.
-    let response = await adminMessagesGet('offset=10')
+    // Seed a deterministic second page; with only a few rows offset=10 is a
+    // stale page and the footer intentionally clamps to the last valid page.
+    let token = `MSG_PAGE2_${Date.now()}`
+    let ids = await seedMessages(12, token)
 
-    assert.equal(response.status, 200)
-    let text = await response.text()
-    assert.ok(text.includes('Seite 2'), 'should render the requested page number')
-    assert.ok(text.includes('Zurück'), 'should show a back link when offset > 0')
+    try {
+      let response = await adminMessagesGet(`filter=${token}&offset=10`)
+
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Seite 2 von 2'), 'should render the requested page number')
+      assert.ok(text.includes('Zurück'), 'should show a back link when offset > 0')
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [ids])
+    }
   })
 
   it('GET /admin/messages?offset=-5 falls back to offset 0', async () => {

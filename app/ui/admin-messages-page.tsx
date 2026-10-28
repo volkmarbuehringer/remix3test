@@ -582,6 +582,12 @@ function MessagesPagination(handle: Handle<MessagesPaginationProps>) {
     } = handle.props
     let pageHref = (newOffset: number): string =>
       messagesGridHref(newOffset, sortColumn, sortDirection, filter)
+    // A delete (or a concurrent one) can leave the URL past the result set.
+    // "Zurück" must land on the last page that actually has rows instead of
+    // walking backwards from the nonexistent offset.
+    let previousOffset = stalePage
+      ? Math.max(0, (totalPages - 1) * pageSize)
+      : Math.max(0, offset - pageSize)
 
     return (
       <div mix={[table.pagination, paginationBarStyle]}>
@@ -592,7 +598,7 @@ function MessagesPagination(handle: Handle<MessagesPaginationProps>) {
           <nav mix={pageNavStyle} aria-label="Seitennavigation">
             {offset > 0 ? (
               <a
-                href={pageHref(Math.max(0, offset - pageSize))}
+                href={pageHref(previousOffset)}
                 data-rmx-target={getSelfFrameTarget()}
                 mix={table.pageLink}
                 aria-label="Vorherige Seite"
@@ -968,6 +974,9 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
     let searchValue = filter ?? ''
     let totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
+    // A stale offset can sit far past the last page (old bookmark, concurrent
+    // deletes), so never print a page number that does not exist.
+    let displayedPage = Math.min(currentPage, totalPages)
     let pageStart = offset + 1
     let pageEnd = messages.length > 0 ? offset + messages.length : offset
     let stalePage = messages.length === 0 && offset > 0
@@ -977,7 +986,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       total === 0
         ? 'Keine Nachrichten'
         : stalePage
-          ? `Seite ${currentPage} \u00b7 insgesamt ${total} ${noun}`
+          ? `Seite ${displayedPage} von ${totalPages} \u00b7 insgesamt ${total} ${noun}`
           : `${pageStart}\u2013${pageEnd} von ${total} ${noun}` +
             (totalPages > 1 ? ` \u00b7 Seite ${currentPage} von ${totalPages}` : '')
 

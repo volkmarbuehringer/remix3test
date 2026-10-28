@@ -68,6 +68,9 @@ describe('admin uploads: UX', () => {
     await page
       .locator('[data-upload-form][data-dropzone-ready="true"]')
       .waitFor({ timeout: 15_000 })
+    await page
+      .locator('form[data-uploads-filter][data-filter-autosubmit-ready="true"]')
+      .waitFor({ timeout: 15_000 })
     return page
   }
 

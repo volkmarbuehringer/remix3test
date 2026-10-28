@@ -52,6 +52,11 @@ describe('admin messages: UX', () => {
 
     await page.goto(routes.admin.messages.index.href())
     await page.locator('[data-messages-table]').waitFor({ timeout: 15_000 })
+    // The table is server-rendered; wait for the live-search entry to hydrate
+    // before typing so keystrokes cannot land in a dead field.
+    await page
+      .locator('form[data-messages-filter][data-filter-autosubmit-ready="true"]')
+      .waitFor({ timeout: 15_000 })
     return page
   }
 
@@ -87,6 +92,18 @@ describe('admin messages: UX', () => {
         document.activeElement?.matches('form[data-messages-filter] input[name="filter"]'),
       ),
       'focus must stay in the search field so typing can continue after the reload',
+    )
+
+    // The frame swaps its whole content, so a live region inside it would not
+    // announce. The document shell mirrors the footer into a persistent status.
+    await page.waitForFunction(
+      () => {
+        let info = document.querySelector('[data-pagination-info]')?.textContent?.trim()
+        let status = document.querySelector('[data-grid-status]')?.textContent?.trim()
+        return Boolean(info) && status === info
+      },
+      undefined,
+      { timeout: 15_000 },
     )
 
     // Clearing the field runs the live search too, so the previously hidden row

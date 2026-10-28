@@ -7,6 +7,7 @@ import { Document } from './document.tsx'
 import { MainNav } from './main-nav.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { PageScrollReset } from './page-scroll-reset.browser.tsx'
+import { GridStatusAnnouncer } from './grid-status-announcer.browser.tsx'
 
 interface LayoutProps {
   children?: RemixNode
@@ -62,6 +63,7 @@ export function Layout(handle: Handle<LayoutProps>) {
             <p mix={footerTextCss}>&copy; {new Date().getFullYear()} newapp. Built with Remix.</p>
           </footer>
           <PageScrollReset />
+          <GridStatusAnnouncer />
         </div>
       </Document>
     )

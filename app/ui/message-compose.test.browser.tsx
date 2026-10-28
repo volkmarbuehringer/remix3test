@@ -1,6 +1,7 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render, type RenderResult } from 'remix/component/test'
+import type { Handle } from 'remix/component'
 
 import { MessageCompose } from './message-compose.browser.tsx'
 
@@ -22,6 +23,13 @@ let fixture: HTMLFormElement | null = null
 let mount: HTMLElement | null = null
 let cleanup: (() => void) | null = null
 let submitCount = 0
+let testFrame: EventTarget | null = null
+
+/** Captures the test root's frame so a case can close the pending window. */
+function FrameProbe(handle: Handle) {
+  testFrame = handle.frame
+  return () => null
+}
 
 function mountForm(): void {
   let host = document.createElement('form')
@@ -40,9 +48,13 @@ function mountForm(): void {
 }
 
 async function renderEntry(): Promise<RenderResult> {
-  let result = render(<MessageCompose maxLength={1000} strippableWarning />, {
-    container: mount!,
-  })
+  let result = render(
+    <>
+      <MessageCompose maxLength={1000} strippableWarning />
+      <FrameProbe />
+    </>,
+    { container: mount! },
+  )
   cleanup = result.cleanup
   await result.act(() => undefined) // flush the initial commit / ref binding
   return result
@@ -73,6 +85,7 @@ afterEach(() => {
   fixture = null
   mount = null
   submitCount = 0
+  testFrame = null
   sessionStorage.removeItem(DRAFT_KEY)
 })
 
@@ -167,6 +180,10 @@ describe('MessageCompose', () => {
     )
     assert.equal(submitCount, 1, 'Ctrl+Enter should submit the compose form')
 
+    // Close the pending window before testing the other modifier; while a POST
+    // is in flight the shortcut is intentionally ignored.
+    testFrame!.dispatchEvent(new Event('reloadComplete'))
+
     textarea().dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Enter',
@@ -176,6 +193,32 @@ describe('MessageCompose', () => {
       }),
     )
     assert.equal(submitCount, 2, 'Cmd+Enter should submit too')
+  })
+
+  it('Ctrl/Cmd+Enter sends once while the previous submit is pending', async () => {
+    mountForm()
+    await renderEntry()
+    typeBody('nur einmal senden')
+
+    let shortcut = () =>
+      textarea().dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+
+    shortcut()
+    assert.equal(submitCount, 1, 'the first shortcut submits')
+
+    shortcut()
+    assert.equal(submitCount, 1, 'a second shortcut must not race the pending POST')
+
+    testFrame!.dispatchEvent(new Event('reloadComplete'))
+    shortcut()
+    assert.equal(submitCount, 2, 'the shortcut works again once the frame is back')
   })
 
   it('links the inline error to the textarea for assistive tech', async () => {
