@@ -1,6 +1,6 @@
 ---
 name: remix3-styling
-description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors (nested parent→child rules now emit; legacy JS fallback), theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, interruptible imperative animations with @remix-run/ui/animation, `element.animate()`/WAAPI motion that bypasses the CSS reduced-motion guard, and `transitionend` teardowns that never fire when a stylesheet overrides the transition."
+description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors (nested parent→child rules now emit; legacy JS fallback), floating admin-grid row actions (zero-width column, complement media query, media-key trap), theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, interruptible imperative animations with @remix-run/ui/animation, `element.animate()`/WAAPI motion that bypasses the CSS reduced-motion guard, and `transitionend` teardowns that never fire when a stylesheet overrides the transition."
 user-invocable: false
 origin: consolidated
 ---
@@ -43,6 +43,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 | Inspecting generated rules in the browser — `document.styleSheets` iteration shows nothing | `references/remix3-css-and-layout/hover-reveal.md`, `references/remix3-css-and-layout/cascade-layer-overrides.md` |
 | A scrollbar is missing in Firefox although `&::-webkit-scrollbar` is set | `references/remix3-css-and-layout/bounded-scroll-flexchain.md` |
 | An admin grid overflows on mobile / hides its row actions, or opening the two-column edit panel clips the table columns | `references/remix3-css-and-layout/admin-grid-responsive-panels.md` |
+| An admin grid's actions column overflows, a hover-reveal cluster should reclaim its width, or a `css()` breakpoint override silently does nothing | `references/remix3-css-and-layout/floating-row-actions.md` |
 
 ### Core Rules
 
@@ -117,6 +118,13 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - `dataGridWrap` (`flex: 1 1 auto`) grows under a short result set and leaves a tall empty bordered panel; use a `flex: 0 1 auto` wrapper for content height with shrink-to-scroll.
 - Verify by measurement: `wrap.scrollWidth === wrap.clientWidth` with the panel open, and `getComputedStyle(thead).display === "none"` plus `td[data-label]` on mobile.
 
+**Floating row actions (`references/remix3-css-and-layout/floating-row-actions.md`)**
+
+- Opt-in for wide admin grids only: zero-width actions column, absolute hover/focus-revealed cluster, trailing-cell fade. Not the default row treatment — one-action, bulk-selection, and blocked-action grids lose their affordance.
+- Overlay only under `(min-width: 1200px) and (hover: hover)`; keep the card/visible fallback at every other width. Zero width/padding with `!important` when composing `table.th` / `table.actionCell` (sibling `@layer rmx.*`).
+- **Media keys in `css()` must start with `@media `** — a constant holding only the condition silently produces a no-op rule (overlay stays visible; e2e opacity checks fail).
+- Blocked actions stay focusable via `aria-disabled="true"` + `type="button"`; native `disabled` removes them from the tab order and leaves the reason unreachable in a hover-hidden cluster.
+
 ### When to Use
 
 - You are styling a Remix 3 / `remix-ui` page and a style or layout silently does nothing, loses a specificity/layer contest, or collapses a region.
@@ -125,6 +133,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - You are adding a new hand-rolled link/span with an inline SVG, a `<select>` in a flex row, or a content-sized panel inside a bounded shell.
 - You are adding a data grid or a two-column edit panel and need it to survive a phone and a desktop without clipping.
 - An admin grid's row actions disappear while the inline edit panel is open, or a short result set leaves a tall empty bordered grid panel.
+- You are reclaiming a wide admin grid's actions column, or a `css()` breakpoint override does nothing.
 - Before trusting a `css()` override or a computed style, use these references' CDP / recursive-rule-walk recipes rather than `document.styleSheets`.
 
 ### Related Skills
