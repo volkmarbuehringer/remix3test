@@ -166,7 +166,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
           )}
         </form>
 
-        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true">
+        <div mix={[table.wrap, table.mobileCards, dataGridWrap]} data-grid-scroll="true">
           <table mix={table.table}>
             <thead>
               <tr>
@@ -254,11 +254,13 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                         : undefined,
                     ]}
                   >
-                    <td mix={table.td} title={fmtDate(row.created_at)}>
+                    <td mix={table.td} data-label="Zeit" title={fmtDate(row.created_at)}>
                       {relTime(row.created_at)}
                     </td>
-                    <td mix={table.td}>{row.source_ip}</td>
-                    <td mix={table.td}>
+                    <td mix={table.td} data-label="Quelle">
+                      {row.source_ip}
+                    </td>
+                    <td mix={table.td} data-label="Status">
                       {row.hermes_status ? (
                         <span mix={statusBadgeMix(row.hermes_status)}>{row.hermes_status}</span>
                       ) : (
@@ -267,6 +269,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                     </td>
                     <td
                       mix={table.td}
+                      data-label="Callback empfangen"
                       title={
                         row.callback_received_at ? fmtDate(row.callback_received_at) : undefined
                       }
@@ -277,14 +280,18 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                         <span mix={mutedDash}>—</span>
                       )}
                     </td>
-                    <td mix={table.td} title={JSON.stringify(row.callback_response)}>
+                    <td
+                      mix={table.td}
+                      data-label="Callback"
+                      title={JSON.stringify(row.callback_response)}
+                    >
                       {row.callback_response ? (
                         <code mix={codeStyle}>{JSON.stringify(row.callback_response)}</code>
                       ) : (
                         <span mix={mutedDash}>—</span>
                       )}
                     </td>
-                    <td mix={table.td}>
+                    <td mix={table.td} data-label="Payload">
                       <a
                         href={buildUrl({
                           offset: String(curOffset),
@@ -300,7 +307,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                         <code mix={codeStyle}>{truncatePayload(row.payload)}</code>
                       </a>
                     </td>
-                    <td mix={table.td}>
+                    <td mix={table.td} data-label="Aktion">
                       <div mix={table.btnGroup}>
                         <a
                           href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
