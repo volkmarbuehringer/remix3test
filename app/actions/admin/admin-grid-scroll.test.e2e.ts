@@ -65,7 +65,7 @@ describe('admin grid paging scroll reset', () => {
       assert.ok(beforeScroll > 0, `the row region should be scrolled, got ${beforeScroll}`)
 
       await page
-        .getByRole('link', { name: /Weiter/ })
+        .getByRole('link', { name: /Nächste Seite/ })
         .first()
         .click()
       await page.waitForTimeout(1_500)

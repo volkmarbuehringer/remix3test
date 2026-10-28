@@ -4,6 +4,14 @@ import { render, type RenderResult } from 'remix/component/test'
 import type { Handle, RemixNode } from 'remix/component'
 
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
+import type { GlyphName } from './theme/glyph/glyph.tsx'
+
+type PendingProps = {
+  children: string
+  pendingLabel?: string
+  icon?: GlyphName
+  stretch?: boolean
+}
 
 // ---------------------------------------------------------------------------
 // PendingSubmitButton — pending feedback on frame reloads.
@@ -25,7 +33,7 @@ interface Mounted {
   dispose: () => void
 }
 
-function mount(props: { children: string; pendingLabel?: string }): Mounted {
+function mount(props: PendingProps): Mounted {
   let frame = new EventTarget()
   let controller = new AbortController()
   let inner: (() => RemixNode) | null = null
@@ -40,7 +48,7 @@ function mount(props: { children: string; pendingLabel?: string }): Mounted {
     update: () => {
       if (resultRef && inner) resultRef.root.render(<div>{inner()}</div>)
     },
-  } as unknown as Handle<{ children: string; pendingLabel?: string }>
+  } as unknown as Handle<PendingProps>
 
   inner = PendingSubmitButton(handle) as unknown as () => RemixNode
   resultRef = render(<div>{inner()}</div>)
@@ -63,7 +71,7 @@ function submitButton(result: RenderResult): HTMLButtonElement {
 
 let mounted: Mounted | null = null
 
-function mountEntry(props: { children: string; pendingLabel?: string }): RenderResult {
+function mountEntry(props: PendingProps): RenderResult {
   mounted = mount(props)
   return mounted.result
 }
@@ -113,6 +121,14 @@ describe('PendingSubmitButton', () => {
     mounted!.frame.dispatchEvent(new Event('reloadStart'))
 
     assert.equal(btn.textContent?.trim(), 'Wird gelöscht…')
+  })
+
+  it('can render an optional icon and keep its natural width', () => {
+    let result = mountEntry({ children: 'Senden', icon: 'send', stretch: false })
+    let btn = submitButton(result)
+
+    assert.ok(btn.querySelector('svg'), 'the optional glyph should render before the label')
+    assert.equal(btn.textContent?.trim(), 'Senden')
   })
 
   it('survives a duplicated reloadStart (idempotent pending)', () => {

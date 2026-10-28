@@ -7,8 +7,13 @@ import { clientEntry, type Handle } from 'remix/component'
  */
 const SEARCH_DEBOUNCE_MS = 350
 
+interface FilterAutoSubmitProps {
+  /** CSS selector for the GET form that owns the `filter` input. */
+  formSelector: string
+}
+
 /**
- * Live search for the uploads grid.
+ * Live search for an admin grid filter bar.
  *
  * The filter bar is a plain GET form (so it works without JavaScript and the
  * Suchen button remains the explicit path). With this entry, typing in the
@@ -26,33 +31,40 @@ const SEARCH_DEBOUNCE_MS = 350
  * Listeners are delegated from `document` because the form is replaced on every
  * frame navigation; `handle.signal` removes them when the entry disconnects.
  */
-export const UploadsFilterAutoSubmit = clientEntry(
-  import.meta.url + '#UploadsFilterAutoSubmit',
-  function UploadsFilterAutoSubmit(handle: Handle) {
+export const FilterAutoSubmit = clientEntry(
+  import.meta.url + '#FilterAutoSubmit',
+  function FilterAutoSubmit(handle: Handle<FilterAutoSubmitProps>) {
     let timer: ReturnType<typeof setTimeout> | undefined
     let lastSubmitted = ''
     let restoreFocus = false
 
     function currentForm(): HTMLFormElement | null {
-      return document.querySelector<HTMLFormElement>('form[data-uploads-filter]')
+      let { formSelector } = handle.props
+      return document.querySelector<HTMLFormElement>(formSelector)
     }
 
     function currentInput(): HTMLInputElement | null {
       return currentForm()?.querySelector<HTMLInputElement>('input[name="filter"]') ?? null
     }
 
+    function ownsFilterInput(target: EventTarget | null): target is HTMLInputElement {
+      if (!(target instanceof HTMLInputElement)) return false
+      return target.name === 'filter' && target.closest(handle.props.formSelector) !== null
+    }
+
     function submitFrom(input: HTMLInputElement) {
-      let form = input.closest('form[data-uploads-filter]') as HTMLFormElement | null
+      let form = input.closest(handle.props.formSelector) as HTMLFormElement | null
       if (!form) return
       lastSubmitted = input.value
       restoreFocus = document.activeElement === input
       // An emptied search returns to the plain grid URL instead of leaving an
-      // empty `filter=` parameter behind. The name is restored right after
-      // requestSubmit(), which reads the form synchronously.
+      // empty `filter=` parameter behind. Disabling excludes the control from
+      // the submission without renaming it, so the submit listener can still
+      // find the field; the flag is restored right after requestSubmit().
       let stripEmpty = input.value.trim() === ''
-      if (stripEmpty) input.removeAttribute('name')
+      if (stripEmpty) input.disabled = true
       form.requestSubmit()
-      if (stripEmpty) input.name = 'filter'
+      if (stripEmpty) input.disabled = false
     }
 
     function scheduleSubmit() {
@@ -77,9 +89,7 @@ export const UploadsFilterAutoSubmit = clientEntry(
       document.addEventListener(
         'input',
         (event) => {
-          let target = event.target
-          if (!(target instanceof HTMLInputElement)) return
-          if (!target.matches('form[data-uploads-filter] input[name="filter"]')) return
+          if (!ownsFilterInput(event.target)) return
           scheduleSubmit()
         },
         { signal: handle.signal },
@@ -92,11 +102,13 @@ export const UploadsFilterAutoSubmit = clientEntry(
         (event) => {
           let form = event.target
           if (!(form instanceof HTMLFormElement)) return
-          if (!form.matches('form[data-uploads-filter]')) return
+          if (!form.matches(handle.props.formSelector)) return
           let input = form.querySelector<HTMLInputElement>('input[name="filter"]')
           if (!input) return
           lastSubmitted = input.value
-          restoreFocus = document.activeElement === input
+          // Keep a restore requested by submitFrom() when clearing disabled the
+          // field (a disabled control is no longer the active element).
+          restoreFocus = restoreFocus || document.activeElement === input
         },
         { capture: true, signal: handle.signal },
       )
@@ -108,8 +120,7 @@ export const UploadsFilterAutoSubmit = clientEntry(
         (event) => {
           if (event.key !== 'Escape') return
           let target = event.target
-          if (!(target instanceof HTMLInputElement)) return
-          if (!target.matches('form[data-uploads-filter] input[name="filter"]')) return
+          if (!ownsFilterInput(target)) return
           if (target.value === '') return
           if (timer) clearTimeout(timer)
           target.value = ''
@@ -126,8 +137,8 @@ export const UploadsFilterAutoSubmit = clientEntry(
         'reloadComplete',
         () => {
           // The server-rendered value is now the source of truth (the filter can
-          // also change through "Zurücksetzen" or a kind-tab navigation), so a
-          // later clear still differs from what is displayed.
+          // also change through "Zurücksetzen" or a sort link), so a later clear
+          // still differs from what is displayed.
           lastSubmitted = currentInput()?.value ?? lastSubmitted
           if (!restoreFocus) return
           let input = currentInput()

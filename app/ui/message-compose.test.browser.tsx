@@ -21,18 +21,22 @@ const DRAFT_KEY = 'admin-messages-compose-draft'
 let fixture: HTMLFormElement | null = null
 let mount: HTMLElement | null = null
 let cleanup: (() => void) | null = null
+let submitCount = 0
 
 function mountForm(): void {
   let host = document.createElement('form')
   host.id = 'messages-compose-form'
   host.setAttribute('action', '#')
   host.setAttribute('method', 'post')
-  host.innerHTML = `<button type="submit" data-compose-submit="true">Senden</button>`
+  host.innerHTML = `<button type="submit">Senden</button>`
   mount = document.createElement('div')
   host.appendChild(mount)
   document.body.appendChild(host)
   fixture = host
-  host.addEventListener('submit', (e) => e.preventDefault())
+  host.addEventListener('submit', (e) => {
+    e.preventDefault()
+    submitCount++
+  })
 }
 
 async function renderEntry(): Promise<RenderResult> {
@@ -68,6 +72,7 @@ afterEach(() => {
   fixture?.remove()
   fixture = null
   mount = null
+  submitCount = 0
   sessionStorage.removeItem(DRAFT_KEY)
 })
 
@@ -142,12 +147,65 @@ describe('MessageCompose', () => {
     assert.equal(sessionStorage.getItem(DRAFT_KEY), null)
   })
 
+  it('Ctrl/Cmd+Enter sends, a plain Enter only adds a line break', async () => {
+    mountForm()
+    await renderEntry()
+    typeBody('per Tastatur senden')
+
+    textarea().dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    assert.equal(submitCount, 0, 'plain Enter must not send')
+
+    textarea().dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    assert.equal(submitCount, 1, 'Ctrl+Enter should submit the compose form')
+
+    textarea().dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    assert.equal(submitCount, 2, 'Cmd+Enter should submit too')
+  })
+
+  it('links the inline error to the textarea for assistive tech', async () => {
+    mountForm()
+    cleanup = render(
+      <MessageCompose
+        maxLength={1000}
+        strippableWarning
+        contentError="Nachricht darf nicht leer sein."
+      />,
+      { container: mount! },
+    ).cleanup
+
+    let field = textarea()
+    assert.equal(field.getAttribute('aria-invalid'), 'true')
+    assert.ok(
+      field.getAttribute('aria-describedby')?.includes('messages-content-error'),
+      'the error id must be part of aria-describedby',
+    )
+    let error = document.getElementById('messages-content-error') as HTMLElement
+    assert.equal(error.getAttribute('role'), 'alert')
+    assert.equal(error.textContent, 'Nachricht darf nicht leer sein.')
+  })
+
   it('a click on the compose submit button also clears the draft', async () => {
     mountForm()
     await renderEntry()
 
     typeBody('noch im Entwurf')
-    let btn = document.querySelector('[data-compose-submit]') as HTMLElement
+    let btn = document.querySelector('button[type="submit"]') as HTMLElement
     btn.click()
 
     assert.equal(sessionStorage.getItem(DRAFT_KEY), null, 'submit click pre-clears the draft')

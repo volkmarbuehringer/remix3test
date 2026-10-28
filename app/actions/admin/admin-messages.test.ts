@@ -40,6 +40,26 @@ describe('Admin Messages controller', () => {
     })
   }
 
+  /**
+   * Seed enough unrelated messages that a non-zero delete offset is a real
+   * page, not a stale one. The delete redirect now steps back when the deleted
+   * row emptied the last page, so offset-preservation tests need the rows.
+   */
+  async function seedMessages(count: number, token: string): Promise<number[]> {
+    let base = Date.now()
+    let ids: number[] = []
+    for (let i = 0; i < count; i++) {
+      let inserted = await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at)
+         VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, $2)
+         RETURNING id`,
+        [`${token}_${i}`, base + i],
+      )
+      ids.push(inserted.rows[0].id as number)
+    }
+    return ids
+  }
+
   it('GET /admin/messages redirects to login when not authenticated', async () => {
     let response = await router.fetch(ADMIN_MESSAGES_URL)
     assert.equal(response.status, 302)
@@ -70,16 +90,21 @@ describe('Admin Messages controller', () => {
       headers: { Cookie: adminCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('Messages'), 'response should mention Messages')
+    assert.ok(text.includes('Nachrichten'), 'response should mention Nachrichten')
   })
 
-  it('GET /admin/messages shows empty state when no messages match', async () => {
-    // Use a large offset to get no messages
+  it('GET /admin/messages shows an actionable empty state on a stale page', async () => {
+    // Use a large offset to get no messages. Unlike the old copy, this must not
+    // claim the whole result set is empty — only this page is.
     let response = await router.fetch(`${ADMIN_MESSAGES_URL}?offset=99999`, {
       headers: { Cookie: adminCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('Noch keine Nachrichten'), 'response should show empty state')
+    assert.ok(
+      text.includes('Keine Nachrichten auf dieser Seite'),
+      'stale page should say the page is empty',
+    )
+    assert.ok(text.includes('Zur ersten Seite'), 'the empty state should offer a way back')
   })
 
   it('POST /admin/messages re-renders an inline error for empty content (200, not 400)', async () => {
@@ -300,8 +325,11 @@ describe('Admin Messages controller', () => {
     assert.ok(text.includes('for="messages-content"'), 'compose label should be present')
     assert.ok(text.includes('Nachricht senden'), 'submit button should render')
     assert.ok(text.includes('id="messages-compose-form"'), 'compose form should be id-targetable')
+    let composeStart = text.indexOf('id="messages-compose-form"')
+    let composeEnd = text.indexOf('</form>', composeStart)
+    let composeForm = text.slice(composeStart, composeEnd)
     assert.ok(
-      text.includes('data-compose-submit'),
+      composeForm.includes('type="submit"') && composeForm.includes('Nachricht senden'),
       'the submit button should live inside the compose form',
     )
     assert.ok(
@@ -312,6 +340,7 @@ describe('Admin Messages controller', () => {
       text.includes('data-compose-counter') && text.includes('data-compose-warning'),
       'the compose box should render a character counter and a strip warning slot',
     )
+    assert.ok(text.includes('Strg/⌘ + Enter'), 'the keyboard shortcut should be discoverable')
   })
 
   it('GET /admin/messages renders clamped message previews with an expand toggle', async () => {
@@ -412,6 +441,116 @@ describe('Admin Messages controller', () => {
     assert.ok(!text.includes('Zurück'), 'should fall back to offset 0 for non-numeric input')
   })
 
+  it('GET /admin/messages shows the filtered total and numbered pages', async () => {
+    let token = `MSG_TOTAL_${Date.now()}`
+    let ids: number[] = []
+    let base = Date.now()
+    for (let i = 0; i < 12; i++) {
+      let inserted = await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at)
+         VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, $2)
+         RETURNING id`,
+        [`${token}_${i}`, base + i],
+      )
+      ids.push(inserted.rows[0].id as number)
+    }
+
+    try {
+      let first = await adminMessagesGet(`filter=${token}`)
+      let firstText = await first.text()
+      assert.ok(
+        firstText.includes('1–10 von 12 Nachrichten'),
+        'the footer should show the filtered range and total',
+      )
+      assert.ok(firstText.includes('Seite 1 von 2'), 'the footer should show the page count')
+      assert.ok(firstText.includes('aria-label="Seite 2"'), 'page 2 should be directly clickable')
+      assert.ok(firstText.includes('aria-current="page"'), 'the current page should be marked')
+
+      let second = await adminMessagesGet(`filter=${token}&offset=10`)
+      let secondText = await second.text()
+      assert.ok(secondText.includes('11–12 von 12 Nachrichten'), 'the last page range')
+      assert.ok(secondText.includes('Seite 2 von 2'), 'the last page count')
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [ids])
+    }
+  })
+
+  it('GET /admin/messages renders mobile card labels and the live-search form', async () => {
+    let token = `MSG_MOBILE_${Date.now()}`
+    let inserted = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at)
+       VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, $2)
+       RETURNING id`,
+      [token, Date.now()],
+    )
+    let id = inserted.rows[0].id as number
+
+    try {
+      let response = await adminMessagesGet(`filter=${token}`)
+      let text = await response.text()
+
+      for (let label of ['Absender', 'Nachricht', 'Erstellt', 'Aktionen']) {
+        assert.ok(
+          text.includes(`data-label="${label}"`),
+          `every cell needs a card label (missing ${label})`,
+        )
+      }
+      assert.ok(text.includes('data-mobile-sort'), 'phones need sort controls in the toolbar')
+      assert.ok(text.includes('data-messages-filter'), 'the live-search hook should be present')
+      assert.ok(text.includes('type="search"'), 'the filter should be a search field')
+      assert.ok(
+        text.includes('data-rmx-reset-focus="manual"'),
+        'the filter form must keep focus under the frame runtime',
+      )
+      assert.ok(
+        /aria-label="Nachricht von [^"]+ löschen/.test(text),
+        'delete buttons need a per-row accessible name',
+      )
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = $1', [id])
+    }
+  })
+
+  it('POST delete steps back when the last page is emptied', async () => {
+    let token = `MSG_LASTPAGE_${Date.now()}`
+    let ids: number[] = []
+    let base = Date.now()
+    for (let i = 0; i < 11; i++) {
+      let inserted = await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at)
+         VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, $2)
+         RETURNING id`,
+        [`${token}_${i}`, base + i],
+      )
+      ids.push(inserted.rows[0].id as number)
+    }
+
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    try {
+      let formData = new FormData()
+      formData.set('_csrf', session.csrfToken)
+      formData.set('_offset', '10')
+      formData.set('_filter', token)
+      let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${ids[0]}/delete`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: formData,
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302)
+      assert.equal(
+        response.headers.get('Location'),
+        `/admin/messages?filter=${token}`,
+        'the redirect should fall back to the new last page instead of an empty offset',
+      )
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [ids])
+    }
+  })
+
   // -----------------------------------------------------------------------
   // Sorting — sortable columns like the other admin grids
   // -----------------------------------------------------------------------
@@ -423,7 +562,8 @@ describe('Admin Messages controller', () => {
     // Each sortable column header links to toggle its sort.
     assert.ok(text.includes('sort=sender_name'), 'Absender header should link to sort by sender')
     assert.ok(text.includes('sort=content'), 'Nachricht header should link to sort by content')
-    assert.ok(text.includes('sort=created_at'), 'Erstellt header should link to sort by created_at')
+    // The default column is created_at, so its link only needs the direction.
+    assert.ok(text.includes('order=asc'), 'Erstellt header should link to ascending order')
     // Default sort is created_at DESC, so the active column reports descending.
     assert.ok(text.includes('aria-sort="descending"'), 'active sort column should report aria-sort')
   })
@@ -474,6 +614,7 @@ describe('Admin Messages controller', () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
 
+    let seeded = await seedMessages(12, `DELETE_OFFSET_${Date.now()}`)
     let now = Date.now()
     let createResult = await pool.query(
       `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'Delete me (offset)', $1) RETURNING id`,
@@ -481,18 +622,22 @@ describe('Admin Messages controller', () => {
     )
     let messageId = createResult.rows[0].id as number
 
-    let formData = new FormData()
-    formData.set('_csrf', session.csrfToken)
-    formData.set('_offset', '10')
-    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
-      method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: formData,
-      redirect: 'manual',
-    })
+    try {
+      let formData = new FormData()
+      formData.set('_csrf', session.csrfToken)
+      formData.set('_offset', '10')
+      let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: formData,
+        redirect: 'manual',
+      })
 
-    assert.equal(response.status, 302)
-    assert.equal(response.headers.get('Location'), '/admin/messages?offset=10')
+      assert.equal(response.status, 302)
+      assert.equal(response.headers.get('Location'), '/admin/messages?offset=10')
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [[messageId, ...seeded]])
+    }
   })
 
   it('POST /admin/messages/:id/delete preserves the current filter in the redirect', async () => {
@@ -524,6 +669,7 @@ describe('Admin Messages controller', () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
 
+    let seeded = await seedMessages(12, `DELETE_SORT_${Date.now()}`)
     let now = Date.now()
     let createResult = await pool.query(
       `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'Delete me (sort)', $1) RETURNING id`,
@@ -531,23 +677,27 @@ describe('Admin Messages controller', () => {
     )
     let messageId = createResult.rows[0].id as number
 
-    let formData = new FormData()
-    formData.set('_csrf', session.csrfToken)
-    formData.set('_offset', '10')
-    formData.set('_sort', 'sender_name')
-    formData.set('_order', 'asc')
-    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
-      method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: formData,
-      redirect: 'manual',
-    })
+    try {
+      let formData = new FormData()
+      formData.set('_csrf', session.csrfToken)
+      formData.set('_offset', '10')
+      formData.set('_sort', 'sender_name')
+      formData.set('_order', 'asc')
+      let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: formData,
+        redirect: 'manual',
+      })
 
-    assert.equal(response.status, 302)
-    assert.equal(
-      response.headers.get('Location'),
-      '/admin/messages?offset=10&sort=sender_name&order=asc',
-    )
+      assert.equal(response.status, 302)
+      assert.equal(
+        response.headers.get('Location'),
+        '/admin/messages?offset=10&sort=sender_name&order=asc',
+      )
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [[messageId, ...seeded]])
+    }
   })
 
   // -----------------------------------------------------------------------

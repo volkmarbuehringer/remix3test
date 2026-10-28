@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from '../../test/pool.ts'
-import { listMessages } from './admin-messages.ts'
+import { listMessages, countMessages } from './admin-messages.ts'
 
 describe('admin-messages', () => {
   let testUserId: number
@@ -104,5 +104,48 @@ describe('admin-messages', () => {
       !rows.some((r) => r.content === 'Beta Different'),
       'non-matching message should be excluded',
     )
+  })
+
+  it('countMessages totals all rows and narrows by the same filter as the list', async () => {
+    now = Date.now()
+    let user = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, created_at, updated_at)
+       VALUES ('test-count@example.com', 'hash', 'Count Sender', 'customer', $1, $1)
+       RETURNING id`,
+      [now],
+    )
+    testUserId = user.rows[0].id
+    await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ($1, 'COUNT_TOKEN_ONE', $2)`,
+      [testUserId, now],
+    )
+    await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ($1, 'COUNT_TOKEN_TWO', $2)`,
+      [testUserId, now + 1],
+    )
+
+    assert.equal(await countMessages(db, 'COUNT_TOKEN_'), 2)
+    assert.equal(await countMessages(db, 'COUNT_TOKEN_ONE'), 1)
+    assert.equal(await countMessages(db, 'no_such_message_token'), 0)
+    // The sender-name half of the shared OR filter must count too.
+    assert.equal(await countMessages(db, 'Count Sender'), 2)
+  })
+
+  it('countMessages treats LIKE wildcards as literal characters', async () => {
+    now = Date.now()
+    let user = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, created_at, updated_at)
+       VALUES ('test-count-wildcard@example.com', 'hash', 'Wildcard Sender', 'customer', $1, $1)
+       RETURNING id`,
+      [now],
+    )
+    testUserId = user.rows[0].id
+    await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ($1, '100% literal match', $2)`,
+      [testUserId, now],
+    )
+
+    assert.equal(await countMessages(db, '100%'), 1, 'the percent sign must not match everything')
+    assert.equal(await countMessages(db, '100_'), 0, 'the underscore must not match one character')
   })
 })

@@ -2,7 +2,7 @@ import { rawSql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { int8, queryRows } from './rows.ts'
+import { int8, int8Aggregate, queryRow, queryRows } from './rows.ts'
 
 export interface AdminMessageRow {
   id: number
@@ -32,6 +32,18 @@ const adminMessageWireSchema = z.object({
   created_at: int8,
 })
 
+/**
+ * Escape LIKE wildcards so a search is treated as a literal substring, then
+ * wrap it for a `%…%` match. Shared by the list and count queries so the grid
+ * and its result total can never disagree about what the filter matches.
+ */
+function likePattern(filter: string | undefined): string | undefined {
+  return filter ? `%${filter.replace(/[%_\\]/g, '\\$&')}%` : undefined
+}
+
+const messagesFilterWhere = (placeholder: string): string =>
+  `WHERE (m.content ILIKE ${placeholder} OR u.name ILIKE ${placeholder})`
+
 export async function listMessages(
   db: Database,
   limit: number,
@@ -42,13 +54,12 @@ export async function listMessages(
 ): Promise<AdminMessageRow[]> {
   let orderCol = SORT_EXPRS[sortColumn ?? 'created_at'] ?? SORT_EXPRS.created_at
   let orderDir = compileOrderByDirection(direction ?? 'desc')
+  let pattern = likePattern(filter)
   let where = ''
   let params: unknown[] = [limit, offset]
-  if (filter) {
-    // Escape LIKE wildcards so the filter is treated as a literal substring.
-    let esc = filter.replace(/[%_\\]/g, '\\$&')
-    params.push(`%${esc}%`)
-    where = 'WHERE m.content ILIKE $3 OR u.name ILIKE $3'
+  if (pattern) {
+    params.push(pattern)
+    where = messagesFilterWhere('$3')
   }
   let rows = await queryRows(
     db,
@@ -71,4 +82,28 @@ export async function listMessages(
     content: row.content,
     created_at: Number(row.created_at),
   }))
+}
+
+/**
+ * Total number of messages matching the grid filter. The grid footer needs it
+ * to show "1–10 von 42" and to build numbered page links; `hasMore` alone can
+ * only answer "is there one more row".
+ *
+ * Uses the same LEFT JOIN as {@link listMessages}: a message whose sender was
+ * deleted must keep counting as a row even though its sender_name is null.
+ */
+export async function countMessages(db: Database, filter?: string): Promise<number> {
+  let pattern = likePattern(filter)
+  let row = await queryRow(
+    db,
+    rawSql(
+      `SELECT COUNT(*) AS total
+       FROM messages m
+       LEFT JOIN users u ON m.sender_id = u.id
+       ${pattern ? messagesFilterWhere('$1') : ''}`,
+      pattern ? [pattern] : [],
+    ),
+    z.object({ total: int8Aggregate }),
+  )
+  return row?.total ?? 0
 }

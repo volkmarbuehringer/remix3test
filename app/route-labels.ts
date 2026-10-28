@@ -23,7 +23,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Admin
   [routes.admin.index.href()]: 'Admin Dashboard',
   [routes.admin.chatlog.index.href()]: 'Chat Logs',
-  [routes.admin.messages.index.href()]: 'Messages',
+  [routes.admin.messages.index.href()]: 'Nachrichten',
   [routes.admin.lists.index.href()]: 'Lists',
   [routes.admin.fragments.stats.href()]: 'Stats',
   [routes.admin.fragments.recentActivity.href()]: 'Recent Activity',

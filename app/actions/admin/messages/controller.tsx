@@ -6,7 +6,7 @@ import type { Database } from 'remix/data-table'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { messages } from '../../../data/schema.ts'
-import { listMessages, type AdminMessageRow } from '../../../data/admin-messages.ts'
+import { listMessages, countMessages, type AdminMessageRow } from '../../../data/admin-messages.ts'
 import {
   adminChannel,
   messageRateLimiter,
@@ -30,6 +30,7 @@ import {
   gridSortDirection,
 } from '../../../utils/grid-params.ts'
 import { gridStateFromFormData } from '../../../utils/grid-state.ts'
+import { messagesGridHref } from '../../../utils/messages-grid-url.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 
@@ -77,20 +78,16 @@ function parseFilter(raw: string | null | undefined): string | undefined {
 /**
  * Post/redirect/GET target that preserves a non-default grid state.
  *
- * Defaults (offset 0, sort created_at, order desc) are omitted so the common
- * success redirect stays a bare /admin/messages while a filtered, sorted, or
- * paged view survives sending/deleting.
+ * Defaults are omitted by {@link messagesGridHref}, so a plain success redirect
+ * stays a bare /admin/messages while a filtered, sorted, or paged view survives
+ * sending/deleting.
  */
-function messagesGridUrl(formData: FormData): string {
-  let state = gridStateFromFormData(formData)
-  let params = new URLSearchParams()
-  let offset = Number(state.offset) || 0
-  if (offset > 0) params.set('offset', String(offset))
-  if (state.sort && state.sort !== 'created_at') params.set('sort', state.sort)
-  if (state.order && state.order !== 'desc') params.set('order', state.order)
-  if (state.filter) params.set('filter', state.filter)
-  let qs = params.toString()
-  return routes.admin.messages.index.href() + (qs ? '?' + qs : '')
+function messagesGridUrl(formData: FormData, offsetOverride?: number): string {
+  let raw = readFormFieldValues(MESSAGES_FORM_KEYS, formData)
+  let offset = offsetOverride ?? gridOffset(raw)
+  let column = gridSortColumn(raw, SORTABLE_FIELDS, 'created_at')
+  let direction = gridSortDirection(raw, 'desc')
+  return messagesGridHref(offset, column, direction, parseFilter(raw._filter))
 }
 
 async function loadMessagesGrid(
@@ -102,18 +99,14 @@ async function loadMessagesGrid(
     filter?: string | undefined
     pageSize: number
   },
-): Promise<{ rows: AdminMessageRow[]; hasMore: boolean }> {
-  let rows = await listMessages(
-    db,
-    opts.pageSize + 1,
-    opts.offset,
-    opts.filter,
-    opts.column,
-    opts.direction,
-  )
+): Promise<{ rows: AdminMessageRow[]; hasMore: boolean; total: number }> {
+  let [rows, total] = await Promise.all([
+    listMessages(db, opts.pageSize + 1, opts.offset, opts.filter, opts.column, opts.direction),
+    countMessages(db, opts.filter),
+  ])
   let hasMore = rows.length > opts.pageSize
   if (hasMore) rows.pop()
-  return { rows, hasMore }
+  return { rows, hasMore, total }
 }
 
 async function renderMessagesPage(
@@ -124,7 +117,7 @@ async function renderMessagesPage(
   let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
 
-  let { rows, hasMore } = await loadMessagesGrid(context.db, {
+  let { rows, hasMore, total } = await loadMessagesGrid(context.db, {
     offset: opts.offset,
     column: opts.column,
     direction: opts.direction,
@@ -139,9 +132,8 @@ async function renderMessagesPage(
       messages={rows}
       offset={opts.offset}
       hasMore={hasMore}
+      total={total}
       pageSize={effectivePageSize}
-      prevOffset={Math.max(0, opts.offset - effectivePageSize)}
-      nextOffset={opts.offset + effectivePageSize}
       pageKey={pageKey}
       pageSizeOverride={pageSizeOverride}
       filter={opts.filter}
@@ -207,9 +199,8 @@ async function renderMessagesError(
         messages={page.rows}
         offset={page.offset}
         hasMore={page.hasMore}
+        total={page.total ?? 0}
         pageSize={page.pageSize}
-        prevOffset={Math.max(0, page.offset - page.pageSize)}
-        nextOffset={page.offset + page.pageSize}
         pageKey={page.pageKey}
         pageSizeOverride={page.pageSizeOverride}
         filter={page.filter}
@@ -354,8 +345,20 @@ export default createController(routes.admin.messages, {
       broadcastInvalidate()
 
       // Preserve the current grid state (offset, sort, order, filter) so the
-      // post-delete redirect lands back on the same view.
-      return redirect(messagesGridUrl(context.formData))
+      // post-delete redirect lands back on the same view. If the delete emptied
+      // the last page, step back to the new last page instead of landing on an
+      // empty stale offset.
+      let state = gridStateFromFormData(context.formData)
+      let filter = parseFilter(state.filter)
+      let pageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT, PAGE_SIZE_KEYS.adminMessages)
+      let offset = parseOffset(state.offset)
+      if (offset > 0) {
+        let remaining = await countMessages(db, filter)
+        if (offset >= remaining) {
+          offset = Math.max(0, Math.floor(Math.max(0, remaining - 1) / pageSize) * pageSize)
+        }
+      }
+      return redirect(messagesGridUrl(context.formData, offset))
     },
 
     subscribe(context) {

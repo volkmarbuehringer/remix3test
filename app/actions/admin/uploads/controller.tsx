@@ -116,6 +116,7 @@ import { table } from '../../../ui/mixins/admin-table.ts'
 import { sortArrow, sortRule } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
+import { paginationWindow } from '../../../utils/pagination-window.ts'
 import { formatCompactDateDE, formatRelativeTimeDE, MS_PER_DAY } from '../../../utils/date-utils.ts'
 import {
   ALLOWED_EXTENSIONS,
@@ -131,7 +132,7 @@ import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.ts
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
 import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
-import { UploadsFilterAutoSubmit } from '../public/admin-uploads-filter-autosubmit.tsx'
+import { FilterAutoSubmit } from '../../../ui/filter-autosubmit.browser.tsx'
 import { getQuotaStats, type QuotaStats } from './uploads-quota.ts'
 import type { AppContext } from '../../../types/context.ts'
 
@@ -256,26 +257,6 @@ function uploadsKindHref(
   filter: string | undefined,
 ): string {
   return uploadsPageHref(1, sortColumn, sortDirection, filter, kind)
-}
-
-/**
- * Compact page window for the pagination bar: every page for short result sets,
- * otherwise the first and last page plus the current page's neighbours, with
- * `'gap'` marking an omitted run.
- */
-function paginationWindow(page: number, totalPages: number): (number | 'gap')[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1)
-  let pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
-    .filter((candidate) => candidate >= 1 && candidate <= totalPages)
-    .toSorted((a, b) => a - b)
-  let window: (number | 'gap')[] = []
-  let previous = 0
-  for (let candidate of pages) {
-    if (previous !== 0 && candidate - previous > 1) window.push('gap')
-    window.push(candidate)
-    previous = candidate
-  }
-  return window
 }
 
 type UploadsGridOpts = {
@@ -801,7 +782,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             {/* Debounced live search: typing re-runs the current filter instead
                 of waiting for the "Suchen" button (which stays for the no-JS
                 path). */}
-            <UploadsFilterAutoSubmit />
+            <FilterAutoSubmit formSelector="form[data-uploads-filter]" />
             {uploads.length > 0 ? (
               <div mix={bulkGroupCss} data-bulk-group>
                 <form

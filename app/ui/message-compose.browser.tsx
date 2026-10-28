@@ -78,6 +78,29 @@ function updateMeta(textarea: HTMLTextAreaElement, maxLength: number): void {
   }
 }
 
+const MIN_TEXTAREA_HEIGHT = 40
+const MAX_TEXTAREA_HEIGHT = 240
+
+/**
+ * Grow the compose box with its content, up to the CSS max-height, then scroll
+ * internally. A fixed one-row textarea made longer messages hard to review
+ * before sending, while a permanently tall box wasted vertical space above the
+ * grid.
+ */
+function autoSize(textarea: HTMLTextAreaElement): void {
+  textarea.style.height = 'auto'
+  let next = Math.min(MAX_TEXTAREA_HEIGHT, Math.max(MIN_TEXTAREA_HEIGHT, textarea.scrollHeight))
+  textarea.style.height = next + 'px'
+  textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
+}
+
+function describedBy(contentError?: string, formError?: string): string {
+  let ids = ['messages-content-meta']
+  if (contentError) ids.push('messages-content-error')
+  if (formError) ids.push('messages-content-form-error')
+  return ids.join(' ')
+}
+
 export const MessageCompose = clientEntry(
   import.meta.url + '#MessageCompose',
   function MessageCompose(handle: Handle<MessageComposeProps>) {
@@ -94,7 +117,8 @@ export const MessageCompose = clientEntry(
             placeholder="Nachricht schreiben…"
             defaultValue={value}
             aria-invalid={contentError ? true : undefined}
-            aria-describedby="messages-content-meta"
+            aria-describedby={describedBy(contentError, formError)}
+            aria-keyshortcuts="Control+Enter Meta+Enter"
             mix={[
               input.base,
               input.focus,
@@ -119,6 +143,20 @@ export const MessageCompose = clientEntry(
                   () => {
                     saveDraft(textarea.value)
                     updateMeta(textarea, maxLength)
+                    autoSize(textarea)
+                  },
+                  { signal },
+                )
+
+                // Ctrl/Cmd+Enter sends without reaching for the mouse, matching
+                // the shortcut admins already know from chat composers.
+                textarea.addEventListener(
+                  'keydown',
+                  (event) => {
+                    if (event.isComposing || event.keyCode === 229) return
+                    if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
+                    event.preventDefault()
+                    textarea.form?.requestSubmit()
                   },
                   { signal },
                 )
@@ -129,24 +167,35 @@ export const MessageCompose = clientEntry(
                 // to the textarea's signal so a frame swap unbinds them.
                 let form = textarea.form
                 if (form) {
-                  form.addEventListener('submit', () => clearDraft(), { capture: true, signal })
+                  form.addEventListener(
+                    'submit',
+                    () => {
+                      clearDraft()
+                    },
+                    { capture: true, signal },
+                  )
                   form.addEventListener(
                     'click',
                     (event) => {
                       let target = event.target as HTMLElement | null
-                      if (target && target.closest('[data-compose-submit]')) clearDraft()
+                      if (target && target.closest('button[type="submit"]')) clearDraft()
                     },
                     { capture: true, signal },
                   )
                 }
 
+                autoSize(textarea)
                 updateMeta(textarea, maxLength)
               }),
             ]}
           />
-          {contentError ? <div mix={fieldErrorStyle}>{contentError}</div> : null}
+          {contentError ? (
+            <div id="messages-content-error" role="alert" mix={fieldErrorStyle}>
+              {contentError}
+            </div>
+          ) : null}
           {formError ? (
-            <div role="alert" mix={formErrorStyle}>
+            <div id="messages-content-form-error" role="alert" mix={formErrorStyle}>
               {formError}
             </div>
           ) : null}
@@ -173,9 +222,11 @@ export const MessageCompose = clientEntry(
 // ── Styles (moved from admin-messages-page.tsx with the markup) ──
 
 const textareaStyle = css({
-  resize: 'vertical',
-  minHeight: '40px',
-  maxHeight: '240px',
+  // The entry grows the box with its content (see autoSize); a manual resize
+  // handle would fight that measured height.
+  resize: 'none',
+  minHeight: `${MIN_TEXTAREA_HEIGHT}px`,
+  maxHeight: `${MAX_TEXTAREA_HEIGHT}px`,
 })
 
 /** Live character counter + strip warning sit under the textarea. */
