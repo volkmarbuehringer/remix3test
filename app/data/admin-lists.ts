@@ -2,7 +2,7 @@ import { rawSql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
-import { int8, queryRows } from './rows.ts'
+import { int8, int8Aggregate, queryRow, queryRows } from './rows.ts'
 
 const listWireSchema = z.object({
   id: z.number(),
@@ -66,6 +66,17 @@ const LIST_ROW_SELECT = `SELECT lists.*, u.email AS owner_email
 FROM lists
 LEFT JOIN users u ON u.id = lists.user_id`
 
+/**
+ * The JSONB `list` column is user data, so shape drift (an object/scalar
+ * instead of an array) is tolerated at read time. Guarding here keeps a
+ * malformed row from 500ing the grid through `jsonb_array_elements` /
+ * `jsonb_array_length`.
+ */
+const LIST_ITEMS_ARRAY = `CASE WHEN jsonb_typeof(lists.list) = 'array' THEN lists.list ELSE '[]'::jsonb END`
+
+/** Item count of a well-formed row; a malformed payload counts as empty. */
+const LIST_ITEM_COUNT = `jsonb_array_length(${LIST_ITEMS_ARRAY})`
+
 /** Whitelisted ORDER BY expressions. The key is the public `sort` param value
  *  (also validated against `LIST_SORTABLE_FIELDS` in the controller); the value
  *  is the safe SQL expression it maps to. Falls back to `created_at DESC` when
@@ -75,6 +86,7 @@ const SORT_EXPRS: Record<string, string> = {
   title: 'lists.title',
   owner: 'LOWER(u.email)',
   description: 'lists.description',
+  items: LIST_ITEM_COUNT,
   updated_at: 'lists.updated_at',
   created_at: 'lists.created_at',
 }
@@ -91,6 +103,54 @@ type ListItemFilter = (typeof LIST_ITEM_FILTERS)[number]
  *  set so it can never reach the SQL builder unchecked. */
 export function isListItemFilter(value: string | undefined | null): value is ListItemFilter {
   return value === 'items' || value === 'empty'
+}
+
+/**
+ * Turn a raw user filter into the LIKE pattern used by both the page query and
+ * its total count. Keeping the clamp/escape here means the grid and its footer
+ * can never disagree about what the filter matches.
+ */
+export function listsSearchPattern(filter?: string | null): string {
+  let value = filter ? (filter.length > 200 ? filter.slice(0, 200) : filter) : ''
+  return value ? `%${value.replace(/[%_\\]/g, '\\$&')}%` : '%%'
+}
+
+/**
+ * Shared WHERE clause for the grid rows and its total count. `searchPattern`
+ * must already be LIKE-escaped (see {@link listsSearchPattern}); conditions are
+ * composed into one parameterized clause so a text search and the item-count
+ * filter can be combined.
+ */
+function buildListWhere(
+  searchPattern: string,
+  status?: string,
+): { where: string; params: unknown[] } {
+  let conditions: string[] = []
+  let params: unknown[] = []
+
+  if (searchPattern && searchPattern !== '%%') {
+    params.push(searchPattern)
+    let pattern = '$' + params.length
+    conditions.push(
+      `(lists.title ILIKE ${pattern}
+        OR lists.description ILIKE ${pattern}
+        OR u.email ILIKE ${pattern}
+        OR u.name ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) item
+          WHERE item->>'label' ILIKE ${pattern}
+        ))`,
+    )
+  }
+
+  if (isListItemFilter(status)) {
+    conditions.push(status === 'empty' ? `${LIST_ITEM_COUNT} = 0` : `${LIST_ITEM_COUNT} > 0`)
+  }
+
+  return {
+    where: conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '',
+    params,
+  }
 }
 
 /**
@@ -121,35 +181,7 @@ export async function searchLists(
   let column: string = SORT_EXPRS[sortColumn ?? ''] ?? 'lists.created_at'
   let orderDir = compileOrderByDirection(direction ?? 'desc')
 
-  let conditions: string[] = []
-  let params: unknown[] = []
-
-  if (searchPattern && searchPattern !== '%%') {
-    params.push(searchPattern)
-    let pattern = '$' + params.length
-    conditions.push(
-      `(lists.title ILIKE ${pattern}
-        OR lists.description ILIKE ${pattern}
-        OR u.email ILIKE ${pattern}
-        OR u.name ILIKE ${pattern}
-        OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements(COALESCE(lists.list, '[]'::jsonb)) item
-          WHERE item->>'label' ILIKE ${pattern}
-        ))`,
-    )
-  }
-
-  // COALESCE is belt-and-braces: `list` is NOT NULL DEFAULT '[]', so it only
-  // matters for rows written outside the table API.
-  if (isListItemFilter(status)) {
-    conditions.push(
-      status === 'empty'
-        ? `jsonb_array_length(COALESCE(lists.list, '[]'::jsonb)) = 0`
-        : `jsonb_array_length(COALESCE(lists.list, '[]'::jsonb)) > 0`,
-    )
-  }
-
-  let where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
+  let { where, params } = buildListWhere(searchPattern, status)
   params.push(limit, offset)
   let limitIndex = params.length - 1
   let offsetIndex = params.length
@@ -166,6 +198,31 @@ export async function searchLists(
     listWireSchema,
   )
   return rows.map(wireToListRow)
+}
+
+/**
+ * Total number of lists matching the grid filter. The footer needs it to show
+ * "1–10 von 42" and build numbered page links; `hasMore` alone can only answer
+ * "is there one more row".
+ */
+export async function countLists(
+  db: Database,
+  searchPattern: string,
+  status?: string,
+): Promise<number> {
+  let { where, params } = buildListWhere(searchPattern, status)
+  let row = await queryRow(
+    db,
+    rawSql(
+      `SELECT COUNT(*) AS total
+       FROM lists
+       LEFT JOIN users u ON u.id = lists.user_id
+       ${where}`,
+      params,
+    ),
+    z.object({ total: int8Aggregate }),
+  )
+  return row?.total ?? 0
 }
 
 /** Load one list row (with its owner's email) for the inline edit panel. */

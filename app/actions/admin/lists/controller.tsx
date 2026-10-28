@@ -9,9 +9,11 @@ import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { lists } from '../../../data/schema.ts'
 import {
+  countLists,
   findListRow,
   isListItemFilter,
   LIST_SORTABLE_FIELDS,
+  listsSearchPattern,
   searchLists,
   type ListRow,
 } from '../../../data/admin-lists.ts'
@@ -85,8 +87,10 @@ function gridStatus(raw: Record<string, string>): string | undefined {
   return isListItemFilter(value) ? value : undefined
 }
 
-function listsGridUrl(formData: FormData): string {
-  let params = gridStateToParams(gridStateFromFormData(formData))
+function listsGridUrl(formData: FormData, offsetOverride?: number): string {
+  let state = gridStateFromFormData(formData)
+  if (offsetOverride !== undefined) state.offset = String(Math.max(0, offsetOverride))
+  let params = gridStateToParams(state)
   let qs = params.toString()
   let base = routes.admin.lists.index.href()
   return base + (qs ? '?' + qs : '')
@@ -102,29 +106,20 @@ async function loadGridData(
     status?: string | undefined
     pageSize: number
   },
-): Promise<{ rows: ListRow[]; hasMore: boolean }> {
+): Promise<{ rows: ListRow[]; hasMore: boolean; total: number }> {
   let limit = opts.pageSize + 1
-  let filter = opts.filter
-    ? opts.filter.length > 200
-      ? opts.filter.slice(0, 200)
-      : opts.filter
-    : ''
-  let esc = filter.replace(/[%_\\]/g, '\\$&')
-  let searchPattern = filter ? `%${esc}%` : '%%'
+  let searchPattern = listsSearchPattern(opts.filter)
   // One query path for every view: searchLists always joins the owner, so the
   // Besitzer column is populated whether or not a text/status filter is active.
-  let rows = await searchLists(
-    db,
-    searchPattern,
-    limit,
-    opts.offset,
-    opts.column,
-    opts.direction,
-    opts.status,
-  )
+  // The total feeds the footer ("1–10 von 42" and numbered pages) and is
+  // counted with the same WHERE builder as the rows, so the two cannot drift.
+  let [rows, total] = await Promise.all([
+    searchLists(db, searchPattern, limit, opts.offset, opts.column, opts.direction, opts.status),
+    countLists(db, searchPattern, opts.status),
+  ])
   let hasMore = rows.length > opts.pageSize
   if (hasMore) rows.pop()
-  return { rows, hasMore }
+  return { rows, hasMore, total }
 }
 
 type ListsRenderContext = {
@@ -189,6 +184,7 @@ async function renderListsError(
         pageSize={page.pageSize}
         pageKey={page.pageKey}
         pageSizeOverride={page.pageSizeOverride}
+        total={page.total ?? 0}
         formValues={page.formValues}
         fieldErrors={page.fieldErrors}
         formError={page.formError}
@@ -223,7 +219,7 @@ export default createController(routes.admin.lists, {
         defaultDirection: 'desc',
       })
 
-      let { rows, hasMore } = await loadGridData(context.db, {
+      let { rows, hasMore, total } = await loadGridData(context.db, {
         offset,
         column,
         direction,
@@ -260,6 +256,7 @@ export default createController(routes.admin.lists, {
           pageSize={effectivePageSize}
           pageKey={pageKey}
           pageSizeOverride={pageSizeOverride}
+          total={total}
         />,
         { fullHeight: !(editRow || creating) },
       )
@@ -426,9 +423,21 @@ export default createController(routes.admin.lists, {
 
       context.session.flash('success', 'Liste gelöscht.')
 
-      let params = gridStateToParams(gridStateFromFormData(formData))
-      let qs = params.toString()
-      return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''))
+      // If the delete emptied the last page, step back to the new last page so
+      // the follow-up GET does not land on an empty grid (same contract as the
+      // messages grid).
+      let rawValues = readFormFieldValues(LISTS_FORM_KEYS, formData)
+      let pageSize = getPageSize(context.session, LISTS_PAGE_LIMIT, PAGE_SIZE_KEYS.adminLists)
+      let total = await countLists(
+        db,
+        listsSearchPattern(gridFilter(rawValues)),
+        gridStatus(rawValues),
+      )
+      let offset = gridOffset(rawValues)
+      if (offset >= total) {
+        offset = total > 0 ? Math.floor((total - 1) / pageSize) * pageSize : 0
+      }
+      return redirect(listsGridUrl(formData, offset))
     },
   },
 })

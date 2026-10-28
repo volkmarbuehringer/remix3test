@@ -155,13 +155,17 @@ describe('Admin Lists Controller', () => {
       )
     })
 
-    it('gives the grid a min width so phones scroll full columns', async () => {
+    it('keeps a desktop column floor while narrow viewports use cards', async () => {
       await insertList('Min Width Row', 'test-admin-minwidth')
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
       let text = await response.text()
       assert.ok(
-        text.includes('min-width: 1030px'),
-        'the grid must keep a floor wide enough for its seven columns',
+        text.includes('min-width: 880px'),
+        'the desktop grid must keep a floor wide enough for its seven columns',
+      )
+      assert.ok(
+        text.includes('data-label="Aktionen"'),
+        'the card layout needs labelled cells so actions stay identifiable',
       )
     })
 
@@ -175,13 +179,199 @@ describe('Admin Lists Controller', () => {
       assert.ok(text.includes('Aktualisieren'), 'toolbar should offer a refresh action')
     })
 
+    it('shows the filtered result total and numbered page links', async () => {
+      let token = 'test-admin-pages-' + Date.now()
+      for (let i = 0; i < 12; i++) {
+        await insertList('Page Row ' + i, token + '-' + i)
+      }
+
+      let response = await router.fetch(LISTS_URL + '?filter=' + encodeURIComponent(token), {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('data-pagination-info'), 'footer info should be a live-region source')
+      assert.ok(text.includes('von 12 Listen'), 'footer should show the filtered total')
+      assert.ok(text.includes('Seite 1 von 2'), 'footer should show the page count')
+      assert.ok(text.includes('offset=10'), 'numbered page 2 should link to offset 10')
+      assert.ok(text.includes('aria-label="Seite 2"'), 'numbered page links should be labelled')
+    })
+
+    it('explains a stale page and links back to the first page', async () => {
+      let token = 'test-admin-stale-' + Date.now()
+      for (let i = 0; i < 12; i++) {
+        await insertList('Stale Row ' + i, token + '-' + i)
+      }
+
+      let response = await router.fetch(
+        LISTS_URL + '?filter=' + encodeURIComponent(token) + '&offset=99999',
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('Keine Listen auf dieser Seite.'),
+        'a stale page must not claim the whole collection is empty',
+      )
+      assert.ok(text.includes('Zur ersten Seite'), 'the empty state should offer a way back')
+      assert.ok(text.includes('Seite 2 von 2'), 'the footer should name the last valid page')
+    })
+
+    it('counts only the rows matching the active item filter', async () => {
+      let token = 'test-admin-count-' + Date.now()
+      await insertList('Count Empty', token + '-empty', [])
+      await insertList('Count Filled', token + '-filled', [{ id: 'a', label: 'Widget' }])
+
+      let response = await router.fetch(
+        LISTS_URL + '?filter=' + encodeURIComponent(token) + '&status=empty',
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('von 1 Liste'), 'the total must respect the item-count filter')
+      assert.ok(text.includes(token + '-empty'), 'the empty row should be listed')
+      assert.ok(!text.includes(token + '-filled'), 'a filled row must not appear in the empty tab')
+    })
+
+    it('renders labelled cells for the phone card layout', async () => {
+      let token = 'test-admin-cards-' + Date.now()
+      await insertList('Card Row', token, [{ id: 'a', label: 'Widget' }])
+      let response = await router.fetch(LISTS_URL + '?filter=' + encodeURIComponent(token), {
+        headers: { Cookie: adminCookie },
+      })
+      let text = await response.text()
+      for (let label of [
+        'ID',
+        'Titel',
+        'Besitzer',
+        'Elemente',
+        'Vorschau',
+        'Aktualisiert',
+        'Aktionen',
+      ]) {
+        assert.ok(text.includes('data-label="' + label + '"'), label + ' cell should be labelled')
+      }
+      assert.ok(text.includes('data-mobile-sort'), 'phones need their own sort controls')
+    })
+
+    it('wires the filter bar for debounced live search', async () => {
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(text.includes('data-lists-filter'), 'live search needs a stable form hook')
+      assert.ok(
+        text.includes('data-rmx-reset-focus="manual"'),
+        'a live-search reload must not steal focus from the input',
+      )
+      assert.ok(text.includes('type="search"'), 'the filter should use a search input')
+      assert.ok(text.includes('role="search"'), 'the filter form should expose the search role')
+    })
+
+    it('hides the preview/date columns and offers a close action while editing', async () => {
+      let id = await insertList('Compact Row', 'test-admin-compact-' + Date.now(), [
+        { id: 'a', label: 'Widget' },
+      ])
+      let response = await router.fetch(LISTS_URL + '?editing=' + id, {
+        headers: { Cookie: adminCookie },
+      })
+      let text = await response.text()
+      assert.ok(
+        !text.includes('data-label="Vorschau"'),
+        'the focused grid should drop the preview column',
+      )
+      assert.ok(
+        !text.includes('data-label="Aktualisiert"'),
+        'the focused grid should drop the date column',
+      )
+      assert.ok(text.includes('data-label="Aktionen"'), 'row actions must stay in the focused grid')
+      assert.ok(text.includes('aria-label="Editor schließen"'), 'the editor needs a close action')
+      assert.ok(
+        text.includes('data-editor-autofocus-field'),
+        'opening the editor should focus its title field',
+      )
+      assert.ok(text.includes('#' + id), 'the panel should repeat the row ID')
+    })
+
+    it('labels a list without a title instead of rendering a blank row', async () => {
+      let token = 'test-admin-untitled-' + Date.now()
+      await insertList('', token)
+      let response = await router.fetch(LISTS_URL + '?filter=' + encodeURIComponent(token), {
+        headers: { Cookie: adminCookie },
+      })
+      let text = await response.text()
+      assert.ok(text.includes('Ohne Titel'), 'an empty title should fall back to a readable label')
+    })
+
+    it('offers sorting by item count', async () => {
+      let token = 'test-admin-item-sort-' + Date.now()
+      await insertList('Item Sort Row', token, [{ id: 'a', label: 'Widget' }])
+      let response = await router.fetch(
+        LISTS_URL + '?filter=' + encodeURIComponent(token) + '&sort=items&order=desc',
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('sort=items'), 'the Elemente header should carry the sort link')
+      assert.ok(
+        text.includes('aria-sort="descending"'),
+        'the active item-count sort should report aria-sort',
+      )
+    })
+
+    it('caps the expanded element list and exposes truncated labels as tooltips', async () => {
+      let token = 'test-admin-expand-' + Date.now()
+      let longLabel = 'Sehr-langes-Element-' + 'x'.repeat(80)
+      await insertList('Expand Row', token, [
+        { id: 'a', label: longLabel },
+        { id: 'b', label: 'Zweites Element' },
+      ])
+
+      let response = await router.fetch(LISTS_URL + '?filter=' + encodeURIComponent(token), {
+        headers: { Cookie: adminCookie },
+      })
+      let text = await response.text()
+      assert.ok(
+        text.includes('data-lists-items-panel'),
+        'the expanded list needs a capped, scrollable panel',
+      )
+      assert.ok(
+        text.includes('data-list-item-label'),
+        'expanded item labels need a truncation hook',
+      )
+      assert.ok(
+        text.includes('title="' + longLabel + '"'),
+        'the full item label should be exposed as a tooltip',
+      )
+    })
+
     it('renders accessible segmented row actions instead of floating buttons', async () => {
       await insertList('Actions Row', 'test-admin-actions', [{ id: 'a', label: 'Widget' }])
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
       let text = await response.text()
       assert.ok(text.includes('In Listen öffnen'), 'row should offer an open-in-lists action')
-      assert.ok(text.includes('aria-label="Bearbeiten"'), 'edit action should be labelled')
-      assert.ok(text.includes('aria-label="Löschen"'), 'delete action should be labelled')
+      assert.ok(text.includes('bearbeiten"'), 'edit action should be labelled per row')
+      assert.ok(text.includes('löschen"'), 'delete action should be labelled per row')
+    })
+
+    it('keeps the actions column out of the visible header and reveals it from the row', async () => {
+      await insertList('Hover Row', 'test-admin-hover-' + Date.now())
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(
+        !text.includes('>Aktionen<'),
+        'the actions gutter must not paint a visible column header',
+      )
+      assert.ok(
+        text.includes('aria-label="Aktionen"'),
+        'the column should still expose an accessible header',
+      )
+      assert.ok(
+        text.includes('data-lists-row-actions'),
+        'the row action cluster must be the hover/focus target',
+      )
+      assert.ok(
+        text.includes('aria-label="Zeilenaktionen"'),
+        'the action cluster should be grouped for assistive tech',
+      )
     })
 
     it('filters to empty lists with status=empty', async () => {
@@ -469,6 +659,33 @@ describe('Admin Lists Controller', () => {
       assert.equal(response.status, 302)
       let err = await readFlash()
       assert.ok(err?.includes('Ungültige Listen-ID'), 'flash error should be set')
+    })
+
+    it('steps back to the previous page when a delete empties the last page', async () => {
+      let token = 'test-admin-delete-page-' + Date.now()
+      let ids: number[] = []
+      for (let i = 0; i < 11; i++) {
+        ids.push(await insertList('Delete Page Row ' + i, token + '-' + i))
+      }
+
+      let body = gridBody(adminCsrfToken, { _offset: '10', _filter: token })
+      let response = await router.fetch(LISTS_URL + '/' + ids[0], {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(
+        location.includes('offset=0'),
+        'the redirect should step back to the remaining page',
+      )
+      assert.ok(location.includes('filter=' + token), 'the active filter should survive the delete')
     })
   })
 })

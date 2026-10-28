@@ -13,6 +13,9 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
+import { EditorAutofocus } from './editor-autofocus.browser.tsx'
+import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
+import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
@@ -30,6 +33,8 @@ import {
 } from './mixins/admin-urls.ts'
 import { PageSizeControl } from './page-size-control.tsx'
 import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
+import { formatCompactDateDE } from '../utils/date-utils.ts'
+import { paginationWindow } from '../utils/pagination-window.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 const ADMIN_BASE = routes.admin.lists.index.href()
@@ -38,6 +43,8 @@ interface AdminListsPageProps {
   lists: ListRow[]
   offset: number
   hasMore: boolean
+  /** Total rows matching the active filter (not just the current page). */
+  total: number
   prevOffset: number
   nextOffset: number
   sortColumn: string
@@ -81,6 +88,9 @@ const titleCellStyle = css({
   flexDirection: 'column',
   gap: '2px',
   minWidth: 0,
+  // In the phone card layout the cell is a flex row (label ::before + value);
+  // let the title block take the remaining width instead of hugging content.
+  flex: '1 1 auto',
 })
 
 const titleTextStyle = css({
@@ -89,6 +99,15 @@ const titleTextStyle = css({
   whiteSpace: 'nowrap',
   fontWeight: theme.fontWeight.medium,
   color: theme.colors.text.primary,
+  textDecoration: 'none',
+  '&:hover': {
+    color: theme.colors.action.primary.background,
+    textDecoration: 'underline',
+  },
+  '&:focus-visible': {
+    outline: '2px solid ' + theme.colors.focus.ring,
+    outlineOffset: '2px',
+  },
 })
 
 const descLinkStyle = css({
@@ -112,6 +131,13 @@ const descEmptyStyle = css({
   fontSize: theme.fontSize.xs,
 })
 
+/** Legacy rows can have an empty title column; the grid still needs a
+ *  clickable, identifiable label for the edit action and delete confirmation. */
+const noTitleStyle = css({
+  color: theme.colors.text.muted,
+  fontStyle: 'italic',
+})
+
 /** Owner email in the Besitzer column: a quiet link that drills into the
  *  filtered users grid without competing with the title for attention. */
 const ownerLinkStyle = css({
@@ -123,24 +149,29 @@ const ownerLinkStyle = css({
   },
 })
 
-/** Owner context line in the edit panel header. */
-const panelOwnerStyle = css({
-  marginLeft: 'auto',
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-})
-
 /** Restores Titel/Vorschau breathing room after the Besitzer column raised the
  *  fixed-column total. The shared `table` mixin floors at 840px for a narrower
  *  colgroup, so this page needs its own floor. Keep this in sync with the
  *  widest colgroup (currently seven columns). `!important` because the two
  *  rules land in sibling `@layer rmx.*` sub-layers (see admin-table.ts
- *  `twoColumnGrid`). */
-const listsTableMinWidth = css({
-  minWidth: '1030px !important',
+ *  `twoColumnGrid`). The mobile override drops the floor so `mobileCards` can
+ *  turn rows into viewport-width cards instead of leaving the action column
+ *  behind a horizontal scrollbar. */
+const listsTableFullStyle = css({
+  minWidth: '880px !important',
+  // Cards below 1200px: the admin sidebar leaves less than the 880px floor,
+  // so keeping the table would hide Aktionen behind a horizontal scrollbar.
+  '@media (max-width: 1199px), (hover: none)': { minWidth: '0 !important' },
+})
+
+/**
+ * Floor while the inline editor shares the row. The focused grid drops ID,
+ * Vorschau and Aktualisiert, so the remaining columns fit beside the 340px
+ * panel and the row actions stay reachable instead of scrolling off-screen.
+ */
+const listsTableCompactStyle = css({
+  minWidth: '500px !important',
+  '@media (max-width: 1199px), (hover: none)': { minWidth: '0 !important' },
 })
 
 /** Quiet explanatory line under a form field. */
@@ -184,6 +215,8 @@ const previewMoreStyle = css({
   color: theme.colors.text.muted,
 })
 
+/** Expanded "Alle Elemente" list. Capped and scrollable: a long list must
+ *  not stretch its table row to the height of every element. */
 const detailsStyle = css({
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.secondary,
@@ -193,12 +226,39 @@ const detailsStyle = css({
   borderRadius: theme.radius.md,
   border: '1px solid ' + theme.colors.border.subtle,
   lineHeight: 1.6,
+  maxHeight: '10rem',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  overscrollBehavior: 'contain',
 })
 
 const detailsItemStyle = css({
   display: 'flex',
   alignItems: 'baseline',
   gap: '4px',
+  minWidth: 0,
+})
+
+/** Truncated element label in the expanded list; the full text is exposed
+ *  through a native tooltip because the preview column is narrow. */
+const detailsLabelStyle = css({
+  flex: '1 1 auto',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+})
+
+const detailsIndexStyle = css({
+  color: theme.colors.text.muted,
+  minWidth: '1.5em',
+  flexShrink: 0,
+})
+
+const detailsCheckStyle = css({
+  color: theme.colors.success.foreground,
+  fontWeight: theme.fontWeight.bold,
+  flexShrink: 0,
 })
 
 const summaryStyle = css({
@@ -209,10 +269,98 @@ const summaryStyle = css({
   marginTop: '2px',
 })
 
-const colOwnerWidth = css({ width: '190px' })
-const colItemsWidth = css({ width: '96px' })
-const colUpdatedWidth = css({ width: '150px' })
-const colActionsWidth = css({ width: '104px' })
+// Fixed widths are deliberately compact: the admin content column is 896px
+// wide, so the seven-column table (880px floor) must leave enough room for
+// Titel and Vorschau without pushing Aktionen behind a horizontal scrollbar.
+const colOwnerWidth = css({ width: '160px' })
+const colItemsWidth = css({ width: '84px' })
+const colUpdatedWidth = css({ width: '120px' })
+// Zero-width column: the hover action cluster is absolutely positioned over
+// the row's right edge, so it consumes no width. The space reclaimed from the
+// old action column goes to Titel (Preview stays a fixed, readable 200px).
+const colActionsWidth = css({ width: '0px' })
+
+/** Fixed preview width so the reclaimed action-column space grows Titel. */
+const colPreviewWidth = css({ width: '200px' })
+
+/**
+ * Resting state for the per-row action cluster (mirrors the /lists row
+ * treatment). It is hidden on pointer devices until the row is hovered or one
+ * of its buttons receives keyboard focus.
+ *
+ * Cards (and any touch-first device) have no hover affordance, so the cluster
+ * stays visible there and the card keeps its labelled "Aktionen" row.
+ */
+const rowActionsStyle = css({
+  position: 'absolute',
+  top: '50%',
+  right: theme.space.sm,
+  transform: 'translateY(-50%)',
+  opacity: 0,
+  pointerEvents: 'none',
+  '@media (max-width: 1199px), (hover: none)': {
+    position: 'static',
+    transform: 'none',
+    opacity: 1,
+    pointerEvents: 'auto',
+  },
+})
+
+/**
+ * Reveals the action cluster from the row, using the same CSS hover/focus
+ * contract as /lists. `:has(:focus-visible)` keeps a mouse click on a row
+ * button from pinning the cluster open after the pointer leaves.
+ */
+const rowRevealStyle = css({
+  '&:hover [data-lists-row-actions]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+  '&:has(:focus-visible) [data-lists-row-actions]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+  '&:has(:focus-visible)': {
+    outline: '2px solid ' + theme.colors.focus.ring,
+    outlineOffset: '-2px',
+  },
+  // The overlay sits over the last cell. Hiding the timestamp while the
+  // cluster is visible avoids half-covered digits peeking out beside the
+  // buttons; it returns as soon as the pointer/focus leaves the row.
+  '@media (min-width: 1200px) and (hover: hover)': {
+    '&:hover [data-lists-updated]': { opacity: 0 },
+    '&:has(:focus-visible) [data-lists-updated]': { opacity: 0 },
+  },
+})
+
+/**
+ * Zero-width action cell. The button cluster is absolutely positioned over the
+ * row's right edge, so it consumes no table width; the reclaimed space goes to
+ * the title column.
+ */
+const actionsCellStyle = css({
+  width: '0px',
+  padding: 0,
+  borderBottom: '1px solid ' + theme.colors.border.subtle,
+  whiteSpace: 'nowrap',
+  textAlign: 'right',
+  verticalAlign: 'middle',
+  position: 'relative',
+  // Cards put the cluster back in flow; there is no row edge to overlay.
+  '@media (max-width: 1199px), (hover: none)': {
+    width: 'auto',
+    position: 'static',
+    padding: 0,
+  },
+})
+
+/** The action header is a zero-width accessibility label, not a visible cell. */
+const actionsHeaderStyle = css({
+  width: '0px',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+})
 
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
@@ -233,16 +381,6 @@ const itemCountBadgeDoneStyle = css({
   color: theme.colors.success.foreground,
 })
 
-const pageBadgeStyle = css({
-  padding: theme.space.xs + ' ' + theme.space.sm,
-  borderRadius: theme.radius.full,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
-  whiteSpace: 'nowrap',
-})
-
 const emptyStateStyle = css({
   textAlign: 'center',
   padding: theme.space.xxl,
@@ -253,6 +391,305 @@ const emptyStateStyle = css({
   gap: theme.space.md,
 })
 
+const emptyActionsStyle = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  gap: theme.space.sm,
+})
+
+/** Screen-reader-only table caption. */
+const srOnlyStyle = css({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+  border: 0,
+})
+
+const descriptionStyle = css({
+  margin: `0 0 ${theme.space.md}`,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.sm,
+  // Phones already spend their first screen on the toolbar; the explanatory
+  // line is supplementary and would push the first card further down.
+  '@media (max-width: 768px)': { display: 'none' },
+})
+
+/** Groups the preview chips and the "Alle N Elemente" disclosure so the phone
+ *  card layout treats them as one value instead of two side-by-side children. */
+const previewCellStyle = css({
+  minWidth: 0,
+  maxWidth: '100%',
+  '@media (max-width: 768px)': { flex: '1 1 auto' },
+})
+
+/** Two-line date/time stack: the full "26.10.2026, 19:44" no longer fits the
+ *  150px column and used to be clipped to "26.10.2026, 19…". */
+const dateStackStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  lineHeight: theme.lineHeight.tight,
+})
+
+const dateMainStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  fontVariantNumeric: 'tabular-nums',
+  whiteSpace: 'nowrap',
+})
+
+const dateTimeStyle = css({
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.text.muted,
+  fontVariantNumeric: 'tabular-nums',
+  whiteSpace: 'nowrap',
+})
+
+/**
+ * Phones and tablets: grow the page with its cards instead of clipping them
+ * into the bounded desktop scroller, so the whole result set is reachable with
+ * one scroll gesture (mirrors the messages/uploads grids).
+ */
+const listsGridWrapStyle = css({
+  '@media (max-width: 1199px), (hover: none)': {
+    flex: '0 0 auto',
+    overflowY: 'visible',
+  },
+})
+
+/**
+ * Stacked-card layout for narrow viewports.
+ *
+ * The shared `table.mobileCards` breakpoint (768px) is too narrow for this
+ * seven-column grid: with the admin sidebar visible, the content column stays
+ * below the table's 880px floor until roughly 1200px, which left the row
+ * actions behind a horizontal scrollbar on tablets and small laptops. The
+ * rules below are the shared card layout at the wider breakpoint; keep them in
+ * sync with `table.mobileCards` in mixins/admin-table.ts.
+ */
+const listsCardsStyle = css({
+  '@media (max-width: 1199px), (hover: none)': {
+    '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
+    '& thead': { display: 'none' },
+    '& tbody': { display: 'block' },
+    '& tbody tr': {
+      display: 'grid',
+      gridTemplateColumns: '1fr',
+      gap: theme.space.xs,
+      padding: theme.space.sm,
+      marginBottom: theme.space.sm,
+      border: `1px solid ${theme.colors.border.default}`,
+      borderRadius: theme.radius.md,
+      background: theme.surface.lvl1,
+    },
+    '& tbody td': {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: theme.space.sm,
+      padding: `${theme.space.xs} 0`,
+      borderBottom: 'none',
+      overflow: 'visible',
+      textOverflow: 'clip',
+      whiteSpace: 'normal',
+      '&::before': {
+        content: 'attr(data-label)',
+        flexShrink: 0,
+        fontWeight: theme.fontWeight.semibold,
+        fontSize: theme.fontSize.xs,
+        color: theme.colors.text.secondary,
+      },
+    },
+  },
+})
+
+/**
+ * Sort toggles for phones: `table.mobileCards` hides the header row, so the
+ * desktop sort links would otherwise disappear with it.
+ */
+const mobileSortStyle = css({
+  display: 'none',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: theme.space.xs,
+  width: '100%',
+  '@media (max-width: 1199px), (hover: none)': { display: 'flex' },
+})
+
+const mobileSortLabelStyle = css({
+  fontSize: theme.fontSize.xxs,
+  fontWeight: theme.fontWeight.semibold,
+  letterSpacing: theme.letterSpacing.meta,
+  textTransform: 'uppercase',
+  color: theme.colors.text.muted,
+})
+
+/** Footer stacks its info and controls on narrow viewports instead of wrapping
+ *  mid-control. */
+const paginationBarStyle = css({
+  gap: theme.space.sm,
+  '@media (max-width: 900px)': {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+})
+
+const paginationControlsStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: theme.space.sm,
+  marginLeft: 'auto',
+  '@media (max-width: 900px)': {
+    marginLeft: 0,
+    justifyContent: 'space-between',
+  },
+})
+
+const pageNavStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '0.25rem',
+})
+
+const pageNumbersStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.25rem',
+})
+
+const pageCurrentStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '1.75rem',
+  height: '1.75rem',
+  padding: '0 0.375rem',
+  borderRadius: theme.radius.md,
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const pageNumberLinkStyle = css({
+  minWidth: '1.75rem',
+  justifyContent: 'center',
+})
+
+const pageGapStyle = css({
+  padding: '0 0.125rem',
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xs,
+})
+
+/** Close affordance in the editor header; the action row's Abbrechen stays the
+ *  primary escape hatch, but a user who only sees the header should not have to
+ *  hunt for it. */
+const panelCloseStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '1.75rem',
+  height: '1.75rem',
+  marginLeft: 'auto',
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.muted,
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:focus-visible': {
+    outline: '2px solid ' + theme.colors.focus.ring,
+    outlineOffset: '1px',
+  },
+})
+
+/**
+ * Narrow viewports stack the editor under the grid, which would leave the open
+ * panel below every row. Pull it above the grid so opening a row shows the
+ * editor immediately (the focused row stays highlighted below).
+ */
+const panelOrderStyle = css({
+  '@media (max-width: 1100px)': {
+    order: -1,
+  },
+})
+
+/** ID/Elemente/Besitzer/Aktualisiert summary under the editor header. The
+ *  focused grid hides those columns while the panel is open, so the panel
+ *  carries the context instead. */
+const panelMetaStyle = css({
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: `${theme.space.xs} ${theme.space.md}`,
+  padding: `${theme.space.sm} ${theme.space.lg}`,
+  borderBottom: '1px solid ' + theme.colors.border.subtle,
+  background: theme.surface.lvl0,
+})
+
+const panelMetaItemStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1px',
+  minWidth: 0,
+})
+
+const panelMetaLabelStyle = css({
+  fontSize: theme.fontSize.xxxs,
+  fontWeight: theme.fontWeight.semibold,
+  letterSpacing: theme.letterSpacing.meta,
+  textTransform: 'uppercase',
+  color: theme.colors.text.muted,
+})
+
+const panelMetaValueStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+})
+
+/** Secondary line under a meta value (e.g. the done count). */
+const panelMetaExtraStyle = css({
+  fontSize: theme.fontSize.xxxs,
+  color: theme.colors.text.muted,
+  whiteSpace: 'nowrap',
+})
+
+const SORT_OPTIONS = [
+  { field: 'title', label: 'Titel' },
+  { field: 'owner', label: 'Besitzer' },
+  { field: 'items', label: 'Elemente' },
+  { field: 'updated_at', label: 'Aktualisiert' },
+] as const
+
+/** A list can legally have an empty title column; give the row an actionable,
+ *  identifiable label instead of rendering a blank click target. */
+function listDisplayTitle(title: string | null | undefined): string {
+  let trimmed = title?.trim() ?? ''
+  return trimmed || 'Ohne Titel'
+}
+
+function formatClockTime(ts: number | null | undefined): string {
+  if (ts == null) return ''
+  return new Date(Number(ts)).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function itemCountLabel(count: number): string {
+  return count === 1 ? '1 Element' : count + ' Elemente'
+}
+
 // Component
 
 export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
@@ -261,6 +698,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       lists,
       offset,
       hasMore,
+      total,
       prevOffset,
       nextOffset,
       sortColumn,
@@ -276,24 +714,43 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       fieldErrors,
       formError,
     } = handle.props
-    let pageStart = lists.length > 0 ? offset + 1 : 0
-    let pageEnd = offset + lists.length
     let hasFormPanel = Boolean(editRow || creating)
     let activeItemFilter = isListItemFilter(status) ? status : undefined
-    let currentPage = Math.floor(offset / pageSize) + 1
+    let totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1
+    let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1
+    // A stale offset (old bookmark, concurrent delete, filter change) can sit
+    // past the end of the result set; never print a page number that does not
+    // exist and never tell the user the whole collection is empty.
+    let displayedPage = Math.min(currentPage, totalPages)
+    let stalePage = lists.length === 0 && offset > 0
+    let pageStart = offset + 1
+    let pageEnd = lists.length > 0 ? offset + lists.length : offset
+    let noun = total === 1 ? 'Liste' : 'Listen'
+    let hasFilters = Boolean(filter || activeItemFilter)
+    let resetFilterHref = ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, 0)
+
+    let pageInfo =
+      total === 0
+        ? 'Keine Listen'
+        : stalePage
+          ? `Seite ${displayedPage} von ${totalPages} · insgesamt ${total} ${noun}`
+          : `${pageStart}–${pageEnd} von ${total} ${noun}` +
+            (totalPages > 1 ? ` · Seite ${currentPage} von ${totalPages}` : '')
 
     // Name the active filter so the empty state explains why nothing matched.
     let emptyMessage: string
-    if (!filter && !activeItemFilter) {
-      emptyMessage = 'Noch keine Listen gespeichert.'
-    } else if (!filter && activeItemFilter === 'empty') {
-      emptyMessage = 'Keine leeren Listen gefunden.'
-    } else if (!filter && activeItemFilter === 'items') {
-      emptyMessage = 'Keine Listen mit Elementen gefunden.'
-    } else if (filter && !activeItemFilter) {
+    if (stalePage) {
+      emptyMessage = 'Keine Listen auf dieser Seite.'
+    } else if (filter && activeItemFilter) {
+      emptyMessage = 'Keine Listen für diese Suche und diesen Filter gefunden.'
+    } else if (filter) {
       emptyMessage = 'Keine Listen für diese Suche gefunden.'
+    } else if (activeItemFilter === 'empty') {
+      emptyMessage = 'Keine leeren Listen gefunden.'
+    } else if (activeItemFilter === 'items') {
+      emptyMessage = 'Keine Listen mit Elementen gefunden.'
     } else {
-      emptyMessage = 'Keine Listen für diese Filter gefunden.'
+      emptyMessage = 'Noch keine Listen gespeichert.'
     }
 
     let gridSection = (
@@ -303,11 +760,15 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         <form
           method="GET"
           action={routes.admin.lists.index.href()}
+          role="search"
+          aria-label="Listen durchsuchen"
           data-rmx-target={getSelfFrameTarget()}
           data-rmx-history="replace"
+          data-rmx-reset-focus="manual"
+          data-lists-filter
           mix={table.filterBar}
         >
-          <div mix={table.filterGroup}>
+          <div mix={table.filterGroup} role="group" aria-label="Nach Elementanzahl filtern">
             {/* Item-count tabs always reset to page 1: keeping a stale offset
                 while the result set changes can land on an empty page. They
                 preserve the text search. */}
@@ -317,6 +778,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
+              aria-current={!activeItemFilter ? 'true' : undefined}
               mix={[table.filterTab, !activeItemFilter ? table.filterTabActive : undefined]}
             >
               Alle
@@ -329,6 +791,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
+              aria-current={activeItemFilter === 'items' ? 'true' : undefined}
               mix={[
                 table.filterTab,
                 activeItemFilter === 'items' ? table.filterTabActive : undefined,
@@ -344,6 +807,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
+              aria-current={activeItemFilter === 'empty' ? 'true' : undefined}
               mix={[
                 table.filterTab,
                 activeItemFilter === 'empty' ? table.filterTabActive : undefined,
@@ -358,21 +822,53 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           <input type="hidden" name="order" value={sortDirection} />
           {activeItemFilter ? <input type="hidden" name="status" value={activeItemFilter} /> : null}
           <input
-            type="text"
+            type="search"
             name="filter"
-            placeholder="Suche nach Titel, Beschreibung, Element oder Besitzer…"
+            placeholder="Titel, Element, Besitzer…"
             defaultValue={filter ?? ''}
             aria-label="Nach Titel, Beschreibung, Element oder Besitzer suchen"
+            autoComplete="off"
+            enterKeyHint="search"
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
-          {filter || activeItemFilter ? (
-            <a href={routes.admin.lists.index.href()} mix={table.clearLink}>
+          {hasFilters ? (
+            <a href={resetFilterHref} data-rmx-target={getSelfFrameTarget()} mix={table.clearLink}>
               Zurücksetzen
             </a>
           ) : null}
+          <span mix={mobileSortStyle} data-mobile-sort>
+            <span mix={mobileSortLabelStyle}>Sortieren:</span>
+            {SORT_OPTIONS.map((option) => {
+              let active = sortColumn === option.field
+              return (
+                <a
+                  key={option.field}
+                  href={buildSortUrl(
+                    ADMIN_BASE,
+                    option.field,
+                    sortColumn,
+                    sortDirection,
+                    offset,
+                    filter,
+                    undefined,
+                    activeItemFilter,
+                  )}
+                  data-rmx-target={getSelfFrameTarget()}
+                  aria-label={'Nach ' + option.label + ' sortieren'}
+                  aria-current={active ? 'true' : undefined}
+                  mix={[table.filterTab, active ? table.filterTabActive : undefined]}
+                >
+                  {option.label}
+                  <span aria-hidden="true">
+                    {sortArrow(option.field, sortColumn, sortDirection)}
+                  </span>
+                </a>
+              )
+            })}
+          </span>
           <span mix={table.spacer} />
           <a
             href={buildPaginationUrl(
@@ -405,64 +901,114 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             <Glyph name="add" width={14} height={14} /> Neu anlegen
           </a>
         </form>
+        {/* Debounced live search: typing re-runs the GET form instead of
+            waiting for the Suchen button (which remains the no-JS path). */}
+        <FilterAutoSubmit formSelector="form[data-lists-filter]" />
 
-        <div mix={[table.wrap, dataGridWrap]} data-grid-scroll="true" data-lists-table="true">
+        <div
+          mix={[table.wrap, listsCardsStyle, dataGridWrap, listsGridWrapStyle]}
+          data-grid-scroll="true"
+          data-lists-table="true"
+        >
           {lists.length === 0 ? (
             <div mix={emptyStateStyle}>
               <span>{emptyMessage}</span>
-              {!hasFormPanel && (
-                <a
-                  href={buildCreateUrl(
-                    ADMIN_BASE,
-                    offset,
-                    sortColumn,
-                    sortDirection,
-                    filter,
-                    undefined,
-                    activeItemFilter,
-                  )}
-                  data-rmx-target={getSelfFrameTarget()}
-                  mix={buttonLink({ tone: 'primary' })}
-                >
-                  <Glyph name="add" width={14} height={14} /> Neu anlegen
-                </a>
-              )}
+              <div mix={emptyActionsStyle}>
+                {stalePage ? (
+                  <a
+                    href={
+                      ADMIN_BASE +
+                      '?' +
+                      buildFilterParams(
+                        filter ?? '',
+                        sortColumn,
+                        sortDirection,
+                        0,
+                        undefined,
+                        activeItemFilter,
+                      )
+                    }
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+                  >
+                    Zur ersten Seite
+                  </a>
+                ) : null}
+                {hasFilters ? (
+                  <a
+                    href={resetFilterHref}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+                  >
+                    Filter zurücksetzen
+                  </a>
+                ) : null}
+                {!hasFormPanel ? (
+                  <a
+                    href={buildCreateUrl(
+                      ADMIN_BASE,
+                      offset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      undefined,
+                      activeItemFilter,
+                    )}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
+                  >
+                    <Glyph name="add" width={14} height={14} /> Neu anlegen
+                  </a>
+                ) : null}
+              </div>
             </div>
           ) : (
-            <table mix={[table.table, listsTableMinWidth]}>
+            <table mix={[table.table, hasFormPanel ? listsTableCompactStyle : listsTableFullStyle]}>
+              <caption mix={srOnlyStyle}>Gespeicherte Listen</caption>
               <colgroup>
-                <col mix={css({ width: '56px' })} />
+                {!hasFormPanel ? <col mix={css({ width: '48px' })} /> : null}
                 <col />
                 <col mix={colOwnerWidth} />
                 <col mix={colItemsWidth} />
-                <col />
-                <col mix={colUpdatedWidth} />
+                {!hasFormPanel ? <col mix={colPreviewWidth} /> : null}
+                {!hasFormPanel ? <col mix={colUpdatedWidth} /> : null}
                 <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable} aria-sort={sortRule('id', sortColumn, sortDirection)}>
-                    <a
-                      href={buildSortUrl(
-                        ADMIN_BASE,
-                        'id',
-                        sortColumn,
-                        sortDirection,
-                        offset,
-                        filter,
-                        undefined,
-                        activeItemFilter,
-                      )}
-                      data-rmx-target={getSelfFrameTarget()}
-                      mix={table.sortLink}
+                  {!hasFormPanel ? (
+                    <th
+                      scope="col"
+                      mix={table.thSortable}
+                      aria-sort={sortRule('id', sortColumn, sortDirection)}
                     >
-                      ID
-                      <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
+                      <a
+                        href={buildSortUrl(
+                          ADMIN_BASE,
+                          'id',
+                          sortColumn,
+                          sortDirection,
+                          offset,
+                          filter,
+                          undefined,
+                          activeItemFilter,
+                        )}
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={table.sortLink}
+                        title="Nach ID sortieren"
+                      >
+                        ID
+                        <span
+                          aria-hidden="true"
+                          mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        >
+                          {sortArrow('id', sortColumn, sortDirection)}
+                        </span>
+                      </a>
+                    </th>
+                  ) : null}
                   <th
+                    scope="col"
                     mix={table.thSortable}
                     aria-sort={sortRule('title', sortColumn, sortDirection)}
                   >
@@ -479,14 +1025,19 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
+                      title="Nach Titel sortieren"
                     >
                       Titel
-                      <span mix={'title' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        aria-hidden="true"
+                        mix={'title' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('title', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th
+                    scope="col"
                     mix={table.thSortable}
                     aria-sort={sortRule('owner', sortColumn, sortDirection)}
                   >
@@ -503,23 +1054,26 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
+                      title="Nach Besitzer sortieren"
                     >
                       Besitzer
-                      <span mix={'owner' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        aria-hidden="true"
+                        mix={'owner' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('owner', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Elemente</th>
-                  <th mix={table.th}>Vorschau</th>
                   <th
+                    scope="col"
                     mix={table.thSortable}
-                    aria-sort={sortRule('updated_at', sortColumn, sortDirection)}
+                    aria-sort={sortRule('items', sortColumn, sortDirection)}
                   >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
-                        'updated_at',
+                        'items',
                         sortColumn,
                         sortDirection,
                         offset,
@@ -529,22 +1083,78 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
+                      title="Nach Elementanzahl sortieren"
                     >
-                      Aktualisiert
+                      Elemente
                       <span
-                        mix={'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        aria-hidden="true"
+                        mix={'items' === sortColumn ? table.sortArrowActive : table.sortArrow}
                       >
-                        {sortArrow('updated_at', sortColumn, sortDirection)}
+                        {sortArrow('items', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Aktionen</th>
+                  {!hasFormPanel ? (
+                    <th scope="col" mix={table.th}>
+                      Vorschau
+                    </th>
+                  ) : null}
+                  {!hasFormPanel ? (
+                    <th
+                      scope="col"
+                      mix={table.thSortable}
+                      aria-sort={sortRule('updated_at', sortColumn, sortDirection)}
+                    >
+                      <a
+                        href={buildSortUrl(
+                          ADMIN_BASE,
+                          'updated_at',
+                          sortColumn,
+                          sortDirection,
+                          offset,
+                          filter,
+                          undefined,
+                          activeItemFilter,
+                        )}
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={table.sortLink}
+                        title="Nach Aktualisierung sortieren"
+                      >
+                        Aktualisiert
+                        <span
+                          aria-hidden="true"
+                          mix={
+                            'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow
+                          }
+                        >
+                          {sortArrow('updated_at', sortColumn, sortDirection)}
+                        </span>
+                      </a>
+                    </th>
+                  ) : null}
+                  {/* Actions live in a hover gutter, not a visible column.
+                      Keep an accessible header for the column without painting
+                      an "Aktionen" label above it. */}
+                  <th scope="col" aria-label="Aktionen" mix={actionsHeaderStyle}></th>
                 </tr>
               </thead>
               <tbody>
                 {lists.map((row) => {
                   let items = Array.isArray(row.list) ? row.list : []
                   let doneCount = items.filter((item) => item.done).length
+                  let displayTitle = listDisplayTitle(row.title)
+                  let updatedLabel = formatTimestamp(row.updated_at)
+                  let itemBadgeLabel =
+                    items.length === 0
+                      ? 'Keine Elemente'
+                      : doneCount > 0
+                        ? doneCount +
+                          ' von ' +
+                          items.length +
+                          (items.length === 1 ? ' Element erledigt' : ' Elementen erledigt')
+                        : items.length === 1
+                          ? '1 Element'
+                          : items.length + ' Elemente'
                   let editHref = buildEditUrl(
                     ADMIN_BASE,
                     row.id,
@@ -558,17 +1168,28 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   return (
                     <tr
                       key={row.id}
-                      mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                      mix={[
+                        table.row,
+                        editRow?.id === row.id ? table.editingRow : undefined,
+                        rowRevealStyle,
+                      ]}
                       data-row-id={row.id}
                     >
-                      <td mix={table.td} title={String(row.id)}>
-                        {row.id}
-                      </td>
-                      <td mix={table.td}>
+                      {!hasFormPanel ? (
+                        <td mix={table.td} data-label="ID" title={String(row.id)}>
+                          {row.id}
+                        </td>
+                      ) : null}
+                      <td mix={table.td} data-label="Titel">
                         <div mix={titleCellStyle}>
-                          <span mix={titleTextStyle} title={row.title}>
-                            {row.title}
-                          </span>
+                          <a
+                            href={editHref}
+                            data-rmx-target={getSelfFrameTarget()}
+                            mix={[titleTextStyle, row.title.trim() ? undefined : noTitleStyle]}
+                            title={displayTitle + ' bearbeiten'}
+                          >
+                            {displayTitle}
+                          </a>
                           {row.description ? (
                             <a
                               href={'/lists?load=' + row.id}
@@ -584,7 +1205,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           )}
                         </div>
                       </td>
-                      <td mix={table.td} title={row.owner_email ?? undefined}>
+                      <td mix={table.td} data-label="Besitzer" title={row.owner_email ?? undefined}>
                         {row.owner_email ? (
                           <a
                             // Not buildFilterParams: that helper also carries the
@@ -612,98 +1233,102 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <span mix={descEmptyStyle}>Kein Besitzer</span>
                         )}
                       </td>
-                      <td mix={table.td}>
+                      <td mix={table.td} data-label="Elemente">
                         <span
                           mix={
                             doneCount > 0
                               ? [itemCountBadgeStyle, itemCountBadgeDoneStyle]
                               : itemCountBadgeStyle
                           }
-                          title={
-                            items.length === 0
-                              ? 'Keine Elemente'
-                              : doneCount + ' von ' + items.length + ' Elementen erledigt'
-                          }
-                          aria-label={
-                            items.length === 0
-                              ? 'Keine Elemente'
-                              : doneCount + ' von ' + items.length + ' Elementen erledigt'
-                          }
+                          title={itemBadgeLabel}
+                          aria-label={itemBadgeLabel}
                         >
                           {doneCount > 0 ? doneCount + '/' + items.length : String(items.length)}
                         </span>
                       </td>
-                      <td mix={table.td}>
-                        {items.length === 0 ? (
-                          <span mix={descEmptyStyle}>–</span>
-                        ) : (
-                          <div mix={previewListStyle}>
-                            {items.slice(0, 3).map((item) => (
-                              <span
-                                key={item.id || item.label}
-                                mix={
-                                  item.done
-                                    ? [previewChipStyle, previewChipDoneStyle]
-                                    : previewChipStyle
-                                }
-                                title={item.label}
-                              >
-                                {item.done ? '✓ ' : ''}
-                                {item.label}
-                              </span>
-                            ))}
-                            {items.length > 3 ? (
-                              <span mix={previewMoreStyle}>+{items.length - 3} weitere</span>
-                            ) : null}
-                          </div>
-                        )}
-                        {items.length > 0 && (
-                          <details>
-                            <summary mix={summaryStyle}>Alle {items.length} Elemente</summary>
-                            <div mix={detailsStyle}>
-                              {items.map((item, idx) => (
-                                <div key={item.id || String(idx)} mix={detailsItemStyle}>
+                      {!hasFormPanel ? (
+                        <td mix={table.td} data-label="Vorschau">
+                          <div mix={previewCellStyle}>
+                            {items.length === 0 ? (
+                              <span mix={descEmptyStyle}>–</span>
+                            ) : (
+                              <div mix={previewListStyle}>
+                                {items.slice(0, 3).map((item) => (
                                   <span
-                                    mix={css({
-                                      color: theme.colors.text.muted,
-                                      minWidth: '1.5em',
-                                    })}
+                                    key={item.id || item.label}
+                                    mix={
+                                      item.done
+                                        ? [previewChipStyle, previewChipDoneStyle]
+                                        : previewChipStyle
+                                    }
+                                    title={item.label}
                                   >
-                                    {idx + 1}.
-                                  </span>
-                                  <span mix={item.done ? previewChipDoneStyle : undefined}>
+                                    {item.done ? '✓ ' : ''}
                                     {item.label}
                                   </span>
-                                  {item.done ? (
-                                    // success.background is the pale tile fill
-                                    // (#f0fdf4); success.foreground is the token
-                                    // intended for text (see admin-page.tsx).
-                                    <span
-                                      mix={css({
-                                        color: theme.colors.success.foreground,
-                                        fontWeight: theme.fontWeight.bold,
-                                      })}
-                                      title="Erledigt"
-                                    >
-                                      ✓
-                                    </span>
-                                  ) : null}
+                                ))}
+                                {items.length > 3 ? (
+                                  <span mix={previewMoreStyle}>+{items.length - 3} weitere</span>
+                                ) : null}
+                              </div>
+                            )}
+                            {items.length > 0 && (
+                              <details data-lists-items>
+                                <summary mix={summaryStyle}>
+                                  {items.length === 1
+                                    ? 'Element anzeigen'
+                                    : 'Alle ' + items.length + ' Elemente'}
+                                </summary>
+                                <div mix={detailsStyle} data-lists-items-panel>
+                                  {items.map((item, idx) => (
+                                    <div key={item.id || String(idx)} mix={detailsItemStyle}>
+                                      <span mix={detailsIndexStyle}>{idx + 1}.</span>
+                                      <span
+                                        mix={[
+                                          detailsLabelStyle,
+                                          item.done ? previewChipDoneStyle : undefined,
+                                        ]}
+                                        title={item.label}
+                                        data-list-item-label
+                                      >
+                                        {item.label}
+                                      </span>
+                                      {item.done ? (
+                                        // success.background is the pale tile fill
+                                        // (#f0fdf4); success.foreground is the token
+                                        // intended for text (see admin-page.tsx).
+                                        <span mix={detailsCheckStyle} title="Erledigt">
+                                          ✓
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                      </td>
-                      <td mix={table.td} title={formatTimestamp(row.updated_at)}>
-                        {formatTimestamp(row.updated_at)}
-                      </td>
-                      <td mix={table.actionCell}>
-                        <div mix={table.actionGroup}>
+                              </details>
+                            )}
+                          </div>
+                        </td>
+                      ) : null}
+                      {!hasFormPanel ? (
+                        <td mix={table.td} data-label="Aktualisiert" title={updatedLabel}>
+                          <span mix={dateStackStyle} data-lists-updated>
+                            <span mix={dateMainStyle}>{formatCompactDateDE(row.updated_at)}</span>
+                            <span mix={dateTimeStyle}>{formatClockTime(row.updated_at)}</span>
+                          </span>
+                        </td>
+                      ) : null}
+                      <td mix={actionsCellStyle} data-label="Aktionen">
+                        <div
+                          mix={[table.actionGroup, rowActionsStyle]}
+                          data-lists-row-actions
+                          role="group"
+                          aria-label="Zeilenaktionen"
+                        >
                           <a
                             href={'/lists?load=' + row.id}
                             target="_top"
                             data-rmx-document
-                            aria-label="In Listen öffnen"
+                            aria-label={'„' + displayTitle + '“ in Listen öffnen'}
                             title="In Listen öffnen"
                             mix={table.actionSeg}
                           >
@@ -712,7 +1337,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
-                            aria-label="Bearbeiten"
+                            aria-label={'„' + displayTitle + '“ bearbeiten'}
                             title="Bearbeiten"
                             mix={table.actionSeg}
                           >
@@ -723,7 +1348,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             action={routes.admin.lists.destroy.href({ id: row.id })}
                             data-delete-form={row.id}
                             data-confirm={
-                              'Liste "' + row.title + '" (' + items.length + ' Elemente) löschen?'
+                              'Liste „' +
+                              displayTitle +
+                              '“ (' +
+                              itemCountLabel(items.length) +
+                              ') löschen?'
                             }
                             data-rmx-target={getSelfFrameTarget()}
                             mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
@@ -739,7 +1368,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             />
                             <button
                               type="submit"
-                              aria-label="Löschen"
+                              aria-label={'„' + displayTitle + '“ löschen'}
                               title="Löschen"
                               mix={[table.actionSeg, table.actionSegDanger]}
                             >
@@ -756,63 +1385,90 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           )}
         </div>
 
-        {(offset > 0 || hasMore || lists.length > 0) && (
-          <div mix={table.pagination}>
-            <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
-              {lists.length > 0 ? (
-                <span mix={table.paginationInfo}>
-                  Zeige {pageStart}–{pageEnd}
-                </span>
-              ) : null}
-              <span mix={pageBadgeStyle} aria-label={'Seite ' + currentPage}>
-                Seite {currentPage}
-              </span>
+        {(total > 0 || stalePage) && (
+          <div mix={[table.pagination, paginationBarStyle]}>
+            {/* data-pagination-info is mirrored into the document shell's live
+                region (GridStatusAnnouncer), so a frame navigation announces
+                the new range/page to screen readers. */}
+            <span mix={table.paginationInfo} data-pagination-info>
+              {pageInfo}
             </span>
-            <div mix={table.flexGapSm}>
-              {offset > 0 ? (
-                <a
-                  href={buildPaginationUrl(
-                    ADMIN_BASE,
-                    prevOffset,
-                    sortColumn,
-                    sortDirection,
-                    filter,
-                    undefined,
-                    activeItemFilter,
-                  )}
-                  data-rmx-target={getSelfFrameTarget()}
-                  data-rmx-prefetch="intent"
-                  mix={table.pageLink}
-                >
-                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
-                </a>
-              ) : (
-                <span mix={table.pageLinkDisabled}>
-                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
-                </span>
-              )}
-              {hasMore ? (
-                <a
-                  href={buildPaginationUrl(
-                    ADMIN_BASE,
-                    nextOffset,
-                    sortColumn,
-                    sortDirection,
-                    filter,
-                    undefined,
-                    activeItemFilter,
-                  )}
-                  data-rmx-target={getSelfFrameTarget()}
-                  data-rmx-prefetch="intent"
-                  mix={table.pageLink}
-                >
-                  Weiter <Glyph name="chevronRight" width={14} height={14} />
-                </a>
-              ) : (
-                <span mix={table.pageLinkDisabled}>
-                  Weiter <Glyph name="chevronRight" width={14} height={14} />
-                </span>
-              )}
+            <div mix={paginationControlsStyle}>
+              <nav mix={pageNavStyle} aria-label="Seitennavigation">
+                {offset > 0 ? (
+                  <a
+                    href={buildPaginationUrl(
+                      ADMIN_BASE,
+                      stalePage ? Math.max(0, (totalPages - 1) * pageSize) : prevOffset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      undefined,
+                      activeItemFilter,
+                    )}
+                    data-rmx-target={getSelfFrameTarget()}
+                    data-rmx-prefetch="intent"
+                    aria-label="Vorherige Seite"
+                    mix={table.pageLink}
+                  >
+                    <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} />{' '}
+                    Zurück
+                  </a>
+                ) : null}
+                {totalPages > 1 && !stalePage ? (
+                  <span mix={pageNumbersStyle}>
+                    {paginationWindow(currentPage, totalPages).map((entry, index) =>
+                      entry === 'gap' ? (
+                        <span key={'gap-' + index} aria-hidden="true" mix={pageGapStyle}>
+                          …
+                        </span>
+                      ) : entry === currentPage ? (
+                        <span key={'page-' + entry} aria-current="page" mix={pageCurrentStyle}>
+                          {entry}
+                        </span>
+                      ) : (
+                        <a
+                          key={'page-' + entry}
+                          href={buildPaginationUrl(
+                            ADMIN_BASE,
+                            (entry - 1) * pageSize,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            undefined,
+                            activeItemFilter,
+                          )}
+                          data-rmx-target={getSelfFrameTarget()}
+                          data-rmx-prefetch="intent"
+                          aria-label={'Seite ' + entry}
+                          mix={[table.pageLink, pageNumberLinkStyle]}
+                        >
+                          {entry}
+                        </a>
+                      ),
+                    )}
+                  </span>
+                ) : null}
+                {hasMore ? (
+                  <a
+                    href={buildPaginationUrl(
+                      ADMIN_BASE,
+                      nextOffset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      undefined,
+                      activeItemFilter,
+                    )}
+                    data-rmx-target={getSelfFrameTarget()}
+                    data-rmx-prefetch="intent"
+                    aria-label="Nächste Seite"
+                    mix={table.pageLink}
+                  >
+                    Weiter <Glyph name="chevronRight" width={14} height={14} />
+                  </a>
+                ) : null}
+              </nav>
               <PageSizeControl
                 action={routes.admin.pageSize.href()}
                 pageKey={pageKey}
@@ -828,12 +1484,14 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
 
     if (editRow || creating) {
       return (
-        <div mix={[table.page, dataGridFill]}>
+        // The panel shares the row with the grid; a width cap would squeeze the
+        // grid back into a horizontal scroller and hide the row actions.
+        <div mix={[table.pageWide, dataGridFill]}>
           <h2 mix={table.title}>Gespeicherte Listen</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={table.stickyPanel}>
+            <div mix={[table.stickyPanel, panelOrderStyle]}>
               {editRow ? (
                 <AdminListsEditPanel
                   row={editRow}
@@ -865,6 +1523,10 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     return (
       <div mix={[table.page, dataGridFill]}>
         <h2 mix={table.title}>Gespeicherte Listen</h2>
+        <p mix={descriptionStyle}>
+          Alle Listen einsehen und Titel/Beschreibung bearbeiten. Die Elemente selbst werden im
+          Listen-Bereich gepflegt.
+        </p>
         {gridSection}
       </div>
     )
@@ -896,6 +1558,17 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
       formValues,
       fieldErrors,
     } = handle.props
+    let items = Array.isArray(row.list) ? row.list : []
+    let doneCount = items.filter((item) => item.done).length
+    let closeHref = buildCancelUrl(
+      routes.admin.lists.index.href(),
+      offset,
+      sort,
+      order,
+      filter,
+      undefined,
+      status,
+    )
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -907,17 +1580,50 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
+          <EditorAutofocus />
           <DirtyFormGuard />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Liste bearbeiten</span>
-              <span
-                mix={panelOwnerStyle}
-                title={row.owner_email ? 'Besitzer: ' + row.owner_email : 'Kein Besitzer'}
+              <a
+                href={closeHref}
+                data-rmx-target={getSelfFrameTarget()}
+                aria-label="Editor schließen"
+                title="Schließen"
+                mix={panelCloseStyle}
               >
-                {row.owner_email ?? 'Kein Besitzer'}
-              </span>
+                <Glyph name="close" width={14} height={14} />
+              </a>
+            </div>
+
+            {/* The focused grid drops ID, Elemente, Besitzer and Aktualisiert
+                while the panel is open, so repeat that context here. */}
+            <div mix={panelMetaStyle}>
+              <div mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>ID</span>
+                <span mix={panelMetaValueStyle}>#{row.id}</span>
+              </div>
+              <div mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>Elemente</span>
+                <span mix={panelMetaValueStyle}>
+                  {items.length === 1 ? '1 Element' : items.length + ' Elemente'}
+                </span>
+                {doneCount > 0 ? <span mix={panelMetaExtraStyle}>{doneCount} erledigt</span> : null}
+              </div>
+              <div mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>Besitzer</span>
+                <span mix={panelMetaValueStyle} title={row.owner_email ?? 'Kein Besitzer'}>
+                  {row.owner_email ?? 'Kein Besitzer'}
+                </span>
+              </div>
+              <div mix={panelMetaItemStyle}>
+                <span mix={panelMetaLabelStyle}>Aktualisiert</span>
+                <span mix={panelMetaValueStyle} title={formatTimestamp(row.updated_at)}>
+                  {formatTimestamp(row.updated_at)}
+                </span>
+              </div>
             </div>
 
             <div mix={table.panelBody}>
@@ -935,9 +1641,17 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
                     fieldErrors?.title ? inputErrorStyle : null,
                   ].filter(Boolean)}
                   value={formValues?.title ?? row.title ?? ''}
+                  autofocus
+                  data-editor-autofocus-field
+                  aria-invalid={fieldErrors?.title ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.title ? 'al-title-error' : undefined}
                   required
                 />
-                {fieldErrors?.title ? <div mix={fieldErrorStyle}>{fieldErrors.title}</div> : null}
+                {fieldErrors?.title ? (
+                  <div id="al-title-error" mix={fieldErrorStyle}>
+                    {fieldErrors.title}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -954,24 +1668,20 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
                     fieldErrors?.description ? inputErrorStyle : null,
                   ].filter(Boolean)}
                   value={formValues?.description ?? row.description ?? ''}
+                  aria-invalid={fieldErrors?.description ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.description ? 'al-description-error' : undefined}
                 />
                 {fieldErrors?.description ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.description}</div>
+                  <div id="al-description-error" mix={fieldErrorStyle}>
+                    {fieldErrors.description}
+                  </div>
                 ) : null}
               </div>
 
               <div mix={table.actions}>
                 <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
-                  href={buildCancelUrl(
-                    routes.admin.lists.index.href(),
-                    offset,
-                    sort,
-                    order,
-                    filter,
-                    undefined,
-                    status,
-                  )}
+                  href={closeHref}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={[
                     table.spacer,
@@ -1014,6 +1724,15 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
       formValues,
       fieldErrors,
     } = handle.props
+    let closeHref = buildCancelUrl(
+      routes.admin.lists.index.href(),
+      offset,
+      sort,
+      order,
+      filter,
+      undefined,
+      status,
+    )
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -1025,11 +1744,22 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
+          <EditorAutofocus />
           <DirtyFormGuard />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Neue Liste</span>
+              <a
+                href={closeHref}
+                data-rmx-target={getSelfFrameTarget()}
+                aria-label="Editor schließen"
+                title="Schließen"
+                mix={panelCloseStyle}
+              >
+                <Glyph name="close" width={14} height={14} />
+              </a>
             </div>
 
             <div mix={table.panelBody}>
@@ -1047,9 +1777,17 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
                     fieldErrors?.title ? inputErrorStyle : null,
                   ].filter(Boolean)}
                   value={formValues?.title ?? ''}
+                  autofocus
+                  data-editor-autofocus-field
+                  aria-invalid={fieldErrors?.title ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.title ? 'al-title-c-error' : undefined}
                   required
                 />
-                {fieldErrors?.title ? <div mix={fieldErrorStyle}>{fieldErrors.title}</div> : null}
+                {fieldErrors?.title ? (
+                  <div id="al-title-c-error" mix={fieldErrorStyle}>
+                    {fieldErrors.title}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -1066,9 +1804,13 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
                     fieldErrors?.description ? inputErrorStyle : null,
                   ].filter(Boolean)}
                   value={formValues?.description ?? ''}
+                  aria-invalid={fieldErrors?.description ? 'true' : undefined}
+                  aria-describedby={fieldErrors?.description ? 'al-description-c-error' : undefined}
                 />
                 {fieldErrors?.description ? (
-                  <div mix={fieldErrorStyle}>{fieldErrors.description}</div>
+                  <div id="al-description-c-error" mix={fieldErrorStyle}>
+                    {fieldErrors.description}
+                  </div>
                 ) : null}
               </div>
 
@@ -1077,15 +1819,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
               <div mix={table.actions}>
                 <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
-                  href={buildCancelUrl(
-                    routes.admin.lists.index.href(),
-                    offset,
-                    sort,
-                    order,
-                    filter,
-                    undefined,
-                    status,
-                  )}
+                  href={closeHref}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={[
                     table.spacer,

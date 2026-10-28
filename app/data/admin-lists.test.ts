@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from '../../test/pool.ts'
-import { searchLists } from './admin-lists.ts'
+import { countLists, listsSearchPattern, searchLists } from './admin-lists.ts'
 
 async function seedUserId(email: string): Promise<number> {
   let result = await pool.query('SELECT id FROM users WHERE email = $1', [email])
@@ -189,6 +189,32 @@ describe('admin-lists', () => {
     )
   })
 
+  it('item filters and item-count sort tolerate malformed payloads', async () => {
+    let timestamp = Date.now()
+    await pool.query(
+      `INSERT INTO lists (description, list, created_at, updated_at)
+       VALUES ('test-admin-malformed-object', '{"nope":true}'::jsonb, $1, $1),
+              ('test-admin-malformed-array', '[{"id":"a","label":"Widget"}]'::jsonb, $1, $1)`,
+      [timestamp],
+    )
+
+    let empty = await searchLists(db, '%test-admin-malformed%', 10, 0, 'items', 'desc', 'empty')
+    assert.equal(empty.length, 1, 'an object payload should count as empty, not throw')
+    assert.equal(empty[0]?.description, 'test-admin-malformed-object')
+
+    let withItems = await searchLists(db, '%test-admin-malformed%', 10, 0, 'items', 'desc', 'items')
+    assert.equal(withItems.length, 1, 'only the array payload should have items')
+    assert.equal(withItems[0]?.description, 'test-admin-malformed-array')
+    assert.equal(await countLists(db, '%test-admin-malformed%', 'empty'), 1)
+
+    // A label search reaches the EXISTS array scan for the object row too.
+    let labelMatches = await searchLists(db, '%Widget%', 50, 0)
+    assert.ok(
+      labelMatches.some((row) => row.description === 'test-admin-malformed-array'),
+      'label search should still find the well-formed array row',
+    )
+  })
+
   it('searchLists sorts unowned rows last when ordering by owner', async () => {
     let timestamp = Date.now()
     let adminId = await seedUserId('admin@newapp.com')
@@ -207,5 +233,38 @@ describe('admin-lists', () => {
         `unowned rows should sort last in ${direction} order`,
       )
     }
+  })
+
+  it('countLists matches the same rows and item filter as searchLists', async () => {
+    let token = 'test-admin-count-data-' + Date.now()
+    let timestamp = Date.now()
+    await pool.query(
+      `INSERT INTO lists (description, list, created_at, updated_at)
+       VALUES ($1, '[]'::jsonb, $3, $3),
+              ($2, $4::jsonb, $3, $3)`,
+      [
+        token + '-empty',
+        token + '-filled',
+        timestamp,
+        JSON.stringify([{ id: '1', label: 'Widget' }]),
+      ],
+    )
+
+    let pattern = listsSearchPattern(token)
+    assert.equal(await countLists(db, pattern), 2, 'count should mirror the unfiltered search')
+    assert.equal(await countLists(db, pattern, 'empty'), 1, 'empty filter should count one row')
+    assert.equal(await countLists(db, pattern, 'items'), 1, 'items filter should count one row')
+    assert.equal(
+      await countLists(db, listsSearchPattern('zzzznotfoundzzzz')),
+      0,
+      'a non-matching search should count zero',
+    )
+  })
+
+  it('listsSearchPattern escapes LIKE wildcards and clamps the filter', () => {
+    assert.equal(listsSearchPattern('50%_off'), '%50\\%\\_off%')
+    assert.equal(listsSearchPattern(''), '%%')
+    assert.equal(listsSearchPattern(undefined), '%%')
+    assert.equal(listsSearchPattern('x'.repeat(250)), '%' + 'x'.repeat(200) + '%')
   })
 })
