@@ -48,6 +48,17 @@ Adopt per grid only when the table actually overflows and the covered cell is di
 3. **`CSS.escape` is browser-only.** A Playwright test that builds `[data-row-id="…"]` in Node cannot call it; escape `"` and `\` with a small helper.
 4. `:focus-within` pins the cluster open after a pointer click; gate on `:has(:focus-visible)` (see `hover-reveal.md`).
 
+## Measured fit (2026-10-28)
+
+The two remaining 7-column grids were measured before adopting the overlay (Playwright, Chromium, seeded rows, wrap `scrollWidth - clientWidth`, action-`th` width, trailing-cell gap). Both keep the visible action column — the overlay is not adopted:
+
+| Grid | Columns | Actions | Trailing | 1440 / 1280 | 1100 |
+| --- | --- | --- | --- | --- | --- |
+| `/admin/clients` | 7 | 120px | Registriert | wrap 896, overflow 0 | wrap 796 vs table 840 → 44px scroll; action cell 28px past the edge |
+| `/verwaltung/appointments` | 7 | 96px | Aktualisiert | wrap 983, overflow 0 | wrap 983, overflow 0 |
+
+At `/admin/clients` the overlay breakpoint (≥1200px) is exactly where the grid no longer overflows, so floating the cluster would reclaim width nobody asked for while hiding a discoverable action; the 1100px overflow is below the overlay's reach and is handled by the existing horizontal scroll. Appointments never overflows. Revisit only if the content column narrows or the reclaimed width becomes a requirement.
+
 ## How to verify
 
 At 1440×900 with a seeded row:
