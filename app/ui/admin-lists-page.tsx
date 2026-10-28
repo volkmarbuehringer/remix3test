@@ -275,92 +275,9 @@ const summaryStyle = css({
 const colOwnerWidth = css({ width: '160px' })
 const colItemsWidth = css({ width: '84px' })
 const colUpdatedWidth = css({ width: '120px' })
-// Zero-width column: the hover action cluster is absolutely positioned over
-// the row's right edge, so it consumes no width. The space reclaimed from the
-// old action column goes to Titel (Preview stays a fixed, readable 200px).
-const colActionsWidth = css({ width: '0px' })
 
 /** Fixed preview width so the reclaimed action-column space grows Titel. */
 const colPreviewWidth = css({ width: '200px' })
-
-/**
- * Resting state for the per-row action cluster (mirrors the /lists row
- * treatment). It is hidden on pointer devices until the row is hovered or one
- * of its buttons receives keyboard focus.
- *
- * Cards (and any touch-first device) have no hover affordance, so the cluster
- * stays visible there and the card keeps its labelled "Aktionen" row.
- */
-const rowActionsStyle = css({
-  position: 'absolute',
-  top: '50%',
-  right: theme.space.sm,
-  transform: 'translateY(-50%)',
-  opacity: 0,
-  pointerEvents: 'none',
-  '@media (max-width: 1199px), (hover: none)': {
-    position: 'static',
-    transform: 'none',
-    opacity: 1,
-    pointerEvents: 'auto',
-  },
-})
-
-/**
- * Reveals the action cluster from the row, using the same CSS hover/focus
- * contract as /lists. `:has(:focus-visible)` keeps a mouse click on a row
- * button from pinning the cluster open after the pointer leaves.
- */
-const rowRevealStyle = css({
-  '&:hover [data-lists-row-actions]': {
-    opacity: '1 !important',
-    pointerEvents: 'auto !important',
-  },
-  '&:has(:focus-visible) [data-lists-row-actions]': {
-    opacity: '1 !important',
-    pointerEvents: 'auto !important',
-  },
-  '&:has(:focus-visible)': {
-    outline: '2px solid ' + theme.colors.focus.ring,
-    outlineOffset: '-2px',
-  },
-  // The overlay sits over the last cell. Hiding the timestamp while the
-  // cluster is visible avoids half-covered digits peeking out beside the
-  // buttons; it returns as soon as the pointer/focus leaves the row.
-  '@media (min-width: 1200px) and (hover: hover)': {
-    '&:hover [data-lists-updated]': { opacity: 0 },
-    '&:has(:focus-visible) [data-lists-updated]': { opacity: 0 },
-  },
-})
-
-/**
- * Zero-width action cell. The button cluster is absolutely positioned over the
- * row's right edge, so it consumes no table width; the reclaimed space goes to
- * the title column.
- */
-const actionsCellStyle = css({
-  width: '0px',
-  padding: 0,
-  borderBottom: '1px solid ' + theme.colors.border.subtle,
-  whiteSpace: 'nowrap',
-  textAlign: 'right',
-  verticalAlign: 'middle',
-  position: 'relative',
-  // Cards put the cluster back in flow; there is no row edge to overlay.
-  '@media (max-width: 1199px), (hover: none)': {
-    width: 'auto',
-    position: 'static',
-    padding: 0,
-  },
-})
-
-/** The action header is a zero-width accessibility label, not a visible cell. */
-const actionsHeaderStyle = css({
-  width: '0px',
-  padding: 0,
-  border: 'none',
-  background: 'transparent',
-})
 
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
@@ -972,7 +889,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                 <col mix={colItemsWidth} />
                 {!hasFormPanel ? <col mix={colPreviewWidth} /> : null}
                 {!hasFormPanel ? <col mix={colUpdatedWidth} /> : null}
-                <col mix={colActionsWidth} />
+                <col mix={table.floatingActionsCol} />
               </colgroup>
               <thead>
                 <tr>
@@ -1135,7 +1052,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   {/* Actions live in a hover gutter, not a visible column.
                       Keep an accessible header for the column without painting
                       an "Aktionen" label above it. */}
-                  <th scope="col" aria-label="Aktionen" mix={actionsHeaderStyle}></th>
+                  <th
+                    scope="col"
+                    aria-label="Aktionen"
+                    mix={[table.th, table.floatingActionsHeader]}
+                  ></th>
                 </tr>
               </thead>
               <tbody>
@@ -1171,7 +1092,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       mix={[
                         table.row,
                         editRow?.id === row.id ? table.editingRow : undefined,
-                        rowRevealStyle,
+                        table.floatingRowReveal,
+                        table.floatingTrailingFade,
                       ]}
                       data-row-id={row.id}
                     >
@@ -1233,7 +1155,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <span mix={descEmptyStyle}>Kein Besitzer</span>
                         )}
                       </td>
-                      <td mix={table.td} data-label="Elemente">
+                      <td
+                        mix={table.td}
+                        data-label="Elemente"
+                        {...(hasFormPanel ? { 'data-floating-trailing': '' } : {})}
+                      >
                         <span
                           mix={
                             doneCount > 0
@@ -1310,17 +1236,22 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         </td>
                       ) : null}
                       {!hasFormPanel ? (
-                        <td mix={table.td} data-label="Aktualisiert" title={updatedLabel}>
-                          <span mix={dateStackStyle} data-lists-updated>
+                        <td
+                          mix={table.td}
+                          data-label="Aktualisiert"
+                          title={updatedLabel}
+                          data-floating-trailing
+                        >
+                          <span mix={dateStackStyle}>
                             <span mix={dateMainStyle}>{formatCompactDateDE(row.updated_at)}</span>
                             <span mix={dateTimeStyle}>{formatClockTime(row.updated_at)}</span>
                           </span>
                         </td>
                       ) : null}
-                      <td mix={actionsCellStyle} data-label="Aktionen">
+                      <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
                         <div
-                          mix={[table.actionGroup, rowActionsStyle]}
-                          data-lists-row-actions
+                          mix={[table.actionGroup, table.floatingActions]}
+                          data-row-actions
                           role="group"
                           aria-label="Zeilenaktionen"
                         >

@@ -3,6 +3,10 @@ import { theme } from '../../ui/theme/theme.ts'
 
 const surface = theme.surface as Record<string, string>
 
+/** Breakpoint where the `floating*` row actions overlay the row. Single source
+ *  for every rule in this mixin so the reveal and the fallback cannot drift. */
+const floatingActionsMedia = '@media (min-width: 1200px) and (hover: hover)'
+
 export const table = {
   page: css({ maxWidth: '1000px' }),
   /**
@@ -310,6 +314,95 @@ export const table = {
     '&:hover': {
       background: theme.colors.action.danger.background,
       color: theme.colors.action.danger.foreground,
+    },
+  }),
+
+  /**
+   * Floating row actions — opt-in, not the default row treatment.
+   *
+   * Above `floatingActionsMedia` the cluster is absolutely positioned over the
+   * row's right edge and revealed on hover or keyboard focus, so it consumes no
+   * table width. That trades a visible affordance for column space, so only
+   * adopt it when the grid really overflows the admin content column, the row
+   * has a handful of icon actions, and everything the overlay hides on hover is
+   * either repeated in the edit panel or a timestamp.
+   *
+   * Contract:
+   * - the `<col>` composes `floatingActionsCol` (keep the page base width)
+   * - the header `<th>` composes `[table.th, floatingActionsHeader]`, carries an
+   *   `aria-label`, and wraps its visible label in `floatingActionsHeaderText`;
+   *   a page that drops the label entirely (cards below 1200px, like lists)
+   *   omits the text span
+   * - every row root composes `floatingRowReveal`
+   * - the actions `<td>` composes `[table.actionCell, floatingActionCell]`
+   * - the cluster (composed with `actionGroup`) carries `data-row-actions`
+   * - the trailing data `<td>` carries `data-floating-trailing` and the row
+   *   composes `floatingTrailingFade`, so a half-covered cell fades out instead
+   *   of peeking out beside the buttons
+   *
+   * Below the breakpoint the same markup renders in flow, so narrow/touch
+   * viewports keep the visible column. The `!important` overrides exist because
+   * these rules are composed with `table.th` / `table.actionCell` / the page col
+   * width and land in sibling `@layer rmx.*` sub-layers where declaration order,
+   * not specificity, decides the winner (same caveat as `mobileCards`).
+   */
+  floatingActionsCol: css({
+    [floatingActionsMedia]: {
+      width: '0px !important',
+    },
+  }),
+  floatingActionsHeader: css({
+    [floatingActionsMedia]: {
+      width: '0px !important',
+      padding: '0 !important',
+      border: 'none !important',
+      background: 'transparent !important',
+    },
+  }),
+  floatingActionsHeaderText: css({
+    [floatingActionsMedia]: {
+      display: 'none',
+    },
+  }),
+  floatingActionCell: css({
+    [floatingActionsMedia]: {
+      width: '0px !important',
+      padding: '0 !important',
+      position: 'relative',
+    },
+  }),
+  floatingActions: css({
+    [floatingActionsMedia]: {
+      position: 'absolute',
+      top: '50%',
+      right: theme.space.sm,
+      transform: 'translateY(-50%)',
+      opacity: 0,
+      pointerEvents: 'none',
+    },
+  }),
+  floatingRowReveal: css({
+    // Keyboard focus must reveal the cluster, but `:focus-within` also matches
+    // a button a *mouse* click just focused, which pinned a stale cluster open
+    // while the next row revealed its own. `:has(:focus-visible)` still
+    // matches the row and any descendant focused by keyboard.
+    '&:hover [data-row-actions]': {
+      opacity: '1 !important',
+      pointerEvents: 'auto !important',
+    },
+    '&:has(:focus-visible) [data-row-actions]': {
+      opacity: '1 !important',
+      pointerEvents: 'auto !important',
+    },
+    '&:has(:focus-visible)': {
+      outline: '2px solid ' + theme.colors.focus.ring,
+      outlineOffset: '-2px',
+    },
+  }),
+  floatingTrailingFade: css({
+    [floatingActionsMedia]: {
+      '&:hover [data-floating-trailing]': { opacity: 0 },
+      '&:has(:focus-visible) [data-floating-trailing]': { opacity: 0 },
     },
   }),
 

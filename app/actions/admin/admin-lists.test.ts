@@ -365,7 +365,7 @@ describe('Admin Lists Controller', () => {
         'the column should still expose an accessible header',
       )
       assert.ok(
-        text.includes('data-lists-row-actions'),
+        text.includes('data-row-actions'),
         'the row action cluster must be the hover/focus target',
       )
       assert.ok(

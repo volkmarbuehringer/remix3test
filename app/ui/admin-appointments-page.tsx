@@ -120,37 +120,6 @@ const headerBarStyle = css({
   marginBottom: theme.space.sm,
 })
 
-const rowActionsStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-})
-
-const iconActionStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-const iconActionDangerStyle = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 const colActionsWidth = css({ width: '96px' })
 
 const dateCellStyle = css({
@@ -623,7 +592,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       {formatTimestamp(row.updated_at)}
                     </td>
                     <td mix={table.actionCell} data-label="Aktionen">
-                      <div mix={rowActionsStyle}>
+                      <div mix={table.actionGroup}>
                         <a
                           href={buildEditUrl(
                             ADMIN_BASE,
@@ -636,7 +605,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                             status,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={iconActionStyle}
+                          mix={table.actionSeg}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
                         >
@@ -649,7 +618,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                           data-delete-form={row.id}
                           data-confirm={`Termin "${row.title}" wirklich löschen?`}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={css({ margin: 0, padding: 0 })}
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -663,7 +632,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                           />
                           <button
                             type="submit"
-                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            mix={[table.actionSeg, table.actionSegDanger]}
                             aria-label="Löschen"
                             title="Löschen"
                           >

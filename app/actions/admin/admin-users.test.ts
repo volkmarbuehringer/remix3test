@@ -334,7 +334,16 @@ describe('Admin Users Controller', () => {
       let text = await response.text()
       let selfRow = text.match(/<tr[^>]*data-self="true"[^>]*>[\s\S]*?<\/tr>/)?.[0]
       assert.ok(selfRow, 'own row should be marked as self')
-      assert.ok(selfRow.includes('disabled'), 'own row actions should be disabled')
+      assert.ok(
+        selfRow.includes('aria-disabled="true"'),
+        'own row actions should be announced as disabled',
+      )
+      assert.equal(
+        (selfRow.match(/aria-disabled="true"/g) ?? []).length,
+        2,
+        'both blocked own-row actions should be announced as disabled',
+      )
+      assert.ok(selfRow.includes('type="button"'), 'blocked own-row actions must not submit')
       assert.ok(
         selfRow.includes('Das eigene Konto kann nicht gelöscht werden'),
         'own delete action should explain why it is unavailable',

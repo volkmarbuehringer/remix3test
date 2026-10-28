@@ -159,7 +159,7 @@ describe('admin lists: UX', () => {
         '[data-lists-table] tbody [aria-label*="bearbeiten"]',
       ) as HTMLElement | null
       let firstActions = document.querySelector(
-        '[data-lists-table] tbody [data-lists-row-actions]',
+        '[data-lists-table] tbody [data-row-actions]',
       ) as HTMLElement | null
       return {
         headerDisplay: getComputedStyle(
@@ -271,7 +271,7 @@ describe('admin lists: UX', () => {
     let layout = await page.evaluate(() => {
       let wrap = document.querySelector('[data-lists-table]') as HTMLElement
       let headers = [...wrap.querySelectorAll('thead th')]
-      let group = wrap.querySelector('tbody [data-lists-row-actions]') as HTMLElement
+      let group = wrap.querySelector('tbody [data-row-actions]') as HTMLElement
       let row = group.closest('tr') as HTMLElement
       return {
         titleWidth: headers[1]?.getBoundingClientRect().width ?? 0,
@@ -299,14 +299,14 @@ describe('admin lists: UX', () => {
     )
 
     let row = page.locator('[data-row-id="' + id + '"]')
-    let actions = row.locator('[data-lists-row-actions]')
+    let actions = row.locator('[data-row-actions]')
     let opacity = () => actions.evaluate((el) => getComputedStyle(el).opacity)
     assert.equal(await opacity(), '0', 'desktop rows start without visible actions')
 
     await row.hover()
     await page.waitForFunction(
       () => {
-        let group = document.querySelector('[data-lists-table] tbody [data-lists-row-actions]')
+        let group = document.querySelector('[data-lists-table] tbody [data-row-actions]')
         return group ? getComputedStyle(group).opacity === '1' : false
       },
       undefined,
@@ -317,7 +317,7 @@ describe('admin lists: UX', () => {
     await page.mouse.move(1, 1)
     await page.waitForFunction(
       () => {
-        let group = document.querySelector('[data-lists-table] tbody [data-lists-row-actions]')
+        let group = document.querySelector('[data-lists-table] tbody [data-row-actions]')
         return group ? getComputedStyle(group).opacity === '0' : true
       },
       undefined,
@@ -343,7 +343,7 @@ describe('admin lists: UX', () => {
     assert.ok(focused, 'the row edit action should be reachable by keyboard')
     await page.waitForFunction(
       () => {
-        let group = document.querySelector('[data-lists-table] tbody [data-lists-row-actions]')
+        let group = document.querySelector('[data-lists-table] tbody [data-row-actions]')
         return group ? getComputedStyle(group).opacity === '1' : false
       },
       undefined,
@@ -371,6 +371,27 @@ describe('admin lists: UX', () => {
     await page.waitForFunction(() => document.activeElement?.matches('#al-title'), undefined, {
       timeout: 15_000,
     })
+
+    // The focused grid drops Aktualisiert, so Elemente becomes the cell under
+    // the floating cluster and must carry the fade hook.
+    let focusedGrid = await page.evaluate(() => {
+      let wrap = document.querySelector('[data-lists-table]') as HTMLElement
+      let elemente = wrap.querySelector('tbody td[data-label="Elemente"]') as HTMLElement | null
+      return {
+        elementeTrailing: elemente?.hasAttribute('data-floating-trailing') ?? false,
+        hasUpdatedColumn: !!wrap.querySelector('tbody td[data-label="Aktualisiert"]'),
+      }
+    })
+    assert.equal(
+      focusedGrid.hasUpdatedColumn,
+      false,
+      'the focused grid drops the Aktualisiert column',
+    )
+    assert.equal(
+      focusedGrid.elementeTrailing,
+      true,
+      'the Elemente cell must carry the trailing fade hook while editing',
+    )
 
     await page.getByRole('link', { name: 'Editor schließen' }).click()
     await page.waitForFunction(

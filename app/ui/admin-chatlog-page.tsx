@@ -262,7 +262,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                   <col mix={css({ width: '110px' })} />
                   <col mix={css({ width: '145px' })} />
                   <col mix={css({ width: '145px' })} />
-                  <col mix={colActionsWidth} />
+                  <col mix={[colActionsWidth, table.floatingActionsCol]} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -271,7 +271,13 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                     <th mix={table.th}>Nachrichten</th>
                     <th mix={table.th}>Erstellt</th>
                     <th mix={table.th}>Letzte Nachricht</th>
-                    <th mix={table.th}>Aktionen</th>
+                    <th
+                      scope="col"
+                      aria-label="Aktionen"
+                      mix={[table.th, table.floatingActionsHeader]}
+                    >
+                      <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,7 +287,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                     return (
                       <tr
                         key={conv.id}
-                        mix={table.row}
+                        mix={[table.row, table.floatingRowReveal, table.floatingTrailingFade]}
                         data-chatlog-row={conv.id}
                         {...(selectedId === conv.id ? { 'data-chatlog-row-active': 'true' } : {})}
                       >
@@ -331,11 +337,21 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                           mix={table.td}
                           title={formatTimestamp(conv.updated_at)}
                           data-label="Letzte Nachricht"
+                          data-floating-trailing
                         >
                           {formatTimestamp(conv.updated_at)}
                         </td>
-                        <td mix={table.actionCell} data-label="Aktionen">
-                          <div mix={table.actionGroup} data-chatlog-actions="true">
+                        <td
+                          mix={[table.actionCell, table.floatingActionCell]}
+                          data-label="Aktionen"
+                        >
+                          <div
+                            mix={[table.actionGroup, table.floatingActions]}
+                            role="group"
+                            aria-label="Zeilenaktionen"
+                            data-chatlog-actions="true"
+                            data-row-actions
+                          >
                             <a
                               href={href}
                               data-chatlog-open={conv.id}

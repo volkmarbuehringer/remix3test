@@ -73,10 +73,11 @@ describe('Admin Chatlog source classification and filter', () => {
     assert.ok(html.includes('Letzte Nachricht'), 'last-activity column')
   })
 
-  it('renders the row actions as a visible buttongroup', async () => {
+  it('renders the row actions as a shared, hover-revealed control group', async () => {
     let html = await (await get()).text()
 
     assert.ok(html.includes('data-chatlog-actions="true"'), 'row actions should share one control')
+    assert.ok(html.includes('data-row-actions'), 'the cluster needs the reveal hook')
     assert.ok(html.includes('aria-label="Detail anzeigen"'), 'detail action should be labelled')
     assert.ok(html.includes('aria-label="Löschen"'), 'delete action should be labelled')
     assert.ok(html.includes('data-delete-form'), 'delete form must be rendered in the row')

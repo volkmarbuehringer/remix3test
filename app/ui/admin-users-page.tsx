@@ -683,7 +683,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <col mix={colRoleWidth} />
                 <col mix={colStatusWidth} />
                 {!hasPanel ? <col mix={colDateWidth} /> : null}
-                <col mix={colActionsWidth} />
+                <col mix={[colActionsWidth, table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -799,8 +799,12 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </a>
                     </th>
                   ) : null}
-                  <th scope="col" mix={table.th}>
-                    Aktionen
+                  <th
+                    scope="col"
+                    aria-label="Aktionen"
+                    mix={[table.th, table.floatingActionsHeader]}
+                  >
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
                   </th>
                 </tr>
               </thead>
@@ -823,7 +827,12 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   return (
                     <tr
                       key={row.id}
-                      mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                      mix={[
+                        table.row,
+                        editRow?.id === row.id ? table.editingRow : undefined,
+                        table.floatingRowReveal,
+                        table.floatingTrailingFade,
+                      ]}
                       data-row-id={row.id}
                       data-disabled-at={row.disabled_at ?? ''}
                       data-self={isSelf ? 'true' : undefined}
@@ -885,7 +894,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                           {roleLabel(row.role)}
                         </span>
                       </td>
-                      <td mix={table.td} data-label="Status">
+                      <td
+                        mix={table.td}
+                        data-label="Status"
+                        {...(hasPanel ? { 'data-floating-trailing': '' } : {})}
+                      >
                         <span
                           mix={[
                             statusPillStyle,
@@ -902,15 +915,25 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         </span>
                       </td>
                       {!hasPanel ? (
-                        <td mix={table.td} data-label="Erstellt" title={createdTitle}>
+                        <td
+                          mix={table.td}
+                          data-label="Erstellt"
+                          title={createdTitle}
+                          data-floating-trailing
+                        >
                           <span mix={dateStackStyle}>
                             <span mix={dateMainStyle}>{formatDatePart(row.created_at)}</span>
                             <span mix={dateTimeStyle}>{formatTimePart(row.created_at)}</span>
                           </span>
                         </td>
                       ) : null}
-                      <td mix={table.actionCell} data-label="Aktionen">
-                        <div mix={table.actionGroup}>
+                      <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                        <div
+                          mix={[table.actionGroup, table.floatingActions]}
+                          role="group"
+                          aria-label="Zeilenaktionen"
+                          data-row-actions
+                        >
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
@@ -921,6 +944,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             <Glyph name="edit" width={13} height={13} />
                           </a>
 
+                          {/* Blocked actions stay focusable (aria-disabled +
+                              type="button") so keyboard users can reveal the
+                              cluster and hear why the action is unavailable;
+                              native `disabled` drops them from the tab order. */}
                           <RestfulForm
                             method="POST"
                             action={routes.admin.users.toggleDisabled.href({ id: row.id })}
@@ -938,8 +965,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                               }}
                             />
                             <button
-                              type="submit"
-                              disabled={toggleBlocked}
+                              type={toggleBlocked ? 'button' : 'submit'}
+                              aria-disabled={toggleBlocked ? 'true' : undefined}
                               mix={[
                                 table.actionSeg,
                                 toggleBlocked ? actionSegDisabledStyle : undefined,
@@ -985,8 +1012,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                               }}
                             />
                             <button
-                              type="submit"
-                              disabled={isSelf}
+                              type={isSelf ? 'button' : 'submit'}
+                              aria-disabled={isSelf ? 'true' : undefined}
                               mix={[
                                 table.actionSeg,
                                 table.actionSegDanger,
