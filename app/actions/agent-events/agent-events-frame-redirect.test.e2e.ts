@@ -147,6 +147,12 @@ describe('admin agent-events panel: in-frame user toggle', () => {
     let toggleForm = page.locator('[data-toggle-form]').first()
     await toggleForm.waitFor({ timeout: 30_000 })
 
+    // The row-action cluster is pointer-events:none until the row is hovered (or
+    // keyboard-focused). Hover the row first: Playwright's pre-click hit test
+    // runs before it moves the mouse, so it would otherwise resolve the trailing
+    // "Erstellt" cell that sits under the still-hidden cluster and never click.
+    await toggleForm.locator('xpath=ancestor::tr[1]').hover()
+
     // Activate/deactivate the user (PRG). With frameRedirects the redirect is
     // followed in-frame, so the host agent page must survive.
     await page.locator('[data-toggle-form] >> button[type="submit"]').first().click()

@@ -47,6 +47,7 @@ Adopt per grid only when the table actually overflows and the covered cell is di
 2. **`innerText` reflects `text-transform: uppercase`.** Admin `table.th` uppercases labels, so `header.innerText.includes('Aktionen')` is false even when the label is visible. Compare case-insensitively; `textContent` sees hidden labels too, so it cannot prove visibility.
 3. **`CSS.escape` is browser-only.** A Playwright test that builds `[data-row-id="…"]` in Node cannot call it; escape `"` and `\` with a small helper.
 4. `:focus-within` pins the cluster open after a pointer click; gate on `:has(:focus-visible)` (see `hover-reveal.md`).
+5. **Playwright cannot click the hidden cluster on its own.** The cluster starts `opacity: 0; pointer-events: none` and only reveals on row hover/keyboard focus. Playwright's pre-click hit test runs before it moves the mouse, so it resolves the trailing cell under the still-hidden cluster and times out with "<td …> intercepts pointer events". Hover the row (e.g. `form.locator('xpath=ancestor::tr[1]').hover()`) before `click()`. Fixed this way in `agent-events-frame-redirect.test.e2e.ts` for the users grid in the agent panel (2026-10-28); a manual hover-then-trial click succeeds at 1440/1280.
 
 ## Measured fit (2026-10-28)
 
