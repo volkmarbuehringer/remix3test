@@ -27,7 +27,9 @@ Two requirements that are easy to miss:
 
 `admin-offerings-page.tsx` and `admin-report1-page.tsx` already did this;
 `admin-appointments-page.tsx`, `admin-resources-page.tsx` and
-`admin-offering-configs-page.tsx` did not.
+`admin-offering-configs-page.tsx` did not. `/admin/messages` was the worst case: a
+fixed 840px table on a phone hid both the timestamp and the row actions behind a
+horizontal scroll.
 
 ## 2. Two-column edit panels clip the grid
 
@@ -102,6 +104,23 @@ The table stays at content height while it fits and shrinks into an internal
 scroller only when rows exceed the remaining height, so the pagination stays
 pinned. Measured on `/admin/users` with four rows: wrap and table both 253px
 (no empty panel); the page scroller was 918px.
+
+On a bounded grid that also opts into `mobileCards` (`/admin/messages`), the
+`dataGridWrap` mixin still sets `flex: 1 1 auto` and so keeps a short nested
+scroller on phones even after the table becomes cards. Add a page-local media
+override:
+
+```ts
+const gridWrapStyle = css({
+  '@media (max-width: 768px)': { flex: '0 0 auto', overflowY: 'visible' },
+})
+```
+
+The wrap then measures content-height, the page scroller owns the scroll, and
+`wrap.scrollHeight === wrap.clientHeight`. The `overflowY` override is not
+strictly load-bearing because `flex: 0 0 auto` already removes the fixed height,
+but it documents that this region must not clip; `table.wrap` keeps `overflowX:
+auto` for the desktop floor.
 
 ## 5. Stacked layout: put the opened panel first
 

@@ -48,15 +48,17 @@ section: css({ display: 'flex', flexDirection: 'column', justifyContent: 'center
 That skill covers the **fill** case (`flex: 1` + `min-height: 0` so bounded scroll regions actually scroll). This one covers the **content-size** case — the collapse you hit when you stop stretching the container. Two sides of the same flex-chain problem; the auto-basis fix is what lets a panel be both content-sized and internally scrollable.
 
 ## Leaf text elements collapse too (not just panels)
-The same `flex: 1` (basis 0) + `overflow: hidden` trap hits a **single text element**, not only a whole container. A label `<span>` with `flex: 1`, `display: -webkit-box`, `WebkitLineClamp: 3`, `overflow: hidden` that is moved from a horizontal-row child (where `flex: 1` meant **width**) into a **column** flex wrapper (where `flex: 1` means **height / basis 0**) collapses to ~0px and the text disappears — the row keeps its grip/checkbox/badges, only the label text vanishes.
+The same `flex: 1` (basis 0) + `overflow: hidden` trap hits a **single text element**, not only a whole container. A label `<span>` with `flex: 1`, `display: -webkit-box`, `WebkitLineClamp: '3'`, `overflow: hidden` that is moved from a horizontal-row child (where `flex: 1` meant **width**) into a **column** flex wrapper (where `flex: 1` means **height / basis 0**) collapses to ~0px and the text disappears — the row keeps its grip/checkbox/badges, only the label text vanishes.
 
 ```js
 // BAD: span in a column flex wrapper — flex:1 = flex-basis:0, + overflow:hidden → ~0px tall, text hidden
-let labelStyle = css({ flex: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' })
+let labelStyle = css({ flex: 1, display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' })
 
 // GOOD: drop flex:1 — the span sizes to its content (clamped to 3 lines) and fills width via align-self: stretch
-let labelStyle = css({ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' })
+let labelStyle = css({ display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' })
 ```
+
+`WebkitLineClamp` must be a **string** (`'3'`, not `3`): `css()` appends `px` to numeric values outside its unitless allowlist, and the resulting `3px` is invalid CSS that browsers drop. See `unitless-numeric-css-properties.md`.
 
 **Detecting it:** `getBoundingClientRect().height` reads `1`, yet the element is technically *visible*, so Playwright `isVisible()` / `toHaveCount` won't catch the regression — assert the bounding-**box height** (e.g. `height > 10`) instead of visibility/count.
 
