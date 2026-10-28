@@ -81,51 +81,6 @@ const pageBadgeStyle = css({
   whiteSpace: 'nowrap',
 })
 
-// Segmented button group for the row actions.
-const actionGroup = css({
-  display: 'inline-flex',
-  alignItems: 'stretch',
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  overflow: 'hidden',
-  boxShadow: theme.shadow.sm,
-})
-
-// Icon-only segmented row actions (Bearbeiten | Aktivieren/Deaktivieren | Löschen).
-// A 30px square keeps the three controls aligned; the visible text moves to
-// aria-label/title so the Aktionen column stays narrow.
-const actionSeg = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '28px',
-  padding: 0,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  border: 'none',
-  borderRight: `1px solid ${theme.colors.border.default}`,
-  fontSize: theme.fontSize.xs,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-  '&:focus-visible': {
-    position: 'relative',
-    outline: `2px solid ${theme.colors.focus.ring}`,
-    outlineOffset: '-2px',
-    zIndex: 1,
-  },
-})
-
-const actionSegDanger = css({
-  color: theme.colors.action.danger.background,
-  borderRight: 'none',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -491,7 +446,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       {formatUtcDateDE(row.registered as number)}
                     </td>
                     <td mix={table.actionCell} data-label="Aktionen">
-                      <div mix={actionGroup}>
+                      <div mix={table.actionGroup}>
                         <a
                           href={buildEditUrl(
                             ADMIN_BASE,
@@ -506,7 +461,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                           data-rmx-target={getSelfFrameTarget()}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
-                          mix={actionSeg}
+                          mix={table.actionSeg}
                         >
                           <Glyph name="edit" width={13} height={13} />
                         </a>
@@ -524,7 +479,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                             type="submit"
                             aria-label={row.status === 'Active' ? 'Deaktivieren' : 'Aktivieren'}
                             title={row.status === 'Active' ? 'Deaktivieren' : 'Aktivieren'}
-                            mix={actionSeg}
+                            mix={table.actionSeg}
                           >
                             <Glyph
                               name={row.status === 'Active' ? 'shield' : 'check'}
@@ -548,7 +503,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                             type="submit"
                             aria-label="Löschen"
                             title="Löschen"
-                            mix={[actionSeg, actionSegDanger]}
+                            mix={[table.actionSeg, table.actionSegDanger]}
                           >
                             <Glyph name="trash" width={13} height={13} />
                           </button>
