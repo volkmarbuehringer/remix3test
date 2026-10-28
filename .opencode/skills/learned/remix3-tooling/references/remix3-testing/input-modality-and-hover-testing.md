@@ -6,7 +6,7 @@
 ## Problem
 
 - **Component tests cannot fake pointer modality.** `.click()` does not set `:hover`, and `.focus()` keeps the last input modality. A control gated on `:focus-visible` behaves differently under a real mouse than under programmatic focus, and a `:focus-within`-based reveal can pass a component test while pinning two toolbars open in the browser.
-- **Hover-revealed controls are not hittable at rest.** The cluster uses `opacity: 0; pointer-events: none`; Playwright's `action.hover()` fails until its row is hovered first.
+- **Hover-revealed controls are not hittable at rest.** The cluster uses `opacity: 0; pointer-events: none`; Playwright's `action.hover()` fails until its row is hovered first. A bare `click()` fails the same way **before Playwright moves the mouse**: the pre-click hit test resolves whatever sits under the target — typically the trailing data cell — and retries until timeout with `<td data-label="…"> … intercepts pointer events`. Hover the owning row first; raising the cluster's `z-index` does not help, because the hit test never reaches it.
 - **The hydration gap swallows early clicks.** SSR CSS hover applies before hydration, but the click handler attaches with the deferred client entry. A click in that window is a silent no-op.
 - **A reorder changes what is under a stationary pointer.** After the row moves, the cursor usually hovers a different row; focus may stay on the moved row's action. That combination is the bug, and it only exists in a real input session.
 - **A transition hides the overlap.** A symmetric opacity crossfade leaves both clusters partially visible for ~120 ms, so a test that samples after a fixed timeout can miss it (or `isVisible()` can report both as visible because the cluster is laid out at opacity 0).
@@ -38,6 +38,8 @@ while (Date.now() < deadline) {
 }
 ```
 
+- A hover-hidden cluster cannot reveal itself for `.click()`: the pre-click hit test runs before the mouse move. Hover the row (`.locator('xpath=ancestor::tr[1]').hover()`) or keyboard-focus an action first. After the hover, `.click({ trial: true })` is a fast hit-test probe.
+- **Case (2026-10-28):** the `/admin/users` toggle inside the agent-events panel timed out with the trailing `Erstellt` cell intercepting. A geometry probe showed the cluster at `opacity: 0; pointer-events: none` with that cell on top of `elementsFromPoint`. The same file failed at base `6aded94`, so it was a stale test, not a regression from current work; row-hover fixed Chromium and Firefox (`e5a1d09`).
 - Seed equal-height rows (single-line labels) so the pointer's y-coordinate lands on the row that replaces the clicked one; otherwise a height difference moves the hover target and the test flakes.
 - For keyboard behavior, switch modality with a real key before focusing/activating:
 
@@ -82,6 +84,8 @@ NODE_ENV=test npx remix test --type e2e <file> --concurrency 1 --project chromiu
 ```
 
 A regression test that only ever ran green is not evidence.
+
+- When a suite arrives red, run the same file at the handoff/base commit before touching product code. A deterministic failure there means the test or product was already broken — classify it before fixing it.
 
 ### 4. Don't infer focus from DOM identity after a keyed reorder
 
