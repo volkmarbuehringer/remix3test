@@ -146,11 +146,9 @@ _(formerly `remix-file-uploads` — references live under `references/remix-file
 
 For the streaming multipart parser, size limits, and the pluggable storage backends (`remix/file-storage/fs`, `s3`, `memory`), see the vendor READMEs: `node_modules/remix/src/multipart-parser/README.md`, `node_modules/remix/src/form-data-parser/README.md`, `node_modules/remix/src/file-storage/README.md`, and `node_modules/remix/src/form-data-middleware/README.md`.
 
-This skill only documents the hard-won deltas: storing files directly in a PostgreSQL `bytea` column, the middleware-ordering gotcha it exposes, the streaming-parser error-handling pattern (reject-without-throwing + wrapping `formData()` for never-suppressed limit errors), and the report-export pattern.
+This skill only documents the hard-won deltas: storing files directly in a PostgreSQL `bytea` column, the middleware-ordering gotcha it exposes, the streaming-parser error-handling pattern (reject-without-throwing + wrapping `formData()` for never-suppressed limit errors), streaming to `remix/file-storage/fs` with the `/future` parser, and the report-export pattern.
 
-Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-parser/future`, `remix/form-data-parser/future`, `remix/middleware/form-data/future`) that stream parts/uploads to the handler instead of buffering. This app does **not** use them: it buffers to enforce `MAX_UPLOAD_BYTES` and the per-user/total quota, then stores the bytes in a PostgreSQL `bytea` column. Read the vendor README "Future API" sections before changing the upload path.
-
-**Migration sketch if streaming is ever required:** the handler runs before the body is read, so stream each part to `remix/file-storage/fs`/`s3` while enforcing `MAX_UPLOAD_BYTES`; the final size is known only after the stream closes, so insert the row and re-check the per-user/total quota afterwards (delete the stored object on rejection). Downloads become `createFileResponse(openLazyFile(...))`, deletes must remove the object, and the multirow ZIP download needs a streaming archive.
+Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-parser/future`, `remix/form-data-parser/future`, `remix/middleware/form-data/future`) that stream parts/uploads to the handler instead of buffering. The app uses **both** paths: `/admin/uploads` keeps the stable buffered parser and stores bytes in PostgreSQL `bytea` (per-user/total quota, retention sweep), while `/admin/uploadnew` uses the future parser + `remix/file-storage/fs` and indexes filename/type/size/owner in the metadata-only `upload_files` table (§7). Read the vendor README "Future API" sections before changing either path.
 
 ### Load Only The References You Need
 
@@ -162,7 +160,11 @@ Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-par
 
 ### Working implementations in this repo
 
-- `app/middleware/uploads.ts` — the `uploadFormData()` wrapper (limit-error PRG), the `fileUploadErrorMessage()` validator, and the `uploadHandler` streaming parser writing to `bytea`.
+- `app/middleware/uploads.ts` — the `uploadFormData()` wrapper (limit-error PRG), the `fileUploadErrorMessage()` validator, and the stable `uploadHandler` streaming parser writing to `bytea`.
+- `app/middleware/upload-files.ts` — the `/future` streaming handler for `/admin/uploadnew`: request-scoped storage keys (`uploadFilesScope` / `takeStoredFileKeys` / `takeUploadFilesError`), quota pre/post checks, post-store byte sniffing, the `upload_files` insert with compensating file removal, and the shared `uploadLimitErrorCode` mapping.
+- `app/storage.ts` — `createFsFileStorage` backend + `UPLOAD_FILES_DIR`, resolved against the app root and rejected inside `public/`.
+- `app/data/upload-files.ts` — the metadata-only `upload_files` index (no `bytea`), `SUM(size)` quota, listing/count, and delete-returning-storage-key.
+- `app/actions/admin/uploadnew/controller.tsx` — admin-only streaming upload page, DB-backed list, lazy-file download, and delete (row first, file second).
 - `app/middleware/upload-claim.ts` — the `AsyncLocalStorage` scope (`uploadClaimScope` / `addUploadedId` / `takeUploadedIds` / `setUploadError`) that carries server-generated upload ids through the request.
 - `app/data/uploads.ts` — `uploads` schema, `insertUpload`, quota queries.
 - `app/utils/zip.ts` (+ `app/utils/zip.test.ts`) — the `buildZipArchive` implementation (see §6).
@@ -230,6 +232,20 @@ Gotchas:
 - **Sync `deflateRawSync` blocks the event loop** — fine for a handful of entries, but a size guard is prudent for many large files.
 - **Empty archive** is valid: just the 22-byte EOCD with `entries.length = 0`.
 
+#### 7. Streaming to the filesystem with the `/future` parser
+
+`/admin/uploadnew` is the worked example (`app/middleware/upload-files.ts`, `app/actions/admin/uploadnew/controller.tsx`). It streams each part into `createFsFileStorage(...)` instead of buffering, and the deltas are:
+
+- **The handler runs inside the global parser, before routing and CSRF.** Register the `AsyncLocalStorage` scope **before** `formData()` (`uploadFilesScope()` in `app/middleware/root.ts`), and add the route's authorization to the pre-parse guard in `uploadFormData()` — an admin check at the action is too late to stop bytes reaching disk.
+- **The action never trusts the form value for ownership/keys.** The handler returns a generated key, which becomes an ordinary form field; a client can submit the same field by hand. Record keys in the request scope (`takeStoredFileKeys()`) and report only those. Same IDOR shape as §2.
+- **`FileUpload.size` throws until the stream has been read** and `slice()` is unsupported. Validate name/type before `set()`, then read the stored file back (`storage.get(key)` → `stored.slice(0, 16)`) to sniff magic bytes, and delete on mismatch.
+- **Quota can only be checked after the write.** Pre-check the recorded total (`SELECT COALESCE(SUM(size), 0) FROM upload_files`) to avoid writing when full, then re-check with `upload.size` after `set()` and remove the file when it crosses. Keep the request bound explicit (`maxTotalSize` defaults to `maxFiles * maxFileSize + 1 MiB`, i.e. ~1 GiB for 20 × 50 MiB).
+- **The DB row is an index, not the bytes.** `upload_files` has no `bytea` column: it stores the storage key and display metadata, while the file lives on disk. The backend's own `.meta.json` remains necessary — losing it makes the `.dat` unreachable even though the row exists.
+- **Index after the stream, and compensate on failure.** Insert the row only after the content check; if the insert fails, remove the already-written file. A process crash between the write and the insert leaves an orphan (no row), so a reconciliation sweep should delete aged `.dat`/`.meta.json` entries with no matching row. Deletes run the other way: remove the row first, then the file, so a failed file removal leaves a reclaimable orphan rather than a row pointing at nothing.
+- **Resolve the storage directory against the app root, not `process.cwd()`,** and reject it if it sits under `public/` — `staticFiles()` would otherwise serve uploads unauthenticated, bypassing the route's `Content-Disposition: attachment`.
+- **Keep one extension→media-type table shared by client and server.** A global MIME allowlist lets the browser accept `.png` + `text/plain` while the handler rejects it; `app/utils/upload-validation.ts`'s `validateUploadMetadata()` + per-extension map is used by the browser entry, the `bytea` handler, and the streaming handler.
+- **Tests clean two stores.** The future parser works through `router.fetch(url, { method: 'POST', body: formData })`; find fixture rows in `upload_files` by filename prefix, delete the row and then remove its storage key from the filesystem, and assert rejected uploads by absence of both the row and the file.
+
 ### References
 
 - `node_modules/remix/src/multipart-parser/README.md` — streaming parser, limits, low-level API
@@ -239,7 +255,7 @@ Gotchas:
 - `node_modules/remix/src/form-data-middleware/README.md` — middleware that exposes `get(FormData)` in request context
 - vendor `remix` skill (`.agents/skills/remix/`) — upload examples and middleware patterns
 - `remix3-ui § Frames` (`references/remix3-frame-cliententry/frame-navigation.md`) — serving binary downloads through Frame navigation
-- `app/middleware/uploads.ts`, `app/middleware/upload-claim.ts`, `app/data/uploads.ts`, `app/utils/zip.ts`, `app/actions/admin/uploads/controller.tsx` — working implementations in this repo
+- `app/middleware/uploads.ts`, `app/middleware/upload-files.ts`, `app/middleware/upload-claim.ts`, `app/storage.ts`, `app/data/uploads.ts`, `app/data/upload-files.ts`, `app/utils/zip.ts`, `app/actions/admin/uploads/controller.tsx`, `app/actions/admin/uploadnew/controller.tsx` — working implementations in this repo
 - `references/remix-file-uploads/report-pdf-export.md` — sharing a report page's query parser with a PDF/CSV export, and the `data-rmx-document` / `X-Remix-Frame` download traps
 
 ---

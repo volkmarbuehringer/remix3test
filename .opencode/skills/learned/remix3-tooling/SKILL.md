@@ -105,7 +105,7 @@ This skill is the **index** for running this Remix 3 + pnpm app under Bun. For t
 | `test:bun`, `IS_BUN`, `--coverage` under Bun, or which parts of the suite change | `references/remix3-bun-runtime/test-runner-and-bun-awareness.md` |
 | `TypeError: Type error` from `addEventListener(..., { signal: handle.signal })` during SSR | `references/remix3-bun-runtime/ssr-signal-eventtarget.md` |
 | Uploads rejected under Bun only (`Dateityp nicht erlaubt.`); `File.type` gains `;charset=utf-8` | `references/remix3-bun-runtime/file-mime-charset.md` |
-| `@types/bun` breaking the main typecheck (`Property 'preconnect' is missing`) | `references/remix3-bun-runtime/typescript-types-scoping.md` |
+| `@types/bun` breaking either program (`Property 'preconnect'` in the main program, `Property 'image'` in the Bun program) | `references/remix3-bun-runtime/typescript-types-scoping.md` |
 | `bun run <bin>` silently executing Node in a pnpm project | `references/remix3-bun-runtime/pnpm-bin-shim.md` |
 | Re-validating the version-pinned claims, or the suite's Bun pass/fail result | `references/remix3-bun-runtime/validation-and-result.md` |
 
@@ -130,6 +130,7 @@ This skill is the **index** for running this Remix 3 + pnpm app under Bun. For t
 **TypeScript types (`references/remix3-bun-runtime/typescript-types-scoping.md`)**
 
 - Never add `"bun"` to the main `tsconfig` `types` (Bun's `fetch` requires `preconnect`, breaking `fetch` mocks). Use `tsconfig.bun.json` with `files: ["server.bun.ts"]` and exclude `server.bun.ts` from the base.
+- Bun's global `File` adds `image()`, so the future `FileUpload` is not structurally assignable to `FileLike` in `tsconfig.bun.json` even though the main program accepts it. Cast at the `createFsFileStorage().set()` boundary (`as unknown as File`), not by widening the vendor type.
 
 **pnpm bin shim (`references/remix3-bun-runtime/pnpm-bin-shim.md`)**
 
@@ -141,6 +142,7 @@ This skill is the **index** for running this Remix 3 + pnpm app under Bun. For t
 - A Remix 3 page renders under Node but throws `TypeError: Type error` under Bun.
 - Uploads are rejected under Bun even though the file type is allowed.
 - `tsc` breaks with `Property 'preconnect' is missing` after adding Bun types.
+- `tsc -p tsconfig.bun.json` fails with `Property 'image' is missing … required in type 'File'` on a `FileUpload` passed to `createFsFileStorage`.
 - A CLI launched with `bun run <bin>` behaves like Node at runtime.
 
 ### Related Skills
