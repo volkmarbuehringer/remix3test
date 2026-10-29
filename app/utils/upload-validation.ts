@@ -28,18 +28,24 @@ export const ALLOWED_EXTENSIONS = new Set([
   '.xml',
 ])
 
-export const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'text/plain',
-  'text/csv',
-  'application/json',
-  'application/xml',
-  'text/xml',
-])
+/**
+ * Media types a file may declare for each allowed extension. This is the single
+ * source of truth for the upload policy: the browser validation, the `bytea`
+ * upload handler, and the streaming filesystem handler all use it, so a `.png`
+ * declared as `text/plain` is rejected by all three instead of only the server.
+ */
+const EXTENSION_MEDIA_TYPES: Record<string, readonly string[]> = {
+  '.jpg': ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.png': ['image/png'],
+  '.gif': ['image/gif'],
+  '.webp': ['image/webp'],
+  '.pdf': ['application/pdf'],
+  '.txt': ['text/plain'],
+  '.csv': ['text/csv', 'text/plain'],
+  '.json': ['application/json'],
+  '.xml': ['application/xml', 'text/xml'],
+}
 
 /**
  * Reduce a raw MIME type to its media type by dropping parameters such as
@@ -56,6 +62,33 @@ export function normalizeMimeType(mime: string): string {
   return ContentType.from(mime).mediaType?.toLowerCase() ?? ''
 }
 
+/** Lower-cased file extension including the dot, or `undefined`. */
+export function extensionOf(name: string): string | undefined {
+  return name.toLowerCase().match(/\.[^.]+$/)?.[0]
+}
+
+/**
+ * Validate a file's untrusted name and declared media type against the shared
+ * upload policy. Returns the German rejection reason, or `null` when allowed.
+ *
+ * A name is never joined to a filesystem path (storage keys are generated
+ * server-side), but path-like names are still rejected so they cannot become
+ * misleading metadata. Callers that stream large files must also re-check the
+ * stored bytes afterwards: this only inspects metadata.
+ */
+export function validateUploadMetadata(file: { name: string; type: string }): string | null {
+  let extension = extensionOf(file.name)
+  if (extension == null || !ALLOWED_EXTENSIONS.has(extension)) return 'Dateityp nicht erlaubt.'
+  if (file.name.replace(/[/\\]/g, '_') !== file.name) return 'Ungültiger Dateiname.'
+
+  let allowedTypes = EXTENSION_MEDIA_TYPES[extension]
+  if (allowedTypes == null || !allowedTypes.includes(normalizeMimeType(file.type))) {
+    return 'Dateityp nicht erlaubt.'
+  }
+
+  return null
+}
+
 type ClientFile = {
   name: string
   type: string
@@ -63,10 +96,8 @@ type ClientFile = {
 }
 
 function filePolicyError(file: ClientFile): string | null {
-  let ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
-  if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return 'Dateityp nicht erlaubt.'
-  if (!ALLOWED_MIME_TYPES.has(normalizeMimeType(file.type))) return 'Dateityp nicht erlaubt.'
-  if (file.name.replace(/[/\\]/g, '_') !== file.name) return 'Ungültiger Dateiname.'
+  let error = validateUploadMetadata(file)
+  if (error != null) return error
   if (file.size > MAX_UPLOAD_BYTES) return UPLOAD_TOO_LARGE_MESSAGE
   return null
 }
@@ -124,4 +155,17 @@ export function formatBytes(bytes: number): string {
  * message instead of leaving a stale literal behind.
  */
 export const UPLOAD_TOO_LARGE_MESSAGE = `Eine Datei überschreitet die maximale Größe von ${formatBytes(MAX_UPLOAD_BYTES)}.`
-export const UPLOAD_TOO_MANY_FILES_MESSAGE = `Zu viele Dateien in einem Upload (maximal ${MAX_UPLOAD_FILES}).`
+const UPLOAD_TOO_MANY_FILES_MESSAGE = `Zu viele Dateien in einem Upload (maximal ${MAX_UPLOAD_FILES}).`
+
+/**
+ * Uploader-facing rejection reasons, keyed by the stable code the multipart
+ * limit errors are mapped to and carried in the page URL. Shared by the
+ * database-backed uploads grid and the filesystem-backed streaming upload page
+ * so both report the same limits with the same wording.
+ */
+export const uploadErrorMessages: Record<string, string> = {
+  file_too_large: UPLOAD_TOO_LARGE_MESSAGE,
+  too_many_files: UPLOAD_TOO_MANY_FILES_MESSAGE,
+  total_too_large: 'Der Upload überschreitet die maximale Gesamtgröße.',
+  too_many_parts: 'Zu viele Formularfelder in der Anfrage.',
+}

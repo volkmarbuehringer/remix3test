@@ -569,47 +569,6 @@ export const tdActionsCss = css({
   whiteSpace: 'nowrap',
 })
 
-export const rowActionsCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  gap: 0,
-})
-
-export const iconActionCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  // 24px square: the WCAG 2.2 minimum target size, and the main lever on row
-  // height (28px used to set a 45px row because of the baseline descender).
-  width: '24px',
-  height: '24px',
-  minWidth: '24px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  // Left edge of the per-row action group (download is always first): round the
-  // outer corners, square the inner.
-  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-export const iconActionDangerCss = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  // Right edge of the per-row action group (delete is always second): square the
-  // inner corners, round the outer. The download link's right border acts as the
-  // divider between the two.
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 export const idCellCss = css({ whiteSpace: 'nowrap' })
 
 // The only auto-width column in the fixed-layout grid, so it absorbs whatever

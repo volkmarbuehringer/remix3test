@@ -13,6 +13,7 @@ type AdminNavItem =
   | 'clients'
   | 'users'
   | 'uploads'
+  | 'uploadnew'
   | 'webhooks'
   | 'agentevents'
 
@@ -32,6 +33,11 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'clients', label: 'Client-Test', route: routes.admin.clients.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'uploads', label: 'Uploads', route: routes.admin.uploads.index },
+      {
+        id: 'uploadnew',
+        label: 'Upload (Dateisystem)',
+        route: routes.admin.uploadnew.index,
+      },
       { id: 'webhooks', label: 'Webhooks', route: routes.admin.webhookRequests.index },
       {
         id: 'agentevents',
@@ -76,6 +82,8 @@ function navIcon(id: AdminNavItem): RemixNode {
     case 'users':
       return usersSvg()
     case 'uploads':
+      return uploadSvg()
+    case 'uploadnew':
       return uploadSvg()
     case 'webhooks':
       return webhookSvg()

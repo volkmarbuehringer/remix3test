@@ -184,6 +184,20 @@ export const routes = route({
       downloadMany: post('/download-many'),
     }),
 
+    // Streaming upload from guide chapter 11: the future `formData()` parser
+    // streams each part straight into filesystem storage, while `upload_files`
+    // records queryable metadata (no BYTEA column).
+    uploadnew: route('uploadnew', {
+      index: get('/'),
+      action: post('/'),
+      download: get('/:id/download'),
+      destroy: post('/:id/delete'),
+      // The frame commits the POST delete form action path (form action ==
+      // frame src) as its address after submission; a stale reload GETs it, so
+      // render the page instead of falling to a 404 (see admin uploads).
+      destroyResolve: get('/:id/delete'),
+    }),
+
     webhookRequests: route('webhook-requests', {
       index: get('/'),
       // Static `create`/`events` are declared before the `:id` routes so they are

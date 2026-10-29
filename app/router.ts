@@ -98,6 +98,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Uploads routes
   router.map(routes.admin.uploads, admin.adminUploads)
 
+  // Filesystem streaming upload (guide chapter 11 future `formData()`)
+  router.map(routes.admin.uploadnew, admin.adminUploadNew)
+
   // Webhook-requests viewer (admin-only). Start with the static child routes so
   // the SSE (events) and composer (create) paths are matched before the parent
   // group's dynamic GET /:id resolver.

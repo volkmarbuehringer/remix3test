@@ -1,11 +1,5 @@
 import { formData } from 'remix/middleware/form-data'
-import {
-  MaxFilesExceededError,
-  MaxFileSizeExceededError,
-  MaxPartsExceededError,
-  MaxTotalSizeExceededError,
-  type FileUpload,
-} from 'remix/form-data-parser'
+import type { FileUpload } from 'remix/form-data-parser'
 import { redirect } from 'remix/response/redirect'
 import type { Middleware } from 'remix/router'
 
@@ -13,16 +7,18 @@ import { db } from '../db.ts'
 import { insertUpload, uploadsTotalQuotaBytes } from '../data/uploads.ts'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { addUploadedId, setUploadError } from './upload-claim.ts'
+import { createUploadFilesParser, isMultipartForm, uploadLimitErrorCode } from './upload-files.ts'
 import { isAllowedCsrfOrigin } from './skip-csrf.ts'
 import { routes } from '../routes.ts'
 import {
-  ALLOWED_EXTENSIONS,
-  ALLOWED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_FILES,
   UPLOAD_TOO_LARGE_MESSAGE,
   normalizeMimeType,
+  validateUploadMetadata,
 } from '../utils/upload-validation.ts'
+
+export { uploadLimitErrorCode }
 
 /**
  * Validate a single upload without throwing. Returns a German rejection message
@@ -31,15 +27,7 @@ import {
  * renders the banner on the uploads page rather than an uncaught exception.
  */
 function fileUploadErrorMessage(file: FileUpload): string | null {
-  let ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
-  if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return 'Dateityp nicht erlaubt.'
-
-  if (!ALLOWED_MIME_TYPES.has(normalizeMimeType(file.type))) return 'Dateityp nicht erlaubt.'
-
-  let safeName = file.name.replace(/[/\\]/g, '_')
-  if (safeName !== file.name) return 'Ungültiger Dateiname.'
-
-  return null
+  return validateUploadMetadata(file)
 }
 
 async function uploadHandler(file: FileUpload): Promise<string | void> {
@@ -87,25 +75,10 @@ async function uploadHandler(file: FileUpload): Promise<string | void> {
   return id
 }
 
-/**
- * Map a multipart limit error thrown by the streaming parser to a stable code
- * that the uploads controller turns into a German message. Returns `null` for
- * anything that is not a limit error.
- */
-export function uploadLimitErrorCode(error: unknown): string | null {
-  if (error instanceof MaxFileSizeExceededError) return 'file_too_large'
-  if (error instanceof MaxFilesExceededError) return 'too_many_files'
-  if (error instanceof MaxTotalSizeExceededError) return 'total_too_large'
-  if (error instanceof MaxPartsExceededError) return 'too_many_parts'
-  return null
-}
-
 const uploadsActionPath = routes.admin.uploads.action.href()
 const uploadsIndexUrl = routes.admin.uploads.index.href()
-
-function isMultipartForm(request: Request): boolean {
-  return request.headers.get('Content-Type')?.toLowerCase().startsWith('multipart/') ?? false
-}
+const uploadNewActionPath = routes.admin.uploadnew.action.href()
+const uploadNewIndexUrl = routes.admin.uploadnew.index.href()
 
 /**
  * Read the auth state resolved by `loadAuth()` earlier in the root chain. The
@@ -115,6 +88,19 @@ function isMultipartForm(request: Request): boolean {
 function hasAuthenticatedUser(): boolean {
   try {
     return getCurrentUserSafely() != null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The filesystem streaming route is admin-only. Its auth check runs at the
+ * action, but the parser runs globally and before it, so an authenticated
+ * non-admin must be rejected here before a byte is written to disk.
+ */
+function hasAuthenticatedAdmin(): boolean {
+  try {
+    return getCurrentUserSafely()?.role === 'admin'
   } catch {
     return false
   }
@@ -164,20 +150,26 @@ export function uploadFormData(): Middleware<{
     maxFiles: MAX_UPLOAD_FILES,
   })
 
+  // Guide chapter 11, future entrypoint: each upload streams from the request
+  // into the filesystem `uploadHandler`, so a large file is never buffered.
+  let parseUploadNewForm = createUploadFilesParser()
+
   return async (context, next) => {
     let isUploadAction = context.url.pathname === uploadsActionPath
+    let isUploadNewAction = context.url.pathname === uploadNewActionPath
+    let isUploadRequest = isUploadAction || isUploadNewAction
 
     // The parser is global because it also feeds `context.formData` to every
-    // urlencoded form. On the uploads action, reject an unauthenticated
+    // urlencoded form. On an upload action, reject an unauthenticated
     // multipart request before `formData()` reads the body so it cannot fill
     // storage or make the parser buffer a large request. Auth runs earlier in
     // the root chain for exactly this guard; route-level requireAuth still
     // owns the normal login redirect.
     if (
       isMultipartForm(context.request) &&
-      isUploadAction &&
+      isUploadRequest &&
       context.method === 'POST' &&
-      !hasAuthenticatedUser()
+      (!hasAuthenticatedUser() || (isUploadNewAction && !hasAuthenticatedAdmin()))
     ) {
       return new Response('Unauthorized', {
         status: 401,
@@ -185,24 +177,32 @@ export function uploadFormData(): Middleware<{
       })
     }
 
-    if (isMultipartForm(context.request) && isUploadAction && !isAllowedUploadOrigin(context)) {
+    if (isMultipartForm(context.request) && isUploadRequest && !isAllowedUploadOrigin(context)) {
       return new Response('Forbidden', {
         status: 403,
         headers: { 'Cache-Control': 'no-store' },
       })
     }
 
+    let parse = isUploadNewAction
+      ? parseUploadNewForm
+      : isUploadAction
+        ? parseUploadForm
+        : parseForm
+
     try {
-      return await (isUploadAction ? parseUploadForm : parseForm)(context, next)
+      return await parse(context, next)
     } catch (error) {
-      if (context.method === 'POST' && context.url.pathname === uploadsActionPath) {
+      if (context.method === 'POST' && isUploadRequest) {
         let code = uploadLimitErrorCode(error)
         if (code != null) {
-          // A file parsed before the offending part was already inserted as an
-          // unclaimed row; leave it to retention pruning. Redirect so the
-          // banner is rendered on a GET — the same path the frame reloads after
-          // a submitted form action.
-          return redirect(`${uploadsIndexUrl}?uploadError=${code}`)
+          // A file parsed before the offending part was already stored. The DB
+          // route leaves its unclaimed row to retention pruning; the filesystem
+          // route keeps the already-stored entry. Redirect so the banner is
+          // rendered on a GET — the same path the frame reloads after a
+          // submitted form action.
+          let indexUrl = isUploadNewAction ? uploadNewIndexUrl : uploadsIndexUrl
+          return redirect(`${indexUrl}?uploadError=${code}`)
         }
       }
       throw error

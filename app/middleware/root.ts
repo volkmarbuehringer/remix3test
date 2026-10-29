@@ -4,6 +4,7 @@ import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
 
 import { uploadFormData } from './uploads.ts'
+import { uploadFilesScope } from './upload-files.ts'
 import { envPositiveNumberOrUndefined } from '../config.ts'
 import { uploadClaimScope } from './upload-claim.ts'
 import { logger, Logger, type LoggerFunction } from 'remix/middleware/logger'
@@ -82,6 +83,10 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     loadAuth(),
     mailer(),
     uploadClaimScope(),
+    // Per-request scope for the filesystem streaming handler (see
+    // app/middleware/upload-files.ts). Must run before uploadFormData() so the
+    // handler can record its server-generated storage keys.
+    uploadFilesScope(),
     uploadFormData(),
     methodOverride(),
     jsonBody({ maxSize: 256 * 1024 }),

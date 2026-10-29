@@ -4,10 +4,6 @@ import { z } from 'zod/v4'
 
 import { int8, queryRows, queryRow, int8Aggregate } from './rows.ts'
 import { envPositiveNumber } from '../config.ts'
-import {
-  UPLOAD_TOO_LARGE_MESSAGE,
-  UPLOAD_TOO_MANY_FILES_MESSAGE,
-} from '../utils/upload-validation.ts'
 
 /** Hard cap on total BYTEA storage across all users (uploads live in the primary database). */
 export const uploadsTotalQuotaBytes = envPositiveNumber(
@@ -20,14 +16,6 @@ const uploadsPerUserQuotaBytes = envPositiveNumber(
   'UPLOADS_PER_USER_QUOTA_BYTES',
   100 * 1024 * 1024,
 )
-
-/** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
-export const uploadErrorMessages: Record<string, string> = {
-  file_too_large: UPLOAD_TOO_LARGE_MESSAGE,
-  too_many_files: UPLOAD_TOO_MANY_FILES_MESSAGE,
-  total_too_large: 'Der Upload überschreitet die maximale Gesamtgröße.',
-  too_many_parts: 'Zu viele Formularfelder in der Anfrage.',
-}
 
 export interface UploadRow {
   id: number

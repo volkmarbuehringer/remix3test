@@ -212,6 +212,23 @@ CREATE INDEX IF NOT EXISTS uploads_created_at_idx ON uploads (created_at DESC);
 CREATE INDEX IF NOT EXISTS uploads_filename_trgm_idx ON uploads USING GIN (filename gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS uploads_mime_type_trgm_idx ON uploads USING GIN (mime_type gin_trgm_ops);
 
+-- Metadata index for the filesystem streaming upload route (/admin/uploadnew).
+-- Bytes live under UPLOAD_FILES_DIR; this table deliberately has no BYTEA
+-- column. `storage_key` is the key passed to remix/file-storage/fs, and the
+-- filename/mime type/size here are what the grid and downloads read.
+CREATE TABLE IF NOT EXISTS upload_files (
+  id SERIAL PRIMARY KEY,
+  storage_key TEXT NOT NULL UNIQUE,
+  filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size BIGINT NOT NULL,
+  uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS upload_files_created_at_idx ON upload_files (created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS upload_files_uploaded_by_idx ON upload_files (uploaded_by);
+
 CREATE TABLE IF NOT EXISTS webhook_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   payload JSONB NOT NULL DEFAULT '{}',

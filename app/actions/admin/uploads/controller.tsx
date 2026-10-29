@@ -1,6 +1,6 @@
 import { createController } from 'remix/router'
 import { css, type Handle } from 'remix/component'
-import { ContentDisposition, SuperHeaders } from 'remix/headers'
+import { SuperHeaders } from 'remix/headers'
 import { createFileResponse } from 'remix/response/file'
 import { redirect } from 'remix/response/redirect'
 import {
@@ -36,9 +36,6 @@ import {
   bulkDeleteBtnCss,
   bulkDownloadBtnCss,
   tdActionsCss,
-  rowActionsCss,
-  iconActionCss,
-  iconActionDangerCss,
   idCellCss,
   filenameCellCss,
   sizeCellCss,
@@ -80,6 +77,11 @@ import {
   pageCurrentCss,
   pageGapCss,
 } from './uploads-grid-css.ts'
+import {
+  rowActions as rowActionsCss,
+  iconAction as iconActionCss,
+  iconActionDanger as iconActionDangerCss,
+} from '../../../ui/mixins/row-actions.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
@@ -88,7 +90,6 @@ import {
   getUploadsPage,
   getUploadKindCounts,
   getUploadsQuotaUsage,
-  uploadErrorMessages,
   claimUploads,
   getUploadDownload,
   getUploadsByIds,
@@ -101,6 +102,7 @@ import {
   type UploadRow,
 } from '../../../data/uploads.ts'
 import { buildZipArchive } from '../../../utils/zip.ts'
+import { attachmentDisposition } from '../../../utils/content-disposition.ts'
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
@@ -124,6 +126,7 @@ import {
   MAX_UPLOAD_FILES,
   formatUploadType,
   formatBytes,
+  uploadErrorMessages,
 } from '../../../utils/upload-validation.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
@@ -202,32 +205,6 @@ function uploadKindLabel(kind: UploadKind): string {
 function uploadErrorFromParam(code: string | null): string | null {
   if (!code) return null
   return uploadErrorMessages[code] ?? null
-}
-
-/**
- * Build an attachment `Content-Disposition` for an uploaded filename. Uploaded
- * names are user-controlled metadata, so keep the plain `filename` parameter
- * ASCII-only and carry non-ASCII names in the RFC 8187 `filename*` parameter.
- * `ContentDisposition` handles quoting/escaping; CR/LF are stripped earlier.
- */
-function attachmentDisposition(filename: string): string {
-  let asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_')
-  if (asciiFilename === filename) {
-    return new ContentDisposition({ type: 'attachment', filename }).toString()
-  }
-  return new ContentDisposition({
-    type: 'attachment',
-    filename: asciiFilename,
-    filenameSplat: `UTF-8''${encodeRfc8187(filename)}`,
-  }).toString()
-}
-
-/** Percent-encode the characters RFC 8187 allows in an ext-value. */
-function encodeRfc8187(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  )
 }
 
 /**
