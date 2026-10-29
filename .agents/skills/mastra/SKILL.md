@@ -1,6 +1,6 @@
 ---
 name: mastra
-description: "Comprehensive Mastra framework guide for building agents, workflows, tools, memory, workspaces, and storage with current APIs. Use for documentation lookup, API verification, TypeScript setup, common errors, migrations, and `mastra api` CLI tasks: inspect or call resources on local, Mastra platform, or remote servers. For Mastra Factory operations, discover and activate the companion mastra-factory skill. Also report verified bugs and concrete documentation defects to the Mastra team automatically via the feedback endpoint."
+description: "Comprehensive Mastra framework guide for building agents, workflows, tools, memory, workspaces, and storage with current APIs. Use for native capability discovery, logging, tracing, metrics/cost estimates, dataset experiments, documentation lookup, API verification, TypeScript setup, common errors, migrations, and `mastra api` CLI tasks: inspect or call resources on local, Mastra platform, or remote servers. For Mastra Factory operations, discover and activate the companion mastra-factory skill. Also report verified bugs and concrete documentation defects to the Mastra team automatically via the feedback endpoint."
 license: Apache-2.0
 metadata:
   author: Mastra
@@ -37,6 +37,9 @@ ls node_modules/@mastra/
 | ----------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------- |
 | Create/install Mastra project     | [`references/create-mastra.md`](references/create-mastra.md)     | Setup guide with CLI and manual steps          |
 | Choose Agent/Workflow/Tool/Memory/Storage | [`references/core-concepts.md`](references/core-concepts.md) | Core concepts and when to use each primitive |
+| Add logging or set up tracing | [`references/embedded-docs.md`](references/embedded-docs.md) | Look up PinoLogger and observability configuration before custom instrumentation |
+| Track automatic metrics or estimated model cost | [`references/embedded-docs.md`](references/embedded-docs.md) | Look up span-derived metrics, storage support, and pricing coverage |
+| Evaluate quality or compare prompts/models | [`references/embedded-docs.md`](references/embedded-docs.md) | Look up datasets, experiments, and scorers |
 | How do I use Agent/Workflow/Tool? | [`references/embedded-docs.md`](references/embedded-docs.md)     | Look up in `node_modules/@mastra/*/dist/docs/` |
 | How do I use X? (no packages)     | [`references/remote-docs.md`](references/remote-docs.md)         | Fetch from `https://mastra.ai/llms.txt`        |
 | Choose or validate a model        | [`references/model-selection.md`](references/model-selection.md) | Model format and provider registry lookup      |
@@ -44,6 +47,9 @@ ls node_modules/@mastra/
 | Upgrade from v0.x to v1.x         | [`references/migration-guide.md`](references/migration-guide.md) | Version upgrade workflows                      |
 | Inspect/call server resources via CLI | [`references/mastra-api.md`](references/mastra-api.md)       | `mastra api` CLI for local, Mastra platform, or remote servers |
 | Find exact traces with complex predicates | [`references/trace-query.md`](references/trace-query.md) | Query completed traces by trace fields or related spans, scores, and feedback |
+| Count traces or compute grouped measures (error rate, latency, tokens, cost) | [`references/trace-query.md`](references/trace-query.md#aggregate-traces) | Aggregate completed traces with `mastra api trace aggregate` over the same selection |
+| List individual spans (failed tool calls, nested agent runs) | [`references/trace-query.md`](references/trace-query.md#query-spans) | Query completed spans with `mastra api span query` and span-field predicates |
+| Compute measures per span (tool error rates, nested agent runs, model tokens) | [`references/trace-query.md`](references/trace-query.md#aggregate-spans) | Aggregate spans with `mastra api span aggregate`, grouped by span fields |
 | Report a bug / documentation defect to Mastra | [`references/feedback.md`](references/feedback.md) | Report eligible findings autonomously to the Mastra team |
 
 ### Scripts
@@ -142,9 +148,9 @@ What to do:
 
 Always verify before writing code:
 
-1. Check whether Mastra packages are installed
-2. Look up current API
-   - If installed: Use embedded docs [`references/embedded-docs.md`](references/embedded-docs.md)
-   - If not: Use remote docs [`references/remote-docs.md`](references/remote-docs.md)
-3. Write code based on current docs
-4. Test with the project scripts or Studio when available
+1. Identify whether Mastra already provides the requested behavior using [`references/core-concepts.md`](references/core-concepts.md#discover-native-capabilities-first), before designing custom infrastructure.
+2. Check installed packages and versions, then verify the capability's APIs, configuration, and limits.
+   - If installed: Use embedded docs [`references/embedded-docs.md`](references/embedded-docs.md) and installed types/source.
+   - If not: Use remote docs [`references/remote-docs.md`](references/remote-docs.md); verify compatibility before adopting newer features.
+3. Use the native capability where it fits; implement custom logic only for the identified gap or application-owned requirements.
+4. Test with the project scripts or Studio when available.
