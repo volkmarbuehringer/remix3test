@@ -15,7 +15,15 @@ export const assetServer = createAssetServer({
   ...config.assets,
   watch: isDevelopment,
   ...(isHmr
-    ? { hmr: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel() }
+    ? {
+        hmr: {
+          channel: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel(),
+          // HMR appends import-map deltas for updated modules; browsers without
+          // native multiple-import-map support need the same polyfill the app
+          // entry uses for client-entry preloads.
+          moduleImporter: 'remix/multiple-import-maps-polyfill',
+        },
+      }
     : {}),
   ...(isDevelopment ? {} : { fingerprint: true }),
   target: { es: '2022', chrome: '109', safari: '16.4' },

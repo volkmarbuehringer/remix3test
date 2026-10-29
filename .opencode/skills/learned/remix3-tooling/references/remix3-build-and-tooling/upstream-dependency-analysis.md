@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-26 (vendor facts below re-checked against the installed tree at unified build `8ae2f755` / source `0b35d81`; versions unchanged at `remix 3.1.0` / `component 1.1.0` / `component-hmr 1.0.0` / `ui 0.13.0` — the `3.1.0` / `1.1.0` / `0.13.0` release (PR #11978) landed 2026-10-23, and only `component-hmr` moved since, via #11982. The earlier record's `component-hmr 1.1.0` was inaccurate: it stayed at 1.0.0, and the pending 3.1.1 release moves it to 1.0.1)
+**Re-validated:** 2026-10-29 (vendor facts below re-checked against the installed tree at unified build `19b3c4e8` / source `6ab52963`; versions unchanged at `remix 3.1.0` / `component 1.1.0` / `component-hmr 1.0.0` / `ui 0.13.0`. The range since `0b35d81` is 12 commits and is CLI/test/template/docs-only: #12099 authored §11, #12101 revised the guides as standalone chapters, #12077 consolidated the docs sites, #12086 updated the app template, #12096 fixed Windows scaffold scripts, and #12102 fixed dynamic-import rewriting in browser tests. The last runtime-affecting bump remains 2026-10-26 via #11982. The earlier record's `component-hmr 1.1.0` was inaccurate: it stayed at 1.0.0, and the pending 3.1.1 release moves it to 1.0.1)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -184,10 +184,18 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - Unrelated floats from the same `pnpm update`: `date-holidays` ^3.37.0 → ^3.38.0, `@fission-ai/openspec` ^1.14.3 → ^1.15.0, `knip` ^6.42.1 → ^6.43.0.
 - Verification (2026-10-26): `npm run typecheck`, `npm run lint`, `oxfmt --check` clean; full browser suite 838 tests (836 pass, 0 fail, 2 skipped); targeted `uploads-bulk-delete` e2e 4/4 (Chromium + Firefox). A pre-existing browser-test failure in `admin-uploads-bulk-actions.test.browser.tsx` was app-side (stale contract from commit `639a41f`), not this bump — see the `remix3-forms` delete-confirmation delta.
 
+**Bump recorded 2026-10-29: unified build `8ae2f755`/source `0b35d81` → `19b3c4e8`/source `6ab52963` (12 commits; §11 authored by #12099, guides revised as standalone chapters by #12101, docs consolidated by #12077, template/CLI/test fixes by #12086/#12096/#12102; no app runtime change).**
+
+- Lock: all 268 tarball refs resolve to `19b3c4e8`; versions unchanged at `remix` 3.1.0, `@remix-run/ui` 0.13.0, `@remix-run/component` 1.1.0, `@remix-run/component-hmr` 1.0.0 (subpackages: `assets`/`cli`/`response`/`static-middleware` 1.0.1).
+- Package delta: **no app runtime change**. `packages/test/src/app/server.ts` fixes browser-test dynamic-import rewriting (#12102); `packages/cli/src/lib/bootstrap-project.ts` fixes Windows scaffold scripts (#12096); `template/app/assets.ts` and `template/server.ts` add fingerprinting and `assets.close()` (#12086, app already had both); `packages/remix/guides/**` carries #12101 + #12099; the rest is docs/skills/CI.
+- Guide delta: `packages/remix/guides/11-files-and-assets.md` is now the fully authored chapter (same section set as the docs site, no longer "unfinished"). Guides 01–09/13 were revised as standalone chapters, so section titles/anchors moved; re-check learned references before citing them. §11 was re-audited and the app aligned: `staticFiles({ index: false })`, HMR `moduleImporter`, `private` download caching, RFC 8187 `filename*`, pre-parse upload auth/origin guards.
+- App-side clearance (2026-10-29): `npm run typecheck` and `npm run lint` clean; full server suite 1,896 tests (1,895 pass, 0 fail, 1 todo); targeted uploads e2e 10/10 (Chromium + Firefox). `.agents/skills/remix` repointed into the `19b3c4e8` CLI template; `docs/guide-skill-coverage.md` anchor and `AGENTS.md` pin updated.
+
 **Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance.
 
 | Recorded  | Build        | Source      | Range highlights |
 | --------- | ------------ | ----------- | ---------------- |
+| 2026-10-29 | `19b3c4e8` | `6ab52963` | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
 | 2026-10-26 | `8ae2f755` | `0b35d81` | #11982; docs #12075 #12076 |
 | 2026-10-23 (3) | `dfb4fc808` | `5e5a244` | v3.1.0 release (no runtime change); docs #12055 #12072 #12074 |
 | 2026-10-23 (2) | `1e03013e1` | `446179f5a` | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073 |

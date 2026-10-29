@@ -55,16 +55,18 @@ Google-Fonts CDN embedding has been ruled unlawful in Germany.
    return createMiddleware(
      skipAssetsLogger(),
      securityHeaders(),                       // first: static responses still get CSP
+     compression(),                           // wrap static responses, not the other way round
      staticFiles('./public', {
-       cacheControl: 'public, max-age=86400',  // no content hash → NOT `immutable`
+       index: false,                          // `/` reaches the home route
+       cacheControl: 'public, max-age=86400', // no content hash → NOT `immutable`
        // optional: filter: (p) => p.startsWith('fonts/'),
      }),
-     compression(),
      /* …session, loadDatabase, … */
    )
    ```
-   Placement matters: after `securityHeaders()` (headers still applied) and before
-   `session`/`loadDatabase` (a font request must not touch the DB). The asset pipeline
+   Placement matters: after `securityHeaders()` and `compression()` (headers applied, static
+   text compressed) and before `session`/`loadDatabase` (a font request must not touch the
+   DB). The asset pipeline
    (`remix.json assets.files.extensions: ['.woff2']`) is the alternative, but those URLs are
    fingerprinted in production; the static middleware gives stable `/fonts/...` paths.
 

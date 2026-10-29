@@ -205,6 +205,32 @@ function uploadErrorFromParam(code: string | null): string | null {
 }
 
 /**
+ * Build an attachment `Content-Disposition` for an uploaded filename. Uploaded
+ * names are user-controlled metadata, so keep the plain `filename` parameter
+ * ASCII-only and carry non-ASCII names in the RFC 8187 `filename*` parameter.
+ * `ContentDisposition` handles quoting/escaping; CR/LF are stripped earlier.
+ */
+function attachmentDisposition(filename: string): string {
+  let asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_')
+  if (asciiFilename === filename) {
+    return new ContentDisposition({ type: 'attachment', filename }).toString()
+  }
+  return new ContentDisposition({
+    type: 'attachment',
+    filename: asciiFilename,
+    filenameSplat: `UTF-8''${encodeRfc8187(filename)}`,
+  }).toString()
+}
+
+/** Percent-encode the characters RFC 8187 allows in an ext-value. */
+function encodeRfc8187(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+}
+
+/**
  * Build an uploads grid URL. The caller controls the page explicitly so a
  * filtering change can reset to page 1 while sort/search/kind are preserved.
  * Passing `deleted` also appends the post-delete banner count.
@@ -410,11 +436,13 @@ export default createController(routes.admin.uploads, {
         type: mime_type,
         lastModified: created_at,
       })
-      let response = await createFileResponse(file, context.request, { acceptRanges: true })
-      response.headers.set(
-        'Content-Disposition',
-        new ContentDisposition({ type: 'attachment', filename: cleanFilename }).toString(),
-      )
+      let response = await createFileResponse(file, context.request, {
+        acceptRanges: true,
+        // Downloads are owner-scoped; `private` keeps shared caches from
+        // storing them, and `no-cache` revalidates the stable URL with its ETag.
+        cacheControl: 'private, no-cache',
+      })
+      response.headers.set('Content-Disposition', attachmentDisposition(cleanFilename))
       return response
     },
 
@@ -465,6 +493,8 @@ export default createController(routes.admin.uploads, {
       }
       zipHeaders.contentLength = archive.length
       zipHeaders.set('X-Content-Type-Options', 'nosniff')
+      // The archive contains owner-scoped files; keep it out of shared caches.
+      zipHeaders.set('Cache-Control', 'private, no-store')
       return new Response(new Uint8Array(archive), { status: 200, headers: zipHeaders })
     },
 

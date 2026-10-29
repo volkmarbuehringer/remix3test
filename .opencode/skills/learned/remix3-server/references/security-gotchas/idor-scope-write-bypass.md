@@ -59,7 +59,7 @@ row in a claim step.
 Root cause: a claim keyed by a client-supplied identifier. The server must pass the
 server-generated id through a request-scoped channel instead.
 
-Fix (Remix 3: `formData()` runs before auth, so the handler can't bind the owner at insert):
+Fix (Remix 3: `loadAuth()` now runs before `formData()`, but route-level `requireAuth()` still runs after it; the handler cannot bind the owner at insert without moving the parser into action middleware. The pre-parse upload guard rejects unauthenticated/cross-origin requests, but ownership is still claimed post-auth):
 1. Add an AsyncLocalStorage scope middleware BEFORE the body parser:
    `uploadClaimScope()` → `storage.run({}, next)`.
 2. In the upload handler, after `INSERT … RETURNING id`, call `addUploadedId(id)`.

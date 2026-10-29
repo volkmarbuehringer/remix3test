@@ -64,22 +64,28 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     // its own guards skip the .woff2 files (already-compressed MIME filter),
     // while `fonts.css` benefits from compression.
     staticFiles('./public', {
+      // `/` must reach the home route instead of looking for public/index.html.
+      index: false,
       // No content hash in these URLs, so keep a bounded TTL instead of immutable.
       cacheControl: 'public, max-age=86400',
     }),
     globalRateLimit({
       maxPerWindow: envPositiveNumberOrUndefined('GLOBAL_RATE_LIMIT_MAX'),
     }),
-    uploadClaimScope(),
-    uploadFormData(),
-    methodOverride(),
-    jsonBody({ maxSize: 256 * 1024 }),
+    // Auth and request context run before the multipart parser so
+    // uploadFormData() can reject unauthenticated multipart requests before a
+    // single byte is parsed or stored. The parser still runs before route-level
+    // requireAuth(), so upload ownership is claimed in the action afterwards.
     session(cookie, storage),
-    skipCsrf(),
     asyncContext(),
     loadDatabase(),
     loadAuth(),
     mailer(),
+    uploadClaimScope(),
+    uploadFormData(),
+    methodOverride(),
+    jsonBody({ maxSize: 256 * 1024 }),
+    skipCsrf(),
     loadAssetEntry(),
     // Guide ch. 6: the server renderer's onError is the reporting hook for
     // render errors on document and browser-initiated frame requests. The

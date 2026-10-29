@@ -58,7 +58,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 **Request Pipeline and Middleware Ordering (`references/remix-controllers/request-middleware.md`)**
 
 - The app owns the 500 response via `renderServerError()` in `app/utils/server-handler.ts`, wired through `createRequestListener`'s `onError` in `server.ts` (app re-checked 2026-10-14: `onError` is now passed and `createServerHandler` no longer wraps `router.fetch` in try/catch); the client address arrives via the listener's `(request, client)` argument and is stamped as `X-Client-Ip`.
-- Root order lives in `app/middleware/root.ts`; `compression()` runs after `staticFiles()` (so root static responses are uncompressed) and `loadDatabase()` must precede `loadAuth()`.
+- Root order lives in `app/middleware/root.ts`: `securityHeaders()` → `compression()` → `staticFiles('./public', { index: false })`, then `session()`/`asyncContext()`/`loadDatabase()`/`loadAuth()` before the upload parser; `loadDatabase()` must precede `loadAuth()`, and `skipCsrf()` must stay after the parser because `csrf()` reads the parsed form.
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.
 
@@ -167,20 +167,25 @@ Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-par
 - `app/data/uploads.ts` — `uploads` schema, `insertUpload`, quota queries.
 - `app/utils/zip.ts` (+ `app/utils/zip.test.ts`) — the `buildZipArchive` implementation (see §6).
 - `app/actions/admin/uploads/controller.tsx` — uploads controller (upload + bulk download routes).
-- `app/middleware/root.ts` — middleware ordering (`uploadClaimScope()` before `formData()` before `session()`/`loadAuth()`).
+- `app/middleware/root.ts` — middleware ordering (`session()`/`asyncContext()`/`loadDatabase()`/`loadAuth()` before `uploadClaimScope()`/`formData()`; `skipCsrf()` stays after the parser because the token lives in the parsed form).
 
 ### The deltas
 
 #### 1. Middleware ordering is load-bearing
 
-`formData()` runs **before** auth — so `uploadHandler` inserts with `uploaded_by = null` and the controller updates the row after auth. The `AsyncLocalStorage` scope must be installed **before** `formData()` (the handler runs during body parsing, so the scope must already exist):
+The root chain resolves the session and auth **before** the upload parser, so `uploadFormData()` can reject an unauthenticated multipart POST to the uploads action with `401` before `formData()` reads a byte. It also applies the app's `isAllowedCsrfOrigin()` origin/`Sec-Fetch-Site` check **before** parsing (`403`), closing the gap where a cross-site form could reach `uploadHandler` with the victim's session cookie before `skipCsrf()` saw the token. Multipart bodies on other actions still parse (JavaScript `fetch(FormData)` uses multipart for ordinary forms), but they use a parser **without** the storage handler. This is a pre-parse guard only: the parser still runs before route-level `requireAuth()`, so `uploadHandler` still inserts with `uploaded_by = null` and the controller claims the row after auth. The `AsyncLocalStorage` scope must be installed **before** `formData()` (the handler runs during body parsing, so the scope must already exist):
 
 ```
+session(cookie, storage),
+asyncContext(),
+loadDatabase(),
+loadAuth(),
 uploadClaimScope(),
 formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
-session(cookie, storage),
-loadAuth(),  // auth runs AFTER formData
+// methodOverride(), jsonBody(), skipCsrf() …
 ```
+
+`skipCsrf()` cannot move ahead of `formData()`: `csrf()` reads the token from `context.get(FormData)`. If a future change needs full CSRF-before-parse protection, add `cop()` (origin/`Sec-Fetch-Site`) in front of the parser rather than reordering `csrf()`.
 
 #### 2. Auth fixup — server-side request scope, NOT the form field
 
@@ -196,7 +201,7 @@ Detection is by request shape, never `instanceof File` (which is always `false` 
 
 #### 4. Multipart limit errors are NEVER suppressed — wrap the global `formData()`
 
-`suppressErrors: true` only swallows malformed-body parse errors; multipart **limit** errors (`MaxFileSizeExceededError`, `MaxFilesExceededError`, `MaxPartsExceededError`, `MaxTotalSizeExceededError`) always propagate. And since `runMiddleware` has no catch, a throw inside `formData()` prevents the rest of the chain (auth, db, render, controller) from running, so the controller can't render a friendly page — you get an uncaught 500 + stack trace.
+`suppressErrors: true` only swallows malformed-body parse errors; multipart **limit** errors (`MaxFileSizeExceededError`, `MaxFilesExceededError`, `MaxPartsExceededError`, `MaxTotalSizeExceededError`) always propagate. And since `runMiddleware` has no catch, a throw inside `formData()` prevents the rest of the chain (`methodOverride`, CSRF, render, controller) from running, so the controller can't render a friendly page — you get an uncaught 500 + stack trace. Auth and database context now sit before the parser, so a limit error no longer takes those down; it still skips routing/render.
 
 Wrap `formData()` and short-circuit with a `Response` (you cannot "continue" the chain after a downstream middleware throws). For the uploads POST, Post/Redirect/Get to the same path resolved as a GET, carrying an `uploadError` code. See the `uploadFormData()` wrapper in `app/middleware/uploads.ts`.
 
@@ -206,11 +211,11 @@ Keep `maxFileSize` on `formData()`: it is your per-part **memory bound** (removi
 
 #### 5. Download endpoint
 
-Use a standalone `createAction` route — not nested inside `form()` — returning `new Response(bytea, { headers: Content-Type + Content-Disposition })`. See the uploads controller in `app/actions/admin/uploads/controller.tsx`.
+Use a standalone `createAction` route — not nested inside `form()` — that turns the stored row into a `File` and returns `createFileResponse(file, request, { cacheControl: 'private, no-cache' })`. The helper supplies `Content-Type`/`Content-Length`, ETag, `Last-Modified`, conditional requests, `HEAD`, ranges, and `X-Content-Type-Options: nosniff`; `private` keeps owner-scoped downloads out of shared caches and `no-cache` revalidates the stable URL. Set `Content-Disposition` separately: ASCII names use `filename`, non-ASCII names add an RFC 8187 `filenameSplat` (`UTF-8''…`) alongside an ASCII fallback. Use `private, no-store` for generated ZIP archives. See the uploads controller in `app/actions/admin/uploads/controller.tsx`.
 
 #### 6. Bulk ZIP download without a dependency (`node:zlib`)
 
-Zipping usually means adding `archiver`/`jszip`. When you only need a simple archive (a handful of entries, deflate), `node:zlib`'s `deflateRawSync` is exactly what a ZIP entry stores — build the container by hand (three regions: 30-byte local header + filename + deflated data per entry, one 46-byte central-directory header per entry, 22-byte end-of-central-directory record). The working implementation is `app/utils/zip.ts` (with `app/utils/zip.test.ts`); serve it as an attachment via `headers.contentType = 'application/zip'` + `headers.contentDisposition`.
+Zipping usually means adding `archiver`/`jszip`. When you only need a simple archive (a handful of entries, deflate), `node:zlib`'s `deflateRawSync` is exactly what a ZIP entry stores — build the container by hand (three regions: 30-byte local header + filename + deflated data per entry, one 46-byte central-directory header per entry, 22-byte end-of-central-directory record). The working implementation is `app/utils/zip.ts` (with `app/utils/zip.test.ts`); serve it as an attachment via `headers.contentType = 'application/zip'` + `headers.contentDisposition`, with `Cache-Control: private, no-store` because the archive contains owner-scoped files.
 
 Verify against the real `unzip` tool (not just your own parser) before relying on it:
 

@@ -35,20 +35,29 @@ export const assetServer = createAssetServer({ ...config.assets, watch: isDevelo
 
 `AssetStatus` values: `reachable | missing | denied | not-allowed | unmapped | unsupported`. `denyFiles` takes precedence over `allowFiles`/`allowPackages`; a deny match sets `access.deniedBy` to the matching pattern.
 
+## Authored-guide note (2026-10-29)
+
+The installed guide (build `19b3c4e8`) and docs site now document the optional `files` block: `extensions` for leaf
+files, request-selected `transforms` (`defineFileTransform`), `globalTransforms`, an on-disk
+`cache` (`createFsFileCache`) with `cacheKey`, and `maxRequestTransforms`. This app has no
+asset-server leaf files or transforms, so `remix.json → assets` omits `files`; an image or
+font referenced through `getHref()` needs its extension added there first. Root `public/`
+files (the self-hosted fonts) stay on `staticFiles()`, not the asset server.
+
 ## Version-pinned gotchas (build at/after `9696913`)
 
-1. **The `assets` parser is strict and rejects unknown properties.** In `~remix/packages/cli/src/lib/remix-config.ts` (`parseAssetsConfig`) the only allowed keys are `allowFiles`, `allowPackages`, `basePath`, `denyFiles`, `mounts`, `files`, `rootDir`. `fileMap` now throws `Unknown property "fileMap"` — **use `mounts`**. (Pre-`9696913` this was inverted: `fileMap` accepted, `mounts` rejected.)
+1. **The `assets` parser is strict and rejects unknown properties.** In `node_modules/.pnpm/@remix-run+cli@*/node_modules/@remix-run/cli/src/lib/remix-config.ts` (`parseAssetsConfig`) the only allowed keys are `allowFiles`, `allowPackages`, `basePath`, `denyFiles`, `mounts`, `files`, `rootDir`. `fileMap` now throws `Unknown property "fileMap"` — **use `mounts`**. (Pre-`9696913` this was inverted: `fileMap` accepted, `mounts` rejected.)
 2. **`mounts` direction:** keys are public URL path segments **relative to `basePath`** (no leading slash needed, e.g. `app`); values are directories **relative to `rootDir`** (absolute values throw). Each mount recurses, so the path beneath the root is preserved (no `*path` wildcards). When `mounts` is omitted the default is `{ app: 'app', npm: 'node_modules' }` — note the **`npm` URL key**, so node_modules files end up at `/assets/npm/...` rather than the old `/assets/node_modules/...`. To preserve the old `/assets/node_modules/<path>` URLs, use an explicit `mounts: { app: 'app', node_modules: 'node_modules' }`.
 3. **`denyFiles` is path-scoped.** This app uses `["app/**/*.server.*", "app/**/*.test.*"]`. It only guards `app/**` paths, so package-internal test files under `node_modules` (e.g. `@remix-run/test/dist/test/framework.test.browser.js`) remain reachable via the `node_modules` directory mount. That is expected — do not broaden the deny to `*.test.*` globally (would block vendor package files and still not be the intent).
 4. **The `node_modules` directory mount makes the whole allowed dep tree "reachable."** `remix assets` therefore dumps ~2500 lines; filter with `remix assets | grep '^/assets/app/'`. (Piping through `head`/awk truncates it and makes counts look wrong — redirect to a file for accurate counts.)
-5. **`denyFiles: app/**/*.test.*` does NOT break browser tests.** Remix's browser-test runner (`@remix-run/test`) serves `*.test.browser.*` on its own dedicated HTTP server, independent of the app's `/assets` server (see `~remix/packages/test/src/app/server.ts`). So hiding app test files from the asset server is safe.
-6. **(#11814, 2026-09-08)** The asset server now auto-mounts the package-manager virtual store at `/__@remix/virtual-store` when it lives **outside** `rootDir` (see `~remix/packages/assets/src/lib/virtual-store.ts`). It only fires when the store is outside every mount — **not for this app**, whose pnpm `.pnpm` sits inside the `node_modules` mount (`getVirtualStoreMountConfigs` returns `[]` there because `isWithinMounts` is true). No config change needed here; just be aware `remix assets` may list `/__@remix/virtual-store/*` paths for apps whose store is external.
+5. **`denyFiles: app/**/*.test.*` does NOT break browser tests.** Remix's browser-test runner (`@remix-run/test`) serves `*.test.browser.*` on its own dedicated HTTP server, independent of the app's `/assets` server (see `node_modules/.pnpm/@remix-run+test@*/node_modules/@remix-run/test/src/app/server.ts`). So hiding app test files from the asset server is safe.
+6. **(#11814, 2026-09-08)** The asset server now auto-mounts the package-manager virtual store at `/__@remix/virtual-store` when it lives **outside** `rootDir` (see `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/virtual-store.ts`). It only fires when the store is outside every mount — **not for this app**, whose pnpm `.pnpm` sits inside the `node_modules` mount (`getVirtualStoreMountConfigs` returns `[]` there because `isWithinMounts` is true). No config change needed here; just be aware `remix assets` may list `/__@remix/virtual-store/*` paths for apps whose store is external.
 
 ## References
 
-- `~remix/packages/assets/README.md` — shared-config / `remix assets` docs, `loadConfig` wiring, `mounts` examples.
-- `~remix/packages/cli/src/lib/remix-config.ts` — `RemixAssetsConfig`, strict property whitelist (`mounts`, not `fileMap`).
-- `~remix/packages/cli/schema/remix.json` — `assets` JSON schema (`additionalProperties: false`, `mounts`).
-- `~remix/packages/assets/src/lib/inspection.ts` — `AssetStatus`, `AssetKind`, `getAssets()`, `getAssetDetails()`.
-- `~remix/packages/assets/src/lib/asset-server.ts` — `AssetServerOptions` (accepts `rootDir`, `basePath`, `mounts`, `allowFiles`, `allowPackages`, `denyFiles`, `files`).
+- `node_modules/remix/src/assets/README.md` — shared-config / `remix assets` docs, `loadConfig` wiring, `mounts` examples.
+- `node_modules/.pnpm/@remix-run+cli@*/node_modules/@remix-run/cli/src/lib/remix-config.ts` — `RemixAssetsConfig`, strict property whitelist (`mounts`, not `fileMap`).
+- `node_modules/remix/schema/remix.json` — `assets` JSON schema (`additionalProperties: false`, `mounts`).
+- `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/inspection.ts` — `AssetStatus`, `AssetKind`, `getAssets()`, `getAssetDetails()`.
+- `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/asset-server.ts` — `AssetServerOptions` (accepts `rootDir`, `basePath`, `mounts`, `allowFiles`, `allowPackages`, `denyFiles`, `files`).
 - App wiring: `app/assets.ts`, `remix.json → assets` (`app/assets.test.ts` no longer exists; app re-checked 2026-10-14).

@@ -23,11 +23,13 @@
 
 **Re-validated (2026-10-14):** lock bumped to build `c93cec30` (installable dist of source `e5ed055` = PR **#11986 "Clean up UI APIs after styled component removal"**; `remix` 3.0.0 / `@remix-run/ui` 0.12.1 / `@remix-run/component` 1.0.0). The range this bump adds over the previous pin (`c1787ef`/`7d5a2f9`) is exactly #11986, which touches **only `packages/ui`** — `@remix-run/component`, `@remix-run/component-hmr`, `@remix-run/assets`, `remix` CLI, and the guides are byte-identical to the prior pin. All five node-hmr claims hold unchanged (same files/lines as the 2026-10-12 re-validation: `index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,874`; `asset-server.js:779`). App-side impact verified as zero: the app imports only `@remix-run/ui/animation` (untouched) and `@remix-run/ui/menu` (whose only change is deleting an *unexported* internal namespace object), and uses none of the removed APIs (`toggle.control`, `AccordionProps`*, `SelectProps`*, `ComboboxProps`*, accordion `headingLevel`); `npm run typecheck` clean and the full browser suite green (mod a known unrelated timing flake in the lists autosave undo test, documented in `lists-autosave.test.browser.tsx`). See `upstream-dependency-analysis.md` for the #11986 API detail.
 
+**Re-validated (2026-10-29):** build `19b3c4e8` (source `6ab52963`; versions unchanged at `remix` 3.1.0 / `ui` 0.13.0 / `component` 1.1.0 / `component-hmr` 1.0.0). All five node-hmr claims still hold: `index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,874`; the `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:802` in both `8ae2f755` and `19b3c4e8`, so the earlier `779` pin was stale; the guard text and behavior are unchanged. The authored §11 chapter now documents the object `hmr` form with `moduleImporter` (see the 2026-10-29 alignment note below). App-side clearance: full server suite 1,896 tests (1,895 pass, 0 fail, 1 todo), targeted uploads e2e 10/10.
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:
 
-1. **`fingerprint` × `watch` conflict** — `@remix-run/assets` throws `TypeError: fingerprint cannot be used with watch mode` at `createAssetServer` when both are set. The app always had a `fingerprint: { buildId }` block, so enabling `watch: isDevelopment` (required for HMR) crashes the dev server at boot.
+1. **`fingerprint` × `watch` conflict** — `@remix-run/assets` throws `TypeError: fingerprint cannot be used with watch mode` at `createAssetServer` when both are set. The app enables content fingerprinting outside development, so enabling `watch: isDevelopment` (required for HMR) crashes the dev server at boot unless fingerprinting is gated to non-dev.
 2. **IPv6/IPv4 loopback mismatch** — the child inherits the app's `HOST = 'localhost'` default and binds `[::1]:<appPort>`, while `createFetchProxy('http://127.0.0.1:<appPort>')` dials IPv4. Result: `ECONNREFUSED 127.0.0.1:<appPort>`, proxy answers 500, and curl to the child returns `000`.
 3. **Ready-gate wedge** — `createHmrReadyFetch` blocks on `await runner.ready()`. If the child crashes at boot (DB init at `server.ts` top-level, or a `REQUIRED_ENV` throw, both happen *before* `listen()` → before `emitServerReady()`), `ready()` never resolves and **every** proxy request hangs indefinitely — the browser just spins.
 4. **SIGKILL-orphaned child** — `kill -9` of the hmr proxy leaves the child holding the app port; the next `npm run hmr` child then `EADDRINUSE`s and drops into the wait-for-file-change state (the port is effectively bricked until manually cleaned).
@@ -37,23 +39,36 @@ Hooking the upstream HMR template into this app produced four non-obvious failur
 ### 1. Gate fingerprint (and minify) to non-dev, `app/assets.ts`
 
 ```ts
-import { uiHmr } from 'remix/component-hmr/assets'
+import { componentHmr } from 'remix/component-hmr/assets'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isHmr = Boolean(isDevelopment && process.env.REMIX_NODE_HMR)
 
 export const assetServer = createAssetServer({
+  ...config.assets,
   watch: isDevelopment,
-  hmr: isHmr
-    ? async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel()
-    : undefined,
-  fingerprint: !isDevelopment ? { buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}` } : undefined,
+  ...(isHmr
+    ? {
+        hmr: {
+          channel: async () =>
+            (await import('remix/node-hmr/runtime')).createBrowserHmrChannel(),
+          moduleImporter: 'remix/multiple-import-maps-polyfill',
+        },
+      }
+    : {}),
+  ...(isDevelopment ? {} : { fingerprint: true }),
+  ...(isDevelopment ? { sourceMaps: 'external' } : {}),
   minify: !isDevelopment,
-  scripts: { define: { /* existing */ }, loaders: isHmr ? [uiHmr()] : undefined },
+  scripts: {
+    define: { /* existing */ },
+    ...(isHmr ? { loaders: [componentHmr()] } : {}),
+  },
 })
 ```
 
 `REMIX_NODE_HMR` is injected by the node-hmr runner itself (you never set it). `isHmr` must be AND-ed with `isDevelopment` so a leaked env var can't affect prod/test.
+
+**2026-10-29 — authored-§11 alignment.** The installed guide (build `19b3c4e8`) and docs site now carry the authored §11 chapter, which specifies the object `hmr` form (`{ channel, moduleImporter }`) rather than the older bare-function form; `app/assets.ts` uses it with `remix/multiple-import-maps-polyfill`, matching the app entry's `processClientEntryPreloads` polyfill. The loader import is `componentHmr` (the app no longer uses the pre-split `uiHmr` name), and fingerprinting is the boolean `fingerprint: true` outside development.
 
 ### 2. Pin the child to IPv4 loopback, `hmr.ts`
 
@@ -135,7 +150,7 @@ The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR 
 
 ### 6. Hoisted function declarations after a component's `return` — upstream #11913, fixed in build `27393da759`
 
-Before that build, `getSetupStatements()` sliced the component body at the first `return` (`statements.slice(0, returnIndex)`), so **every `function` declared after `return <renderFn>` was dropped from the transformed module** while its call sites in the render body survived unrewritten — `ReferenceError: <name> is not defined` the moment the handler ran. This bites from the *first page load* under `npm run hmr` (the browser loader transforms every served module, not only edited ones); `npm run dev`, `npm start`, `npm test` and the Bun entries never run the transform, because `app/assets.ts` installs `uiHmr()` only when `isDevelopment && REMIX_NODE_HMR`.
+Before that build, `getSetupStatements()` sliced the component body at the first `return` (`statements.slice(0, returnIndex)`), so **every `function` declared after `return <renderFn>` was dropped from the transformed module** while its call sites in the render body survived unrewritten — `ReferenceError: <name> is not defined` the moment the handler ran. This bites from the *first page load* under `npm run hmr` (the browser loader transforms every served module, not only edited ones); `npm run dev`, `npm start`, `npm test` and the Bun entries never run the transform, because `app/assets.ts` installs `componentHmr()` only when `isDevelopment && REMIX_NODE_HMR`.
 
 Measured on this app pre-fix: **32 handlers in 9 modules** — `app/ui/appointtype-panel.browser.tsx` (8), `app/ui/appointment-grid.browser.tsx` (7), `admin-{appointments,offering-configs,offerings,resources,uploads,users}-context-menu.tsx` and `clients-context-menu.tsx` (2–3 each, all `clientEntry` menus that declare `handleXAction()` after the `return`). To check any build, run the transform the loader runs and look for a binding per render-referenced handler:
 

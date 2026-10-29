@@ -11,7 +11,9 @@ import type { Middleware } from 'remix/router'
 
 import { db } from '../db.ts'
 import { insertUpload, uploadsTotalQuotaBytes } from '../data/uploads.ts'
+import { getCurrentUserSafely } from '../utils/context.ts'
 import { addUploadedId, setUploadError } from './upload-claim.ts'
+import { isAllowedCsrfOrigin } from './skip-csrf.ts'
 import { routes } from '../routes.ts'
 import {
   ALLOWED_EXTENSIONS,
@@ -101,6 +103,36 @@ export function uploadLimitErrorCode(error: unknown): string | null {
 const uploadsActionPath = routes.admin.uploads.action.href()
 const uploadsIndexUrl = routes.admin.uploads.index.href()
 
+function isMultipartForm(request: Request): boolean {
+  return request.headers.get('Content-Type')?.toLowerCase().startsWith('multipart/') ?? false
+}
+
+/**
+ * Read the auth state resolved by `loadAuth()` earlier in the root chain. The
+ * guard fails closed when the auth middleware is absent (for example when a
+ * unit test composes `uploadFormData()` on its own).
+ */
+function hasAuthenticatedUser(): boolean {
+  try {
+    return getCurrentUserSafely() != null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Pre-parse cross-origin guard for uploads. `skipCsrf()` still validates the
+ * synchronizer token after parsing, but a cross-site form can carry the
+ * victim's session cookie and would otherwise reach `uploadHandler` first.
+ */
+function isAllowedUploadOrigin(context: { url: URL; request: Request }): boolean {
+  let origin = context.request.headers.get('Origin')
+  if (origin != null) return isAllowedCsrfOrigin(origin, context)
+
+  let fetchSite = context.request.headers.get('Sec-Fetch-Site')
+  return fetchSite == null || fetchSite === 'same-origin' || fetchSite === 'none'
+}
+
 /**
  * The upload-aware FormData middleware. It runs the streaming `formData()`
  * parser, but converts a multipart limit error (a file larger than the per-file
@@ -115,7 +147,7 @@ export function uploadFormData(): Middleware<{
   value: FormData
   property: 'formData'
 }> {
-  let parseForm = formData({
+  let parseUploadForm = formData({
     uploadHandler,
     maxFileSize: MAX_UPLOAD_BYTES,
     // Explicit so the advertised "bis zu 20 Dateien" and the parser's limit
@@ -123,9 +155,45 @@ export function uploadFormData(): Middleware<{
     maxFiles: MAX_UPLOAD_FILES,
   })
 
+  // Non-upload multipart bodies (for example a JavaScript `fetch(FormData)`
+  // against a regular form action) still need parsing, but must never reach
+  // the storage handler. Only the uploads action gets the parser that writes
+  // accepted files.
+  let parseForm = formData({
+    maxFileSize: MAX_UPLOAD_BYTES,
+    maxFiles: MAX_UPLOAD_FILES,
+  })
+
   return async (context, next) => {
+    let isUploadAction = context.url.pathname === uploadsActionPath
+
+    // The parser is global because it also feeds `context.formData` to every
+    // urlencoded form. On the uploads action, reject an unauthenticated
+    // multipart request before `formData()` reads the body so it cannot fill
+    // storage or make the parser buffer a large request. Auth runs earlier in
+    // the root chain for exactly this guard; route-level requireAuth still
+    // owns the normal login redirect.
+    if (
+      isMultipartForm(context.request) &&
+      isUploadAction &&
+      context.method === 'POST' &&
+      !hasAuthenticatedUser()
+    ) {
+      return new Response('Unauthorized', {
+        status: 401,
+        headers: { 'Cache-Control': 'no-store' },
+      })
+    }
+
+    if (isMultipartForm(context.request) && isUploadAction && !isAllowedUploadOrigin(context)) {
+      return new Response('Forbidden', {
+        status: 403,
+        headers: { 'Cache-Control': 'no-store' },
+      })
+    }
+
     try {
-      return await parseForm(context, next)
+      return await (isUploadAction ? parseUploadForm : parseForm)(context, next)
     } catch (error) {
       if (context.method === 'POST' && context.url.pathname === uploadsActionPath) {
         let code = uploadLimitErrorCode(error)

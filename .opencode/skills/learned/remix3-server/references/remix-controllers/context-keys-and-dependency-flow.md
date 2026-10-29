@@ -87,12 +87,20 @@ router.ts → middleware/root.ts + types/context.ts → middleware/*.ts
 // app/middleware/root.ts
 // Imports only from remix/* and sibling middleware — NO router/controller imports
 import { createMiddleware } from 'remix/router'
-import { formData } from 'remix/middleware/form-data'
+import { asyncContext } from 'remix/middleware/async-context'
+import { session } from 'remix/middleware/session'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
+import { uploadFormData } from './uploads.ts'
 
 export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) {
-  return createMiddleware(formData(), session(cookie, storage), loadDatabase(), loadAuth())
+  return createMiddleware(
+    session(cookie, storage),
+    asyncContext(),
+    loadDatabase(),
+    loadAuth(),
+    uploadFormData(),
+  )
 }
 ```
 

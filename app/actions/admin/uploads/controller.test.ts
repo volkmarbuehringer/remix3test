@@ -75,6 +75,74 @@ describe('Admin Uploads controller', () => {
     assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
   })
 
+  it('POST /admin/uploads rejects an unauthenticated multipart upload before parsing', async () => {
+    let formData = new FormData()
+    formData.append(
+      'file',
+      new File([Buffer.from('nope')], 'uplctl-unauth.txt', { type: 'text/plain' }),
+    )
+
+    let response = await router.fetch(UPLOADS_URL, { method: 'POST', body: formData })
+
+    assert.equal(response.status, 401, 'unauthenticated multipart must fail before formData()')
+    let result = await pool.query(
+      "SELECT COUNT(*) AS c FROM uploads WHERE filename = 'uplctl-unauth.txt'",
+    )
+    assert.equal(Number(result.rows[0].c), 0, 'the rejected upload must not reach storage')
+  })
+
+  it('rejects a cross-origin authenticated upload before parsing', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let formData = new FormData()
+    formData.append(
+      'file',
+      new File([Buffer.from('nope')], 'uplctl-cross-origin.txt', { type: 'text/plain' }),
+    )
+
+    let response = await router.fetch(UPLOADS_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: session.cookie,
+        Origin: 'https://evil.example',
+        'Sec-Fetch-Site': 'cross-site',
+      },
+      body: formData,
+    })
+
+    assert.equal(response.status, 403, 'cross-origin uploads must fail before formData()')
+    let result = await pool.query(
+      "SELECT COUNT(*) AS c FROM uploads WHERE filename = 'uplctl-cross-origin.txt'",
+    )
+    assert.equal(Number(result.rows[0].c), 0, 'the rejected upload must not reach storage')
+  })
+
+  it('does not store files from multipart bodies posted to non-upload actions', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let formData = new FormData()
+    formData.append(
+      'file',
+      new File([Buffer.from('nope')], 'uplctl-wrong-path.txt', { type: 'text/plain' }),
+    )
+
+    let response = await router.fetch(`${BASE}/`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    // The request may 404/405 because `/` has no POST route; the invariant is
+    // that a multipart body outside the uploads action never reaches storage.
+    assert.notEqual(response.status, 401, 'an authenticated session may still parse forms')
+    let result = await pool.query(
+      "SELECT COUNT(*) AS c FROM uploads WHERE filename = 'uplctl-wrong-path.txt'",
+    )
+    assert.equal(Number(result.rows[0].c), 0, 'the upload must not reach storage')
+  })
+
   it('GET /admin/uploads renders the page with a multi-file input', async () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')
@@ -1038,6 +1106,11 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.headers.get('Content-Type'), 'text/plain; charset=utf-8')
     assert.equal(response.headers.get('Content-Length'), String(content.byteLength))
     assert.equal(response.headers.get('Accept-Ranges'), 'bytes')
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-cache',
+      'owner-scoped downloads must not be stored by shared caches',
+    )
     let disposition = ContentDisposition.from(response.headers.get('Content-Disposition'))
     assert.equal(disposition.type, 'attachment')
     assert.equal(disposition.filename, 'uplctl-download.txt')
@@ -1173,6 +1246,40 @@ describe('Admin Uploads controller', () => {
     assert.equal(await response.text(), 'quoted')
   })
 
+  it('GET /admin/uploads/:id/download carries non-ASCII filenames in filename*', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let filename = 'uplctl-überweisung-ä.txt'
+    let id = Number(
+      await insertUpload(db, {
+        filename,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('encoded'),
+        size: 7,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.download.href({ id })}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+
+    let header = response.headers.get('Content-Disposition')
+    assert.ok(header, 'download should set Content-Disposition')
+    assert.ok(/^[\x20-\x7E]+$/.test(header), 'the header value must stay ASCII')
+
+    let disposition = ContentDisposition.from(header)
+    assert.equal(disposition.type, 'attachment')
+    assert.equal(disposition.filename, 'uplctl-_berweisung-_.txt', 'ASCII fallback')
+    assert.ok(disposition.filenameSplat?.startsWith("UTF-8''"), 'must carry filename*')
+    assert.equal(disposition.preferredFilename, filename, 'filename* must decode to the real name')
+    assert.equal(await response.text(), 'encoded')
+  })
+
   it('POST /admin/uploads/download-many returns a zip attachment of the selected rows', async () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')
@@ -1208,6 +1315,11 @@ describe('Admin Uploads controller', () => {
     let disposition = response.headers.get('Content-Disposition') ?? ''
     assert.ok(disposition.includes('attachment'), 'should be an attachment')
     assert.ok(disposition.includes('uploads.zip'), 'should carry the zip filename')
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-store',
+      'the owner-scoped archive must not be cached',
+    )
 
     let buffer = Buffer.from(await response.arrayBuffer())
     assert.equal(buffer.readUInt32LE(buffer.length - 22), 0x06054b50, 'should be a zip archive')

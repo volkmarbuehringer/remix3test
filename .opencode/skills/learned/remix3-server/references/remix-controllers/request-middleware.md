@@ -8,7 +8,7 @@
 
 ## Problem
 
-Guide 03 describes the portable path and the middleware contract, but this app assembles its own root chain in `app/middleware/root.ts` and its own boundary behavior in `server.ts`, `server.bun.ts`, and `app/utils/server-handler.ts`. Two guide defaults do not hold here (error handling lives in the app handler, not `onError`; `compression()` runs after `staticFiles()`), and the app derives `AppContext` from a stored chain rather than the guide's inline `RouterContext<typeof router>`. This reference records those seams and the ordering rules the app depends on.
+Guide 03 describes the portable path and the middleware contract, but this app assembles its own root chain in `app/middleware/root.ts` and its own boundary behavior in `server.ts`, `server.bun.ts`, and `app/utils/server-handler.ts`. Error handling has moved to `createRequestListener({ onError })`, and the app derives `AppContext` from a stored chain rather than the guide's inline `RouterContext<typeof router>`. This reference records those seams and the ordering rules the app depends on.
 
 ## Solution
 
@@ -26,7 +26,7 @@ Guide 03 describes the portable path and the middleware contract, but this app a
 ### `compression()`: negotiation, guards, and the before-`staticFiles()` rule
 
 - Guide §"Middleware ordering" and §"Common middleware: form-data, render, static files, compression, logging, method override" state the ordering rule: a response wrapper must run before the early response it should wrap, so `compression()` must precede `staticFiles()`. The middleware negotiates `br`, `gzip`, `deflate` from `Accept-Encoding` and skips already-compressed responses, responses that advertise range support (`Accept-Ranges: bytes`), non-compressible MIME types, and bodies below the threshold (default 1024 bytes, enforced only when `Content-Length` is present) — see `node_modules/remix/src/compression-middleware/README.md`.
-- App seam and disambiguation: the root chain places `compression()` after `staticFiles()` (`app/middleware/root.ts:61` then `:65`), the opposite of the guide's rule. Consequence: responses answered by `staticFiles('./public', ...)` are not compressed; the only root static text asset is `public/fonts/fonts.css` (the `.woff2` files are already compressed). Requests that reach actions are still wrapped, because `compression()` sits before the session/database/render stack. If you add large static text under `public/`, move `compression()` above `staticFiles()` and re-check that `securityHeaders()` still precedes both, as it does at `:57`. The app uses the default compression options.
+- App seam: the root chain follows the guide — `securityHeaders()` → `compression()` → `staticFiles('./public', { index: false, cacheControl: … })` (`app/middleware/root.ts:57-71`). Consequences: static responses are wrapped by `securityHeaders()` and `compression()`; `.woff2` files are skipped by the already-compressed MIME guard while `fonts.css` is compressed. Requests that reach actions are also wrapped, because `compression()` sits before the session/database/render stack. Keep `compression()` above `staticFiles()` if you add large static text. The app uses the default compression options.
 
 ### `logger()` and `context.logger(...)`
 
@@ -37,13 +37,14 @@ Guide 03 describes the portable path and the middleware contract, but this app a
 ### Middleware scopes and ordering rules
 
 - Guide §"Middleware ordering". Three scopes: router middleware (before route matching, every request), controller middleware (direct actions of one controller), and action middleware (one action); the full order is router, then controller, then action, then handler. Choose order by dependency and wrapping: provider before consumer, response-wrapper before the early response it wraps, work after a fast path that does not need it.
-- App chain: `createNewappMiddleware(cookie, storage)` in `app/middleware/root.ts:54-84` is the single router middleware tuple, built with `createMiddleware(...)` so its type survives. Order-dependent pairs the app relies on:
-  - `securityHeaders()` before `staticFiles()` so static responses still carry the CSP (`:57`, `:61`).
-  - `uploadClaimScope()` before `uploadFormData()` (`:69` vs `:70`), and `uploadFormData()` (which is `formData()`) before `methodOverride()` (`:71`), matching guide §"Common middleware: form-data, render, static files, compression, logging, method override".
-  - `session(cookie, storage)` before `skipCsrf()` and `loadAuth()` (`:73`–`:77`).
-  - `loadDatabase()` before `loadAuth()` (`:76` vs `:77`); `loadAuth` calls `context.get(databaseContext)` and throws `Expected database middleware before session auth scheme` if the DB was not set first (`app/middleware/auth.ts`).
-  - `methodOverride()` before route matching, because it must rewrite `context.method` before the matcher runs (guide §"Common middleware: form-data, render, static files, compression, logging, method override").
-  - `render({ assets: assetServer })` after middleware that may answer without rendering (`:80`), and `asyncContext()` (`:75`) before the middleware that reads ambient context.
+- App chain: `createNewappMiddleware(cookie, storage)` in `app/middleware/root.ts:54-102` is the single router middleware tuple, built with `createMiddleware(...)` so its type survives. Order-dependent pairs the app relies on:
+  - `securityHeaders()` before `compression()` and `staticFiles()` so static responses still carry the CSP (`:57`–`:71`).
+  - `session(cookie, storage)` before `asyncContext()`, `loadDatabase()`, `loadAuth()`, and `skipCsrf()` (`:79`–`:88`).
+  - `loadDatabase()` before `loadAuth()` (`:81` vs `:82`); `loadAuth` calls `context.get(databaseContext)` and throws `Expected database middleware before session auth scheme` if the DB was not set first (`app/middleware/auth.ts`).
+  - `uploadClaimScope()` before `uploadFormData()` (`:84` vs `:85`), and `uploadFormData()` before `methodOverride()` (`:86`), matching guide §"Common middleware: form-data, render, static files, compression, logging, method override".
+  - `methodOverride()` before `jsonBody()` and `skipCsrf()`; `skipCsrf()` must stay after `uploadFormData()` because `csrf()` reads the token from `context.get(FormData)`. The upload middleware itself performs pre-parse 401/403 checks because auth and request context now run earlier (`:79`–`:85`).
+  - `asyncContext()` before any middleware that reads ambient context (`getContext()`), including `loadAuth`/`uploadFormData`.
+  - `loadAssetEntry()` after CSRF and before `render({ assets: assetServer })`; `render` follows middleware that may answer without rendering (`:89` vs `:94`).
 - Controller- and action-scope details are in `references/route-contract-and-controllers.md`: `createController(..., { middleware })` merges only into direct leaves, and the per-action object form is `{ middleware, handler }`.
 
 ### `RouterContext<typeof router>` vs this app's `MiddlewareContext` factory

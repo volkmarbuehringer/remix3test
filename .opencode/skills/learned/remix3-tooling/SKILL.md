@@ -56,7 +56,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 **HMR dev server (`references/remix3-build-and-tooling/hmr-dev-server.md`)**
 
-- `npm run hmr` runs `hmr.ts`, which spawns `server.ts` behind a readiness-gated loopback proxy. Gate `fingerprint`/`minify` to non-dev, pin the child `HOST: '127.0.0.1'`, wrap `runner.ready()` in a timeout so a boot crash returns 503 instead of hanging, and exit the child on IPC `disconnect`. Set `trustProxy: isHmr` so the proxy's forwarded headers restore the browser origin (upstream #11897). Pre-`27393da759` builds dropped function declarations after a component `return` (`ReferenceError` in the browser); bump the pin or move them above the `return`.
+- `npm run hmr` runs `hmr.ts`, which spawns `server.ts` behind a readiness-gated loopback proxy. Gate `fingerprint`/`minify` to non-dev, use the object `hmr` form (`channel` + `moduleImporter: 'remix/multiple-import-maps-polyfill'`) with `componentHmr()` in `scripts.loaders`, pin the child `HOST: '127.0.0.1'`, wrap `runner.ready()` in a timeout so a boot crash returns 503 instead of hanging, and exit the child on IPC `disconnect`. Set `trustProxy: isHmr` so the proxy's forwarded headers restore the browser origin (upstream #11897). Pre-`27393da759` builds dropped function declarations after a component `return` (`ReferenceError` in the browser); bump the pin or move them above the `return`.
 
 **Self-hosted webfonts (`references/remix3-build-and-tooling/self-hosted-fonts.md`)**
 

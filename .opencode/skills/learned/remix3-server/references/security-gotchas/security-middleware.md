@@ -45,6 +45,7 @@ When `csrf()` is installed globally, external callers (webhooks, API integration
 
 - `isExternalPath()` — webhook/API/callback paths bypass CSRF entirely (server-to-server, no browser header possible).
 - `isAgentPath()` — GET (EventSource is read-only) and non-GET requests carrying `X-Sse-Request: 1` pass through unvalidated; a cross-site `<form>` cannot set that header. Any other non-GET now **falls through to the regular `csrf()` synchronizer-token check** instead of a blanket 403, so a server-rendered form can submit with a hidden `_csrf` input while a cross-site form still fails the token/origin check. See `remix-forms` → `references/native-form-on-sse-decision.md`.
+- Uploads: `skipCsrf()` must stay after `uploadFormData()` because `csrf()` reads `_csrf` from the parsed form. `uploadFormData()` therefore performs its own pre-parse auth (401) and `isAllowedCsrfOrigin()` origin/`Sec-Fetch-Site` check (403) on the uploads action before the body is read; see `app/middleware/uploads.ts`.
 
 The client sends the header on the streaming POST:
 
