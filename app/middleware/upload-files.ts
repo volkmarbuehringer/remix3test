@@ -11,8 +11,10 @@ import type { Middleware } from 'remix/router'
 
 import { db } from '../db.ts'
 import {
-  insertUploadFile,
+  insertUploadFileWithinUserQuota,
   sumUploadFileBytes,
+  sumUploadFileBytesForUser,
+  uploadFilesPerUserQuotaBytes,
   uploadFilesTotalQuotaBytes,
 } from '../data/upload-files.ts'
 import { uploadFiles } from '../storage.ts'
@@ -21,6 +23,7 @@ import {
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_FILES,
   extensionOf,
+  formatBytes,
   normalizeMimeType,
   validateUploadMetadata,
 } from '../utils/upload-validation.ts'
@@ -33,6 +36,15 @@ const CONTENT_MISMATCH_MESSAGE = 'Der Dateiinhalt passt nicht zum Dateityp.'
 const QUOTA_EXCEEDED_MESSAGE = 'Das Speicherkontingent für Datei-Uploads ist erschöpft.'
 const QUOTA_CHECK_FAILED_MESSAGE =
   'Der belegte Speicher konnte nicht geprüft werden. Bitte versuchen Sie es erneut.'
+
+/**
+ * Rejection copy for the configurable per-user cap. Built per call so the
+ * message always names the limit actually enforced (the value is read from the
+ * environment at request time).
+ */
+function userQuotaExceededMessage(): string {
+  return `Der Upload überschreitet Ihr Speicherkontingent von ${formatBytes(uploadFilesPerUserQuotaBytes())}.`
+}
 
 type UploadFilesState = { keys: string[]; error: string | null }
 
@@ -125,10 +137,14 @@ async function storeUploadedFile(upload: FileUpload): Promise<string | void> {
     return
   }
 
-  // Check the quota before reading the body. When the directory is already
-  // full the handler returns without consuming the part, so nothing is
-  // written.
-  let usedBytes = await quotaBytesBeforeWrite()
+  // The owner is the quota subject for the per-user limit and the
+  // `upload_files.uploaded_by` value; read it once so the pre-check and the
+  // insert can never disagree.
+  let ownerId = getCurrentUserSafely()?.id ?? null
+
+  // Check both quotas before reading the body. When either is exhausted the
+  // handler returns without consuming the part, so nothing is written.
+  let usedBytes = await quotaBytesBeforeWrite(ownerId)
   if (usedBytes == null) return
 
   let extension = extensionOf(upload.name) as string
@@ -167,16 +183,24 @@ async function storeUploadedFile(upload: FileUpload): Promise<string | void> {
   }
 
   // Index the file in Postgres so listing/quota/audit are queryable without a
-  // BYTEA column. A failed insert must remove the already-written file.
+  // BYTEA column. The insert re-checks the per-user quota under a per-user
+  // advisory lock, so two concurrent uploads cannot both pass the pre-check and
+  // jointly exceed the cap. A rejected or failed insert must remove the
+  // already-written file.
+  let inserted: Awaited<ReturnType<typeof insertUploadFileWithinUserQuota>>
   try {
-    await insertUploadFile(db, {
-      storageKey: key,
-      filename: upload.name,
-      mimeType: normalizeMimeType(upload.type),
-      size: upload.size,
-      uploadedBy: getCurrentUserSafely()?.id ?? null,
-      now: Date.now(),
-    })
+    inserted = await insertUploadFileWithinUserQuota(
+      db,
+      {
+        storageKey: key,
+        filename: upload.name,
+        mimeType: normalizeMimeType(upload.type),
+        size: upload.size,
+        uploadedBy: ownerId,
+        now: Date.now(),
+      },
+      uploadFilesPerUserQuotaBytes(),
+    )
   } catch (error) {
     await removeStoredFile(key)
     if (process.env.NODE_ENV !== 'test') {
@@ -186,16 +210,25 @@ async function storeUploadedFile(upload: FileUpload): Promise<string | void> {
     return
   }
 
+  if (!inserted.ok) {
+    // The authoritative admission check rejected the file: the owner's quota
+    // would be crossed once this file is counted. Drop the stored bytes so a
+    // refused upload leaves no orphan.
+    await removeStoredFile(key)
+    setUploadFilesError(userQuotaExceededMessage())
+    return
+  }
+
   addStoredFileKey(key)
   return key
 }
 
 /**
- * Read the bytes already recorded and reject when the quota is exhausted.
- * Returns the pre-write total, or `null` after recording an error. This is a
- * SQL aggregate over `upload_files`, not a filesystem scan.
+ * Read the bytes already recorded and reject when either quota is exhausted.
+ * Returns the pre-write global total, or `null` after recording an error.
+ * These are SQL aggregates over `upload_files`, not filesystem scans.
  */
-async function quotaBytesBeforeWrite(): Promise<number | null> {
+async function quotaBytesBeforeWrite(ownerId: number | null): Promise<number | null> {
   let usedBytes = await storedBytes()
   if (usedBytes == null) {
     setUploadFilesError(QUOTA_CHECK_FAILED_MESSAGE)
@@ -205,6 +238,19 @@ async function quotaBytesBeforeWrite(): Promise<number | null> {
     setUploadFilesError(QUOTA_EXCEEDED_MESSAGE)
     return null
   }
+
+  if (ownerId != null) {
+    let userBytes = await storedBytesForUser(ownerId)
+    if (userBytes == null) {
+      setUploadFilesError(QUOTA_CHECK_FAILED_MESSAGE)
+      return null
+    }
+    if (userBytes >= uploadFilesPerUserQuotaBytes()) {
+      setUploadFilesError(userQuotaExceededMessage())
+      return null
+    }
+  }
+
   return usedBytes
 }
 
@@ -226,6 +272,18 @@ async function storedBytes(): Promise<number | null> {
   } catch (error) {
     if (process.env.NODE_ENV !== 'test') {
       console.error('Failed to measure filesystem upload storage', error)
+    }
+    return null
+  }
+}
+
+/** Sum the metadata sizes one uploader has recorded; `null` when unreadable. */
+async function storedBytesForUser(userId: number): Promise<number | null> {
+  try {
+    return await sumUploadFileBytesForUser(db, userId)
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error("Failed to measure the uploader's filesystem storage", error)
     }
     return null
   }

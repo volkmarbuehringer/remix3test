@@ -28,8 +28,11 @@ import {
   deleteUploadFile,
   getUploadFile,
   listUploadFiles,
+  sumUploadFileBytesForUser,
+  uploadFilesPerUserQuotaBytes,
   type UploadFileRow,
 } from '../../../data/upload-files.ts'
+import { getCurrentUserSafely } from '../../../utils/context.ts'
 import {
   isMultipartForm,
   takeStoredFileKeys,
@@ -54,6 +57,12 @@ const LIST_LIMIT = 50
 type UploadNewPageOptions = {
   uploadedCount?: number
   error?: string | null
+}
+
+/** Per-uploader quota state rendered next to the upload form. */
+type UploadQuota = {
+  usedBytes: number
+  limitBytes: number
 }
 
 export default createController(routes.admin.uploadnew, {
@@ -156,9 +165,10 @@ async function renderUploadNewPage(
   context: Pick<AppContext, 'render' | 'db'>,
   options: UploadNewPageOptions = {},
 ): Promise<Response> {
-  let [files, total] = await Promise.all([
+  let [files, total, quota] = await Promise.all([
     listUploadFiles(context.db, { limit: LIST_LIMIT }),
     countUploadFiles(context.db),
+    loadUploadQuota(context.db),
   ])
 
   return renderAdminPage(
@@ -169,8 +179,38 @@ async function renderUploadNewPage(
       total={total}
       uploadedCount={options.uploadedCount ?? 0}
       error={options.error ?? null}
+      quota={quota}
     />,
   )
+}
+
+/**
+ * Read the signed-in uploader's used bytes and configured limit. Returns
+ * `null` when there is no session user (defensive: the page runs behind
+ * requireAuth) or the aggregate is unreadable — the list must still render, and
+ * the streaming handler's admission check stays authoritative either way.
+ */
+async function loadUploadQuota(db: AppContext['db']): Promise<UploadQuota | null> {
+  let userId = getCurrentUserSafely()?.id
+  if (userId == null) return null
+
+  try {
+    return {
+      usedBytes: await sumUploadFileBytesForUser(db, userId),
+      limitBytes: uploadFilesPerUserQuotaBytes(),
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Failed to measure the upload quota for the page', error)
+    }
+    return null
+  }
+}
+
+/** Clamped integer percentage of the per-user cap already used. */
+function quotaPercent(quota: UploadQuota): number {
+  if (quota.limitBytes <= 0) return 100
+  return Math.min(100, Math.round((quota.usedBytes / quota.limitBytes) * 100))
 }
 
 function uploadErrorFromParam(code: string | null): string | null {
@@ -191,11 +231,13 @@ type UploadNewPageProps = {
   total: number
   uploadedCount: number
   error: string | null
+  quota: UploadQuota | null
 }
 
 function UploadNewPage(handle: Handle<UploadNewPageProps>) {
   return () => {
-    let { files, total, uploadedCount, error } = handle.props
+    let { files, total, uploadedCount, error, quota } = handle.props
+    let limitBytes = quota?.limitBytes ?? uploadFilesPerUserQuotaBytes()
 
     return (
       <PageSection
@@ -239,12 +281,24 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
             />
             <p id="uploadnew-policy" mix={hintCss}>
               {`PDF, Bilder und Text · maximal ${formatBytes(MAX_UPLOAD_BYTES)} pro Datei, ` +
-                `bis zu ${MAX_UPLOAD_FILES} Dateien pro Upload`}
+                `bis zu ${MAX_UPLOAD_FILES} Dateien pro Upload, ` +
+                `insgesamt ${formatBytes(limitBytes)} pro Benutzer`}
             </p>
             <button type="submit" mix={submitCss}>
               Hochladen
             </button>
           </form>
+
+          {quota ? (
+            <p
+              mix={quotaTextCss}
+              data-uploadnew-quota
+              title={`${formatBytes(Math.max(0, quota.limitBytes - quota.usedBytes))} frei`}
+            >
+              <Glyph name="info" width={14} height={14} />
+              {`Ihr Speicher: ${formatBytes(quota.usedBytes)} von ${formatBytes(quota.limitBytes)} (${quotaPercent(quota)} %)`}
+            </p>
+          ) : null}
         </div>
 
         <div mix={panelCss}>
@@ -346,6 +400,15 @@ const fileInputCss = css({
 })
 
 const hintCss = css({
+  margin: 0,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const quotaTextCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
   margin: 0,
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,

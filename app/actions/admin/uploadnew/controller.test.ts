@@ -2,10 +2,15 @@ import { afterEach, before, describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
-import { deleteUploadFile, listUploadFiles } from '../../../data/upload-files.ts'
+import {
+  deleteUploadFile,
+  listUploadFiles,
+  sumUploadFileBytesForUser,
+} from '../../../data/upload-files.ts'
 import { routes } from '../../../routes.ts'
 import { uploadFiles } from '../../../storage.ts'
 import { router } from '../../../test-router.ts'
+import { pool } from '../../../../test/pool.ts'
 import {
   createAuthCookieWithCsrf,
   createAuthCookieWithCsrfForUser,
@@ -98,6 +103,11 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
       /<a[^>]*href="\/admin\/uploadnew"[^>]*aria-current="page"/.test(html),
       'the new sidebar item should be marked active on its own page',
     )
+    assert.ok(
+      html.includes('pro Benutzer'),
+      'the policy hint should name the configurable per-user limit',
+    )
+    assert.ok(html.includes('data-uploadnew-quota'), 'the page should show the uploader’s usage')
   })
 
   it('rejects an unauthenticated multipart upload before parsing it', async () => {
@@ -255,6 +265,69 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
     assert.match(download.headers.get('Content-Disposition') ?? '', /^attachment;/)
     let bytes = Buffer.from(await download.arrayBuffer())
     assert.ok(bytes.equals(PNG_BYTES), 'the download should return the stored bytes')
+  })
+
+  it('rejects an upload that would cross the per-user quota', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Could not create an admin session')
+
+    let userResult = await pool.query(
+      "SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1",
+    )
+    let userId = Number(userResult.rows[0]?.id)
+
+    let firstForm = new FormData()
+    firstForm.set('_csrf', session.csrfToken)
+    firstForm.append(
+      'file',
+      new File([PNG_BYTES], `${TEST_FILE_PREFIX}quota-first.png`, { type: 'image/png' }),
+    )
+    await router.fetch(ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: firstForm,
+    })
+
+    let usedBytes = await sumUploadFileBytesForUser(db, userId)
+    assert.equal(usedBytes, PNG_BYTES.length, 'the first upload should count against the quota')
+
+    // One byte short of room for a second file of the same size: the pre-write
+    // check still passes, so the authoritative post-write admission check has
+    // to reject the file and remove the bytes it already streamed to disk.
+    let previous = process.env.UPLOAD_FILES_PER_USER_QUOTA_BYTES
+    process.env.UPLOAD_FILES_PER_USER_QUOTA_BYTES = String(usedBytes + PNG_BYTES.length - 1)
+    try {
+      let name = `${TEST_FILE_PREFIX}quota-second.png`
+      let formData = new FormData()
+      formData.set('_csrf', session.csrfToken)
+      formData.append('file', new File([PNG_BYTES], name, { type: 'image/png' }))
+
+      let response = await router.fetch(ACTION_URL, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: formData,
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('Speicherkontingent'),
+        'the rejection should explain the per-user quota',
+      )
+      assert.equal(
+        await notFoundOrStored(name),
+        true,
+        'an over-quota upload must not be indexed or stored',
+      )
+      assert.equal(
+        await sumUploadFileBytesForUser(db, userId),
+        usedBytes,
+        'a rejected upload must not grow the recorded usage',
+      )
+    } finally {
+      if (previous === undefined) delete process.env.UPLOAD_FILES_PER_USER_QUOTA_BYTES
+      else process.env.UPLOAD_FILES_PER_USER_QUOTA_BYTES = previous
+    }
   })
 
   it('removes a file whose bytes do not match its declared type', async () => {
