@@ -46,11 +46,20 @@ async function findCliPackage(): Promise<string | null> {
     let commitPrefix = commitMatch.slice(0, 9)
 
     let entries = await fs.readdir(pnpmDir)
-    let cliDir = entries.find((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
-    if (cliDir) {
+    // Prefer the CLI from the same build, but fall back to any installed CLI:
+    // a branch pin can resolve the top-level `remix` entry to one commit while
+    // its transitive `path:` packages (and the CLI) resolve to a newer tip, so
+    // an exact commit match is not guaranteed to exist.
+    let candidates = [
+      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix)),
+      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && !e.includes(commitPrefix)),
+    ]
+    for (let cliDir of candidates) {
       let p = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli')
-      let s = await fs.stat(p)
-      if (s.isDirectory()) return p
+      let template = path.join(p, 'template/.agents/skills/remix')
+      try {
+        if ((await fs.stat(template)).isDirectory()) return p
+      } catch {}
     }
   } catch {}
   return null
