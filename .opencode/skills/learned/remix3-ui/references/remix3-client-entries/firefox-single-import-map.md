@@ -21,7 +21,7 @@ Fresh-browser Chromium tests pass, so a "stale browser" diagnosis is wrong for F
 
 ## Solution
 
-Wire `run()` to the multiple-import-maps polyfill (the integration documented in `node_modules/remix/src/component/README.md` under "Client Entry Loading" and `node_modules/remix/src/multiple-import-maps-polyfill/README.md`):
+Wire `run()` to the multiple-import-maps polyfill (the integration documented in `node_modules/remix/src/component/README.md` under "Trusted Content and Module Loading" — retitled/moved by #12142, formerly "Client Entry Loading" — and `node_modules/remix/src/multiple-import-maps-polyfill/README.md`):
 
 ```tsx
 // app/assets/entry.tsx
