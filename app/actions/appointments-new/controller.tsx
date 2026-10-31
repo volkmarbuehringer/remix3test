@@ -15,6 +15,7 @@ import {
 } from '../../data/appointofferings.ts'
 import { parseDuring } from '../../utils/during.ts'
 import { requireAuth } from '../../middleware/auth.ts'
+import { FlashBanner } from '../../ui/flash-banner.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
@@ -377,7 +378,16 @@ function renderAppointmentsNewPage(
   )
 
   if (isAppointmentsNewFrameRequest(context)) {
-    return context.render(page, init)
+    // The create PRG redirect follows in-frame (frameRedirects), so the
+    // one-shot success flash must render in this fragment — the document
+    // Layout is not part of a frame response.
+    return context.render(
+      <>
+        <FlashBanner compact />
+        {page}
+      </>,
+      init,
+    )
   }
 
   return context.render(<Layout>{page}</Layout>, init)

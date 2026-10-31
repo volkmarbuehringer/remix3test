@@ -6,9 +6,9 @@ import {
   type AppointmentLayoutBlock,
 } from './appointment-grid-types.ts'
 
-export function handleMutationResponse(response: Response): boolean {
+export function handleMutationResponse(response: Response, reload: () => void): boolean {
   if (response.ok) {
-    window.location.reload()
+    reload()
     return true
   }
   if (response.status === COLLISION_STATUS) {
@@ -16,10 +16,10 @@ export function handleMutationResponse(response: Response): boolean {
       .json()
       .then((body) => {
         showToast(body?.error || 'Time slot already taken.')
-        window.location.reload()
+        reload()
       })
       .catch(() => {
-        window.location.reload()
+        reload()
       })
     return true
   }
@@ -44,7 +44,10 @@ export function handleMutationResponse(response: Response): boolean {
   return false
 }
 
-export function handleBatchMutationResponses(results: PromiseSettledResult<Response>[]): void {
+export function handleBatchMutationResponses(
+  results: PromiseSettledResult<Response>[],
+  reload: () => void,
+): void {
   let hasCollision = false
   let anyOk = false
   for (let r of results) {
@@ -58,7 +61,7 @@ export function handleBatchMutationResponses(results: PromiseSettledResult<Respo
   } else if (!anyOk) {
     showToast('Failed to save changes.')
   }
-  window.location.reload()
+  reload()
 }
 
 export function readData(): AppData {

@@ -162,18 +162,15 @@ describe('copyAppt', () => {
   })
 })
 
-function setupWindowMock() {
-  let mockLocation = { reload: () => {} } as Location
-  globalThis.window = { location: mockLocation } as unknown as Window & typeof globalThis
-  Object.defineProperty(globalThis, 'location', { value: mockLocation, writable: true })
-}
-
 function setupDomMock() {
   let el = {
     style: {} as Record<string, string>,
     remove: () => {},
     textContent: '',
     appendChild: () => {},
+    // Toasts register a transitionend cleanup after their display timeout;
+    // the test process can outlive that timer, so the stub must accept it.
+    addEventListener: () => {},
   }
   globalThis.document = {
     getElementById: () => null as HTMLElement | null,
@@ -192,87 +189,129 @@ function cleanupGlobals() {
   delete (globalThis as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame
 }
 
+function countReloads(): { reload: () => void; calls: () => number } {
+  let calls = 0
+  return {
+    reload: () => {
+      calls++
+    },
+    calls: () => calls,
+  }
+}
+
+async function nextTask() {
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 describe('handleMutationResponse', () => {
-  before(setupWindowMock)
+  before(setupDomMock)
   after(cleanupGlobals)
 
-  it('returns true and reloads for ok response', () => {
-    let response = new Response(null, { status: 200 })
-    assert.ok(handleMutationResponse(response))
+  it('returns true and reloads for an ok response', () => {
+    let spy = countReloads()
+    assert.ok(handleMutationResponse(new Response(null, { status: 200 }), spy.reload))
+    assert.equal(spy.calls(), 1)
   })
 
-  it('returns true and reloads for 201 response', () => {
-    let response = new Response(null, { status: 201 })
-    assert.ok(handleMutationResponse(response))
+  it('returns true and reloads for a 201 response', () => {
+    let spy = countReloads()
+    assert.ok(handleMutationResponse(new Response(null, { status: 201 }), spy.reload))
+    assert.equal(spy.calls(), 1)
   })
 
-  it('returns true and shows toast for 409 collision', async () => {
-    setupDomMock()
+  it('reloads after showing the 409 collision toast', async () => {
+    let spy = countReloads()
     let response = new Response(JSON.stringify({ error: 'Time conflict' }), {
       status: 409,
       headers: { 'Content-Type': 'application/json' },
     })
-    assert.ok(handleMutationResponse(response))
+    assert.ok(handleMutationResponse(response, spy.reload))
+    assert.equal(spy.calls(), 0, 'the reload waits for the collision payload')
+    await nextTask()
+    assert.equal(spy.calls(), 1)
   })
 
-  it('returns true for 403 without error body', () => {
-    setupDomMock()
+  it('reloads when the collision body cannot be parsed', async () => {
+    let spy = countReloads()
+    let response = new Response('not json', {
+      status: 409,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    assert.ok(handleMutationResponse(response, spy.reload))
+    await nextTask()
+    assert.equal(spy.calls(), 1)
+  })
+
+  it('does not reload for a 403', async () => {
+    let spy = countReloads()
     let response = new Response(null, {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     })
-    assert.ok(handleMutationResponse(response))
+    assert.ok(handleMutationResponse(response, spy.reload))
+    await nextTask()
+    assert.equal(spy.calls(), 0)
   })
 
-  it('returns true for 422 without error body', () => {
-    setupDomMock()
+  it('does not reload for a 422', async () => {
+    let spy = countReloads()
     let response = new Response(null, {
       status: 422,
       headers: { 'Content-Type': 'application/json' },
     })
-    assert.ok(handleMutationResponse(response))
+    assert.ok(handleMutationResponse(response, spy.reload))
+    await nextTask()
+    assert.equal(spy.calls(), 0)
   })
 
-  it('returns false for unknown status', () => {
-    let response = new Response(null, { status: 500 })
-    assert.ok(!handleMutationResponse(response))
+  it('returns false and does not reload for an unknown status', () => {
+    let spy = countReloads()
+    assert.ok(!handleMutationResponse(new Response(null, { status: 500 }), spy.reload))
+    assert.equal(spy.calls(), 0)
   })
 })
 
 describe('handleBatchMutationResponses', () => {
-  before(() => {
-    setupWindowMock()
-    setupDomMock()
-  })
+  before(setupDomMock)
   after(cleanupGlobals)
 
-  it('reloads when all responses are ok', () => {
-    let results: PromiseSettledResult<Response>[] = [
-      { status: 'fulfilled', value: new Response(null, { status: 200 }) },
-      { status: 'fulfilled', value: new Response(null, { status: 201 }) },
-    ]
-    handleBatchMutationResponses(results)
+  it('reloads once when all responses are ok', () => {
+    let spy = countReloads()
+    handleBatchMutationResponses(
+      [
+        { status: 'fulfilled', value: new Response(null, { status: 200 }) },
+        { status: 'fulfilled', value: new Response(null, { status: 201 }) },
+      ],
+      spy.reload,
+    )
+    assert.equal(spy.calls(), 1)
   })
 
-  it('reloads when there is a collision', () => {
-    let results: PromiseSettledResult<Response>[] = [
-      { status: 'fulfilled', value: new Response(null, { status: 409 }) },
-    ]
-    handleBatchMutationResponses(results)
+  it('reloads once when there is a collision', () => {
+    let spy = countReloads()
+    handleBatchMutationResponses(
+      [{ status: 'fulfilled', value: new Response(null, { status: 409 }) }],
+      spy.reload,
+    )
+    assert.equal(spy.calls(), 1)
   })
 
-  it('reloads even when no response is ok', () => {
-    let results: PromiseSettledResult<Response>[] = [
-      { status: 'fulfilled', value: new Response(null, { status: 500 }) },
-    ]
-    handleBatchMutationResponses(results)
+  it('reloads once even when no response is ok', () => {
+    let spy = countReloads()
+    handleBatchMutationResponses(
+      [{ status: 'fulfilled', value: new Response(null, { status: 500 }) }],
+      spy.reload,
+    )
+    assert.equal(spy.calls(), 1)
   })
 
-  it('handles rejected promises gracefully', () => {
-    let results: PromiseSettledResult<Response>[] = [
-      { status: 'rejected', reason: new Error('Network error') },
-    ]
-    handleBatchMutationResponses(results)
+  it('handles rejected promises and still reloads once', () => {
+    let spy = countReloads()
+    handleBatchMutationResponses(
+      [{ status: 'rejected', reason: new Error('Network error') }],
+      spy.reload,
+    )
+    assert.equal(spy.calls(), 1)
   })
 })
 

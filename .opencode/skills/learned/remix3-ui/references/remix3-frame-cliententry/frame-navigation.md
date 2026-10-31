@@ -263,20 +263,27 @@ host page is `/admin/agent-events` and the destination is `/admin/users?…`, th
 host "agent dialog" disappears.
 
 **Fix:** wire a server-side `frameRedirects()` middleware into the router stack, scoped
-to the frame targets that should follow in-frame (admin shell targets: admin-content,
-lists-content, workflow/agent-events/support panels). It re-fetches a same-origin
-redirect destination as a GET `X-Remix-Frame`/`X-Remix-Target` fragment and returns it,
-so the client never sees a 3xx → no bail. Non-admin targets, cross-origin, and the
-redirect-depth limit return the redirect unchanged (the client bail handles them).
+to the frame targets that should follow in-frame (admin-content, lists-content,
+agent-events-panel, support-agent-panel, settings-panel, appointments-new-content) and
+only when the destination stays inside the request's top-level URL section. It
+re-fetches a same-origin redirect destination as a GET `X-Remix-Frame`/`X-Remix-Target`
+fragment and returns it, so the client never sees a 3xx → no bail. Cross-section
+destinations (e.g. settings' delete-account → `/auth/login`), cross-origin targets, and
+the redirect-depth limit return the redirect unchanged (the client bail handles them).
+
+It must run **outside** `session()`: the session middleware persists a flash only when
+the outer response unwinds, so a follow inside it re-reads the pre-redirect session and
+drops every in-frame PRG flash (the memory test store hides this).
 
 ```ts
-// app/middleware/root.ts
-createMiddleware(..., render(), json(), frameRedirects())
+// app/middleware/root.ts — outside session()
+createMiddleware(..., frameRedirects(), session(cookie, storage), ...)
 
 // app/middleware/frame-redirect.ts
 if (context.request.headers.get('X-Remix-Frame') !== 'true' || target == null) return response
-if (!ADMIN_FRAME_TARGETS.has(target)) return response        // step-1 scope gate
+if (!IN_FRAME_REDIRECT_TARGETS.has(target)) return response
 if (!isRedirectResponse(response)) return response
+if (!sameSection(context.url, destination)) return response
 // re-fetch destination as a frame GET fragment → return it
 ```
 

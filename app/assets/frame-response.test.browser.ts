@@ -127,6 +127,7 @@ describe('resolveFrameResponse redirect handling', () => {
       ok: false,
       url: 'https://remix.run/admin/client',
       status: 400,
+      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
       text: async () => '<div>slot outside booking hours</div>',
     } as Response
     stubFetch(response)
@@ -138,6 +139,28 @@ describe('resolveFrameResponse redirect handling', () => {
     // 4xx is an intended validation/not-found fragment — return it so the frame
     // renders the inline error instead of the generic crash card.
     assert.equal(result, response, 'should return the 4xx response for subframe rendering')
+  })
+
+  it('shows the reload card for a non-HTML 4xx body and reports it', async (t) => {
+    let errorSpy = t.mock.method(console, 'error')
+    let response = {
+      redirected: false,
+      ok: false,
+      url: 'https://remix.run/admin/client',
+      status: 404,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      text: async () => '{"error":"not found"}',
+    } as Response
+    stubFetch(response)
+
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    // A JSON/plain-text body is not a frame fragment; reconciling it as HTML is
+    // wrong, so the resolver surfaces the bounded recovery card instead.
+    assert.ok(result !== response, 'should not return a non-HTML 4xx body for rendering')
+    assert.equal(errorSpy.mock.calls.length, 1, 'the misconfigured frame should be reported')
   })
 
   it('shows the reload card for a 5xx server error', async () => {
@@ -317,6 +340,7 @@ describe('prefetchFrameResponse', () => {
       ok: false,
       url: 'https://remix.run/admin/client',
       status: 400,
+      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
       text: async () => '<div>slot outside booking hours</div>',
     } as Response
     stubFetch(response)
@@ -326,6 +350,24 @@ describe('prefetchFrameResponse', () => {
     })
 
     assert.equal(result, response)
+  })
+
+  it('does not cache a non-HTML 4xx recovery card', async () => {
+    let response = {
+      redirected: false,
+      ok: false,
+      url: 'https://remix.run/admin/client',
+      status: 404,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      text: async () => '{"error":"not found"}',
+    } as Response
+    stubFetch(response)
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined)
   })
 
   it('keeps a one-shot agent prefill for the real navigation', async () => {

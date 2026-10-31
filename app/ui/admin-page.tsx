@@ -3,6 +3,7 @@ import { css, Frame } from 'remix/component'
 import { Glyph, type GlyphName } from './theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
 import { cardLift } from './mixins/card-lift.ts'
+import { FrameFallback } from './frame-fallback.browser.tsx'
 
 import { frames, routes } from '../routes.ts'
 import type { DashboardStats } from '../data/admin-dashboard.ts'
@@ -170,15 +171,6 @@ const frameGridStyle = css({
   gap: theme.space.xl,
 })
 
-const fallbackStyle = css({
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  padding: '1.5rem',
-  border: `1px solid ${theme.colors.border.default}`,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-})
-
 /** A single navigation destination rendered as a fully clickable card. */
 function NavCard(handle: Handle<NavCardProps>) {
   return () => {
@@ -290,7 +282,12 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
             <Frame
               name={frames.adminStats}
               src={routes.admin.fragments.stats.href()}
-              fallback={<div mix={fallbackStyle}>Server-Statistiken werden geladen…</div>}
+              fallback={
+                <FrameFallback
+                  label="Server-Statistiken werden geladen…"
+                  name={frames.adminStats}
+                />
+              }
             />
           </div>
 
@@ -298,7 +295,12 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
             <Frame
               name={frames.adminRecentActivity}
               src={routes.admin.fragments.recentActivity.href()}
-              fallback={<div mix={fallbackStyle}>Letzte Aktivitäten werden geladen…</div>}
+              fallback={
+                <FrameFallback
+                  label="Letzte Aktivitäten werden geladen…"
+                  name={frames.adminRecentActivity}
+                />
+              }
             />
           </div>
         </div>

@@ -268,7 +268,9 @@ function ShellOrFragment(
         </Layout>
       )
     }
-    return <FrameShell name={frameTarget} />
+    // Blocking: the shell content must be in the initial HTML so a
+    // JavaScript-disabled browser sees the list page (see app/ui/frame-shell.tsx).
+    return <FrameShell name={frameTarget} blocking />
   }
 }
 

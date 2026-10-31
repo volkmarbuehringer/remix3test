@@ -125,6 +125,15 @@ export const AppointmentGrid = clientEntry(
       return handle.props.data ?? readData()
     }
 
+    /**
+     * Every mutation refreshes the content frame (grid, sidebar, and the
+     * nested appointment-types frame), not the whole document: the client
+     * entry keeps its state and the page keeps its scroll position.
+     */
+    function reloadAfterMutation(): void {
+      handle.frame.reload().catch(() => window.location.reload())
+    }
+
     // Sync interaction state for SSE subscriber
     function syncInteractionState() {
       interactionState.active = activeGesture !== null || editingId !== null || draftState.active
@@ -654,7 +663,7 @@ export const AppointmentGrid = clientEntry(
           signal: handle.signal,
         })
         if (response.ok || response.status === COLLISION_STATUS || response.status === 403) {
-          handleMutationResponse(response)
+          handleMutationResponse(response, reloadAfterMutation)
         }
       } catch {
         // silent
@@ -715,7 +724,7 @@ export const AppointmentGrid = clientEntry(
         body: JSON.stringify({ title: newTitle }),
       })
         .then((r) => {
-          if (handleMutationResponse(r)) return
+          if (handleMutationResponse(r, reloadAfterMutation)) return
         })
         .catch((err) => console.warn('Failed to update appointment title:', err))
     }
@@ -992,7 +1001,7 @@ export const AppointmentGrid = clientEntry(
           },
         })
           .then((r) => {
-            if (handleMutationResponse(r)) return
+            if (handleMutationResponse(r, reloadAfterMutation)) return
           })
           .catch((err) => console.warn('Failed to delete appointment:', err))
         return
@@ -1014,7 +1023,7 @@ export const AppointmentGrid = clientEntry(
           signal: handle.signal,
         })
           .then((r) => {
-            if (r.ok) window.location.reload()
+            if (r.ok) reloadAfterMutation()
             else showToast('Fehler beim Erstellen des Typs.')
           })
           .catch((err) => {
@@ -1042,7 +1051,7 @@ export const AppointmentGrid = clientEntry(
           let results = await Promise.allSettled(saves)
           activeGesture = null
           syncInteractionState()
-          handleBatchMutationResponses(results)
+          handleBatchMutationResponses(results, reloadAfterMutation)
         } else {
           activeGesture = null
           syncInteractionState()
@@ -1156,7 +1165,7 @@ export const AppointmentGrid = clientEntry(
           let results = await Promise.allSettled(saves)
           activeGesture = null
           syncInteractionState()
-          handleBatchMutationResponses(results)
+          handleBatchMutationResponses(results, reloadAfterMutation)
         } else {
           activeGesture = null
           syncInteractionState()
@@ -1298,7 +1307,7 @@ export const AppointmentGrid = clientEntry(
           signal: handle.signal,
         })
           .then((r) => {
-            if (handleMutationResponse(r)) return
+            if (handleMutationResponse(r, reloadAfterMutation)) return
             showToast('Fehler beim Erstellen des Termins.')
           })
           .catch((err) => {

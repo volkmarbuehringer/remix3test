@@ -1702,10 +1702,10 @@ describe('support-agent native gate forms', () => {
       args: { id: 5 },
     })
     try {
-      // No X-Remix-Target: this is the full-document shell GET. The support-agent
-      // page opts its self-relay frame into blocking mode, so the frame content —
-      // including the gate form — is inlined for a JavaScript-disabled browser
-      // instead of trailing in a client-swapped <template>.
+      // No X-Remix-Target: this is the full-document shell GET. The admin shell
+      // is blocking by default, so the frame content — including the gate form —
+      // is inlined for a JavaScript-disabled browser instead of trailing in a
+      // client-swapped <template>.
       let response = await router.fetch(CHAT_INDEX_URL, {
         headers: { Cookie: admin.cookie },
       })
@@ -1717,7 +1717,7 @@ describe('support-agent native gate forms', () => {
       )
       assert.ok(
         !html.includes('Inhalt wird geladen…'),
-        'the blocking shell must not ship the non-blocking loading fallback',
+        'the blocking shell must not ship the streaming loading fallback',
       )
     } finally {
       await clearPendingGate(admin.id, runId)

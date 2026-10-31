@@ -22,6 +22,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminChatlogDetail } from './admin-chatlog-detail.browser.tsx'
+import { FrameFallback } from './frame-fallback.browser.tsx'
 
 const ADMIN_BASE = routes.admin.chatlog.index.href()
 
@@ -136,16 +137,6 @@ const sourceBadgeStyle = css({
 const sourceBadgeSupportStyle = css({
   background: theme.colors.action.primary.background,
   color: theme.colors.action.primary.foreground,
-})
-
-/** Loading / "nothing selected" hint shown inside the detail pane. */
-const detailPlaceholderStyle = css({
-  padding: theme.space.lg,
-  border: `1px dashed ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-  textAlign: 'center',
 })
 
 const colActionsWidth = css({ width: '120px' })
@@ -405,7 +396,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                 routes.admin.chatlog.fragments.detail.href({ id: selectedId ?? NO_DETAIL_ID }) +
                 pageQuery
               }
-              fallback={<div mix={detailPlaceholderStyle}>Konversation wird geladen…</div>}
+              fallback={<FrameFallback label="Konversation wird geladen…" name={DETAIL_FRAME} />}
             />
           </div>
         </div>

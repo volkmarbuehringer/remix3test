@@ -7,6 +7,7 @@ import { examplePlaceholder } from './agent-events-log.ts'
 import { AgentEventsStream } from '../assets/streams/public/agent-events-stream.tsx'
 import { AgentChatShell, ChatComposer } from './agent-chat/shell.tsx'
 import { tryGetCsrfToken } from './csrf-token-input.tsx'
+import { FrameFallback } from './frame-fallback.browser.tsx'
 
 const frameContainerStyle = css({
   flex: 1,
@@ -105,11 +106,7 @@ export function AgentEventsPage(_handle: Handle) {
         <Frame
           name={frames.agentEventsPanel}
           src={routes.admin.agentEvents.panel.href()}
-          fallback={
-            <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
-              Loading pipeline…
-            </div>
-          }
+          fallback={<FrameFallback label="Loading pipeline…" name={frames.agentEventsPanel} />}
         />
       </div>
 

@@ -84,7 +84,9 @@ async function fetchFrameResponse(
   }
 
   // A redirected response may contain document UI that is not valid for the requested subframe.
-  // The destination opts into subframe rendering by returning the matching target header.
+  // The server's frameRedirects() already follows the same-section destinations that render
+  // a fragment, so a redirect still visible here crossed a section or left the in-frame set:
+  // perform a document navigation instead of injecting the destination document into the frame.
   if (response.redirected && options?.target) {
     if (!prefetching) window.location.assign(response.url)
     return { kind: 'navigated' }
@@ -98,14 +100,24 @@ async function fetchFrameResponse(
   if (!response.ok) {
     // The server may return a meaningful fragment for a non-2xx outcome such as
     // a form validation re-render (400) or a not-found page (404). Render the
-    // response body so the actionable message is shown in the frame instead of
-    // a generic crash card. Treat 5xx as a genuine server error, where the body
-    // is not a usable fragment and a reload is the right recovery.
-    if (response.status < 500) {
+    // response body only when it is HTML — a JSON/plain-text error body is not a
+    // usable fragment. Treat 5xx as a genuine server error, where the body is
+    // not a usable fragment and a reload is the right recovery.
+    if (response.status < 500 && isHtmlResponse(response)) {
       return { kind: 'response', response }
     }
 
     if (prefetching) return { kind: 'navigated' }
+
+    if (response.status < 500) {
+      // A frame target that answers a 4xx with a non-HTML body is a routing
+      // mistake, not a validation re-render. Show the recovery card and report
+      // it; do not reconcile a JSON/plain-text body as frame HTML.
+      console.error(
+        `[frame] ${response.status} ${url.pathname} returned a non-HTML body (` +
+          `${response.headers.get('Content-Type') ?? 'no content type'})`,
+      )
+    }
 
     return {
       kind: 'error-card',
@@ -148,6 +160,11 @@ export async function prefetchFrameResponse(
 ): Promise<Response | undefined> {
   let result = await fetchFrameResponse(url, { ...options, mode: 'prefetch' })
   return result.kind === 'response' ? result.response : undefined
+}
+
+function isHtmlResponse(response: Response): boolean {
+  let contentType = response.headers.get('Content-Type')
+  return contentType != null && contentType.toLowerCase().includes('text/html')
 }
 
 /**

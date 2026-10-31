@@ -1,27 +1,15 @@
-import { css, Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
-import { theme } from '../ui/theme/theme.ts'
+
+import { FrameFallback } from './frame-fallback.browser.tsx'
 import { Layout } from './layout.tsx'
 
 /**
- * Slot content for the shell's self-relay frame. It makes the frame
- * non-blocking: the fallback streams first and the resolved content follows in
- * a `<template>` that only the client runtime swaps in.
- */
-const frameFallbackStyle = css({
-  padding: '1.5rem',
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-})
-
-/**
- * Document shell for a full GET of a framed section: the shell streams first
- * and a self-relay `<Frame>` loads the page content through its own GET
- * (carrying `X-Remix-Target: name`). Shared by the sidebar and lists shells so
- * the frame fallback cannot drift between them.
+ * Document shell for a full GET of a framed section: a self-relay `<Frame>`
+ * loads the page content through its own GET (carrying `X-Remix-Target: name`).
+ * Both shells render it blocking by default, so the content is part of the
+ * initial HTML and a JavaScript-disabled browser sees the page; shared here so
+ * the shell handling cannot drift between them.
  *
  * Callers must only render this on the full-document GET path; frame requests
  * must return the fragment directly and non-GET responses must render inline
@@ -31,7 +19,9 @@ const frameFallbackStyle = css({
  * inline, so a JavaScript-disabled browser sees the page (no `<template>` swap
  * and no client runtime). A blocking frame must render HTML on every response,
  * including error paths, or the whole outer page render fails — only opt in for
- * a page whose frame GET is guaranteed to answer HTML.
+ * a page whose frame GET is guaranteed to answer HTML. Both shells default to
+ * blocking; pass `blocking={false}` to stream the content behind
+ * `FrameFallback` instead.
  */
 export function FrameShell(handle: Handle<{ name: string; blocking?: boolean | undefined }>) {
   return () => (
@@ -41,7 +31,9 @@ export function FrameShell(handle: Handle<{ name: string; blocking?: boolean | u
         src={getContext().request.url}
         {...(handle.props.blocking
           ? {}
-          : { fallback: <div mix={frameFallbackStyle}>Inhalt wird geladen…</div> })}
+          : {
+              fallback: <FrameFallback label="Inhalt wird geladen…" name={handle.props.name} />,
+            })}
       />
     </Layout>
   )

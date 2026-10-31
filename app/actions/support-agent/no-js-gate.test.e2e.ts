@@ -36,11 +36,11 @@ import {
 // page whose server-rendered flash proves the round trip. The first test drives
 // that with the browser's JavaScript actually disabled.
 //
-// The admin /admin/support-agent gate is the same native form. Its shell renders
-// the self-relay frame blocking (app/ui/frame-shell.tsx `blocking`, opted in by
-// the support-agent controller): the frame content is awaited and inlined rather
-// than shipped as a client-swapped <template>, so a JS-disabled browser reaches
-// the form too. The second test drives the admin gate in a real
+// The admin /admin/support-agent gate is the same native form. The admin shell is
+// blocking by default (app/ui/frame-shell.tsx, app/ui/sidebar-layout.tsx), so the
+// frame content is awaited and inlined rather than shipped as a client-swapped
+// <template>, and a JS-disabled browser reaches the form too. The second test
+// drives the admin gate in a real
 // javaScriptEnabled:false context exactly like /chat.
 // ---------------------------------------------------------------------------
 

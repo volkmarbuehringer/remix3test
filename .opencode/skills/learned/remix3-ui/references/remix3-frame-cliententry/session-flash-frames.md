@@ -16,12 +16,15 @@
 
 ### 1. Render the flash banner in the fragment render path
 
-Surface `session.get('error' | 'success')` in whichever fragment path renders the content. Both are implemented in this repo — keep them in sync:
+Surface `session.get('error' | 'success')` in whichever fragment path renders the content. All fragment paths use the shared `FlashBanner` (`app/ui/flash-banner.tsx`, which owns the module-scope styles):
 
-- **Sidebar shell** (`app/ui/sidebar-layout.tsx`): reads the flash in the content pane and renders `flashErrorStyle` / `flashSuccessStyle` banners above the breadcrumbs.
-- **Dual-render page fragment branch** (`app/ui/verwaltung-layout.tsx`): reads the flash **only in the `isFrame` branch** so the two render paths never double-consume it.
+- **Document layout** (`app/ui/layout.tsx`): `<FlashBanner />`.
+- **Sidebar shell** (`app/ui/sidebar-layout.tsx`): `<FlashBanner compact />` above the breadcrumbs.
+- **Dual-render page fragment branches**: `<FlashBanner compact />` **only in the `isFrame` branch** (`app/ui/verwaltung-layout.tsx`, `SettingsView`'s isFrame branch, `renderAppointmentsNewPage`'s frame branch) so the two render paths never double-consume it.
 
-`flashErrorStyle` / `flashSuccessStyle` mirror the `flashBase` + `surface.dangerBg` / `surface.successBg` tokens already in `app/ui/layout.tsx`. Put the banner style constants at **module scope**: this repo's oxlint rule `remix-style(prefer-let-locals)` uses `let` for locals and `const` only at module scope, so constants defined inside the factory get flagged.
+### 1b. The in-frame PRG follow must run outside the session middleware
+
+`frameRedirects()` re-fetches the redirect destination as a new request. If it sits **inside** `session()`, the session middleware has not persisted the flash yet (it saves when the outer response unwinds), so the follow re-reads the pre-redirect session and the flash is silently dropped. This is invisible with `createMemorySessionStorage`, which returns the live `Session` object; it only shows up with the fs-backed store used in production. Put `frameRedirects()` before `session()` in the middleware stack (`app/middleware/root.ts`). The follow's own session read then finds the stored flash, and its response clears it.
 
 ### 2. Read the flash in tests via the parsed session id
 
@@ -46,3 +49,4 @@ assert.ok(err?.includes('...'), 'flash error should be set')
 - Adding a flash banner to a frame fragment (sidebar shell or an `isFrame` fragment branch) so one-shot PRG messages are visible.
 - Writing a test that asserts a `session.flash` value — unwrap the signed cookie with `readSessionId` first.
 - Debugging an assertion like `flash error should be set` failing with `session.get('error') === undefined`.
+- An in-frame PRG flash renders in dev/tests but disappears in production (fs session store): check `frameRedirects()` sits outside `session()`.

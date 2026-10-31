@@ -5,16 +5,20 @@ import { frames } from '../routes.ts'
 const MAX_FRAME_REDIRECTS = 10
 
 /**
- * Frame targets whose subframe form submissions are allowed to follow a
- * redirect in-frame (PRG) under the admin shell. Verwalung / appointment
- * frames are intentionally out of scope for now: their redirects still fall
- * back to the client-side bail (full top-level navigation).
+ * Frame targets whose subframe form submissions may follow a PRG redirect
+ * in-frame. The destination must also stay inside the request's top-level URL
+ * section, so a redirect that leaves the framed area (e.g. settings'
+ * delete-account → /auth/login) still reaches the client bail as a real
+ * document navigation. Verwalung pages are whole-page navigation and never
+ * carry these targets.
  */
-const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
+const IN_FRAME_REDIRECT_TARGETS: ReadonlySet<string> = new Set([
   frames.adminContent,
   frames.listsContent,
   frames.agentEventsPanel,
   frames.supportAgentPanel,
+  frames.settingsPanel,
+  frames.appointmentsNewContent,
 ])
 
 /**
@@ -28,9 +32,9 @@ const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
  * the "no reload after form submit" behavior that the client-side redirect
  * bail (frame-response.browser.tsx) would otherwise turn into a reload.
  *
- * The destination only renders a fragment when it opts in via the matching
- * target header; routes that render a full document (or an auth 401 fragment)
- * are returned as-is and the client-side runtime decides how to handle them.
+ * The destination must render a fragment for the matching target header.
+ * Every target listed above has a route that branches on it; the section
+ * guard keeps redirects to login or another shell out of the frame.
  */
 export function frameRedirects(): Middleware {
   return async (context, next) => {
@@ -40,9 +44,7 @@ export function frameRedirects(): Middleware {
     if (context.request.headers.get('X-Remix-Frame') !== 'true' || target == null) {
       return response
     }
-    // Step 1: only admin shell frames follow in-frame. Other targets (e.g.
-    // verwaltung) return the redirect unchanged so the client bail handles them.
-    if (!ADMIN_FRAME_TARGETS.has(target)) return response
+    if (!IN_FRAME_REDIRECT_TARGETS.has(target)) return response
     if (!isRedirectResponse(response)) return response
 
     let location = response.headers.get('Location')
@@ -53,6 +55,10 @@ export function frameRedirects(): Middleware {
 
     let destination = new URL(location, context.url)
     if (destination.origin !== context.url.origin) return response
+    // A cross-section redirect is a real page change (login, another shell):
+    // leave it for the client, whose redirect bail performs a document
+    // navigation. Only a same-section destination is a fragment update.
+    if (!sameSection(context.url, destination)) return response
 
     let headers = new SuperHeaders()
     headers.accept = new Accept('text/html')
@@ -98,4 +104,13 @@ export function frameRedirects(): Middleware {
 
 function isRedirectResponse(response: Response): boolean {
   return response.status >= 300 && response.status < 400 && response.headers.has('Location')
+}
+
+/** The first path segment: /settings?tab=x -> settings, / -> '' */
+function sectionOf(url: URL): string {
+  return url.pathname.split('/').filter(Boolean)[0] ?? ''
+}
+
+function sameSection(from: URL, to: URL): boolean {
+  return sectionOf(from) === sectionOf(to)
 }

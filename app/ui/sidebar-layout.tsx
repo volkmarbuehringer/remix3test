@@ -7,38 +7,11 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { Layout } from './layout.tsx'
 import { FrameShell } from './frame-shell.tsx'
+import { FlashBanner } from './flash-banner.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import type { BaseNavItem } from './nav.ts'
 import { SidebarToggle } from './layout/sidebar-toggle.browser.tsx'
-
-// ── Flash banner styles (rendered in the sidebar shell for PRG messages) ─────
-
-const flashBase = {
-  padding: `${theme.space.sm} ${theme.space.lg}`,
-  fontSize: theme.fontSize.sm,
-  textAlign: 'center' as const,
-}
-
-const _surface = theme.surface as Record<string, string>
-
-const flashErrorStyle = css({
-  ...flashBase,
-  background: _surface.dangerBg,
-  color: _surface.dangerText,
-  borderBottom: `1px solid ${_surface.dangerBorder}`,
-  borderRadius: theme.radius.md,
-  marginBottom: theme.space.sm,
-})
-
-const flashSuccessStyle = css({
-  ...flashBase,
-  background: _surface.successBg,
-  color: _surface.successText,
-  borderBottom: `1px solid ${_surface.successBorder}`,
-  borderRadius: theme.radius.md,
-  marginBottom: theme.space.sm,
-})
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -106,7 +79,11 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     activeItem: ID
     /** Per-render full-height override; falls back to `fullHeightTargets`. */
     fullHeight?: boolean | undefined
-    /** Opt the self-relay frame out of streaming so its content renders inline. */
+    /**
+     * Inline the self-relay frame content instead of streaming it behind a
+     * fallback. Defaults to true so a JavaScript-disabled browser sees the
+     * page; pass false to stream the shell for a faster first paint.
+     */
     blockingFrame?: boolean | undefined
     children?: RemixNode
   }
@@ -119,7 +96,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
 
   function ShellOrFragment(handle: Handle<PageProps>) {
     return () => {
-      let { activeItem, fullHeight, blockingFrame, children } = handle.props
+      let { activeItem, fullHeight, blockingFrame = true, children } = handle.props
       let target = currentFrameTarget()
       if (target != null && contentOnlyTargetSet.has(target)) {
         return children
@@ -154,25 +131,6 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
           return pathname === path || pathname.startsWith(path + '/')
         }) ??
         false
-
-      // Admin pages render as frame fragments through this shell (not the top-level
-      // Layout), so PRG flash messages must be surfaced here to be visible.
-      // This is complementary to (not a duplicate of) the top-level Layout's flash
-      // banner: a flash is surfaced by exactly one of them per response — this shell
-      // for frame fragments, the document Layout for full-page navigations.
-      let flashError: string | undefined
-      let flashSuccess: string | undefined
-      try {
-        let session = getContext().session
-        if (session) {
-          let err = session.get('error')
-          if (typeof err === 'string') flashError = err
-          let success = session.get('success')
-          if (typeof success === 'string') flashSuccess = success
-        }
-      } catch {
-        /* no session context */
-      }
 
       return (
         <div
@@ -223,8 +181,9 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
             >
               <Glyph name="menu" width={16} height={16} /> Bereiche
             </button>
-            {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
-            {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
+            {/* Admin pages render as frame fragments through this shell (not the
+                top-level Layout), so the one-shot PRG flash is surfaced here. */}
+            <FlashBanner compact />
             <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>

@@ -2,6 +2,7 @@ import * as path from 'node:path'
 
 import { createContextKey, type Middleware } from 'remix/router'
 import { getContext } from 'remix/middleware/async-context'
+import { Logger } from 'remix/middleware/logger'
 import type { ScriptEntry } from 'remix/assets'
 
 import { assetServer } from '../assets.ts'
@@ -15,8 +16,15 @@ export function loadAssetEntry(
   scriptEntry: string = defaultScriptEntry,
 ): Middleware<{ key: typeof assetsEntryKey; value: AssetEntry }> {
   return async (context, next) => {
-    if (!context.request.headers.get('X-Remix-Frame')) {
-      let entry = await assetServer.getScriptEntry(scriptEntry).catch(() => undefined)
+    if (context.request.headers.get('X-Remix-Frame') !== 'true') {
+      let entry = await assetServer.getScriptEntry(scriptEntry).catch((error: unknown) => {
+        // A missing entry silently ships a document without an import map or
+        // client runtime (hydration and frames never start), so report it instead
+        // of swallowing the asset-graph failure.
+        let message = error instanceof Error ? error.message : String(error)
+        context.get(Logger)?.(`Failed to load the client entry ${scriptEntry}: ${message}`)
+        return undefined
+      })
       if (entry) context.set(assetsEntryKey, entry)
     }
 

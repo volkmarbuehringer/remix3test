@@ -7,6 +7,7 @@ import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { listResources } from '../../data/resources.ts'
 import { frames, routes } from '../../routes.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'
 const APPT_URL = `${BASE}${routes.appointmentsNew.index.href()}`
@@ -695,6 +696,32 @@ describe('Appointments new frame navigation', () => {
     assert.ok(
       html.includes('data-rmx-target="appointments-new-content"'),
       'links inside the fragment keep targeting the frame',
+    )
+  })
+
+  it('renders the PRG flash inside the frame fragment and consumes it', async () => {
+    let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    assert.ok(auth, 'user session must be created')
+    let sid = await readSessionId(auth.cookie)
+    assert.ok(sid, 'the session cookie must carry a raw id')
+    let session = await sessionStorage.read(sid)
+    session.flash('success', 'Termin angelegt.')
+    await sessionStorage.save(session)
+
+    let headers = {
+      Cookie: auth.cookie,
+      'X-Remix-Target': frames.appointmentsNewContent,
+    }
+    let first = await router.fetch(`${APPT_URL}?period=this-week`, { headers })
+    let firstHtml = await first.text()
+    assert.ok(firstHtml.includes('Termin angelegt.'), 'the frame fragment renders the flash')
+    assert.ok(!firstHtml.includes('<html'), 'the flash stays in the frame fragment')
+
+    let second = await router.fetch(`${APPT_URL}?period=this-week`, { headers })
+    let secondHtml = await second.text()
+    assert.ok(
+      !secondHtml.includes('Termin angelegt.'),
+      'the flash is one-shot and cleared by the next request',
     )
   })
 

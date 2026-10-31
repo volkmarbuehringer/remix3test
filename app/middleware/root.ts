@@ -73,6 +73,13 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     globalRateLimit({
       maxPerWindow: envPositiveNumberOrUndefined('GLOBAL_RATE_LIMIT_MAX'),
     }),
+    // Must run OUTSIDE session(): a PRG follow re-fetches the redirect
+    // destination as a new request, and the session middleware only persists
+    // the flash when the outer response unwinds. Outside it, the flash is
+    // already stored when the follow re-enters the stack, so the destination
+    // fragment can read (and clear) it. Inside it, the follow would read the
+    // pre-redirect session and silently drop every in-frame PRG message.
+    frameRedirects(),
     // Auth and request context run before the multipart parser so
     // uploadFormData() can reject unauthenticated multipart requests before a
     // single byte is parsed or stored. The parser still runs before route-level
@@ -103,6 +110,5 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
       },
     }),
     json(),
-    frameRedirects(),
   )
 }

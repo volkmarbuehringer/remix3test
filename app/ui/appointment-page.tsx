@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 import { Layout } from './layout.tsx'
 import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
+import { FrameFallback } from './frame-fallback.browser.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { frames, routes } from '../routes.ts'
 import type { AppointOffering, Resource } from '../data/schema.ts'
@@ -109,12 +110,16 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
             <Frame
               name={frames.appointTypes}
               src={routes.appointment.types.index.href()}
-              fallback={<div mix={appointTypesFallbackStyle}>Terminarten werden geladen…</div>}
+              fallback={
+                <FrameFallback label="Terminarten werden geladen…" name={frames.appointTypes} />
+              }
             />
           </div>
           <div mix={gridColumnStyle}>
             <div mix={indicatorBarStyle}>
-              <ConnectionIndicator url={routes.appointment.events.href()} reloadMode="window" />
+              {/* Invalidate reloads this page's content frame (sidebar + grid), not
+                  the whole document, so client state and scroll survive. */}
+              <ConnectionIndicator url={routes.appointment.events.href()} />
             </div>
             <AppointmentGrid data={gridData} />
           </div>
@@ -142,14 +147,6 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
  * Slot content for the appointment-types panel frame. Without a fallback the
  * frame is blocking: a non-HTML frame response would fail the whole page render.
  */
-const appointTypesFallbackStyle = css({
-  padding: '1rem',
-  background: theme.surface.lvl1,
-  borderRadius: theme.radius.md,
-  border: `1px solid ${theme.colors.border.default}`,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-})
 
 const shellStyle = css({
   display: 'grid',

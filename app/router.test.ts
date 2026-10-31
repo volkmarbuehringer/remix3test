@@ -59,9 +59,9 @@ function countTemplates(html: string): number {
   return html.match(/<template\b/g)?.length ?? 0
 }
 
-// ── Admin page streaming ───────────────────────────────────────
+// ── Admin shell + nested frame streaming ───────────────────────
 
-describe('Admin page — frame streaming', () => {
+describe('Admin page — blocking shell, streamed regions', () => {
   let adminCookie: string
 
   before(async () => {
@@ -71,7 +71,7 @@ describe('Admin page — frame streaming', () => {
     adminCookie = result?.cookie ?? ''
   })
 
-  it('streams fallback content before frame content', async () => {
+  it('renders the shell inline without a shell fallback', async () => {
     let response = await router.fetch(`${BASE}/admin`, {
       headers: { Cookie: adminCookie },
     })
@@ -81,21 +81,27 @@ describe('Admin page — frame streaming', () => {
 
     let chunks = readChunks(response.body)
 
-    // Read until we see admin sidebar content — the shell's self-relay frame
-    // (adminContent) is non-blocking and streams its content after the
-    // fallback, but it resolves before the nested stats/activity frames
-    let initial = await readUntil(chunks, (html) => html.includes('Chat-Protokolle'))
-    assert.ok(initial.includes('Chat-Protokolle'), 'Admin dashboard cards should appear')
-    assert.ok(initial.includes('Listen'), 'Listen card should appear')
-    assert.ok(initial.includes('Client-Test'), 'Client-Test card should appear')
-
-    // At this point, no <template> tags should appear yet (nested frames
-    // like stats and recent-activity haven't resolved)
-    // NOTE: templates may appear in the very next chunk if frames resolve
-    // quickly, so we just verify templates will eventually appear
+    // The shell's self-relay frame is blocking, so its content (sidebar +
+    // dashboard) is in the first chunk; the nested stats/activity frames are
+    // the first regions still pending.
+    let initial = await readUntil(chunks, (html) =>
+      html.includes('Server-Statistiken werden geladen'),
+    )
+    assert.ok(initial.includes('Chat-Protokolle'), 'admin shell content must be inline')
+    assert.ok(initial.includes('Listen'), 'Listen nav item must be inline')
+    assert.ok(initial.includes('Client-Test'), 'Client-Test nav item must be inline')
+    assert.ok(
+      !initial.includes('Inhalt wird geladen'),
+      'the shell frame must not fall back to a loading slot',
+    )
+    assert.equal(
+      countTemplates(initial),
+      0,
+      'nested frames have not resolved in the blocking-shell chunk',
+    )
   })
 
-  it('resolves nested frames with template tags', async () => {
+  it('streams the nested fallbacks before the nested frames resolve', async () => {
     let response = await router.fetch(`${BASE}/admin`, {
       headers: { Cookie: adminCookie },
     })
@@ -103,17 +109,22 @@ describe('Admin page — frame streaming', () => {
     assert.ok(response.body)
     let chunks = readChunks(response.body)
 
-    // Read until the stats frame content resolves. The shell's self-relay
-    // frame (adminContent) is non-blocking and streams first, so the first
-    // <template> tag is the shell swap — the stats frame resolves after it.
+    // Both nested skeletons ship in the first (blocking-shell) chunk.
+    let fallbackChunk = await readUntil(chunks, (html) =>
+      html.includes('Server-Statistiken werden geladen'),
+    )
+    assert.ok(
+      fallbackChunk.includes('Letzte Aktivitäten werden geladen'),
+      'both nested fallbacks are in the first chunk',
+    )
+    assert.equal(countTemplates(fallbackChunk), 0, 'no nested frame has resolved yet')
+
+    // The resolved stats frame still arrives later as a <template>.
     let resolved = await readUntil(chunks, (html) => html.includes('Betriebszeit'))
     assert.ok(
       countTemplates(resolved) >= 1,
-      'Should have at least one <template> tag when frames resolve',
+      'Should have at least one <template> tag when a nested frame resolves',
     )
-
-    // The first <template> chunk contains the stats frame with Uptime.
-    // Stats content is already in `resolved` — no need for a separate read.
     assert.ok(resolved.includes('Server'), 'Stats frame should contain server info')
     assert.ok(resolved.includes('Betriebszeit'), 'Stats frame should contain Betriebszeit')
   })
@@ -141,6 +152,21 @@ describe('Admin page — frame streaming', () => {
       countTemplates(html) >= 2,
       'Should have at least 2 template tags for stats + activity frames',
     )
+  })
+
+  it('renders the lists shell inline without a shell fallback', async () => {
+    let result = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    assert.ok(result?.cookie, 'user session must be created')
+
+    let response = await router.fetch(`${BASE}/lists`, {
+      headers: { Cookie: result.cookie },
+    })
+    assert.equal(response.status, 200)
+    assert.ok(response.body)
+
+    let initial = await readUntil(readChunks(response.body), (html) => html.includes('Neue Liste'))
+    assert.ok(initial.includes('Neue Liste'), 'lists shell content must be inline')
+    assert.ok(!initial.includes('Inhalt wird geladen'), 'the lists shell frame must be blocking')
   })
 })
 

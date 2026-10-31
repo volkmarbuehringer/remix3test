@@ -25,6 +25,7 @@ import {
 } from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
+import { FlashBanner } from '../../ui/flash-banner.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import {
@@ -342,7 +343,17 @@ type SettingsViewProps = SettingsPageProps & { isFrame: boolean; inline?: boolea
 function SettingsView(handle: Handle<SettingsViewProps>) {
   return () => {
     let { isFrame, inline, ...props } = handle.props
-    if (isFrame) return <SettingsTabs {...props} />
+    if (isFrame) {
+      // The page-size PRG redirect follows in-frame (frameRedirects), so the
+      // one-shot flash has to render here — the document Layout is not part of
+      // this fragment.
+      return (
+        <>
+          <FlashBanner compact />
+          <SettingsTabs {...props} />
+        </>
+      )
+    }
     if (inline) {
       // A full-document POST response cannot rely on the frame: the frame's
       // content comes from a separate GET that never sees this action's

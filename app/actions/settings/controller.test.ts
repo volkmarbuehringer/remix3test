@@ -356,6 +356,40 @@ describe('Settings controller', () => {
     })
   })
 
+  describe('POST /settings with a frame target (PRG)', () => {
+    it('follows the page-size redirect in-frame and renders the flash', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(BASE + routes.settings.index.href(), {
+        method: 'POST',
+        headers: {
+          Cookie: session.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'settings-panel',
+        },
+        body: new URLSearchParams({
+          _action: 'set-page-size',
+          pageSize: '20',
+          _csrf: session.csrfToken,
+        }),
+      })
+
+      assert.equal(response.status, 200, 'the frame follow must return a fragment, not a 302')
+      assert.equal(
+        response.headers.get('X-Remix-Redirect-To'),
+        BASE + routes.settings.index.href() + '?tab=display',
+        'the client must learn where the frame landed',
+      )
+      let html = await response.text()
+      assert.ok(!html.includes('<html'), 'the fragment must not include the document shell')
+      assert.ok(html.includes('data-rmx-target="settings-panel"'), 'the tabs fragment renders')
+      assert.ok(html.includes('Einträge pro Seite gespeichert.'), 'the PRG flash renders in-frame')
+      assert.ok(html.includes('settings-display-tab'), 'the redirect destination tab is active')
+    })
+  })
+
   describe('DELETE ACCOUNT', () => {
     it('renders delete account section on the account tab', async () => {
       let session = await createAuthCookieWithCsrfForUser('user@newapp.com')

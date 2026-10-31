@@ -95,7 +95,7 @@ When REMOVING a route entirely (not moving it), the reference sweep is wider tha
 - [ ] `app/router.ts` — remove `router.map(...)`
 - [ ] `app/actions/admin/controller.tsx` — remove the re-export
 - [ ] `app/ui/admin-layout.tsx` — nav item, icon case, `AdminNavItem` union member, `contentOnlyTargets`, `fullHeightTargets`
-- [ ] `app/middleware/frame-redirect.ts` — remove the frame from `ADMIN_FRAME_TARGETS`
+- [ ] `app/middleware/frame-redirect.ts` — remove the frame from `IN_FRAME_REDIRECT_TARGETS`
 - [ ] `app/route-labels.ts` — remove the `ROUTE_LABELS` entry
 - [ ] `app/ui/verwaltung-layout.tsx` — remove the frame from `FRAME_TARGETS`
 - [ ] `app/utils/frame-target.ts` — remove the frame from `getSelfFrameTarget`
