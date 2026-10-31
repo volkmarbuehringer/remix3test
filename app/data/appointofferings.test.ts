@@ -9,6 +9,7 @@ import {
   filterAvailableSlots,
 } from './appointofferings.ts'
 import { parseDuring } from '../utils/during.ts'
+import { appointofferings } from './schema.ts'
 
 // ---------------------------------------------------------------------------
 // parseDuring — pure function tests
@@ -225,6 +226,44 @@ describe('isSlotBookable', () => {
 
     // Assert
     assert.equal(result, false, '600-660 should not be bookable in the gap between offerings')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Table validation — partial typed writes
+// ---------------------------------------------------------------------------
+
+describe('appointofferings table validation', () => {
+  let offeringId: number | undefined
+
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  afterEach(async () => {
+    if (offeringId !== undefined) {
+      await db.deleteMany(appointofferings, { where: { id: offeringId } }).catch(() => {})
+      offeringId = undefined
+    }
+  })
+
+  it('accepts a partial typed update that changes only day', async () => {
+    let resource = await pool.query('SELECT id FROM resources ORDER BY id LIMIT 1')
+    let resourceId = resource.rows[0]?.id as number
+    let day = Date.now() + 402 * 86_400_000
+
+    let created = await db.create(
+      appointofferings,
+      { day, resource_id: resourceId, during: '[600,660)' },
+      { returnRow: true },
+    )
+    offeringId = created.id
+
+    let nextDay = day + 86_400_000
+    let updated = await db.update(appointofferings, { id: created.id }, { day: nextDay })
+
+    assert.equal(updated.day, nextDay)
+    assert.equal(updated.resource_id, resourceId)
   })
 })
 

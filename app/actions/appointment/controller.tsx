@@ -346,18 +346,6 @@ export const appointment = createController(routes.appointment, {
         )
       }
 
-      let { start_min, end_min } = parsed.value
-      if (
-        start_min !== undefined &&
-        end_min !== undefined &&
-        end_min - start_min < MINIMUM_DURATION
-      ) {
-        return context.json(
-          { error: `Minimum duration is ${MINIMUM_DURATION} minutes.` },
-          { status: 400 },
-        )
-      }
-
       let hasSlotChange =
         parsed.value.date !== undefined ||
         parsed.value.start_min !== undefined ||
@@ -374,6 +362,18 @@ export const appointment = createController(routes.appointment, {
         let mergedStartMin = parsed.value.start_min ?? (current.start_min as number)
         let mergedEndMin = parsed.value.end_min ?? (current.end_min as number)
         let mergedResourceId = parsed.value.resource_id ?? (current.resource_id as number)
+
+        // A partial update (e.g. only start_min) is merged with the stored
+        // bounds, so the duration rule must run on the merged values too —
+        // otherwise a one-sided edit could produce an invalid slot that fails
+        // later inside the table hook as an unhandled 500.
+        if (mergedEndMin - mergedStartMin < MINIMUM_DURATION) {
+          return context.json(
+            { error: `Minimum duration is ${MINIMUM_DURATION} minutes.` },
+            { status: 400 },
+          )
+        }
+
         let bookable = await isSlotBookable(
           context.db,
           mergedDate,

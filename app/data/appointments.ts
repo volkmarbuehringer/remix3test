@@ -220,8 +220,14 @@ export async function updateAppointment(
   let update: Record<string, unknown> = {}
   if (input.title !== undefined) update.title = input.title.trim()
   if (input.date !== undefined) update.date = input.date
-  if (input.start_min !== undefined) update.start_min = input.start_min
-  if (input.end_min !== undefined) update.end_min = input.end_min
+  // `during` is derived from the pair by the table's beforeWrite hook, so a
+  // one-sided time update must be merged with the stored bounds before writing.
+  // Writing only one of them makes beforeWrite reject the row ("Both start_min
+  // and end_min are required when specifying time changes.").
+  if (input.start_min !== undefined || input.end_min !== undefined) {
+    update.start_min = input.start_min ?? existing.start_min
+    update.end_min = input.end_min ?? existing.end_min
+  }
   if (input.resource_id !== undefined) update.resource_id = input.resource_id
 
   try {

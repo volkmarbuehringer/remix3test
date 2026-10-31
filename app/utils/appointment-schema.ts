@@ -24,14 +24,14 @@ export const appointmentSaveSchema = f.object({
     coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.'),
   ),
   user_id: f.field(coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.')),
+  // Required: keep the trim/refine chain OUTSIDE `s.defaulted(...)`. A schema
+  // wrapped inside returns its default without running those checks, so an
+  // omitted field would parse as '' and bypass the required rule.
   title: f.field(
-    s.defaulted(
-      s
-        .string()
-        .transform((v) => v.trim())
-        .refine((v) => v.length > 0, 'Titel ist erforderlich.'),
-      '',
-    ),
+    s
+      .defaulted(s.string(), '')
+      .transform((v) => v.trim())
+      .refine((v) => v.length > 0, 'Titel ist erforderlich.'),
   ),
   date: f.field(
     s

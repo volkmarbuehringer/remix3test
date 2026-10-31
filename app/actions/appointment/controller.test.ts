@@ -5,6 +5,10 @@ import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes, frames } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
+import {
+  setupTestEnvironment,
+  teardownTestEnvironment,
+} from '../verwaltung/controller.test-utils.ts'
 
 const BASE = 'https://remix.run'
 const APPOINTMENT_URL = BASE + routes.appointment.index.href()
@@ -111,6 +115,71 @@ describe('Appointment controller', () => {
         response.headers.get('Location')?.startsWith(routes.auth.login.index.href()),
         'should redirect to login',
       )
+    })
+  })
+
+  describe('PUT /appointment/:id (partial slot update)', () => {
+    it('merges a start_min-only update with the stored end_min', async () => {
+      let env = await setupTestEnvironment()
+      let auth = { cookie: env.adminCookie, csrfToken: env.adminCsrfToken }
+      let dateMs = Date.parse(env.offeringDateStr + 'T00:00:00Z')
+      let appointmentId: number | undefined
+
+      try {
+        let create = await router.fetch(APPOINTMENT_URL, {
+          method: 'POST',
+          headers: {
+            Cookie: auth.cookie,
+            'X-Csrf-Token': auth.csrfToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: 'Partial slot update',
+            date: dateMs,
+            start_min: 600,
+            end_min: 660,
+            resource_id: env.resourceId,
+          }),
+        })
+        assert.equal(create.status, 201)
+        let created = await create.json()
+        appointmentId = created.appointment.id as number
+
+        let update = await router.fetch(`${APPOINTMENT_URL}/${appointmentId}`, {
+          method: 'PUT',
+          headers: {
+            Cookie: auth.cookie,
+            'X-Csrf-Token': auth.csrfToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ start_min: 615 }),
+        })
+
+        assert.equal(update.status, 200, 'a one-sided slot update must not 500')
+        let body = await update.json()
+        assert.equal(body.appointment.start_min, 615)
+        assert.equal(body.appointment.end_min, 660, 'the stored end_min must be kept')
+        assert.equal(body.appointment.during, '[615,660)')
+
+        let tooShort = await router.fetch(`${APPOINTMENT_URL}/${appointmentId}`, {
+          method: 'PUT',
+          headers: {
+            Cookie: auth.cookie,
+            'X-Csrf-Token': auth.csrfToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ start_min: 655 }),
+        })
+        assert.equal(tooShort.status, 400, 'a merged slot below the minimum is a 400')
+        let tooShortBody = await tooShort.json()
+        assert.ok(String(tooShortBody.error).includes('Minimum duration'))
+      } finally {
+        await teardownTestEnvironment(
+          env.resourceId,
+          env.resource2Id,
+          appointmentId !== undefined ? [appointmentId] : [],
+        )
+      }
     })
   })
 })

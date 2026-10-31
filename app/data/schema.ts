@@ -2,7 +2,7 @@ import { column as c, table, type ColumnBuilder, DataTableConstraintError } from
 import type { TableRow } from 'remix/data-table'
 import { decodeInt8Fields } from '../utils/schema-utils.ts'
 import { createLogger } from '../utils/logger.ts'
-import { formatDuringRange } from '../utils/during.ts'
+import { formatDuringRange, parseDuring } from '../utils/during.ts'
 
 const log = createLogger('[schema]')
 
@@ -323,7 +323,20 @@ export const appointments = table({
       })
     }
 
-    validateAppointmentTimes(value.start_min, value.end_min, issues)
+    // beforeWrite folds start_min/end_min into `during` and strips them, so
+    // the range rule must run against the normalized `during` value — checking
+    // value.start_min/end_min here would always see undefined.
+    if (value.during !== undefined) {
+      let range = parseDuring(value.during)
+      if (range === null) {
+        issues.push({ message: 'during must be a valid minute range.', path: ['during'] })
+      } else if (range.startMin < 0 || range.endMin > 1440 || range.startMin >= range.endMin) {
+        issues.push({
+          message: 'during must be a positive range within a day (0–1440).',
+          path: ['start_min'],
+        })
+      }
+    }
 
     return issues.length > 0 ? { issues } : { value }
   },
@@ -439,18 +452,20 @@ export const appointofferings = table({
     created_at: bigint(),
     updated_at: bigint(),
   },
-  validate({ value }) {
+  validate({ operation, value }) {
     let issues: Array<{ message: string; path?: Array<string | number> }> = []
 
-    if (value.resource_id === undefined) {
+    // Write payloads are partial on update: only require fields on create.
+    // Requiring every field unconditionally made any partial typed update fail.
+    if (operation === 'create' && value.resource_id === undefined) {
       issues.push({ message: 'resource_id is required.', path: ['resource_id'] })
     }
 
-    if (value.day === undefined) {
+    if (operation === 'create' && value.day === undefined) {
       issues.push({ message: 'day is required.', path: ['day'] })
     }
 
-    if (value.during === undefined) {
+    if (operation === 'create' && value.during === undefined) {
       issues.push({ message: 'during is required.', path: ['during'] })
     }
 
