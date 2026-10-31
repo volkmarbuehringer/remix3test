@@ -69,7 +69,7 @@ decision to completion or the next suspension), then `303` + flash. Detect the e
 frame, not just the status:
 
 ```ts
-async function completeDecisionForm(context, run, message) {
+async function completeNativeForm(context, run, message) {
   let failed = false
   try {
     let response = await run()
@@ -157,8 +157,8 @@ The admin `/admin/support-agent` surface mirrors the customer treatment:
   `submit` on `#chat-messages` — the panel frame's `handleFrameFormSubmit`
   listener does not see the chat area — drops `_csrf`, and reuses the stream.
 - Shared helpers live in `app/utils/agent-chat.ts`: `isSseRequest`,
-  `completeDecisionForm(context, run, { success, error, redirectTo })` (the
-  redirect target is now a parameter so both surfaces share it), and
+  `completeNativeForm(context, run, message, timeoutMs?)` (renamed from
+  `completeDecisionForm`; see §Scope), `createNativeTurnGuard()`, and
   `normalizeAnswerFields(formData)`.
 - The admin shell's self-relay frame (`app/ui/frame-shell.tsx`) is
   **non-blocking by default**: a full-document GET ships the fallback
@@ -180,11 +180,16 @@ The admin `/admin/support-agent` surface mirrors the customer treatment:
 
 ## Scope
 
-Only the gates are no-JS: the message composer still returns SSE, so sending a
-turn still needs JS. Both surfaces are covered — the customer `/chat` gates and
-the admin `/admin/support-agent` gates. Any future native branch must preserve
-the route's field names (`runId`/`toolCallId`, and `selectionMode`/`answer` for
-the question gate).
+Both the gates and the message composers are no-JS reachable (2026-10-31).
+`/chat`, `/admin/support-agent`, and `/admin/agent-events` render
+`<form method="POST" action="…">` plus `_csrf`; a native POST without
+`X-Sse-Request` drains the turn and `303`s with a flash. The shared helper was
+generalized and renamed `completeDecisionForm` → `completeNativeForm(context,
+run, message, timeoutMs?)`: it races the drain against `AGENT_TIMEOUT_MS + 5s`
+(a never-closing stream becomes the error flash), and each surface wraps it in
+`createNativeTurnGuard()` so a double submit cannot start two turns. The gates
+keep their existing behavior; any future native branch must preserve the
+route's field names (`runId`/`toolCallId`, `selectionMode`/`answer`).
 
 ## Tests
 
@@ -202,6 +207,13 @@ the question gate).
   fields become a JSON array, and `GET /admin/support-agent` (frame target
   `admin-content`) renders `id="support-agent-approval"` /
   `id="support-agent-question"`.
+- Native message turns (`app/actions/chat/controller.test.ts`,
+  `app/actions/support-agent/controller.test.ts`,
+  `app/actions/agent-events/controller.test.ts`): a POST with `_csrf` and no
+  `X-Sse-Request` drains and `303`s with a success flash.
+  `app/utils/agent-chat-native-form.test.ts` covers the bounded drain
+  (success / agent-error / non-200 / throw / never-closing stream) and the
+  single-flight guard.
 - E2E (`app/actions/support-agent/no-js-gate.test.e2e.ts`): drives **both**
   `/chat` and `/admin/support-agent` in a Playwright context with
   `javaScriptEnabled: false` — the server-rendered form is clicked, the POST
@@ -223,3 +235,5 @@ the question gate).
 - Adding an approval/confirmation decision to a surface whose gate arrives as a
   stream event.
 - A no-JS approval should `303` back to the page instead of rendering raw SSE.
+- A message composer (not just a gate) must submit without JS: action/method +
+  `_csrf`, bounded drain, single-flight guard.

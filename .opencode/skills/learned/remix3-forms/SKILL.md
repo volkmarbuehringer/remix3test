@@ -1,6 +1,6 @@
 ---
 name: remix3-forms
-description: "Use when working on Remix 3 forms or form validation — data-schema top-level s.optional(), s.defaulted() returning its default without running the wrapped schema (defaulted→required fields silently bypass validation), parseSafe direct re-render with preserved values and per-field errors, coerce/select pitfalls and the empty-string select fallback, announcing and focusing server-rendered errors, admin grid state on validation failure, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing, a session value mutated in place that never persists, and a native form fallback on an SSE-backed agent decision route (approve/decline and ask_user questions without JS)."
+description: "Use when working on Remix 3 forms or form validation — data-schema top-level s.optional(), s.defaulted() returning its default without running the wrapped schema (defaulted→required fields silently bypass validation), parseSafe direct re-render with preserved values and per-field errors, coerce/select pitfalls and the empty-string select fallback, announcing and focusing server-rendered errors, admin grid state on validation failure, delete confirmation via capture-phase delegation or an in-app alertdialog with requestConfirm reuse, password security/toggle, session.flash soft-fork routing, a session value mutated in place that never persists, and native form fallbacks on SSE-backed agent routes (approve/decline, ask_user questions, and message turns without JS)."
 user-invocable: false
 origin: consolidated
 ---
@@ -13,7 +13,7 @@ Consolidated from 2 former learned skills (`remix-forms`, `form-error-handling-r
 
 | You need... | Section | References |
 | --- | --- | --- |
-| Forms/data — s.optional(), delete confirmation, password forms, session.flash soft-fork routing, non-persisting session values, native form on SSE decision route | § Forms & Mutations | `references/remix-forms/` |
+| Forms/data — s.optional(), delete confirmation, password forms, session.flash soft-fork routing, non-persisting session values, native forms on SSE-backed agent routes | § Forms & Mutations | `references/remix-forms/` |
 | Form validation errors — parseSafe re-render, preserved values, per-field errors, coerce/select pitfalls, empty-string select fallback, admin grid state | § Validation Errors | `references/form-error-handling-remix3/` |
 
 ## Forms & Mutations
@@ -34,7 +34,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 | Password confirmation (cross-field), keeping passwords out of `defaultValue`, visibility toggle (`data-toggle-pw`), the `app/ui` vs `app/assets` `clientEntry` trap | `references/remix-forms/password-forms.md` |
 | One-shot UI state after a POST (routing card) that must self-clear on refresh — `session.flash()` vs `session.set()` | `references/remix-forms/session-flash-routing.md` |
 | A session value you mutated in place is missing on the next request — storing a map/array/set in the session | `references/remix-forms/session-value-persistence.md` |
-| An agent tool decision or `ask_user` question must be resolvable without JS; a native `<form>` must post to an SSE-backed route — resolving the pending gate, per-button `formaction`, repeated `answer` fields for multi-select, the `skipCsrf()` token fallback, draining the stream to `303` + flash | `references/remix-forms/native-form-on-sse-decision.md` |
+| An agent tool decision or `ask_user` question must be resolvable without JS; a native `<form>` must post to an SSE-backed route — resolving the pending gate, per-button `formaction`, repeated `answer` fields for multi-select, the `skipCsrf()` token fallback, draining the stream to `303` + flash; or a message composer must submit without JS — action/method + `_csrf`, bounded drain (`AGENT_TIMEOUT_MS + 5s`), single-flight native guard | `references/remix-forms/native-form-on-sse-decision.md` |
 
 ### Core Rules
 
@@ -46,8 +46,8 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - Never put `defaultValue` on password fields; exclude them from `readFormFieldValues` key arrays.
 - Use `session.flash()` (not `session.set()`) for UI state that should render once and disappear on refresh.
 - Session values persist only through `session.set()`/`unset()`: both stores' `save()` write only when `session.dirty`, which in-place mutation never sets. Read-modify-write a **fresh** container and call `set()`; never mutate the object returned by `get()`.
-- An SSE-backed decision endpoint can also accept a native form: render the resolved gate as `<form method="post">` (one form, per-button `formaction`), let a token-bearing form fall through `skipCsrf()` to the regular `csrf()` check, drain the SSE response server-side, then `303` + `session.flash()`. Enhance by intercepting `submit` and reusing the stream — never a click handler on a bare button.
-- An `ask_user` question gate takes the same form: a hidden `selectionMode` plus named `answer` control(s). A multi-select posts the name repeatedly, so normalize `formData.getAll('answer')` to a JSON array in the controller for **both** transports — the engine parses a leading `[`. A single multi-select field may already hold that JSON array (SSE clients), so wrap only when the value does not start with `[`; a blanket wrap double-encodes. The customer `/chat` and admin `/admin/support-agent` gates share the `completeDecisionForm`/`normalizeAnswerFields` helpers in `app/utils/agent-chat.ts`.
+- An SSE-backed decision endpoint can also accept a native form: render the resolved gate as `<form method="post">` (one form, per-button `formaction`), let a token-bearing form fall through `skipCsrf()` to the regular `csrf()` check, drain the SSE response server-side, then `303` + `session.flash()`. Enhance by intercepting `submit` and reusing the stream — never a click handler on a bare button. The message composers use the same shape: `<form method="POST" action>` + `_csrf`; a native POST drains through `completeNativeForm` (bounded at `AGENT_TIMEOUT_MS + 5s`), and a per-surface `createNativeTurnGuard` stops a double submit from starting two turns.
+- An `ask_user` question gate takes the same form: a hidden `selectionMode` plus named `answer` control(s). A multi-select posts the name repeatedly, so normalize `formData.getAll('answer')` to a JSON array in the controller for **both** transports — the engine parses a leading `[`. A single multi-select field may already hold that JSON array (SSE clients), so wrap only when the value does not start with `[`; a blanket wrap double-encodes. The customer `/chat` and admin `/admin/support-agent` gates share the `completeNativeForm`/`normalizeAnswerFields` helpers in `app/utils/agent-chat.ts`.
 
 ### Related Skills
 

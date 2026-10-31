@@ -9,6 +9,7 @@ The mount, hydration, re-render, and disposal traps of a `clientEntry`. Read thi
 - Loading data when the enclosing frame navigates to a different URL
 - Registering global `document`/`window` listeners from an entry
 - SSR-safety, mixin placement, and asset-server import constraints for a new entry
+- Server-rendering a `clientEntry` whose data used to come from an embedded JSON script (serializable props, props refresh on frame navigation, hydration-only values, SSR test recipe)
 
 For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, see `cliententry-dom-and-styling.md`.
 
@@ -330,6 +331,60 @@ async function loadFromServer(id: string, signal?: AbortSignal) {
 ```
 
 Use when a `clientEntry` inside a `<Frame>` must reload data on frame URL changes, the editor works on first load but stops responding to sidebar/frame clicks, you see `let initialized = false` guarding reads from `location.search`/DOM attributes, or rapid sidebar clicks show stale data. Complementary to the mounted-guard patterns above — use both when the component has listeners AND needs to reload data.
+
+## Server-Rendering a clientEntry That Read a DOM JSON Script
+
+**Context:** A page is client-only because its `clientEntry` reads an embedded
+`<script id="…-data" type="application/json">` during render and returns a
+placeholder when `typeof document === 'undefined'` (the appointment grid did this
+until 2026-10-31). The server already has the data; passing it as a serializable
+prop lets the server render the real layout.
+
+1. **One copy of the data.** Build one serializable object in the page, pass it
+   as a prop, and delete the page-level JSON script. The client entry serializes
+   the props once into the runtime's `rmx-data` script
+   (`@remix-run/component/src/server/stream.ts` `buildEntrySegment` /
+   `buildRmxDataScript`; `escapeScriptJson` replaces every `<` with `\u003c`, so
+   user titles cannot break out). Keeping the old script duplicates the payload.
+2. **Read props in render, not the DOM.** Remove the
+   `typeof document === 'undefined'` placeholder branch. Keep a `readData()` DOM
+   fallback only if browser tests mount the entry without props.
+3. **A preserved client entry receives new props on frame navigation** — this is
+   what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
+   commits the new node and `updateClientEntryBoundary` calls
+   `owner.root.render(jsx(node.type, node.props, node.key))`
+   (`runtime/reconcile.ts:1529-1561` at build `57ecca4cba`). The factory closure
+   survives; the render re-runs with the new props. Do not add a
+   `reloadComplete` DOM re-read for data that now travels in props.
+4. **Hydration-only values stay out of the first client render.** A server/client
+   `new Date()` (today/timezone) disagrees across environments. Pass the server
+   value in the data (e.g. `todayMs` = UTC day) for SSR + hydration; correct it in
+   `handle.queueTask` after the first commit and call `handle.update()` only when
+   the local value differs. The hydration render stays identical and the browser's
+   local day still wins afterwards.
+5. **SSR tests must strip the data scripts.** Remove every
+   `<script type="application/json">…</script>` before asserting a title/header,
+   or the assertion can pass on the serialized props instead of the layout. Put
+   the inlining marker on **both** render branches — a marker that exists only in
+   the normal branch (e.g. a day header) fails on an empty week and makes the test
+   lie about inlining.
+6. Server tests that need the data can parse it from `rmx-data` by recursively
+   finding the entry whose `exportName` matches the component, instead of
+   assuming a page-level script.
+7. Prove the refresh in an e2e: click a frame link that changes the data, assert a
+   server-rendered value the entry owns changes by the expected delta, and assert
+   the document `load` count stays at 1.
+
+**Pitfall:** an optional prop with a DOM fallback is a server crash waiting for the
+next call site that forgets it (`readData()` on the server touches `document`).
+Require the prop on the page path, or make the fallback throw a named error.
+
+**First application:** `app/ui/appointment-page.tsx` (`gridData` prop),
+`app/ui/appointment-grid.browser.tsx` (props render, `data-appointment-grid` on
+both branches, `data-day-date`), `app/ui/appointment-grid.test.ts` (SSR +
+`rmx-data` parser), `app/ui/appointment-grid-gestures.test.browser.tsx` (prop-only
+render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
+(props refresh after frame navigation).
 
 ## Registering Global Document Listeners from a clientEntry
 
