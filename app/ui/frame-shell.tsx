@@ -19,22 +19,25 @@ import { Layout } from './layout.tsx'
  * inline, so a JavaScript-disabled browser sees the page (no `<template>` swap
  * and no client runtime). A blocking frame must render HTML on every response,
  * including error paths, or the whole outer page render fails — only opt in for
- * a page whose frame GET is guaranteed to answer HTML. Both shells default to
+ * a page whose frame GET is guaranteed to answer HTML. This shell defaults to
  * blocking; pass `blocking={false}` to stream the content behind
  * `FrameFallback` instead.
  */
 export function FrameShell(handle: Handle<{ name: string; blocking?: boolean | undefined }>) {
-  return () => (
-    <Layout>
-      <Frame
-        name={handle.props.name}
-        src={getContext().request.url}
-        {...(handle.props.blocking
-          ? {}
-          : {
-              fallback: <FrameFallback label="Inhalt wird geladen…" name={handle.props.name} />,
-            })}
-      />
-    </Layout>
-  )
+  return () => {
+    let blocking = handle.props.blocking ?? true
+    return (
+      <Layout>
+        <Frame
+          name={handle.props.name}
+          src={getContext().request.url}
+          {...(blocking
+            ? {}
+            : {
+                fallback: <FrameFallback label="Inhalt wird geladen…" name={handle.props.name} />,
+              })}
+        />
+      </Layout>
+    )
+  }
 }

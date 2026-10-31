@@ -45,7 +45,9 @@ export const FrameFallback = clientEntry(
         <noscript>Diese Ansicht benötigt JavaScript.</noscript>
         {showRetry ? (
           <span mix={retryRowCss}>
-            <span>Das dauert länger als erwartet.</span>
+            <span role="status" aria-live="polite">
+              Das dauert länger als erwartet.
+            </span>
             <button
               type="button"
               mix={[

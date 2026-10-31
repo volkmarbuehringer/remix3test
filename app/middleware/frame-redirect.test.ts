@@ -1,6 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import type { RequestContext } from 'remix/router'
+import { SuperHeaders } from 'remix/headers'
 
 import { frameRedirects } from './frame-redirect.ts'
 
@@ -36,6 +37,19 @@ function redirectTo(location: string): Response {
   return new Response(null, { status: 302, headers: { Location: location } })
 }
 
+function redirectWithCookies(location: string, ...cookies: string[]): Response {
+  let headers = new Headers({ Location: location })
+  for (let cookie of cookies) headers.append('Set-Cookie', cookie)
+  return new Response(null, { status: 302, headers })
+}
+
+function setCookiePairs(response: Response): Array<[string, string]> {
+  return new SuperHeaders(response.headers).setCookie.map((cookie) => [
+    cookie.name ?? '',
+    cookie.value ?? '',
+  ])
+}
+
 describe('frameRedirects middleware', () => {
   it('follows a subframe redirect in-frame with frame headers', async () => {
     let destination = new URL('/admin/nutzer?editing=5', BASE)
@@ -63,6 +77,128 @@ describe('frameRedirects middleware', () => {
       destination.href,
       'should tell the client where the frame landed',
     )
+  })
+
+  it('uses the redirect Set-Cookie for the follow and re-emits it', async () => {
+    let destination = new URL('/admin/nutzer?editing=5', BASE)
+    let received: Request | undefined
+    let followResponse = fragment('<div>grid</div>')
+    followResponse.headers.append('Set-Cookie', 'session=follow; Path=/; HttpOnly')
+
+    let response = await frameRedirects()(
+      createContext(
+        {
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Cookie: 'session=pre-rotation; theme=dark',
+        },
+        (request) => {
+          received = request
+          return followResponse
+        },
+      ),
+      async () =>
+        redirectWithCookies('/admin/nutzer?editing=5', 'session=rotated; Path=/; HttpOnly'),
+    )
+
+    assert.ok(received, 'should re-fetch the redirect destination')
+    assert.equal(
+      received!.headers.get('Cookie'),
+      'session=rotated; theme=dark',
+      'the follow must carry the cookie the redirect issued',
+    )
+    assert.deepEqual(
+      setCookiePairs(response),
+      [
+        ['session', 'rotated'],
+        ['session', 'follow'],
+      ],
+      'the browser receives the redirect cookie first and the follow cookie last',
+    )
+    assert.equal(response.headers.get('X-Remix-Redirect-To'), destination.href)
+    assert.equal(await response.text(), '<div>grid</div>', 'the fragment body survives the clone')
+  })
+
+  it('drops a cookie the redirect deletes from the follow request', async () => {
+    let received: Request | undefined
+    let response = await frameRedirects()(
+      createContext(
+        {
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Cookie: 'session=old; theme=dark',
+        },
+        (request) => {
+          received = request
+          return fragment()
+        },
+      ),
+      async () => redirectWithCookies('/admin/nutzer?editing=5', 'session=; Max-Age=0; Path=/'),
+    )
+
+    assert.equal(
+      received?.headers.get('Cookie'),
+      'theme=dark',
+      'the expired session cookie must not reach the follow',
+    )
+    assert.deepEqual(
+      setCookiePairs(response),
+      [['session', '']],
+      'the browser still receives the deletion',
+    )
+  })
+
+  it('does not send a path-scoped redirect cookie outside its path to the follow', async () => {
+    let received: Request | undefined
+    let response = await frameRedirects()(
+      createContext(
+        {
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Cookie: 'session=keep',
+        },
+        (request) => {
+          received = request
+          return fragment()
+        },
+      ),
+      async () => redirectWithCookies('/admin/nutzer?editing=5', 'other=1; Path=/settings'),
+    )
+
+    assert.equal(
+      received?.headers.get('Cookie'),
+      'session=keep',
+      'a cookie scoped to /settings is not sent to /admin',
+    )
+    assert.deepEqual(setCookiePairs(response), [['other', '1']], 'the browser still receives it')
+  })
+
+  it('clamps a client-supplied negative redirect depth to zero', async () => {
+    for (let depth of ['-50', '-Infinity']) {
+      let received: Request | undefined
+      let response = await frameRedirects()(
+        createContext(
+          {
+            'X-Remix-Frame': 'true',
+            'X-Remix-Target': 'admin-content',
+            'X-Remix-Redirect-Depth': depth,
+          },
+          (request) => {
+            received = request
+            return fragment()
+          },
+        ),
+        async () => redirectTo('/admin/nutzer?editing=5'),
+      )
+
+      assert.ok(received, `should still follow with depth ${depth}`)
+      assert.equal(
+        received!.headers.get('X-Remix-Redirect-Depth'),
+        '1',
+        `a negative depth (${depth}) must behave like the first follow`,
+      )
+      assert.ok(response.headers.has('X-Remix-Redirect-To'))
+    }
   })
 
   it('follows a settings-panel redirect in-frame', async () => {
@@ -202,6 +338,25 @@ describe('frameRedirects middleware', () => {
 
     assert.equal(response, redirect, 'should leave the external redirect for the client bail')
     assert.equal(fetchCalls, 0, 'should not re-fetch external origins')
+  })
+
+  it('does not follow a method-preserving 307 redirect', async () => {
+    let redirect = new Response(null, {
+      status: 307,
+      headers: { Location: '/admin/nutzer?editing=5' },
+    })
+    let fetchCalls = 0
+
+    let response = await frameRedirects()(
+      createContext({ 'X-Remix-Frame': 'true', 'X-Remix-Target': 'admin-content' }, () => {
+        fetchCalls++
+        return fragment()
+      }),
+      async () => redirect,
+    )
+
+    assert.equal(response, redirect, '307 must keep its method/body; the follow would be a GET')
+    assert.equal(fetchCalls, 0, 'should not re-fetch a 307 destination')
   })
 
   it('bails when the redirect depth limit is reached', async () => {

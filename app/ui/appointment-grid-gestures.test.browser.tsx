@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { Frame } from 'remix/component'
 import { render } from 'remix/component/test'
 
 import {
@@ -375,6 +376,92 @@ describe('Mutation capture', () => {
 
     let mutations = getCapturedMutations()
     assert.equal(mutations.length, 0, 'GET should not be captured')
+  })
+})
+
+// -----------------------------------------------------------------------
+// 6b. Mutation reload targets the containing frame
+// -----------------------------------------------------------------------
+
+describe('Mutation reload', () => {
+  let cleanup: (() => void) | undefined
+
+  afterEach(() => {
+    cleanup?.()
+    uninstallFetchCapture()
+  })
+
+  it('reloads the containing frame after a saved title edit', async () => {
+    installFetchCapture()
+    let frameSrc = '/appointment?year=2026&week=31'
+    let resolveCalls: string[] = []
+    // Resolve the frame to the grid so handle.frame is the real
+    // appointment-content frame and reload() re-runs this resolver.
+    let result = render(<Frame name="appointment-content" src={frameSrc} />, {
+      frameInit: {
+        src: '/',
+        resolveFrame: (src: string) => {
+          resolveCalls.push(src)
+          return <AppointmentGrid data={createFixtureData()} />
+        },
+      },
+    })
+    cleanup = result.cleanup
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await result.act(() => {})
+
+    let dispatchPointer = (type: string, target: EventTarget) => {
+      target.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          pointerId: 1,
+          clientX: 10,
+          clientY: 10,
+        }),
+      )
+    }
+
+    // Double-click the block: pointerdown/up starts and ends the drag; the
+    // second pointerdown within 350ms opens the title editor.
+    let block = result.container.querySelector<HTMLElement>('[data-block-id="1"]')
+    assert.ok(block, 'appointment block must render')
+    await result.act(() => dispatchPointer('pointerdown', block!))
+    await result.act(() => dispatchPointer('pointerup', window))
+    block = result.container.querySelector<HTMLElement>('[data-block-id="1"]')
+    assert.ok(block, 'appointment block must survive the click')
+    await result.act(() => dispatchPointer('pointerdown', block!))
+    await result.act(() => {})
+
+    let textarea = result.container.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Termintitel"]',
+    )
+    assert.ok(textarea, 'the title editor must be mounted')
+    let callsBefore = resolveCalls.length
+    textarea!.value = 'Renamed slot'
+    await result.act(() => {
+      textarea!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }),
+      )
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    assert.deepEqual(
+      getCapturedMutationsByMethod('PUT').map((mutation) => mutation.url),
+      ['/appointments/1'],
+      'the title edit must be saved',
+    )
+    assert.ok(
+      resolveCalls.length > callsBefore,
+      `a successful mutation must reload the containing frame (calls: ${JSON.stringify(resolveCalls)})`,
+    )
+    assert.equal(
+      resolveCalls.at(-1),
+      frameSrc,
+      'the reload must request the frame src, not the document',
+    )
   })
 })
 

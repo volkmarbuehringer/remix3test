@@ -113,30 +113,45 @@ async function fetchFrameResponse(
       // A frame target that answers a 4xx with a non-HTML body is a routing
       // mistake, not a validation re-render. Show the recovery card and report
       // it; do not reconcile a JSON/plain-text body as frame HTML.
-      console.error(
-        `[frame] ${response.status} ${url.pathname} returned a non-HTML body (` +
-          `${response.headers.get('Content-Type') ?? 'no content type'})`,
-      )
+      return nonHtmlFrameError(url, response)
     }
 
-    return {
-      kind: 'error-card',
-      content: (
-        <ErrorCard
-          eyebrow="Unexpected Error"
-          title="Reload required"
-          message="An unexpected error occurred. Please reload the page to try again."
-          action={
-            <a data-rmx-document href={window.location.href} mix={actionLinkCss}>
-              Reload
-            </a>
-          }
-        />
-      ),
-    }
+    return { kind: 'error-card', content: recoveryCard() }
+  }
+
+  // A 2xx frame target that declares a non-HTML body (a download or API
+  // endpoint) is equally unreconcilable. Missing Content-Type stays allowed so
+  // header-less responses (tests, hand-built fragments) keep working.
+  let contentType = response.headers?.get('Content-Type')
+  if (contentType != null && !contentType.toLowerCase().includes('text/html')) {
+    if (prefetching) return { kind: 'navigated' }
+    return nonHtmlFrameError(url, response)
   }
 
   return { kind: 'response', response }
+}
+
+function nonHtmlFrameError(url: URL, response: Response): FrameFetchResult {
+  console.error(
+    `[frame] ${response.status} ${url.pathname} returned a non-HTML body (` +
+      `${response.headers?.get('Content-Type') ?? 'no content type'})`,
+  )
+  return { kind: 'error-card', content: recoveryCard() }
+}
+
+function recoveryCard(): FrameContent {
+  return (
+    <ErrorCard
+      eyebrow="Unexpected Error"
+      title="Reload required"
+      message="An unexpected error occurred. Please reload the page to try again."
+      action={
+        <a data-rmx-document href={window.location.href} mix={actionLinkCss}>
+          Reload
+        </a>
+      }
+    />
+  )
 }
 
 export async function resolveFrameResponse(
@@ -163,7 +178,7 @@ export async function prefetchFrameResponse(
 }
 
 function isHtmlResponse(response: Response): boolean {
-  let contentType = response.headers.get('Content-Type')
+  let contentType = response.headers?.get('Content-Type')
   return contentType != null && contentType.toLowerCase().includes('text/html')
 }
 

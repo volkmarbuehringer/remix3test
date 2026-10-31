@@ -382,6 +382,10 @@ describe('Settings controller', () => {
         BASE + routes.settings.index.href() + '?tab=display',
         'the client must learn where the frame landed',
       )
+      assert.ok(
+        response.headers.get('Set-Cookie')?.includes('session='),
+        'the followed frame response must keep the redirect session cookie',
+      )
       let html = await response.text()
       assert.ok(!html.includes('<html'), 'the fragment must not include the document shell')
       assert.ok(html.includes('data-rmx-target="settings-panel"'), 'the tabs fragment renders')

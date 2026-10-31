@@ -24,7 +24,11 @@ Surface `session.get('error' | 'success')` in whichever fragment path renders th
 
 ### 1b. The in-frame PRG follow must run outside the session middleware
 
-`frameRedirects()` re-fetches the redirect destination as a new request. If it sits **inside** `session()`, the session middleware has not persisted the flash yet (it saves when the outer response unwinds), so the follow re-reads the pre-redirect session and the flash is silently dropped. This is invisible with `createMemorySessionStorage`, which returns the live `Session` object; it only shows up with the fs-backed store used in production. Put `frameRedirects()` before `session()` in the middleware stack (`app/middleware/root.ts`). The follow's own session read then finds the stored flash, and its response clears it.
+`frameRedirects()` re-fetches the redirect destination as a new request. If it sits **inside** `session()`, the session middleware has not persisted the flash yet (it saves when the outer response unwinds), so the follow re-reads the pre-redirect session and the flash is silently dropped. Put `frameRedirects()` before `session()` in the middleware stack (`app/middleware/root.ts`). The follow's own session read then finds the stored flash, and its response clears it.
+
+The reorder also puts the follow **after** the redirect's session save, so it must inherit the redirect's `Set-Cookie`: carry those cookies into the follow request (session ids can rotate) and re-emit them on the final response, which replaces the 302. `app/middleware/frame-redirect.ts` does both.
+
+The in-memory test store does **not** hide the ordering bug: `createMemorySessionStorage` snapshots `session.data` and returns a fresh `Session` on read, like the fs store. What hid it was tests that only inspected the saved flash after the request (e.g. `readSuccessFlash()`): the POST still saves the flash, so they pass even when the followed fragment never rendered it. Assert the followed fragment's HTML instead — `app/actions/settings/controller.test.ts` does.
 
 ### 2. Read the flash in tests via the parsed session id
 
@@ -49,4 +53,4 @@ assert.ok(err?.includes('...'), 'flash error should be set')
 - Adding a flash banner to a frame fragment (sidebar shell or an `isFrame` fragment branch) so one-shot PRG messages are visible.
 - Writing a test that asserts a `session.flash` value — unwrap the signed cookie with `readSessionId` first.
 - Debugging an assertion like `flash error should be set` failing with `session.get('error') === undefined`.
-- An in-frame PRG flash renders in dev/tests but disappears in production (fs session store): check `frameRedirects()` sits outside `session()`.
+- An in-frame PRG flash never renders after a redirect: check `frameRedirects()` sits outside `session()` (and that the follow inherits the redirect's `Set-Cookie`).

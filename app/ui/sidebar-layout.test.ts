@@ -178,6 +178,20 @@ describe('Admin sidebar shell — flash messages', () => {
       'success flash should render in the admin sidebar shell',
     )
   })
+
+  it('renders a full-document flash exactly once with the blocking shell', async () => {
+    let cookie = await createAdminSessionWith('success', 'Full document flash message')
+
+    let response = await router.fetch(ADMIN_USERS_URL, { headers: { Cookie: cookie } })
+    assert.equal(response.status, 200, 'full-document GET should render')
+    let html = await response.text()
+    let occurrences = html.split('Full document flash message').length - 1
+    assert.equal(
+      occurrences,
+      1,
+      'the document Layout and the inlined shell fragment must not both render the flash',
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

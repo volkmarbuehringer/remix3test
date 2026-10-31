@@ -78,6 +78,9 @@ describe('FrameFallback', () => {
       result.container.textContent?.includes('Das dauert länger als erwartet.'),
       'the fallback explains the delay',
     )
+    let status = result.container.querySelector('[role="status"]')
+    assert.ok(status, 'the delayed message must be announced to assistive tech')
+    assert.ok(status!.textContent?.includes('Das dauert länger als erwartet.'))
   })
 
   it('reloads the frame when the retry is clicked', async () => {

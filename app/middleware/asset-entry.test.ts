@@ -14,7 +14,8 @@ import { getAssetEntry, loadAssetEntry } from './asset-entry.ts'
 // Frame responses must not load the asset graph (they are reconciled into a
 // document that already has the import map), and a failed lookup must not be
 // swallowed: without the entry the document ships no import map and the client
-// runtime (and therefore every frame) never starts.
+// runtime (and therefore every frame) never starts. HTML documents therefore
+// fail loudly; non-document responses keep working and are logged.
 // ---------------------------------------------------------------------------
 
 const entry = {
@@ -106,7 +107,7 @@ describe('loadAssetEntry', () => {
     )
   })
 
-  it('reports a failed entry load and still serves the request', async () => {
+  it('reports a failed entry load and still serves a non-document response', async () => {
     await withEntry(
       async () => {
         throw new Error('asset graph unavailable')
@@ -119,6 +120,29 @@ describe('loadAssetEntry', () => {
         assert.equal(response.status, 200)
         assert.equal(logs.length, 1, 'the failure must be reported, not swallowed')
         assert.ok(logs[0]!.includes('asset graph unavailable'))
+      },
+    )
+  })
+
+  it('fails an HTML document when the entry cannot load', async () => {
+    await withEntry(
+      async () => {
+        throw new Error('asset graph unavailable')
+      },
+      async () => {
+        let { context, logs } = makeContext()
+        await assert.rejects(async () => {
+          await asyncContext()(context, async () =>
+            loadAssetEntry()(
+              context,
+              async () =>
+                new Response('<html></html>', {
+                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                }),
+            ),
+          )
+        }, /asset graph unavailable/)
+        assert.equal(logs.length, 0, 'the thrown error is reported by the server, not the logger')
       },
     )
   })

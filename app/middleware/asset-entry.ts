@@ -16,20 +16,38 @@ export function loadAssetEntry(
   scriptEntry: string = defaultScriptEntry,
 ): Middleware<{ key: typeof assetsEntryKey; value: AssetEntry }> {
   return async (context, next) => {
+    let entryError: Error | undefined
+
     if (context.request.headers.get('X-Remix-Frame') !== 'true') {
       let entry = await assetServer.getScriptEntry(scriptEntry).catch((error: unknown) => {
-        // A missing entry silently ships a document without an import map or
-        // client runtime (hydration and frames never start), so report it instead
-        // of swallowing the asset-graph failure.
-        let message = error instanceof Error ? error.message : String(error)
-        context.get(Logger)?.(`Failed to load the client entry ${scriptEntry}: ${message}`)
+        entryError = toError(error)
         return undefined
       })
       if (entry) context.set(assetsEntryKey, entry)
     }
 
-    return next()
+    let response = await next()
+
+    if (entryError) {
+      if (isHtmlResponse(response)) {
+        // A document rendered without the entry has no import map or client
+        // runtime (hydration and frames never start). Fail loudly instead of
+        // serving a dead page; JSON/API responses still work without the entry.
+        throw entryError
+      }
+      context.get(Logger)?.(`Failed to load the client entry ${scriptEntry}: ${entryError.message}`)
+    }
+
+    return response
   }
+}
+
+function isHtmlResponse(response: Response): boolean {
+  return response.headers.get('Content-Type')?.toLowerCase().includes('text/html') ?? false
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
 }
 
 export function getAssetEntry(): AssetEntry | undefined {

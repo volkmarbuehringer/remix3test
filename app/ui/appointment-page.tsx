@@ -143,11 +143,6 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
   }
 }
 
-/**
- * Slot content for the appointment-types panel frame. Without a fallback the
- * frame is blocking: a non-HTML frame response would fail the whole page render.
- */
-
 const shellStyle = css({
   display: 'grid',
   gridTemplateColumns: '280px minmax(0, 1fr)',

@@ -273,7 +273,10 @@ the redirect-depth limit return the redirect unchanged (the client bail handles 
 
 It must run **outside** `session()`: the session middleware persists a flash only when
 the outer response unwinds, so a follow inside it re-reads the pre-redirect session and
-drops every in-frame PRG flash (the memory test store hides this).
+drops every in-frame PRG flash. The memory test store does not mask this (it snapshots
+`session.data`); tests that only inspect the saved flash did. Because the reorder puts the
+follow after the redirect's session save, the follow must also inherit the redirect's
+`Set-Cookie` (session ids can rotate) and re-emit it on the final response.
 
 ```ts
 // app/middleware/root.ts — outside session()

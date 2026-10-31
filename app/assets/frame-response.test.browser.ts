@@ -121,6 +121,43 @@ describe('resolveFrameResponse redirect handling', () => {
     assert.equal(result, response, 'should return the 200 response for subframe rendering')
   })
 
+  it('returns a 2xx HTML response inside the subframe', async () => {
+    let response = {
+      redirected: false,
+      ok: true,
+      url: 'https://remix.run/admin/client',
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
+      text: async () => '<div>Grid content</div>',
+    } as Response
+    stubFetch(response)
+
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, response, 'should return the 2xx HTML response for subframe rendering')
+  })
+
+  it('shows the reload card for a non-HTML 2xx body and reports it', async (t) => {
+    let errorSpy = t.mock.method(console, 'error')
+    let response = {
+      redirected: false,
+      ok: true,
+      url: 'https://remix.run/admin/client',
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/pdf' }),
+    } as Response
+    stubFetch(response)
+
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.ok(result !== response, 'should not mount a declared non-HTML 2xx body as a frame')
+    assert.equal(errorSpy.mock.calls.length, 1, 'the misconfigured frame should be reported')
+  })
+
   it('renders a 4xx response body so validation errors show in the frame', async () => {
     let response = {
       redirected: false,
@@ -360,6 +397,23 @@ describe('prefetchFrameResponse', () => {
       status: 404,
       headers: new Headers({ 'Content-Type': 'application/json' }),
       text: async () => '{"error":"not found"}',
+    } as Response
+    stubFetch(response)
+
+    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined)
+  })
+
+  it('does not cache a non-HTML 2xx response', async () => {
+    let response = {
+      redirected: false,
+      ok: true,
+      url: 'https://remix.run/admin/client',
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
     } as Response
     stubFetch(response)
 
