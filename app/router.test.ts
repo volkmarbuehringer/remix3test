@@ -305,6 +305,11 @@ describe('Document shell — client-owned theme attribute', () => {
       html.includes('data-rmx-preserve-attrs="data-theme"'),
       'document <html> must preserve data-theme across reconciliation',
     )
+    assert.match(
+      html,
+      /@keyframes app-panel-enter\s*\{/,
+      'shell must carry the panel entrance keyframes',
+    )
   })
 
   it('keeps the preserve list while seeding the cookie-selected theme', async () => {
@@ -322,5 +327,28 @@ describe('Document shell — client-owned theme attribute', () => {
       'preserve list must be present regardless of the selected theme',
     )
     assert.ok(html.includes('data-theme="dark"'), 'cookie theme should seed the initial value')
+    assert.match(
+      html,
+      /html\[data-theme="dark"\]\s*\{\s*color-scheme:\s*dark;?\s*\}/,
+      'explicit dark should also set the used color-scheme',
+    )
+  })
+
+  it('seeds an explicit light theme and its color-scheme', async () => {
+    let response = await router.fetch(`${BASE}/`, {
+      headers: { Cookie: 'theme=light' },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(
+      html.includes('data-theme="light"'),
+      'cookie theme should seed the explicit light value',
+    )
+    assert.match(
+      html,
+      /html\[data-theme="light"\]\s*\{\s*color-scheme:\s*light;?\s*\}/,
+      'explicit light should also set the used color-scheme',
+    )
   })
 })

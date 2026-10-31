@@ -50,7 +50,7 @@ describe('ThemeToggle', () => {
     assert.ok(document.cookie.includes('theme=dark'), 'cookie carries the choice for SSR')
   })
 
-  it('switches back to light: attribute removed, storage and cookie say light', () => {
+  it('switches back to light: explicit light attribute, storage and cookie say light', () => {
     resetThemeState()
     document.documentElement.setAttribute('data-theme', 'dark')
     localStorage.setItem('theme', 'dark')
@@ -58,7 +58,7 @@ describe('ThemeToggle', () => {
 
     btn.click()
 
-    assert.equal(document.documentElement.hasAttribute('data-theme'), false)
+    assert.equal(document.documentElement.getAttribute('data-theme'), 'light')
     assert.equal(localStorage.getItem('theme'), 'light')
     assert.ok(document.cookie.includes('theme=light'))
   })

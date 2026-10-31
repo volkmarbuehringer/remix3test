@@ -22,7 +22,10 @@ function toggleTheme(): void {
   let html = document.documentElement
   let isDark = html.getAttribute('data-theme') === 'dark'
   if (isDark) {
-    html.removeAttribute('data-theme')
+    // Set an explicit `light` attribute (rather than removing it) so
+    // `color-scheme: light` keeps vendor `light-dark(...)` styles in the app
+    // theme even when the OS preference is dark.
+    html.setAttribute('data-theme', 'light')
     localStorage.setItem('theme', 'light')
     document.cookie = `theme=light; ${COOKIE_META}`
   } else {

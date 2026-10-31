@@ -4,6 +4,7 @@ import { assetServer } from '../../assets.ts'
 import { routes } from '../../routes.ts'
 import { Document } from '../../ui/document.tsx'
 import { HomePage } from '../../ui/scaffold-home-page.tsx'
+import { HomeStyles } from '../../ui/home-styles.tsx'
 
 export default createController(routes, {
   actions: {
@@ -17,6 +18,7 @@ export default createController(routes, {
         <Document
           title="newapp – Terminplanung, Kundenmanagement & KI-Assistenz"
           description="newapp vereint Terminplanung, Kundenmanagement und KI-Assistenz in einer Plattform: DSGVO-konform, schnell und ohne Neuladen. Jetzt kostenlos starten."
+          head={<HomeStyles />}
         >
           <HomePage />
         </Document>,

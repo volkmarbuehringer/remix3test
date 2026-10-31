@@ -1,12 +1,11 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
+import { panelEntrance } from './mixins/panel-entrance.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { PageSection } from './page-primitives.tsx'
-import { animateEntrance } from '@remix-run/ui/animation'
-import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
@@ -491,9 +490,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
     let capsValue = formValues?.capabilities ?? row.capabilities ?? ''
     let capsError = fieldErrors?.capabilities
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method="PUT"
           action={routes.verwaltung.resources.update.href({ id: row.id })}
@@ -637,9 +634,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
     let descError = fieldErrors?.description
     let capsError = fieldErrors?.capabilities
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         {/* Agent-aware create form: the support-agent panel's SSE replay must
             keep owning this submit (its controller answers the agent's
             ask_user gate with JSON), so it carries the data-agent-form marker

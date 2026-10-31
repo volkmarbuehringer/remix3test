@@ -1,6 +1,6 @@
 ---
 name: remix3-styling
-description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors (nested parent→child rules now emit; legacy JS fallback), floating admin-grid row actions (zero-width column, complement media query, media-key trap), theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, interruptible imperative animations with @remix-run/ui/animation, `element.animate()`/WAAPI motion that bypasses the CSS reduced-motion guard, and `transitionend` teardowns that never fire when a stylesheet overrides the transition."
+description: "Use when styling a Remix 3 / remix-ui app and something is visually wrong — css() overrides losing to @layer rmx.*, hover-reveal selectors (nested parent→child rules now emit; legacy JS fallback), floating admin-grid row actions (zero-width column, complement media query, media-key trap), theme-token conformance (raw var(--rmx-...) strings, *.background tokens used as text/accent-color, tokens missing from the contract tree), vendor light-dark(...) palettes that ignore data-theme, flex/panel/sidebar layout traps, native <select> overflow, the hidden attribute not hiding, glyph/SVG wrapping, and motion: entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, interruptible imperative animations with @remix-run/ui/animation, `element.animate()`/WAAPI motion that bypasses the CSS reduced-motion guard, and `transitionend` teardowns that never fire when a stylesheet overrides the transition."
 user-invocable: false
 origin: consolidated
 ---
@@ -163,6 +163,7 @@ This skill is the **index** for theme-token conformance — styling must go thro
 | Understanding the six ways styling drifts, or the app's theme files | `references/remix3-theme-conformance/failure-modes.md` |
 | Choosing/importing a token, or a token that does not exist yet | `references/remix3-theme-conformance/token-rules.md` |
 | A low-contrast or invisible label, badge, glyph, or destructive-outline button | `references/remix3-theme-conformance/contrast-verification.md` |
+| Vendor `light-dark(...)` palettes ignore the app `data-theme` toggle; the OS scheme wins | `references/remix3-theme-conformance/light-dark-color-scheme.md` |
 | Building style strings by hand in `clientEntry` / browser DOM code (incl. `var(${theme.…})` re-wrapping) | `references/remix3-theme-conformance/cliententry-dom-styling.md` |
 | What `npm run lint` enforces, a past incident with measured light/dark ratios, or the `theme.<group>.<key>` to `--rmx-*` variable-name mapping | `references/remix3-theme-conformance/metadata.md` |
 | Adding an icon/glyph missing from the theme set, or a `TS2339`/`TS2741`/`GlyphValues` error on `Glyph name=…` | `references/remix3-theme-conformance/glyph-add.md` |
@@ -174,6 +175,7 @@ This skill is the **index** for theme-token conformance — styling must go thro
 - **Never re-wrap a token**: `var(${theme.…})` becomes `var(var(--rmx-…))`, which drops the whole declaration (and `element.style.x` rejects it outright).
 - **Fill vs. ink:** use `theme.colors.<group>.background` only as a surface fill paired with `.foreground`; use `.foreground` for accent text, glyphs, a border, or a native control's `accent-color`. `*.background` passes `tsc` and lint even in the wrong role.
 - **Verify contrast by measurement, not lint**: toggle `data-theme="dark"` on `<html>` and read `getComputedStyle`; both gates are blind to contrast.
+- **Explicit themes must set `color-scheme`**: `light-dark(...)` resolves from the used `color-scheme`, not from `data-theme`. Map explicit dark/light to `color-scheme` on `<html>`, and set `data-theme="light"` for explicit light; auto mode leaves the attribute off and uses the `light dark` meta. See `references/remix3-theme-conformance/light-dark-color-scheme.md`.
 - **Missing token:** add the key to the contract tree (`app/ui/theme/contract.ts`), add matching values to both `Theme` and `DarkTheme` (`app/theme.tsx`), then reference it — never hardcode a fallback.
 - **The contract is the source of truth**: a value defined in `app/theme.tsx` but absent from the contract resolves to `undefined` and its declarations are silently dropped — check `contract.ts`, not just `app/theme.tsx`.
 - **Enforcement:** `scripts/check-theme-conformance.ts` (wired into `npm run lint`) fails on `var(--rmx-` in `app/` outside `app/ui/theme/` and `app/theme.tsx`.

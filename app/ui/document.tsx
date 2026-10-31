@@ -10,9 +10,12 @@ import { DarkTheme, Theme } from '../theme.tsx'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
+import { themeBootstrapScript } from './theme-bootstrap.ts'
 
 interface DocumentProps {
   children?: RemixNode
+  /** App-controlled head nodes only; never pass user input or `unsafeHTML()` here. */
+  head?: RemixNode
   title?: string | undefined
   description?: string | undefined
   ogImage?: string | undefined
@@ -33,15 +36,24 @@ function getThemeFromCookie(): string | null {
 
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
-    let { title = DEFAULT_TITLE, description, ogImage, ogType = 'website', children } = handle.props
+    let {
+      title = DEFAULT_TITLE,
+      description,
+      ogImage,
+      ogType = 'website',
+      children,
+      head,
+    } = handle.props
     let theme = getThemeFromCookie()
-    let isDark = theme === 'dark'
+    // Preserve the explicit choice; no attribute means "follow the OS", which
+    // <meta name="color-scheme" content="light dark"> already handles.
+    let dataTheme = theme === 'dark' || theme === 'light' ? theme : undefined
 
     return (
       <html
         lang="de"
         data-rmx-preserve-attrs="data-theme"
-        data-theme={isDark ? 'dark' : undefined}
+        data-theme={dataTheme}
         mix={css({ overflowY: 'scroll' })}
       >
         <head>
@@ -64,6 +76,7 @@ export function Document(handle: Handle<DocumentProps>) {
           <link rel="stylesheet" href="/fonts/fonts.css" />
           <Theme />
           <DarkTheme.Style />
+          {head}
           <style>{`
             /* Used by app/ui/connection-indicator.browser.tsx. It lives in the
                shell so the component does not render a <style> inside its <div>
@@ -71,6 +84,17 @@ export function Document(handle: Handle<DocumentProps>) {
             @keyframes sse-pulse {
               0%, 100% { opacity: 1; }
               50% { opacity: 0.4; }
+            }
+            /* The explicit theme must also drive color-scheme: vendor
+               light-dark(...) styles (menus, buttons) resolve from the used
+               color scheme, not from the data-theme attribute directly. */
+            html[data-theme="dark"] { color-scheme: dark; }
+            html[data-theme="light"] { color-scheme: light; }
+            /* Server-rendered panels (app/ui/mixins/panel-entrance.ts) animate
+               from CSS so they do not need a hydration boundary. */
+            @keyframes app-panel-enter {
+              from { opacity: 0; transform: translateY(4px); }
+              to { opacity: 1; transform: none; }
             }
             /* Global reduced-motion guard: component-level CSS transitions
                (hover lifts, nav fades) have no local prefers-reduced-motion
@@ -83,31 +107,7 @@ export function Document(handle: Handle<DocumentProps>) {
               }
             }
           `}</style>
-          <script nonce={getCspNonce()}>{`
-            (function() {
-              try {
-                var stored = localStorage.getItem('theme');
-                var cookie = /(?:^|;\\s*)theme=(dark|light)/.exec(document.cookie);
-                var explicit = stored || (cookie && cookie[1]) || null;
-                var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-                var apply = function(dark) {
-                  if (dark) document.documentElement.setAttribute('data-theme', 'dark');
-                  else document.documentElement.removeAttribute('data-theme');
-                };
-                // An explicit choice (localStorage or cookie) always wins; without
-                // one, follow the operating-system preference.
-                apply(explicit ? explicit === 'dark' : !!(mql && mql.matches));
-                if (!explicit && mql) {
-                  var onChange = function(e) {
-                    try { if (localStorage.getItem('theme')) return; } catch (err) {}
-                    apply(e.matches);
-                  };
-                  if (mql.addEventListener) mql.addEventListener('change', onChange);
-                  else if (mql.addListener) mql.addListener(onChange);
-                }
-              } catch(e) {}
-            })();
-          `}</script>
+          <script nonce={getCspNonce()}>{themeBootstrapScript}</script>
           {(() => {
             let entry = getAssetEntry()
             if (!entry) return null

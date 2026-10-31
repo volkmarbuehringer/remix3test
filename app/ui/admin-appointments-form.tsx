@@ -1,9 +1,8 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
+import { panelEntrance } from './mixins/panel-entrance.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { buttonLink } from '../ui/theme/button.ts'
-import { animateEntrance } from '@remix-run/ui/animation'
-import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
@@ -151,9 +150,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
     }
 
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method={method}
           action={action}

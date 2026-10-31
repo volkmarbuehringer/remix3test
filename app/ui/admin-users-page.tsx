@@ -1,11 +1,10 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
+import { panelEntrance } from './mixins/panel-entrance.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { animateEntrance } from '@remix-run/ui/animation'
-import { entrance } from '../utils/motion.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -1215,9 +1214,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
     let displayName = formValues?.name || row.name
     let displayEmail = formValues?.email || row.email
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method="PUT"
           action={routes.admin.users.update.href({ id: row.id })}
@@ -1380,9 +1377,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
       status,
     )
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method="POST"
           action={routes.admin.users.create.href()}

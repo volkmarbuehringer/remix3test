@@ -1,10 +1,9 @@
 import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
+import { panelEntrance } from './mixins/panel-entrance.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { animateEntrance } from '@remix-run/ui/animation'
-import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 
 import { routes } from '../routes.ts'
@@ -1501,9 +1500,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
       status,
     )
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method="PUT"
           action={routes.admin.lists.update.href({ id: row.id })}
@@ -1665,9 +1662,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
       status,
     )
     return (
-      <div
-        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
-      >
+      <div mix={panelEntrance}>
         <RestfulForm
           method="POST"
           action={routes.admin.lists.create.href()}

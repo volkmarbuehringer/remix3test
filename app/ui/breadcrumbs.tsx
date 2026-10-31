@@ -9,14 +9,12 @@ interface BreadcrumbItem {
   label: RemixNode
 }
 
-// App-owned breadcrumb renderer. The vendor `@remix-run/ui/breadcrumbs` component
-// styles its items with hardcoded `light-dark(...)` pixel values that resolve
-// from the OS `prefers-color-scheme` (via `color-scheme`) rather than the app's
-// `data-theme` toggle, so its text becomes unreadable whenever the app theme
-// diverges from the OS preference. It also wraps each class in an
-// `@layer remix-ui.<class>` block, which makes overrides unreliable. Rendering
-// the trail here with the app's theme variables keeps every crumb readable in
-// both themes.
+// App-owned breadcrumb renderer. The pre-0.12 vendor `@remix-run/ui/breadcrumbs`
+// component wrapped each class in an `@layer remix-ui.<class>` block, which
+// made overrides unreliable. Rendering the trail here with the app's theme
+// variables keeps every crumb readable in both themes. (The document shell now
+// also maps an explicit `data-theme` to `color-scheme`, so vendor
+// `light-dark(...)` palettes follow the app theme.)
 const rootCss = css({ minWidth: 0 })
 
 const listCss = css({

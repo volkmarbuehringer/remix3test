@@ -3,6 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
+**Re-validated:** 2026-10-31 (build `57ecca4cba`; `Document` head slot, explicit light theme, `panelEntrance`)
 
 **Context:** Editing the shared document shell, adding head tags/preloads/styles, wiring the browser entry script or import map, or returning a rendered page with a status/headers.
 
@@ -19,6 +20,9 @@ Use the guide for the head/shell rules; wire them to these app seams.
 - **Head wiring:** render `<ImportMap value={entry.importMap} nonce={getCspNonce()} />` and a `modulepreload` link per `entry.preloads` href. For the body script, use `entry.href` with the fallback `routes.assets.href({ path: 'app/assets/entry.tsx' })` (see `app/ui/document.tsx`).
 - **Frames skip the entry:** `loadAssetEntry` only loads when `!context.request.headers.get('X-Remix-Frame')`. Do not assume `getAssetEntry()` is populated in a fragment/frame render — keep global head, import-map, and preload work on document responses.
 - **CSP nonce:** inline `<script>` and `<ImportMap>` carry `getCspNonce()` (`app/middleware/security-headers.ts`). See `security-gotchas` (CSP inline scripts) before adding another inline script.
+- **Per-page head:** `Document` accepts `head?: RemixNode` and renders it inside `<head>`. Pass page-specific `<style>`/`<link>`/`<meta>` there (home: `head={<HomeStyles />}`); do not put `<style>` in page body.
+- **Explicit theme:** the shell emits `data-theme="dark"|"light"` for a cookie choice and the standalone bootstrap in `app/ui/theme-bootstrap.ts` does the same for localStorage, then maps it to `color-scheme` (`html[data-theme="dark"] { color-scheme: dark }`). Auto mode leaves the attribute off and uses the `light dark` meta. This keeps vendor `light-dark(...)` palettes (menus/buttons) aligned with `data-theme`. The bootstrap is a string so `app/ui/theme-bootstrap.test.browser.tsx` executes exactly what `Document` renders.
+- **Server panel entrance:** `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes. `animateEntrance` from `@remix-run/ui/animation` is `ssr: false` and only runs inside a `clientEntry`; do not apply it to plain server page components.
 - **Response pipeline:** `createHtmlResponse()` (guide §"Document shells, head content, and HTML responses") preserves or prepends `<!DOCTYPE html>` and sets `Content-Type: text/html; charset=UTF-8` unless supplied — note the app test comment at `app/router.test.ts:170` that it always adds the doctype. `context.render(tree, { status, headers })` adds a status/headers (guide §"Rendering pages through request context").
 
 ## When to Use

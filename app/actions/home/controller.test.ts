@@ -128,6 +128,23 @@ describe('Home page — landing surface', () => {
     assert.ok(html.includes("localStorage.getItem('theme')"), 'explicit choice should win')
   })
 
+  it('renders the home page style block inside the document head', async () => {
+    let response = await router.fetch(`${BASE}${routes.home.href()}`)
+    let html = await response.text()
+    let headStart = html.indexOf('<head>')
+    let headEnd = html.indexOf('</head>')
+    let definition = html.indexOf('--home-accent-indigo:')
+    assert.ok(headStart !== -1 && headEnd > headStart, 'document should have a head')
+    assert.ok(
+      definition > headStart && definition < headEnd,
+      'home style variables should be defined inside <head>',
+    )
+    assert.ok(
+      !html.slice(headEnd).includes('<style>'),
+      'the home page should not add a <style> element to the body',
+    )
+  })
+
   it('hides the decorative hero mockup from assistive technology', async () => {
     let response = await router.fetch(`${BASE}${routes.home.href()}`)
     let html = await response.text()
