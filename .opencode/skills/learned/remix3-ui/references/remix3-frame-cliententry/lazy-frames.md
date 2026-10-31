@@ -40,9 +40,9 @@ App port deltas from the upstream demo:
 
 Nothing else addresses these names, so `name` reads as removable. Comment it.
 
-## Trap: No `css()` Mixins In `children`/`fallback`
+## Trap: Mixins Other Than `css()` In `children`/`fallback`
 
-Props cross the client-entry boundary by serialization, which drops a mixin descriptor's function `type` and makes hydration throw `Invalid mix prop` — the whole document becomes the error card. Pass plain text/markup and style it from the server-rendered shell. Full mechanism and evidence: authoring constraint 5 in `references/cliententry-lifecycle.md`.
+Props cross the client-entry boundary by serialization. Since remix #12125 (build `57ecca4cba`), `css()` mixins in those props — including arrays — serialize with their styles and hydrate. `on()`, `ref()`, and custom `createMixin()` mixins still cannot cross; they now report an explicit error instead of `Invalid mix prop`. This app passes plain text from the server-rendered shell. Full mechanism and evidence: authoring constraint 5 in `references/cliententry-lifecycle.md`.
 
 ## Measuring Frame Fan-Out Server-Side
 

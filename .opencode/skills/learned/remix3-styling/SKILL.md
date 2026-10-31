@@ -34,7 +34,8 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 | An inline icon/glyph sits on its own line above its label; a link/span containing an SVG wraps vertically | `references/remix3-css-and-layout/svg-reset-inline-wrap.md` |
 | A native `<select>` overflows its flex row because of long option text | `references/remix3-css-and-layout/native-select-flex-contain.md` |
 | A content-sized flex-column panel/card collapses to its header; a bounded full-height shell under-sizes | `references/remix3-css-and-layout/content-sized-flex-panel.md` |
-| A line clamp does not apply; generated CSS contains invalid `2px` for a vendor-prefixed property | `references/remix3-css-and-layout/unitless-numeric-css-properties.md` |
+| On a pre-#12121 build, a line clamp does not apply; generated CSS contains invalid `2px` for a vendor-prefixed property | `references/remix3-css-and-layout/unitless-numeric-css-properties.md` |
+| A viewport-bounded page/grid stops scrolling after a remix bump; `flex: 1` now serializes as basis `0%` | `references/remix3-css-and-layout/unitless-numeric-css-properties.md` |
 | A viewport-bounded page's inner list/sidebar won't scroll; a `flex: 1` child is clipped by an `overflow: hidden` `display: block` wrapper | `references/remix3-css-and-layout/bounded-scroll-flexchain.md` |
 | Filling the available height in an admin sidebar shell; `height: 100vh` overflows the stacked chrome | `references/remix3-css-and-layout/full-height-sidebar-shell.md` |
 | A plain-`Layout` (no sidebar) grid shows a page scrollbar; you want the header/filters pinned and only rows to scroll | `references/remix3-css-and-layout/plain-layout-bounded-grid.md` |
@@ -72,14 +73,13 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 
 **Content-sized flex panel (`references/remix3-css-and-layout/content-sized-flex-panel.md`)**
 
-- `flex: 1` is `flex: 1 1 0%` (**basis 0**), so a container that becomes content-sized (dropped `flex: 1`, or capped with `max-height` for centering) collapses to its non-flex children (typically the header) and `overflow: hidden` hides the body/list.
+- `flex: 1` is `flex: 1 1 0%` (**basis 0**), so a container that becomes content-sized (dropped `flex: 1`, or capped with `max-height` for centering) collapses to its non-flex children (typically the header) and `overflow: hidden` hides the body/list. Since remix #12121 `css({ flex: 1 })` really emits that shorthand; before it emitted `flex: 1px` (basis 1px), which masked the collapse. In an auto-height ancestor the `0%` basis resolves to content, so a viewport-fill chain becomes content-sized — use `flex: '1 1 0'` (definite zero) there.
 - Fix: change **every** `flex: 1` level in the chain to `flex: 1 1 auto` (`flexGrow: 1; flexShrink: 1; flexBasis: 'auto'`) while keeping `min-height: 0`. Center it with `justify-content: center` on a bounded flex column; keep a companion sidebar stable and full-height with a `margin-bottom` gap and pin pagination with `margin-top: auto`.
 - Same trap for a leaf text `<span>`: `flex: 1` + `-webkit-box` + line clamp + `overflow: hidden` in a **column** wrapper is reinterpreted as height/basis 0 and collapses to ~0px — drop `flex: 1` (or use `flex: 1 1 auto`) and rely on `align-self: stretch`. Detect it by asserting `getBoundingClientRect().height > 10`, not Playwright `isVisible()` / count.
 
 **Unitless numeric properties (`references/remix3-css-and-layout/unitless-numeric-css-properties.md`)**
 
-- `css()` appends `px` to numeric values outside its `NUMERIC_CSS_PROPS` allowlist (`@remix-run/component/src/style/style.ts`, `normalizeCssValue`). Vendor-prefixed properties are not included, so `WebkitLineClamp: 2` emits invalid `-webkit-line-clamp: 2px` and is silently dropped; the text never clamps and can grow unbounded.
-- Use the string form for unitless properties: `WebkitLineClamp: '2'`. Do not compensate with `2px`; for properties that genuinely need units, pass a CSS string such as `'0.5rem'`. Check `getComputedStyle(el).webkitLineClamp` or the generated rule if a clamp appears to do nothing.
+- `css()` appends `px` to numeric values outside its `NUMERIC_CSS_PROPS` allowlist on pre-#12121 builds (`@remix-run/component/src/style/style.ts`, `normalizeCssValue`); vendor-prefixed properties were not included, so `WebkitLineClamp: 2` emitted invalid `-webkit-line-clamp: 2px` and was silently dropped. Build `57ecca4cba` (#12121) made vendor-prefixed and shorthand numbers unitless (`WebkitLineClamp: 2` now works) and made `flex: <number>` emit the real shorthand — `flex: 1` is basis `0%`, which un-bounds a viewport-fill chain in an auto-height ancestor. Use `flex: '1 1 0'` for definite zero basis, and keep strings for time/angle values such as `'200ms'`/`'45deg'`. Check `getComputedStyle` or the generated rule if a clamp or scroller misbehaves.
 
 **Bounded scroll flexchain (`references/remix3-css-and-layout/bounded-scroll-flexchain.md`)**
 

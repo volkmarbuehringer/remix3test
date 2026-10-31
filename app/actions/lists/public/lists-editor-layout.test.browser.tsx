@@ -9,8 +9,8 @@ import { ListsClient } from './lists-client.tsx'
 //
 // Static render + computed-style assertions moved out of
 // lists-client-ops.test.e2e.ts: the toolbar surface, the visible item label
-// (a regression collapsed it to ~0px), the two-line label clamp (numeric
-// WebkitLineClamp serialises as invalid `2px` — see lists-styles.ts), the
+// (a regression collapsed it to ~0px), the two-line label clamp (see
+// lists-styles.ts), the
 // distinct size/colour of the two checkbox columns, and their tooltips.
 // Nothing here needs a server or a frame: ListsClient renders the full
 // editor from `initialState`, and the css() mixins are real browser styles.

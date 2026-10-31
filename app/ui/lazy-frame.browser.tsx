@@ -44,12 +44,12 @@ const defaultRootMargin = '320px 0px'
  *
  * - `children` and `fallback` cross the client-entry boundary by serialization.
  *   Since remix #12067, JSX fragments and string/number keys survive that
- *   boundary (fragments used to serialize as `null`), but an element carrying a
- *   `css()` mixin still loses its descriptor's function `type` there (it
- *   serializes to `{ args: [...] }`), and hydration then fails with
- *   `Framework invariant: Invalid mix prop` — which replaces the whole document
- *   with the error card. Pass plain text or mixin-free elements and style them
- *   from the server-rendered shell, as the upstream demo does.
+ *   boundary (fragments used to serialize as `null`). Since #12125, `css()`
+ *   mixins in those props (including arrays like `mix={[css(base), css(active)]}`)
+ *   reach the browser with their styles and hydrate. Other mixins (`on()`,
+ *   `ref()`, custom `createMixin()`) still cannot cross the boundary and now
+ *   report an explicit error. This app passes plain text from the
+ *   server-rendered shell, as the upstream demo does, so none cross here.
  * - The host needs a non-zero box for `IntersectionObserver` to report it once
  *   it becomes visible (a closed `<details>` is not rendered). Plain text
  *   children give it height; `minHeight` only guards the empty case.

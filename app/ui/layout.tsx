@@ -70,22 +70,27 @@ export function Layout(handle: Handle<LayoutProps>) {
   }
 }
 
+// A definite `0` basis (not the `0%` that `flex: 1` now serializes to since
+// remix #12121): the body is auto-height (`min-height: 100vh`), and a
+// percentage basis resolves to content there, which un-bounds the page
+// scroller. `1 1 0` keeps the shell, main, and page filling the viewport like
+// the pre-#12121 `1 1 1px` output did.
 const shellCss = css({
   display: 'flex',
   flexDirection: 'column',
-  flex: 1,
+  flex: '1 1 0',
   minHeight: 0,
 })
 
 const mainStyle = css({
-  flex: 1,
+  flex: '1 1 0',
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
 })
 
 const pageStyle = css({
-  flex: 1,
+  flex: '1 1 0',
   overflowY: 'auto',
   // The app's real scroll container (not the document). Reserve the scrollbar
   // gutter so grids whose content height crosses the viewport — common with

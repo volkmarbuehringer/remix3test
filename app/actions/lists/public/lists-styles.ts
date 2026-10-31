@@ -13,11 +13,10 @@ export const multilineDisplayStyle = css({
   fontSize: theme.fontSize.lg,
   color: theme.colors.text.primary,
   display: '-webkit-box',
-  // Must be a *string*: the css() runtime appends `px` to numeric values for
-  // every property outside its unitless allowlist, and `-webkit-line-clamp:
-  // 2px` is invalid CSS that the browser silently drops — which is why the
-  // clamp never took effect and long labels grew to five lines.
-  WebkitLineClamp: '2',
+  // Numeric values for vendor-prefixed properties serialize unitless since
+  // remix #12121; before that this rendered the invalid `-webkit-line-clamp:
+  // 2px`, the browser dropped it, and long labels grew to five lines.
+  WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   wordBreak: 'break-word',

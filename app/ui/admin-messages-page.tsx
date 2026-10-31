@@ -162,10 +162,10 @@ const iconActionDangerStyle = css({
  */
 const contentCellStyle = css({
   display: '-webkit-box',
-  // Must be a string: css() appends `px` to numeric values outside its
-  // unitless allowlist, and `-webkit-line-clamp: 2px` is invalid CSS that the
-  // browser drops — which is why long messages used to grow unbounded.
-  WebkitLineClamp: '2',
+  // Numeric vendor-prefixed values serialize unitless since remix #12121;
+  // before that this rendered the invalid `-webkit-line-clamp: 2px`, the
+  // browser dropped it, and long messages grew unbounded.
+  WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   whiteSpace: 'pre-wrap',

@@ -84,10 +84,10 @@ const nestedFrameContainer = css({
   marginTop: theme.space.sm,
   paddingLeft: theme.space.lg,
   borderLeft: `3px solid ${theme.colors.border.subtle}`,
-  // LazyFrame's placeholder crosses the client-entry boundary by serialization,
-  // so it cannot carry a css() mixin (the descriptor loses its type and
-  // hydration fails with "Invalid mix prop"). Its presentation is styled here,
-  // from the server-rendered shell instead.
+  // LazyFrame's placeholder crosses the client-entry boundary by serialization.
+  // Since remix #12125 a css() mixin would survive that trip, but this
+  // placeholder is a plain string; style it from the server-rendered shell
+  // rather than threading a mixin through the client-entry prop.
   '& > div': {
     fontSize: theme.fontSize.xs,
     color: theme.colors.text.muted,
