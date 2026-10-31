@@ -1,11 +1,13 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
+import { DataTableConstraintError, DataTableDatabaseError } from 'remix/data-table'
 
 import { router } from '../../../test-router.ts'
 import { initializeAppDatabase } from '../../../db.ts'
 import { db } from '../../../db.ts'
 import { users } from '../../../data/schema.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
+import { isTokenHashCollision } from './controller.tsx'
 
 const BASE = 'https://remix.run'
 
@@ -100,5 +102,17 @@ describe('API Login controller', () => {
     assert.equal(response.status, 403)
     let body = await response.json()
     assert.equal(body.error, 'Email not verified')
+  })
+
+  it('classifies a wrapped 23505 unique violation as a token-hash collision', () => {
+    let cause = Object.assign(
+      new Error('duplicate key value violates unique constraint "api_tokens_token_hash_key"'),
+      { code: '23505' },
+    )
+    let wrapped = new DataTableDatabaseError('Database query failed', { cause })
+
+    assert.ok(isTokenHashCollision(wrapped), 'the wrapped 23505 must trigger the retry path')
+    assert.ok(!isTokenHashCollision(new DataTableConstraintError('unrelated')))
+    assert.ok(!isTokenHashCollision(new Error('connection reset')))
   })
 })

@@ -1,5 +1,4 @@
 import { createAction } from 'remix/router'
-import { DataTableConstraintError } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 
 import { databaseContext } from '../../../middleware/database.ts'
@@ -9,6 +8,7 @@ import { verifyPassword } from '../../../utils/password-hash.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../../utils/api-token.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { connectionIp } from '../../../utils/request-ip.ts'
+import { isUniqueViolation } from '../../../utils/db-errors.ts'
 // Rate limiters are in-memory per-process. In multi-instance deployments,
 // each instance has independent state. Use a shared store (Redis, PostgreSQL)
 // if horizontal scaling is needed.
@@ -19,6 +19,17 @@ const loginSchema = s.object({
   email: s.string(),
   password: s.string(),
 })
+
+/**
+ * True when a token insert failed because `api_tokens.token_hash` already
+ * exists. The driver wraps PostgreSQL errors in `DataTableDatabaseError`, so
+ * the real code (`23505`) lives on `.cause`; checking
+ * `instanceof DataTableConstraintError` never matches. Exported for the
+ * regression test in login.test.ts.
+ */
+export function isTokenHashCollision(error: unknown): boolean {
+  return isUniqueViolation(error)
+}
 
 export default createAction(routes.api.login, {
   middleware: [],
@@ -83,16 +94,22 @@ export default createAction(routes.api.login, {
         expires_at: computeTokenExpiry(),
       })
     } catch (err) {
-      if (err instanceof DataTableConstraintError) {
-        // Hash collision (astronomically unlikely), retry with a new token
-        let retryToken = generateApiToken()
-        let retryHash = hashToken(retryToken)
-        await db.create(apiTokens, {
-          user_id: user.id,
-          token_hash: retryHash,
-          expires_at: computeTokenExpiry(),
-        })
-        return Response.json({ token: retryToken })
+      if (isTokenHashCollision(err)) {
+        // Hash collision (astronomically unlikely), retry with a new token.
+        // A failed retry keeps the handler's 503 contract instead of escaping
+        // as an unhandled 500.
+        try {
+          let retryToken = generateApiToken()
+          let retryHash = hashToken(retryToken)
+          await db.create(apiTokens, {
+            user_id: user.id,
+            token_hash: retryHash,
+            expires_at: computeTokenExpiry(),
+          })
+          return Response.json({ token: retryToken })
+        } catch {
+          return Response.json({ error: 'Service unavailable' }, { status: 503 })
+        }
       }
       return Response.json({ error: 'Service unavailable' }, { status: 503 })
     }
