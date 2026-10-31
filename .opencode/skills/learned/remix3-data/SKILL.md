@@ -1,6 +1,6 @@
 ---
 name: remix3-data
-description: "Use when working with remix/data-table grids/writes, database migrations, or Postgres from a Remix 3 app — typed db.findMany/findOne/create pitfalls (dynamic sort columns, unknown json/bigint columns, row adapters), counting filtered rows (`db.count` typed where / grid totals), write-returning (returnRow/returning: '*', zero-row update), inList() multi-ID filters, raw-SQL (sql/rawSql/db.exec) sort/filter grids, DDL bootstrap/catalog races (db/schema.sql, parallel test init), data-table migration checksum drift recovery, constraint-violation error handling in controllers, decoding db.exec rows with wire-honest zod schemas, idempotent FK alterations, LIMIT without ORDER BY, locale-dependent error matching, node-postgres returning int8 as strings, and index-drop safety (idx_scan = 0 is not proof)."
+description: "Use when working with remix/data-table grids/writes, database migrations, or Postgres from a Remix 3 app — typed db.findMany/findOne/create pitfalls (dynamic sort columns, unknown json/bigint columns, row adapters), counting filtered rows (`db.count` typed where / grid totals), write-returning (returnRow/returning: '*', zero-row update), partial-write hook ordering (beforeWrite→validate), inList() multi-ID filters, raw-SQL (sql/rawSql/db.exec) sort/filter grids, DDL bootstrap/catalog races (db/schema.sql, parallel test init), data-table migration checksum drift recovery, constraint-violation error handling in controllers, decoding db.exec rows with wire-honest zod schemas, idempotent FK alterations, LIMIT without ORDER BY, locale-dependent error matching, node-postgres returning int8 as strings, and index-drop safety (idx_scan = 0 is not proof)."
 user-invocable: false
 origin: consolidated
 ---
@@ -37,6 +37,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 | `TableRow<typeof table>` won't assign to a UI row type (unknown json/bigint columns) | `references/remix3-data-table/row-adapter.md` |
 | Counting filtered rows for a grid total, or a TS2345 from `db.count` rejecting a shared `WhereInput` predicate | `references/remix3-data-table/count-with-typed-where.md` |
 | Insert/update needs the written row back, or an optimistic-concurrency update must detect a zero-row match | `references/remix3-data-table/write-returning.md` |
+| A `validate`/`beforeWrite` hook silently passes, a one-sided paired-column update throws `DataTableConstraintError`, or required fields fail every partial `db.update` | `references/remix3-data-table/partial-writes-and-hooks.md` |
 
 ### Core Rules
 
@@ -44,6 +45,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 - **Dynamic sort column**: narrow to a `SORTABLE_FIELDS` union and cast (`as ListSortColumn`, not `as any`); add a stable `['id','desc']` tiebreaker.
 - **Raw-SQL sort/filter**: whitelist column identifiers, build `ORDER BY`/`WHERE` as `rawSql` fragments, parameterize every value, and compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`).
 - **Typed-API rows**: own one canonical row interface plus one adapter that narrows `unknown` json/bigint columns at a single boundary — no `as unknown as` casts at call sites.
+- **Partial writes vs hooks**: `validate` receives the `beforeWrite`-normalized payload — check derived columns (not stripped inputs) and gate required fields on `operation === 'create'`; merge one-sided paired-column updates before writing. See `references/remix3-data-table/partial-writes-and-hooks.md`.
 - **Filtered totals**: type a predicate used by both a grid query and `db.count` as `SingleTableWhere<typeof table>`; the broader `WhereInput` passes `findMany`/`paginate` but fails `CountOptions` with TS2345. `db.count` accepts the same `where`; `paginate()` needs a separate count, and shared error re-renders must carry the total through their loader.
 - **Return the written row at write time**: prefer `db.create(..., { returnRow: true })` / `createMany(..., { returnRows: true })` / the query-builder `.update(changes, { returning: '*' })` (returns `{ rows }`, no throw on zero rows) over `INSERT … RETURNING id` + re-select. Returned rows already ran `afterRead` — adapters on top must be idempotent; MySQL lacks `returning`.
 - **Decode `db.exec` rows** with wire-honest zod schemas (int4→number, int8→string) — see `remix3-data § Database` (`references/database-gotchas/raw-sql-wire-honest-rows.md`).
