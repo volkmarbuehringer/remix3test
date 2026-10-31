@@ -13,7 +13,7 @@ interface PageSectionProps {
   /** Tighter header-to-content gap (8px instead of 16px). Used by the
    *  Verwaltung grids so more table rows fit above the fold. */
   compact?: boolean
-  /** Optional extra styles merged with `sectionCss` (e.g. `flex: 1` so a
+  /** Optional extra styles merged with `sectionCss` (e.g. `flex: '1 1 0'` so a
    *  viewport-bounded page's content can fill the remaining height). */
   mix?: MixValue<HTMLElement>
 }

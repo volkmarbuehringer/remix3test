@@ -48,10 +48,10 @@ const defaultRootMargin = '320px 0px'
  *   mixins in those props (including arrays like `mix={[css(base), css(active)]}`)
  *   reach the browser with their styles and hydrate. Other mixins (`on()`,
  *   `ref()`, custom `createMixin()`) still cannot cross the boundary and now
- *   report an explicit error. This app passes plain text from the
- *   server-rendered shell, as the upstream demo does, so none cross here.
+ *   report an explicit error. The recent-activity fragment passes a
+ *   `css()`-styled placeholder, so the serialized-prop path is exercised here.
  * - The host needs a non-zero box for `IntersectionObserver` to report it once
- *   it becomes visible (a closed `<details>` is not rendered). Plain text
+ *   it becomes visible (a closed `<details>` is not rendered). The placeholder
  *   children give it height; `minHeight` only guards the empty case.
  */
 export const LazyFrame = clientEntry(

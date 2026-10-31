@@ -84,14 +84,13 @@ const nestedFrameContainer = css({
   marginTop: theme.space.sm,
   paddingLeft: theme.space.lg,
   borderLeft: `3px solid ${theme.colors.border.subtle}`,
-  // LazyFrame's placeholder crosses the client-entry boundary by serialization.
-  // Since remix #12125 a css() mixin would survive that trip, but this
-  // placeholder is a plain string; style it from the server-rendered shell
-  // rather than threading a mixin through the client-entry prop.
-  '& > div': {
-    fontSize: theme.fontSize.xs,
-    color: theme.colors.text.muted,
-  },
+})
+
+// Passed as LazyFrame children/fallback. A css() mixin survives the client-entry
+// props boundary since remix #12125; on()/ref()/custom mixins still do not.
+const placeholderStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
 })
 
 function timeAgo(date: Date): string {
@@ -153,11 +152,9 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                       src={routes.admin.fragments.userDetail.href({
                         userId: String(activity.userId),
                       })}
-                      // Plain strings: anything carrying a css() mixin would be
-                      // destroyed by serialization across the client boundary.
-                      fallback="Benutzerdetails werden geladen…"
+                      fallback={<span mix={placeholderStyle}>Benutzerdetails werden geladen…</span>}
                     >
-                      Benutzerdetails werden geladen…
+                      <span mix={placeholderStyle}>Benutzerdetails werden geladen…</span>
                     </LazyFrame>
                   </div>
                 </details>

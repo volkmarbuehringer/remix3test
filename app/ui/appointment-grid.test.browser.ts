@@ -88,8 +88,10 @@ describe('Multiline title CSS rendering', () => {
     // Arrange: create a clamped span and an expanded span
     let clamped = document.createElement('span')
     clamped.style.display = '-webkit-box'
-    ;(clamped.style as CSSStyleDeclaration & Record<string, string>).WebkitLineClamp = '2'
-    ;(clamped.style as CSSStyleDeclaration & Record<string, string>).WebkitBoxOrient = 'vertical'
+    // Native CSSStyleDeclaration fixture, not a css() serialization workaround:
+    // the CSSOM setter takes a string here.
+    clamped.style.setProperty('-webkit-line-clamp', '2')
+    clamped.style.setProperty('-webkit-box-orient', 'vertical')
     clamped.style.overflow = 'hidden'
     clamped.style.whiteSpace = 'pre-wrap'
     clamped.textContent = 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5'

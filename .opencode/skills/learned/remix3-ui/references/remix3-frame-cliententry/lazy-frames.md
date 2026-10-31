@@ -42,7 +42,7 @@ Nothing else addresses these names, so `name` reads as removable. Comment it.
 
 ## Trap: Mixins Other Than `css()` In `children`/`fallback`
 
-Props cross the client-entry boundary by serialization. Since remix #12125 (build `57ecca4cba`), `css()` mixins in those props — including arrays — serialize with their styles and hydrate. `on()`, `ref()`, and custom `createMixin()` mixins still cannot cross; they now report an explicit error instead of `Invalid mix prop`. This app passes plain text from the server-rendered shell. Full mechanism and evidence: authoring constraint 5 in `references/cliententry-lifecycle.md`.
+Props cross the client-entry boundary by serialization. Since remix #12125 (build `57ecca4cba`), `css()` mixins in those props — including arrays — serialize with their styles and hydrate. `on()`, `ref()`, and custom `createMixin()` mixins still cannot cross; they now report an explicit error instead of `Invalid mix prop`. The recent-activity fragment passes a `css()`-styled placeholder, and `app/ui/lazy-frame.test.browser.tsx` server-renders then hydrates it to guard the boundary. Full mechanism and evidence: authoring constraint 5 in `references/cliententry-lifecycle.md`.
 
 ## Measuring Frame Fan-Out Server-Side
 

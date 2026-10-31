@@ -1,5 +1,7 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { css, run, type AppRuntime } from 'remix/component'
+import { renderToString } from 'remix/component/server'
 import { render, type RenderResult } from 'remix/component/test'
 
 import { LazyFrame } from './lazy-frame.browser.tsx'
@@ -58,6 +60,7 @@ class FakeIO {
 const originalIO = window.IntersectionObserver
 
 let root: RenderResult | null = null
+let hydrationRuntime: AppRuntime | null = null
 let resolveCalls: string[] = []
 
 function installFakeIO() {
@@ -94,11 +97,36 @@ async function settle(ms = 50) {
 afterEach(() => {
   root?.cleanup()
   root = null
+  hydrationRuntime?.dispose()
+  hydrationRuntime = null
+  document.body.replaceChildren()
+  for (let style of document.head.querySelectorAll('style[data-rmx-style]')) style.remove()
   restoreIO()
 })
 
 function restoreIO() {
   window.IntersectionObserver = originalIO
+}
+
+/** Install a real server render (markers, styles, and #rmx-data) into the page. */
+function installServerHtml(html: string) {
+  let parsed = new DOMParser().parseFromString(html, 'text/html')
+
+  // `renderToString` emits a leading <head> without a <body> wrapper. The
+  // parser keeps styles in <head> but can place the hydration start marker
+  // between head and body, so move every non-style node to body in order.
+  for (let node of Array.from(parsed.documentElement.childNodes)) {
+    if (node instanceof HTMLHeadElement) {
+      for (let child of Array.from(node.childNodes)) {
+        if (child instanceof HTMLStyleElement) document.head.append(child)
+        else document.body.append(child)
+      }
+    } else if (node instanceof HTMLBodyElement) {
+      document.body.append(...Array.from(node.childNodes))
+    } else {
+      document.body.append(node)
+    }
+  }
 }
 
 describe('LazyFrame deferral', () => {
@@ -186,5 +214,55 @@ describe('LazyFrame deferral', () => {
 
     renderLazy('4px 0px')
     assert.equal(FakeIO.instances.length, 1, 'the same rootMargin reuses the pooled observer')
+  })
+
+  it('hydrates css() mixins in serialized children and fallback props', async () => {
+    installFakeIO()
+
+    // Render on the server first: this is the real client-entry boundary where
+    // props become JSON, so a css() mixin has to survive serialization rather
+    // than being re-created from a live descriptor on the client.
+    let html = await renderToString(
+      <LazyFrame
+        src="/admin/fragments/user-detail/1"
+        fallback={
+          <div id="styled-fallback" mix={css({ color: 'rgb(10, 20, 30)' })}>
+            fallback
+          </div>
+        }
+      >
+        <div
+          id="styled-placeholder"
+          mix={[css({ color: 'rgb(1, 2, 3)' }), css({ fontWeight: 700 })]}
+        >
+          placeholder
+        </div>
+      </LazyFrame>,
+    )
+    installServerHtml(html)
+
+    hydrationRuntime = run({
+      loadModule: async () => LazyFrame,
+      // Keep the frame request pending so the fallback element stays rendered.
+      resolveFrame: () => new Promise<never>(() => {}),
+    })
+    await hydrationRuntime.ready()
+    hydrationRuntime.flush()
+
+    // A pre-#12125 build rejected this with `Invalid mix prop` during hydration.
+    let placeholder = document.querySelector<HTMLElement>('#styled-placeholder')
+    assert.ok(placeholder, 'the serialized children element must hydrate')
+    let placeholderStyle = getComputedStyle(placeholder)
+    assert.equal(placeholderStyle.color, 'rgb(1, 2, 3)')
+    assert.equal(placeholderStyle.fontWeight, '700')
+
+    let host = FakeIO.last().observed[0]!
+    FakeIO.last().fire(host, true)
+    hydrationRuntime.flush()
+    await settle()
+
+    let fallback = document.querySelector<HTMLElement>('#styled-fallback')
+    assert.ok(fallback, 'the serialized fallback element must hydrate once the frame mounts')
+    assert.equal(getComputedStyle(fallback).color, 'rgb(10, 20, 30)')
   })
 })
