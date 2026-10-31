@@ -41,7 +41,7 @@ describe('Appointment controller', () => {
       )
       // The blocking frame resolves its src during SSR, so the frame content is
       // part of the initial HTML (and the no-JS/no-clientEntry first paint).
-      assert.ok(html.includes('id="appointment-data"'), 'frame content is inlined')
+      assert.ok(html.includes('data-appointment-grid'), 'the server-rendered grid is inlined')
       assert.ok(html.includes('aria-label="Terminnavigation"'), 'the sidebar is server-rendered')
     })
 
@@ -81,7 +81,10 @@ describe('Appointment controller', () => {
       assert.equal(response.status, 200)
       let html = await response.text()
       assert.ok(!html.includes('<html'), 'the fragment must not contain the document shell')
-      assert.ok(html.includes('id="appointment-data"'), 'the fragment carries the grid data')
+      assert.ok(
+        html.includes('data-appointment-grid'),
+        'the fragment carries the server-rendered grid',
+      )
       assert.ok(
         html.includes('aria-label="Terminnavigation"'),
         'the sidebar is part of the fragment',

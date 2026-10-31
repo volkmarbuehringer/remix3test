@@ -272,6 +272,23 @@ describe('AppointmentGrid rendering', () => {
     assert.ok(text.includes('Wed'), 'Wednesday header should be rendered')
   })
 
+  it('renders the layout from the data prop without the embedded script', () => {
+    removeFixtureData()
+    let data = createFixtureData()
+
+    let result = render(<AppointmentGrid data={data} />)
+    cleanup = result.cleanup
+
+    let text = result.container.textContent || ''
+    assert.ok(text.includes('Mon'), 'day headers should come from the prop')
+    assert.ok(text.includes('Morning slot'), 'appointment blocks should come from the prop')
+    assert.equal(
+      document.getElementById('appointment-data'),
+      null,
+      'the DOM script is not needed when props carry the data',
+    )
+  })
+
   it('renders appointment blocks from fixture data', () => {
     let data = createFixtureData()
     embedFixtureData(data)

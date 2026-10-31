@@ -6,6 +6,7 @@ import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 import { examplePlaceholder } from './agent-events-log.ts'
 import { AgentEventsStream } from '../assets/streams/public/agent-events-stream.tsx'
 import { AgentChatShell, ChatComposer } from './agent-chat/shell.tsx'
+import { tryGetCsrfToken } from './csrf-token-input.tsx'
 
 const frameContainerStyle = css({
   flex: 1,
@@ -75,6 +76,9 @@ export function AgentEventsPage(_handle: Handle) {
         <ChatComposer
           variant="inline"
           formId="agent-events-form"
+          formAction={routes.admin.agentEvents.action.href()}
+          formMethod="POST"
+          csrfToken={tryGetCsrfToken()}
           textareaId="agent-events-input"
           textarea={{
             name: 'message',

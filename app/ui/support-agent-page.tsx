@@ -8,6 +8,7 @@ import type { ChatMessage } from '../types/chatlog.ts'
 import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.tsx'
 import { SupportApprovalForm } from './agent-chat/support-approval-form.tsx'
 import { SupportQuestionForm } from './agent-chat/support-question-form.tsx'
+import { tryGetCsrfToken } from './csrf-token-input.tsx'
 
 const headerStyle = css({
   display: 'flex',
@@ -337,6 +338,9 @@ export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
           <ChatComposer
             variant="inline"
             formId="support-agent-form"
+            formAction={routes.admin.supportAgent.action.href()}
+            formMethod="POST"
+            csrfToken={tryGetCsrfToken()}
             textareaId="support-agent-input"
             textarea={{
               name: 'message',

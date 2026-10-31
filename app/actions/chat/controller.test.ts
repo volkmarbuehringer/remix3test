@@ -320,6 +320,48 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 403)
   })
 
+  it('GET /chat renders a composer form that describes its request', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: session.cookie } })
+    let html = await response.text()
+
+    let marker = html.indexOf('id="chat-form"')
+    assert.ok(marker !== -1, 'composer form should render')
+    let form = html.slice(html.lastIndexOf('<form', marker), html.indexOf('</form>', marker))
+    assert.ok(form.includes('method="POST"'), 'composer form must declare POST')
+    assert.ok(form.includes('action="/chat"'), 'composer form must declare its action')
+    let csrf = form.match(/<input[^>]*name="_csrf"[^>]*value="([^"]*)"/)
+    assert.ok(csrf, 'composer must render a CSRF token for the native path')
+    assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
+  })
+
+  it('POST /chat without X-Sse-Request drains the turn and 303s with a success flash', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken, message: 'Hallo' }),
+    })
+
+    assert.equal(response.status, 303, 'native message post must redirect after the turn')
+    assert.equal(response.headers.get('Location'), routes.chat.index.href())
+
+    let cookie = extractCookie(response) || session.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: cookie } })
+    let html = await page.text()
+    assert.ok(html.includes('Nachricht gesendet.'), 'success flash should render on the page')
+  })
+
   // ── Action (POST) ───────────────────────────────────────
 
   it('POST /chat with empty message returns 400 SSE agent-error', async () => {

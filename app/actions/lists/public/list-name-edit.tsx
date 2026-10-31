@@ -8,7 +8,7 @@ export const ListNameEdit = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((_el) => {
+          ref((_el, signal) => {
             let activeInput: HTMLInputElement | null = null
             let originalSpan: HTMLElement | null = null
             let originalText = ''
@@ -46,7 +46,7 @@ export const ListNameEdit = clientEntry(
 
               renameController?.abort()
               renameController = new AbortController()
-              let signal = renameController.signal
+              let requestSignal = renameController.signal
               let listId = currentListId
               let span = originalSpan
 
@@ -64,10 +64,10 @@ export const ListNameEdit = clientEntry(
                 method: 'PUT',
                 headers,
                 body: JSON.stringify({ title: trimmed }),
-                signal,
+                signal: requestSignal,
               })
                 .then((response) => {
-                  if (signal.aborted) return
+                  if (requestSignal.aborted) return
                   if (response.ok) {
                     // Reload the frame so the sidebar and the editor both
                     // re-render from the server with the new title. Any pending
@@ -159,14 +159,31 @@ export const ListNameEdit = clientEntry(
               { capture: true, signal: handle.signal },
             )
 
-            return () => {
-              if (errorTimer) clearTimeout(errorTimer)
-              renameController?.abort()
-              if (activeInput && originalSpan) {
-                originalSpan.style.display = ''
-                activeInput.remove()
-              }
-            }
+            // The ref callback's signal is the element lifetime: the mixin
+            // ignores a returned cleanup function, so tie teardown to the
+            // signal it supplies (guide 05 § "DOM references, global events,
+            // and cleanup").
+            signal.addEventListener(
+              'abort',
+              () => {
+                if (errorTimer) clearTimeout(errorTimer)
+                renameController?.abort()
+                // Detach before removing, like cancelEdit(): a removed focused
+                // input can fire blur, which must not start another PUT.
+                let input = activeInput
+                let span = originalSpan
+                activeInput = null
+                originalSpan = null
+                originalText = ''
+                currentListId = null
+                renameController = null
+                if (input && span) {
+                  span.style.display = ''
+                  input.remove()
+                }
+              },
+              { once: true },
+            )
           }),
         ]}
       />

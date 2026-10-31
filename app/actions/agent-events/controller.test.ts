@@ -17,7 +17,7 @@ import {
   findRunById,
 } from './active-run-store.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { createAuthCookieWithCsrfForUser, extractCookie } from '../../../test/utils.ts'
 
 const BASE = 'https://remix.run'
 const AGENT_EVENTS_URL = `${BASE}/admin/agent-events`
@@ -886,6 +886,18 @@ describe('AgentEvents route (GET)', () => {
     assert.ok(text.includes('agent-events-input'), 'should have input')
     assert.ok(text.includes('</textarea>'), 'input should be a textarea')
     assert.ok(text.includes('ae-status-bar'), 'should have status bar')
+
+    let marker = text.indexOf('id="agent-events-form"')
+    assert.ok(marker !== -1, 'composer form should render')
+    let form = text.slice(text.lastIndexOf('<form', marker), text.indexOf('</form>', marker))
+    assert.ok(form.includes('method="POST"'), 'composer form must declare POST')
+    assert.ok(
+      form.includes('action="/admin/agent-events"'),
+      'composer form must declare its action',
+    )
+    let csrf = form.match(/<input[^>]*name="_csrf"[^>]*value="([^"]*)"/)
+    assert.ok(csrf, 'composer must render a CSRF token for the native path')
+    assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
   })
 
   it('panel returns placeholder content', async () => {
@@ -956,6 +968,31 @@ describe('AgentEvents route (POST validation)', () => {
     let text = await response.text()
     assert.ok(text.includes('event:'), 'should be SSE')
     assert.ok(text.includes('data:'), 'should have data')
+  })
+
+  it('without X-Sse-Request drains the run and 303s with a success flash', async () => {
+    let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!session) throw new Error('Failed to create auth session')
+
+    let response = await router.fetch(AGENT_EVENTS_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: session.cookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        message: 'show appointments for admin@test.com',
+      }).toString(),
+    })
+
+    assert.equal(response.status, 303, 'native message post must redirect after the run')
+    assert.equal(response.headers.get('Location'), '/admin/agent-events')
+
+    let cookie = extractCookie(response) || session.cookie
+    let page = await router.fetch(AGENT_EVENTS_URL, { headers: { Cookie: cookie } })
+    let html = await page.text()
+    assert.ok(html.includes('Nachricht gesendet.'), 'success flash should render on the page')
   })
 
   it('appointment check navigates with period and status filters', async () => {

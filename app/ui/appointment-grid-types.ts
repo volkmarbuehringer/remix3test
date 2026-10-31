@@ -26,6 +26,8 @@ export type AppData = {
   offerings: Array<{ day: number; start_min: number; end_min: number }>
   csrfToken: string
   weekStart: number
+  /** Server UTC day for the first render; the client corrects it after mount. */
+  todayMs?: number | undefined
   currentUserId: number
   selectedResourceId: number
   isAdmin: boolean

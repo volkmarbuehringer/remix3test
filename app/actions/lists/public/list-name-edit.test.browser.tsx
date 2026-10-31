@@ -106,6 +106,20 @@ describe('ListNameEdit', () => {
     assert.equal(input!.selectionEnd, 3)
   })
 
+  it('tears down the inline editor when the entry is removed', () => {
+    let host = mount()
+    mountEntry()
+    clickRename(host)
+    assert.ok(inputOf(host), 'the editor should be open before teardown')
+
+    cleanup?.()
+    cleanup = null
+
+    assert.equal(inputOf(host), null, 'unmount must remove the injected input')
+    assert.equal(nameSpanOf(host).style.display, '', 'unmount must restore the name span')
+    assert.equal(calls.length, 0, 'teardown must not submit a rename')
+  })
+
   it('does not open a second input while one is already editing', () => {
     let host = mount()
     mountEntry()

@@ -20,9 +20,12 @@ import type { ChatMessage } from '../../types/chatlog.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import {
   createAgentChat,
+  validationErrorMessage,
   validationErrorResponse,
   isSseRequest,
-  completeDecisionForm,
+  completeNativeForm,
+  createNativeTurnGuard,
+  redirectWithFlash,
   normalizeAnswerFields,
 } from '../../utils/agent-chat.ts'
 import { sanitizeLog, validateMessage } from '../mastra/shared-agent.ts'
@@ -38,6 +41,9 @@ import type { TestAgent } from '../mastra/shared-agent.ts'
 import { fetchChatThreadPreviews, listChatThreadsForResource } from '../../utils/mastra-memory.ts'
 
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
+
+// One native (no-JS) composer turn per actor at a time; see createNativeTurnGuard.
+const nativeSupportTurns = createNativeTurnGuard()
 
 export { chatRateLimiter }
 
@@ -331,12 +337,21 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
     async action(context) {
       let user = getCurrentUser()
       let log = logFor(context.logger, user.id, '')
+      let native = !isSseRequest(context.request)
+      let redirectTo = routes.admin.supportAgent.index.href()
 
       log('POST action start')
 
       let validation = validateMessage(context.formData)
       if (!validation.ok) {
         log('validation failed: ' + validation.error)
+        if (native) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: validationErrorMessage(validation.error),
+            redirectTo,
+          })
+        }
         return validationErrorResponse(validation.error)
       }
 
@@ -345,6 +360,13 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
 
       if (!chatRateLimiter.attempt(user.id)) {
         log('rate limited')
+        if (native) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
+            redirectTo,
+          })
+        }
         return sseErrorResponse(
           'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
           429,
@@ -373,24 +395,44 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       // fail with "No thread found with id <id>".
       await ensureChatThread(resolveAgent(), threadId, String(user.id))
 
-      return engine.messageStream({
-        context,
-        actorId: user.id,
-        message,
-        threadId,
-        onSettled: () => {
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            void logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'support_message',
-              target_type: 'mastra_thread',
-              target_id: threadId,
-            })
-          }
-        },
-      })
+      let run = () =>
+        engine.messageStream({
+          context,
+          actorId: user.id,
+          message,
+          threadId,
+          onSettled: () => {
+            let authIdentity = getAdminIdentity(context.auth)
+            if (authIdentity) {
+              void logAdminAction(context.db, {
+                admin_user_id: authIdentity.id,
+                admin_email: authIdentity.email,
+                action_type: 'support_message',
+                target_type: 'mastra_thread',
+                target_id: threadId,
+              })
+            }
+          },
+        })
+      if (native) {
+        if (!nativeSupportTurns.tryBegin(user.id)) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: 'Nachricht wird bereits verarbeitet.',
+            redirectTo,
+          })
+        }
+        try {
+          return await completeNativeForm(context, run, {
+            success: 'Nachricht gesendet.',
+            error: 'Nachricht konnte nicht gesendet werden.',
+            redirectTo,
+          })
+        } finally {
+          nativeSupportTurns.end(user.id)
+        }
+      }
+      return run()
     },
 
     async toolDecision(context) {
@@ -436,7 +478,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
         })
 
       if (native) {
-        return completeDecisionForm(context, decide, {
+        return completeNativeForm(context, decide, {
           success: confirmedDecision === 'approve' ? 'Aktion genehmigt.' : 'Aktion abgelehnt.',
           error: 'Die Entscheidung konnte nicht verarbeitet werden.',
           redirectTo: routes.admin.supportAgent.index.href(),
@@ -469,7 +511,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
         })
 
       if (native) {
-        return completeDecisionForm(context, respond, {
+        return completeNativeForm(context, respond, {
           success: 'Antwort gesendet.',
           error: 'Die Antwort konnte nicht verarbeitet werden.',
           redirectTo: routes.admin.supportAgent.index.href(),

@@ -92,6 +92,16 @@ describe('Admin webhook requests', () => {
     let html = await response.text()
     assertSingleTopLevelHtml(html)
     assert.ok(html.includes('Webhook erstellen'), 'should render the composer heading')
+
+    // The form posts natively, so the SSR HTML must carry a real token (the
+    // composer used to read `document`, which emitted value="" on the server).
+    let marker = html.indexOf('action="/admin/webhook-requests/create"')
+    assert.ok(marker !== -1, 'should render the composer form action')
+    let form = html.slice(html.lastIndexOf('<form', marker), html.indexOf('</form>', marker))
+    assert.ok(form.includes('method="POST"'), 'should declare POST')
+    let csrf = form.match(/<input[^>]*name="_csrf"[^>]*value="([^"]*)"/)
+    assert.ok(csrf, 'should render a CSRF token')
+    assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
   })
 
   it('POST re-renders 200 with an inline error for an invalid payload', async () => {

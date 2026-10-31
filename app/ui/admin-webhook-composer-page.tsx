@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
+import { tryGetCsrfToken } from './csrf-token-input.tsx'
 
 interface AdminWebhookComposerPageProps {
   formError?: string | undefined
@@ -24,7 +25,7 @@ export function AdminWebhookComposerPage(handle: Handle<AdminWebhookComposerPage
             {formError}
           </p>
         ) : null}
-        <WebhookComposer initialPayload={initialPayload} />
+        <WebhookComposer initialPayload={initialPayload} csrfToken={tryGetCsrfToken()} />
       </div>
     )
   }

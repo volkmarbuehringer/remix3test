@@ -4,6 +4,12 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
+import {
+  completeNativeForm,
+  createNativeTurnGuard,
+  isSseRequest,
+  redirectWithFlash,
+} from '../../utils/agent-chat.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { AgentEventsPage } from '../../ui/agent-events-page.tsx'
@@ -22,6 +28,9 @@ import {
   findActiveRun,
   findRunById,
 } from './active-run-store.ts'
+
+// One native (no-JS) composer turn per admin at a time; see createNativeTurnGuard.
+const nativeAgentEventTurns = createNativeTurnGuard()
 
 // Injectable run-starter seam so tests can stub the Mastra workflow run without
 // initializing Mastra or a real run (mirrors the __setAgent/__setExecutors
@@ -273,9 +282,13 @@ export default createController(routes.admin.agentEvents, {
     },
 
     async action(context) {
+      let native = !isSseRequest(context.request)
+      let redirectTo = routes.admin.agentEvents.index.href()
       let parsed = s.parseSafe(promptSchema, context.formData)
       if (!parsed.success) {
-        return sseErrorResponse(promptIssueMessage(parsed.issues[0]?.message), 400)
+        let issue = promptIssueMessage(parsed.issues[0]?.message)
+        if (native) return redirectWithFlash(context, { ok: false, message: issue, redirectTo })
+        return sseErrorResponse(issue, 400)
       }
       let message = parsed.value.message
 
@@ -426,7 +439,26 @@ export default createController(routes.admin.agentEvents, {
         },
       })
 
-      return new Response(body, { headers: sseHeaders() })
+      let run = () => new Response(body, { headers: sseHeaders() })
+      if (native) {
+        if (!nativeAgentEventTurns.tryBegin(user.id)) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: 'Nachricht wird bereits verarbeitet.',
+            redirectTo,
+          })
+        }
+        try {
+          return await completeNativeForm(context, run, {
+            success: 'Nachricht gesendet.',
+            error: 'Nachricht konnte nicht gesendet werden.',
+            redirectTo,
+          })
+        } finally {
+          nativeAgentEventTurns.end(user.id)
+        }
+      }
+      return run()
     },
 
     async resume(context) {

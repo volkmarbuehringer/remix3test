@@ -324,6 +324,37 @@ describe('Mastra Chat controller', () => {
     __setTestAgent(undefined)
   })
 
+  it('POST /admin/support-agent without X-Sse-Request drains the turn and 303s with a success flash', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    __setTestAgent({
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput('Native answer.'),
+      resumeStream: async () => createMockStreamOutput(''),
+    })
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ message: 'show user admin', _csrf: session.csrfToken }),
+    })
+
+    assert.equal(response.status, 303, 'native message post must redirect after the turn')
+    assert.equal(response.headers.get('Location'), routes.admin.supportAgent.index.href())
+
+    let cookie = extractCookie(response) || session.cookie
+    let page = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: cookie } })
+    let html = await page.text()
+    assert.ok(html.includes('Nachricht gesendet.'), 'success flash should render on the page')
+
+    __setTestAgent(undefined)
+  })
+
   it('POST /admin/support-agent passes threadId to agent stream options', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number
@@ -1482,6 +1513,24 @@ describe('support-agent native gate forms', () => {
     await pool.query('DELETE FROM users WHERE id = $1', [admin.id])
     __setTestAgent(undefined)
     __setRunStatusResolver(undefined)
+  })
+
+  it('GET /admin/support-agent renders a composer form that describes its request', async () => {
+    let response = await router.fetch(CHAT_INDEX_URL, { headers: { Cookie: admin.cookie } })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    let marker = html.indexOf('id="support-agent-form"')
+    assert.ok(marker !== -1, 'composer form should render')
+    let form = html.slice(html.lastIndexOf('<form', marker), html.indexOf('</form>', marker))
+    assert.ok(form.includes('method="POST"'), 'composer form must declare POST')
+    assert.ok(
+      form.includes('action="/admin/support-agent"'),
+      'composer form must declare its action',
+    )
+    let csrf = form.match(/<input[^>]*name="_csrf"[^>]*value="([^"]*)"/)
+    assert.ok(csrf, 'composer must render a CSRF token for the native path')
+    assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
   })
 
   it('POST /tool-decision without X-Sse-Request drains the decision and 303s with a success flash', async () => {

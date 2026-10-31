@@ -407,7 +407,3 @@ export const emptyStateTextStyle = css({
   color: theme.colors.text.muted,
   fontSize: theme.fontSize.md,
 })
-
-export const ssrPlaceholderWrapper = css({
-  minHeight: '200px',
-})

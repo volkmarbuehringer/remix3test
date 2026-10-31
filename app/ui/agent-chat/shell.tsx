@@ -284,6 +284,12 @@ type ChatComposerProps = {
   formId: string
   formAction?: string
   formMethod?: 'POST' | 'get'
+  /**
+   * Server-rendered CSRF token for the form's native (no-JS) submit path.
+   * The fetch/SSE path skips CSRF via X-Sse-Request, but a plain form POST
+   * needs the field before hydration runs.
+   */
+  csrfToken?: string | undefined
   formAutoComplete?: string
   textareaId: string
   textarea: ChatComposerTextarea
@@ -315,6 +321,7 @@ export function ChatComposer(handle: Handle<ChatComposerProps>) {
       formId,
       formAction,
       formMethod,
+      csrfToken,
       formAutoComplete,
       textareaId,
       textarea,
@@ -357,6 +364,7 @@ export function ChatComposer(handle: Handle<ChatComposerProps>) {
           autoComplete={formAutoComplete}
           mix={stackedFormStyle}
         >
+          {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
           {label ? (
             <label htmlFor={label.htmlFor} mix={stackedLabelStyle}>
               {label.text}
@@ -391,6 +399,7 @@ export function ChatComposer(handle: Handle<ChatComposerProps>) {
           align === 'flex-end' ? inlineFormEndAlignStyle : inlineFormCenterAlignStyle,
         ]}
       >
+        {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
         {hasMetaRow ? (
           <div mix={composerWrapStyle}>
             {field}

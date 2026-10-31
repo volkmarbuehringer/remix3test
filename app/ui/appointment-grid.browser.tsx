@@ -83,12 +83,20 @@ import {
   nonOfferingSlotStyle,
   emptyStateWrapperStyle,
   emptyStateTextStyle,
-  ssrPlaceholderWrapper,
 } from './appointment-grid-styles.ts'
+
+type AppointmentGridProps = {
+  /**
+   * Serializable grid data. The page passes it so the server renders the real
+   * layout (guide 05 § "Progressive enhancement"); client-only mounts and tests
+   * may omit it and fall back to the embedded `#appointment-data` script.
+   */
+  data?: AppData
+}
 
 export const AppointmentGrid = clientEntry(
   import.meta.url + '#AppointmentGrid',
-  function AppointmentGrid(handle: Handle) {
+  function AppointmentGrid(handle: Handle<AppointmentGridProps>) {
     let draftInput: HTMLTextAreaElement | null = null
     let renameInputs = new Map<number, HTMLTextAreaElement>()
 
@@ -109,6 +117,14 @@ export const AppointmentGrid = clientEntry(
     let resizeState: ResizeState | null = null
     let activeGesture: GestureKind | null = null
 
+    /**
+     * Grid data for the current render. Props are the server-rendered source;
+     * `readData()` remains the DOM fallback for client-only mounts and tests.
+     */
+    function currentData(): AppData {
+      return handle.props.data ?? readData()
+    }
+
     // Sync interaction state for SSE subscriber
     function syncInteractionState() {
       interactionState.active = activeGesture !== null || editingId !== null || draftState.active
@@ -123,6 +139,8 @@ export const AppointmentGrid = clientEntry(
     let lastOffsetSample = { x: 0, y: 0, t: 0 }
     let isOverTrashcan = false
     let isOverTypesPanel = false
+    // Corrected to the browser's local calendar day after the first commit.
+    let localTodayMs: number | null = null
     let sidebarColElement: HTMLElement | null = null
     let sidebarElement: HTMLElement | null = null
     let trashcanElement: HTMLElement | null = null
@@ -142,6 +160,19 @@ export const AppointmentGrid = clientEntry(
     let currentOfferingStartMin = 0
     let currentOfferingEndMin = 1440
 
+    // The server renders its UTC day (props) so hydration matches; after the
+    // commit, move the "today" highlight to the browser's local day when the
+    // two disagree (guide 05: browser-only setup belongs in a queued task).
+    handle.queueTask(() => {
+      let serverToday = handle.props.data?.todayMs
+      if (serverToday === undefined) return
+      let now = new Date()
+      let localToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+      if (localToday === serverToday) return
+      localTodayMs = localToday
+      void handle.update()
+    })
+
     // Always-active listeners for type-drag from types panel (client-side only)
     if (typeof document !== 'undefined') {
       document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
@@ -150,25 +181,20 @@ export const AppointmentGrid = clientEntry(
     }
 
     return () => {
-      // Client-only rendering — SSR has no DOM so readData() can't work.
-      // During SSR, return a bare wrapper matching the client root tag to
-      // avoid hydration mismatch. The real grid renders only on the client
-      // after hydration reads the embedded JSON from the DOM.
-      if (typeof document === 'undefined') {
-        return <div mix={ssrPlaceholderWrapper}></div>
-      }
-
-      let data = readData()
+      let data = currentData()
       let days = data.days
       let offerings = data.offerings ?? []
       let csrfToken = data.csrfToken
       apptHref = data.appointmentHref ?? ''
       apptTypesHref = data.appointmentTypesHref ?? ''
 
-      let todayMs = (() => {
-        let t = new Date()
-        return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())
-      })()
+      let todayMs =
+        localTodayMs ??
+        data.todayMs ??
+        (() => {
+          let t = new Date()
+          return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())
+        })()
 
       // Compute visible days from offerings
       let visibleDays = computeVisibleDays(days, offerings)
@@ -222,7 +248,7 @@ export const AppointmentGrid = clientEntry(
       // Empty state when no offerings exist
       if (hasNoOfferings) {
         return (
-          <div mix={emptyStateWrapperStyle}>
+          <div data-appointment-grid mix={emptyStateWrapperStyle}>
             <p mix={emptyStateTextStyle}>No bookable slots this week.</p>
           </div>
         )
@@ -234,6 +260,7 @@ export const AppointmentGrid = clientEntry(
       return (
         <div
           aria-label="Wöchentliche Terminübersicht"
+          data-appointment-grid
           data-dragging={isDragging ? 'true' : undefined}
           data-resizing={isResizing ? 'true' : undefined}
           mix={gridWrapperStyle}
@@ -258,7 +285,7 @@ export const AppointmentGrid = clientEntry(
             {visibleDays.map((day, i) => {
               let isToday = day.date === todayMs
               return (
-                <div key={i} mix={dayHeaderStyle}>
+                <div key={i} data-day-date={day.date} mix={dayHeaderStyle}>
                   <span mix={isToday ? todayDayNameStyle : dayNameStyle}>{day.dayName}</span>
                   <span mix={isToday ? todayDayDateStyle : dayDateStyle}>{day.dateStr}</span>
                 </div>
@@ -603,7 +630,7 @@ export const AppointmentGrid = clientEntry(
       let date = currentVisibleDays[draftState.dayIdx]?.date ?? 0
       let start = draftState.start
       let end = draftState.end
-      let resourceId = readData().selectedResourceId
+      let resourceId = currentData().selectedResourceId
 
       draftState.active = false
       syncInteractionState()
@@ -707,7 +734,7 @@ export const AppointmentGrid = clientEntry(
         return
 
       // Foreign blocks are read-only for non-admin users
-      let data = readData()
+      let data = currentData()
       if (!data.isAdmin && data.currentUserId > 0 && appt.user_id !== data.currentUserId) return
 
       // Detect double-click via timing (preventDefault kills native dblclick)
@@ -730,7 +757,7 @@ export const AppointmentGrid = clientEntry(
       if (!gridBodyElement) return
 
       let grid = measureGrid(gridBodyElement)
-      let data = readData()
+      let data = currentData()
       let dayIdx = currentVisibleDays.findIndex((d) => d.date === appt.date)
       if (dayIdx === -1) dayIdx = 0
 
@@ -954,7 +981,7 @@ export const AppointmentGrid = clientEntry(
       if (wasOverTrashcan && blockId) {
         activeGesture = null
         syncInteractionState()
-        let csrfToken = readData().csrfToken
+        let csrfToken = currentData().csrfToken
         preview = null
         void handle.update()
         fetch(`${apptHref}/${blockId}`, {
@@ -973,7 +1000,7 @@ export const AppointmentGrid = clientEntry(
 
       // Drop on types panel → create type from appointment title
       if (wasOverTypesPanel && blockId && draggedTitle) {
-        let csrfToken = readData().csrfToken
+        let csrfToken = currentData().csrfToken
         preview = null
         void handle.update()
         fetch(apptTypesHref, {
@@ -1003,7 +1030,7 @@ export const AppointmentGrid = clientEntry(
         event.preventDefault()
         // Save ALL changed blocks from solver result — wait for all PUTs before reload
         let saves: Promise<Response>[] = []
-        let csrfToken = readData().csrfToken
+        let csrfToken = currentData().csrfToken
         for (let change of finalPreview.changes) {
           if ((change.kind === 'moved' || change.kind === 'resized') && change.after) {
             saves.push(saveBlockPosition(change.id, change.after, csrfToken))
@@ -1042,7 +1069,7 @@ export const AppointmentGrid = clientEntry(
       if (activeGesture || !gridBodyElement) return
       try {
         let grid = measureGrid(gridBodyElement)
-        let data = readData()
+        let data = currentData()
 
         resizeState = {
           active: true,
@@ -1117,7 +1144,7 @@ export const AppointmentGrid = clientEntry(
       if (finalPreview) {
         event.preventDefault()
         let saves: Promise<Response>[] = []
-        let csrfToken = readData().csrfToken
+        let csrfToken = currentData().csrfToken
         for (let change of finalPreview.changes) {
           if ((change.kind === 'resized' || change.kind === 'moved') && change.after) {
             saves.push(saveBlockPosition(change.id, change.after, csrfToken))
@@ -1253,7 +1280,7 @@ export const AppointmentGrid = clientEntry(
       clearTypeDragPreview()
 
       if (typePreview) {
-        let data = readData()
+        let data = currentData()
         let csrfToken = data.csrfToken
         fetch(apptHref, {
           method: 'POST',

@@ -95,16 +95,21 @@ interface AgentChatConfig {
  * Keeping the wording here means the support and customer surfaces cannot
  * drift on validation copy.
  */
-export function validationErrorResponse(
-  error: 'missing' | 'empty' | 'too_long' | 'bad_thread_id',
-): Response {
+type MessageValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
+
+/** Copy shared by the SSE error body and the native form's error flash. */
+export function validationErrorMessage(error: MessageValidationError): string {
   if (error === 'too_long') {
-    return sseErrorResponse(`Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`, 400)
+    return `Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`
   }
   if (error === 'bad_thread_id') {
-    return sseErrorResponse('Ungültiges Thread-ID-Format.', 400)
+    return 'Ungültiges Thread-ID-Format.'
   }
-  return sseErrorResponse('Bitte gib eine Nachricht ein.', 400)
+  return 'Bitte gib eine Nachricht ein.'
+}
+
+export function validationErrorResponse(error: MessageValidationError): Response {
+  return sseErrorResponse(validationErrorMessage(error), 400)
 }
 
 /**
@@ -622,24 +627,51 @@ export function isSseRequest(request: Request): boolean {
   return request.headers.get('X-Sse-Request') === '1'
 }
 
-interface DecisionFormContext {
+interface NativeFormContext {
   session: { flash(key: 'success' | 'error', value: string): void }
 }
 
 /**
- * Drains an SSE decision response for a native (no-JS) form, then redirects
- * back to the surface with a flash result (the guide 09 form-mutation shape).
- *
- * The engine always answers with text/event-stream, so it must be consumed
- * for the decision to run to completion — or to the next suspension — even
- * though the form response is only a redirect. A drained agent-error frame,
- * a non-200 status or a thrown error becomes the error flash rather than a
- * silently dropped decision.
+ * Post/redirect/get result for a native (no-JS) form submission: flash the
+ * outcome and send the browser back to the surface that owns the form.
  */
-export async function completeDecisionForm(
-  context: DecisionFormContext,
-  run: () => Promise<Response>,
+export function redirectWithFlash(
+  context: NativeFormContext,
+  result: { ok: boolean; message: string; redirectTo: string },
+): Response {
+  try {
+    context.session.flash(result.ok ? 'success' : 'error', result.message)
+  } catch (err) {
+    nativeFormLog.error('native form flash failed:', sanitizeLog(String(err)))
+  }
+  return redirect(result.redirectTo, 303)
+}
+
+/**
+ * Upper bound on how long a native form waits for the SSE body before it
+ * redirects with an error flash. The engine aborts the run at
+ * `AGENT_TIMEOUT_MS`; the margin lets that abort surface as an agent-error
+ * frame. This keeps the HTTP response below common proxy idle timeouts even if
+ * the stream never closes. A deployment proxy must allow at least this long.
+ */
+const NATIVE_FORM_TIMEOUT_MS = AGENT_TIMEOUT_MS + 5_000
+
+/**
+ * Drains an SSE form response (a message turn or a gate decision) for a native
+ * (no-JS) submission, then redirects back to the surface with a flash result
+ * (the guide 09 form-mutation shape).
+ *
+ * The engine always answers with text/event-stream, so it must be consumed for
+ * the turn or decision to run to completion — or to the next suspension — even
+ * though the form response is only a redirect. A drained agent-error frame, a
+ * non-200 status, a thrown error, or a stream that outlives `timeoutMs`
+ * becomes the error flash rather than a silently dropped or hanging submission.
+ */
+export async function completeNativeForm(
+  context: NativeFormContext,
+  run: () => Response | Promise<Response>,
   message: { success: string; error: string; redirectTo: string },
+  timeoutMs: number = NATIVE_FORM_TIMEOUT_MS,
 ): Promise<Response> {
   let failed = false
   try {
@@ -647,19 +679,56 @@ export async function completeDecisionForm(
     if (response.status !== 200) {
       failed = true
     } else {
-      let body = await response.text()
-      failed = body.includes('event: agent-error')
+      let drain = response.text()
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let outcome = await Promise.race([
+        drain,
+        new Promise<'timeout'>((resolve) => {
+          timer = setTimeout(() => resolve('timeout'), timeoutMs)
+        }),
+      ])
+      if (timer) clearTimeout(timer)
+      if (outcome === 'timeout') {
+        // Keep consuming the body: the engine's own AGENT_TIMEOUT_MS abort
+        // closes it shortly. Swallow the eventual result so a slow drain cannot
+        // become an unhandled rejection after the redirect.
+        failed = true
+        void drain.catch(() => {})
+      } else {
+        failed = outcome.includes('event: agent-error')
+      }
     }
   } catch (err) {
-    nativeFormLog.error('decision form failed:', sanitizeLog(String(err)))
+    nativeFormLog.error('native form failed:', sanitizeLog(String(err)))
     failed = true
   }
-  try {
-    context.session.flash(failed ? 'error' : 'success', failed ? message.error : message.success)
-  } catch (err) {
-    nativeFormLog.error('decision flash failed:', sanitizeLog(String(err)))
+  return redirectWithFlash(context, {
+    ok: !failed,
+    message: failed ? message.error : message.success,
+    redirectTo: message.redirectTo,
+  })
+}
+
+/**
+ * Process-local single-flight guard for native (no-JS) form posts.
+ *
+ * The SSE path disables the composer while a turn runs; a native form cannot,
+ * so a double click or an impatient retry would start two agent turns. Each
+ * surface owns its own guard so one surface cannot block another.
+ */
+export function createNativeTurnGuard() {
+  let inFlight = new Set<number>()
+  return {
+    /** Reserves the actor's slot; false while another native turn is running. */
+    tryBegin(actorId: number): boolean {
+      if (inFlight.has(actorId)) return false
+      inFlight.add(actorId)
+      return true
+    },
+    end(actorId: number): void {
+      inFlight.delete(actorId)
+    },
   }
-  return redirect(message.redirectTo, 303)
 }
 
 /**

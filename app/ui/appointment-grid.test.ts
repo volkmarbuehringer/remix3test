@@ -36,6 +36,7 @@ type AppointmentData = {
     start_min: number
     end_min: number
   }>
+  offerings: Array<{ day: number; start_min: number; end_min: number }>
   csrfToken: string
   weekStart: number
 }
@@ -69,14 +70,53 @@ function isoWeekFromMonday(mondayMs: number): { year: number; week: number } {
 }
 
 /**
- * Parse appointment data from the embedded JSON in the HTML page.
- * Uses the server-embedded `<script id="appointment-data">` tag.
+ * Find the AppointmentGrid client entry's serialized props.
+ *
+ * The grid data is carried once, as client-entry props in the runtime's
+ * hydration JSON; the page no longer embeds a second copy. Scan every
+ * application/json script (document and resolved-frame data) and recurse to
+ * the entry by export name.
  */
+function findGridPropsJson(html: string): string | null {
+  let scripts = /<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/g
+  for (let match of html.matchAll(scripts)) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(match[1]!)
+    } catch {
+      continue
+    }
+    let entry = findGridEntry(parsed)
+    if (entry) return JSON.stringify(entry.props?.data ?? null)
+  }
+  return null
+}
+
+function findGridEntry(value: unknown): { props?: { data?: unknown } } | null {
+  if (Array.isArray(value)) {
+    for (let item of value) {
+      let found = findGridEntry(item)
+      if (found) return found
+    }
+    return null
+  }
+  if (!value || typeof value !== 'object') return null
+  let record = value as Record<string, unknown>
+  if (record.exportName === 'AppointmentGrid' && record.props && typeof record.props === 'object') {
+    return record as { props?: { data?: unknown } }
+  }
+  for (let nested of Object.values(record)) {
+    let found = findGridEntry(nested)
+    if (found) return found
+  }
+  return null
+}
+
 function parseAppointmentData(html: string): AppointmentData | null {
-  let match = html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)
-  if (!match) return null
+  let raw = findGridPropsJson(html)
+  if (!raw) return null
   try {
-    return JSON.parse(match[1]!)
+    return JSON.parse(raw)
   } catch {
     return null
   }
@@ -254,7 +294,7 @@ describe('Appointment Grid', () => {
     assert.equal(response.status, 200, 'authenticated GET should return 200')
   })
 
-  it('GET /appointment contains embedded appointment-data script tag', async () => {
+  it('GET /appointment server-renders the grid with the week data', async () => {
     // Arrange
     // Act
     let response = await router.fetch(APPT_URL, {
@@ -262,14 +302,58 @@ describe('Appointment Grid', () => {
     })
     let html = await response.text()
 
-    // Assert
+    // Assert: the data is serialized once (client-entry props) and the grid
+    // layout itself is in the server HTML.
     let data = parseAppointmentData(html)
-    assert.ok(data, 'HTML should have <script id="appointment-data"> with JSON')
+    assert.ok(data, 'HTML should carry the grid props for hydration')
     assert.ok(Array.isArray(data!.days), 'data should have days array')
     assert.equal(data!.days.length, 7, 'data should have 7 days for the week')
     assert.ok(Array.isArray(data!.appointments), 'data should have appointments array')
     assert.ok(typeof data!.csrfToken === 'string', 'data should have csrfToken')
     assert.ok(typeof data!.weekStart === 'number', 'data should have weekStart')
+    assert.ok(html.includes('data-day-date='), 'the grid layout should be server-rendered')
+  })
+
+  it('server-renders the grid layout from props (not only the JSON script)', async () => {
+    // Arrange: an appointment in next week's seeded test slot
+    let title = `SSR-Grid-${crypto.randomUUID().slice(0, 8)}`
+    let create = await router.fetch(APPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title,
+        date: saturdayMs,
+        start_min: 660,
+        end_min: 720,
+        resource_id: firstResourceId,
+      }),
+    })
+    assert.equal(create.status, 201)
+    let created = await create.json()
+    testAppointmentIds.push(created.appointment.id)
+
+    // Act
+    let response = await router.fetch(`${appointmentWeekUrl}&resource_id=${firstResourceId}`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    // Assert: the title appears outside every serialized-data script, which
+    // means the grid layout itself was server-rendered (guide 05: page UI
+    // starts on the server; the client entry only hydrates it).
+    let withoutDataScripts = html.replace(
+      /<script[^>]*type="application\/json"[^>]*>[\s\S]*?<\/script>/g,
+      '',
+    )
+    assert.ok(
+      withoutDataScripts.includes(title),
+      'the grid layout (not just the serialized data) must be server-rendered',
+    )
   })
 
   it('GET /appointment with year/week params loads valid page', async () => {
@@ -711,14 +795,13 @@ describe('Appointment Grid', () => {
       'title should preserve multiline content through POST→GET round-trip',
     )
 
-    // Also verify the raw JSON in HTML contains escaped newlines (`\n`)
-    // JSON.stringify encodes \n as the two-character sequence `\n`
-    let jsonMatch = html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)
-    assert.ok(jsonMatch, 'should have appointment-data script tag')
+    // Also verify the serialized props JSON encodes newlines as the
+    // two-character sequence `\n` (there is no second page-level JSON copy).
+    let propsJson = findGridPropsJson(html)
+    assert.ok(propsJson, 'should serialize the grid props')
     assert.ok(
-      jsonMatch[1]!.includes(multilineTitle) ||
-        jsonMatch[1]!.includes(multilineTitle.replace(/\n/g, '\\n')),
-      'multiline title should appear in raw HTML JSON',
+      propsJson!.includes(multilineTitle.replace(/\n/g, '\\n')),
+      'multiline title should appear in the serialized props JSON',
     )
   })
 
@@ -1277,21 +1360,13 @@ describe('Appointment Grid', () => {
     })
     let html = await response.text()
 
-    // Assert: the embedded data should reflect no offerings
+    // Assert: the serialized grid data should reflect no offerings
     assert.equal(response.status, 200)
     let data = parseAppointmentData(html)
     assert.ok(data, 'should have appointment data')
-    // Access offerings via the parsed data (the type doesn't include offerings,
-    // but the actual JSON does)
-    let embeddedData = JSON.parse(
-      html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '{}',
-    )
-    assert.ok(
-      Array.isArray(embeddedData.offerings),
-      'offerings should be an array in embedded JSON',
-    )
+    assert.ok(Array.isArray(data!.offerings), 'offerings should be an array in the grid props')
     assert.equal(
-      embeddedData.offerings.length,
+      data!.offerings.length,
       0,
       'offerings array should be empty when no offerings exist',
     )

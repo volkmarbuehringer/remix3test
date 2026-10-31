@@ -8,6 +8,7 @@ import type { ChatMessage } from '../types/chatlog.ts'
 import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.tsx'
 import { ChatApprovalForm } from './agent-chat/approval-form.tsx'
 import { ChatQuestionForm } from './agent-chat/question-form.tsx'
+import { tryGetCsrfToken } from './csrf-token-input.tsx'
 
 const headingStyle = css({
   fontSize: '1.5rem',
@@ -111,6 +112,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
             formId="chat-form"
             formAction={routes.chat.action.href()}
             formMethod="POST"
+            csrfToken={tryGetCsrfToken()}
             formAutoComplete="off"
             textareaId="msg"
             textarea={{

@@ -7,9 +7,12 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import {
   createAgentChat,
+  validationErrorMessage,
   validationErrorResponse,
   isSseRequest,
-  completeDecisionForm,
+  completeNativeForm,
+  createNativeTurnGuard,
+  redirectWithFlash,
   normalizeAnswerFields,
 } from '../../utils/agent-chat.ts'
 import {
@@ -36,6 +39,10 @@ import type { ChatMessage } from '../../types/chatlog.ts'
 // messages plus approve/decline/answer steps) per minute, while capping abuse.
 // maxAttempts MUST be set explicitly — the default of 1 would block the second
 // message of a normal conversation within the window (see dev-gotchas § Rate Limiter).
+// Native (no-JS) composer posts have no disabled-button guard; keep one turn
+// per actor in flight so a double submit cannot duplicate the message.
+const nativeChatTurns = createNativeTurnGuard()
+
 export const chatRateLimiter = createRateLimiter({
   windowMs: 60_000,
   perUser: true,
@@ -270,9 +277,21 @@ export const customerChat = createController(routes.chat, {
 
     async action(context) {
       let user = getCurrentUser()
+      // A native form POST (no fetch/SSE transport) gets the same validation and
+      // ownership work, then a 303 + flash instead of a stream the browser
+      // cannot consume (guide 05 § "Progressive enhancement").
+      let native = !isSseRequest(context.request)
+      let redirectTo = routes.chat.index.href()
 
       let validation = validateMessage(context.formData)
       if (!validation.ok) {
+        if (native) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: validationErrorMessage(validation.error),
+            redirectTo,
+          })
+        }
         return validationErrorResponse(validation.error)
       }
 
@@ -280,6 +299,13 @@ export const customerChat = createController(routes.chat, {
       let threadId = validation.threadId
 
       if (!chatRateLimiter.attempt(user.id)) {
+        if (native) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
+            redirectTo,
+          })
+        }
         return sseErrorResponse(
           'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
           429,
@@ -299,7 +325,27 @@ export const customerChat = createController(routes.chat, {
         threadId = crypto.randomUUID()
       }
 
-      return customerChatEngine().messageStream({ context, actorId: user.id, message, threadId })
+      let run = () =>
+        customerChatEngine().messageStream({ context, actorId: user.id, message, threadId })
+      if (native) {
+        if (!nativeChatTurns.tryBegin(user.id)) {
+          return redirectWithFlash(context, {
+            ok: false,
+            message: 'Nachricht wird bereits verarbeitet.',
+            redirectTo,
+          })
+        }
+        try {
+          return await completeNativeForm(context, run, {
+            success: 'Nachricht gesendet.',
+            error: 'Nachricht konnte nicht gesendet werden.',
+            redirectTo,
+          })
+        } finally {
+          nativeChatTurns.end(user.id)
+        }
+      }
+      return run()
     },
 
     async approve(context) {
@@ -314,7 +360,7 @@ export const customerChat = createController(routes.chat, {
         })
 
       if (!isSseRequest(context.request)) {
-        return completeDecisionForm(context, decide, {
+        return completeNativeForm(context, decide, {
           success: 'Aktion bestätigt.',
           error: 'Die Bestätigung konnte nicht verarbeitet werden.',
           redirectTo: routes.chat.index.href(),
@@ -335,7 +381,7 @@ export const customerChat = createController(routes.chat, {
         })
 
       if (!isSseRequest(context.request)) {
-        return completeDecisionForm(context, decide, {
+        return completeNativeForm(context, decide, {
           success: 'Aktion abgelehnt.',
           error: 'Die Entscheidung konnte nicht verarbeitet werden.',
           redirectTo: routes.chat.index.href(),
@@ -361,7 +407,7 @@ export const customerChat = createController(routes.chat, {
         })
 
       if (!isSseRequest(context.request)) {
-        return completeDecisionForm(context, respond, {
+        return completeNativeForm(context, respond, {
           success: 'Antwort gesendet.',
           error: 'Die Antwort konnte nicht verarbeitet werden.',
           redirectTo: routes.chat.index.href(),
