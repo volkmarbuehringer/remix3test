@@ -23,6 +23,7 @@
     "format": "oxfmt . --check",
     "format:fix": "oxfmt . --write",
     "knip": "knip",
+    "update:remix": "node ./scripts/update-remix.ts",
     "sync-skills": "node ./scripts/sync-skills.ts",
     "postinstall": "node ./scripts/postinstall.ts"
   },
