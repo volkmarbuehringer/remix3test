@@ -1,4 +1,5 @@
 import type * as AppModule from '../app/db.ts'
+import { PostgresStoreVNext } from '@mastra/pg'
 import { Pool } from 'pg'
 
 let originalDatabaseUrl = ''
@@ -57,6 +58,39 @@ async function forceDropTestDb() {
   await dropTestDb(testDbName)
 }
 
+/**
+ * Creates Mastra's Postgres tables once, in the setup process.
+ *
+ * Mastra's PostgresStore auto-initializes its schema on first use. Every test
+ * worker shares this database, so concurrent first uses race in the Postgres
+ * catalog ("duplicate key value violates unique constraint
+ * pg_class_relname_nsp_index") and intermittently fail memory calls such as
+ * ensureChatThread's missing-thread recall. Initializing here, before workers
+ * fork, makes their auto-init a no-op against an existing schema.
+ *
+ * The config mirrors app/actions/mastra/storage.ts (same store id and public
+ * schema) so the tables match the ones the app's store looks for.
+ */
+async function initializeMastraStorage() {
+  let url = process.env.DATABASE_URL!
+  let localeUrl = url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
+  let pool = new Pool({ connectionString: localeUrl, max: 1 })
+  let observabilityPool = new Pool({ connectionString: localeUrl, max: 1 })
+  let store = new PostgresStoreVNext({
+    id: 'mastra',
+    pool,
+    observability: { pool: observabilityPool },
+  })
+
+  try {
+    await store.init()
+  } finally {
+    await store.close().catch(() => {})
+    await pool.end().catch(() => {})
+    await observabilityPool.end().catch(() => {})
+  }
+}
+
 export async function globalSetup() {
   process.loadEnvFile('./.env')
   process.env.NODE_ENV = 'test'
@@ -100,6 +134,7 @@ export async function globalSetup() {
       await testPool.end()
     }
     await appModule.initializeAppDatabase()
+    await initializeMastraStorage()
   } catch (err) {
     console.error(`Setup failed for "${testDbName}":`, err)
     await appModule.closeAppDatabase().catch(() => {})

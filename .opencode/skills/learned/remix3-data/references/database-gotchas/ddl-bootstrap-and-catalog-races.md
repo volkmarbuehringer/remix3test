@@ -21,6 +21,8 @@ Do not reintroduce a dedicated `pg.Client` migration path for this app; the runn
 
 `initializeAppDatabase()` / Mastra `PostgresStoreVNext` runs DDL on the shared local test DB. When several test files each init the store concurrently (default parallel workers), their `CREATE TABLE/EXTENSION` can collide on the Postgres **catalog**, surfacing as an intermittent `duplicate key value violates unique constraint "pg_class_relname_nsp_index"` (or the sibling `pg_extension_name_index`). The failing test **varies between runs** — it is whichever worker happened to race, not a logic bug in the code under test.
 
+**Mastra's shared schema is now pre-initialized once.** `test/setup.ts`'s `initializeMastraStorage()` builds a throwaway `PostgresStoreVNext` with the same config as `app/actions/mastra/storage.ts` (id `mastra`, public schema) and calls `init()` before any worker forks. Workers' lazy auto-init then finds the tables and performs no catalog DDL, so `ensureChatThread`'s real-memory recall no longer intermittently fails with a `pg_class_relname_nsp_index` error instead of `/No thread found/`. A new Mastra-backed test file needs no extra setup; only a storage with a *different* schema/config would need its own pre-init.
+
 **Confirm it's an infra race, not a regression:**
 1. Run the failing test file **alone** — it should pass deterministically.
 2. Run the **full suite** (`npm test`) — green (the same race may surface in a *different* file, so the single-file pass is the strong signal).
@@ -36,6 +38,6 @@ Config-backed construction makes the driver own the pool internally (`this.#clie
 
 ## When to Use
 
-- A test fails only with multiple files in parallel, with a `pg_class_…` / `pg_extension…` duplicate-key catalog error, and passes in isolation.
+- A test fails only with multiple files in parallel, with a `pg_class_…` / `pg_extension…` duplicate-key catalog error, and passes in isolation. For Mastra memory tests (`ensureChatThread`'s first `recall`), check that `test/setup.ts` still calls `initializeMastraStorage()`.
 - An unhandled pool `'error'` crash surfaces under config-backed construction (fix: caller-owned pool with a listener, or a driver `onPoolError` option).
 - Changing `db/schema.sql` bootstrap DDL, `initializeAppDatabase()`, or test database reset behavior.

@@ -58,7 +58,11 @@ controller opts in, because only its processor reads memory.
 - `app/utils/mastra-memory.test.ts` (`describe('ensureChatThread')`) runs the
   real Mastra Postgres memory: `memory.recall({ threadId, resourceId })` rejects
   with `/No thread found/` before, succeeds after `createThread`, and a second
-  `ensureChatThread` leaves `createdAt` intact.
+  `ensureChatThread` leaves `createdAt` intact. The schema is created once in
+  `test/setup.ts` (`initializeMastraStorage()`) so parallel workers don't race
+  on the Postgres catalog and fail the first recall with a `pg_class_…`
+  duplicate-key error instead of `/No thread found/` (see remix3-data
+  § DDL Bootstrap and Catalog Races).
 - `app/actions/support-agent/controller.test.ts` guards the wiring: a mock agent
   that exposes `getMemory().createThread` records the created thread, and the
   test asserts it is the same id passed to `stream`'s `memory.thread`.
