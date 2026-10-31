@@ -48,15 +48,15 @@ Browsers with native multiple-map support (Chromium) keep native `import()`; Fir
 
 ### CSP requirements
 
-`importShim` evaluates modules from `blob:` URLs and `es-module-lexer` compiles via Wasm. The app's CSP `script-src` must add:
+`importShim` evaluates modules from `blob:` URLs. Since remix #12059 (build `57ecca4cba`) the polyfill imports `es-module-lexer/minimal/js`, a pure asm.js build with no `eval`/Wasm, so the app's `script-src` needs only:
 
 ```ts
-`script-src 'self' 'nonce-${nonce}' blob: 'wasm-unsafe-eval' 'unsafe-eval'`,
+`script-src 'self' 'nonce-${nonce}' blob:`,
 ```
 
 - `blob:` — polyfilled module graphs are evaluated from blob URLs
-- `'wasm-unsafe-eval'` — `es-module-lexer` Wasm compilation (documented in the polyfill README)
-- `'unsafe-eval'` — **required by Firefox's `es-module-lexer` path** (confirmed 2026-09-09): Firefox reports `blocked a JavaScript eval (script-src) ... (Missing 'unsafe-eval')` from `lexer.@*.js` even with `'wasm-unsafe-eval'` present. The polyfill README only lists `'wasm-unsafe-eval'`; Firefox additionally needs `'unsafe-eval'`.
+- `'unsafe-eval'` / `'wasm-unsafe-eval'` were required before #12059 (the default `es-module-lexer` path used Wasm and an eval fallback); do not re-add them without checking that the installed polyfill still imports `es-module-lexer/minimal/js`
+- Guards: `app/middleware/security-headers.test.ts` asserts both tokens are absent, and `app/middleware/security-headers.test.e2e.ts` fails on any `securitypolicyviolation` while `/admin/messages` hydrates in Chromium and Firefox (Firefox exercises the polyfill)
 
 ## How to verify
 
@@ -65,7 +65,7 @@ Reproduce in **Firefox**, not Chromium (Chromium merges the maps and masks the b
 1. Load a page with deferred client entries (e.g. `/lists?load=<id>`)
 2. Check the console for `Multiple import maps are not allowed.` and `[createFrame] Failed to load module`
 3. Confirm two `data-rmx-import-map` scripts exist; the second holds the client-entry deltas
-4. After the fix, the entry script imports `remix/multiple-import-maps-polyfill`, the eval CSP error is gone, and client interactions work
+4. After the fix, the entry script imports `remix/multiple-import-maps-polyfill`, no `securitypolicyviolation` is reported, and client interactions work
 
 ## When to Use
 

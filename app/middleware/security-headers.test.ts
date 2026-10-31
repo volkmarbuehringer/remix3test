@@ -83,6 +83,18 @@ describe('Security headers middleware', () => {
     )
   })
 
+  it('CSP script-src allows no eval and keeps the polyfill blob path', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+    let scriptSrc = csp.split(';').find((p) => p.trim().startsWith('script-src'))!
+    assert.ok(!scriptSrc.includes("'unsafe-eval'"), 'script-src should not allow unsafe-eval')
+    assert.ok(
+      !scriptSrc.includes("'wasm-unsafe-eval'"),
+      'script-src should not allow wasm-unsafe-eval',
+    )
+    assert.ok(scriptSrc.includes('blob:'), 'script-src must keep blob: for polyfilled modules')
+  })
+
   it('all 6 headers present on a non-auth route too', async () => {
     let response = await router.fetch(`${BASE}/`)
     let headers = [
