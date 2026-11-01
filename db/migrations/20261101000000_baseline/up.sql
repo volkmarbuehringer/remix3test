@@ -1,6 +1,6 @@
--- Idempotent fresh-database bootstrap. DDL applies only to new/empty databases;
--- existing tables are never altered. Schema changes to existing DBs require
--- manual ALTER / DROP statements.
+-- Baseline schema migration (2026-11-01). Immutable: add new migration directories.
+-- Idempotent DDL adopts an existing database (IF NOT EXISTS everywhere) and keeps
+-- parallel boots serialized by the data-table migration advisory lock.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

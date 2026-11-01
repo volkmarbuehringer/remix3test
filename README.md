@@ -25,7 +25,7 @@ A full-featured Remix 3 web application — no React, built with Remix UI compon
 
 **Client Lab** — A frame-based CRUD demo and data grid that showcases Remix's frames architecture. Supports inline editing, sorting, filtering, and pagination — a reference implementation for building data-heavy UIs.
 
-**UI Showcase** — A living style guide that documents and demonstrates the app's design system: button variants, form inputs, theme tokens, and other UI primitives. Useful for development and design reference.
+**UI Gallery** — A development-only living style guide at `/ui` that auto-discovers `*.demo.tsx` (or `.demo.ts` for non-JSX components) files under `app/ui`, server-renders them through the real document shell, theme, asset server, and client-entry runtime, and returns 404 outside development/test. Add a demo by dropping a component-default-export file next to the UI it documents.
 
 **Authentication** — Register, log in, and log out backed by cookie-based sessions. Rate-limited to prevent abuse. Two roles — customer and admin — control access to different parts of the application.
 
@@ -167,15 +167,28 @@ npm test
 npm run typecheck
 ```
 
-| Command              | Description                                     |
-| -------------------- | ----------------------------------------------- |
-| `npm run dev`        | Start dev server with file watching             |
-| `npm run start`      | Start production server on port 44100           |
-| `npm run test`       | Run Playwright E2E and server integration tests |
-| `npm run typecheck`  | Type-check the project (`tsc --noEmit`)         |
-| `npm run lint`       | Lint with oxlint                                |
-| `npm run format`     | Check formatting with oxfmt                     |
-| `npm run format:fix` | Auto-format with oxfmt                          |
+| Command               | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `npm run dev`         | Start dev server with file watching             |
+| `npm run start`       | Start production server on port 44100           |
+| `npm run test`        | Run Playwright E2E and server integration tests |
+| `npm run typecheck`   | Type-check the project (`tsc --noEmit`)         |
+| `npm run lint`        | Lint with oxlint                                |
+| `npm run format`      | Check formatting with oxfmt                     |
+| `npm run format:fix`  | Auto-format with oxfmt                          |
+| `npm run db:status`   | Show applied / pending migrations               |
+| `npm run db:migrate`  | Apply pending migrations                        |
+| `npm run db:rollback` | Revert the newest migration                     |
+| `npm run db:reset`    | Recreate the DB (requires `-- --force`)         |
+| `npm run db:seed`     | Apply migrations and run the app seed           |
+
+The development-only UI gallery is at `http://localhost:44100/ui` when
+`NODE_ENV` is `development` or `test`. It auto-discovers `*.demo.tsx` (or
+`.demo.ts`) files under `app/ui`, renders them through the real document shell
+and asset server, and returns 404 outside development/test. Drop a new demo next
+to the UI it documents; metadata comes from the leading JSDoc (`@name`,
+`@description`, `@order`, `@layout center`), as in
+`app/ui/theme/button.demo.tsx`.
 
 ## Database Setup
 
@@ -205,30 +218,27 @@ DATABASE_URL="postgresql://user:password@localhost:5432/newapp"
 
 Adjust the username, password, host, and port to match your PostgreSQL setup.
 
-### 3. Auto-Create Tables (Schema Bootstrap)
+### 3. Migrations and Schema Bootstrap
 
-When the server starts, [`initializeAppDatabase()`](app/db.ts) runs the idempotent schema in `db/schema.sql` via [`db.executeScript()`](app/db.ts) and then seeds default data. All DDL uses `IF NOT EXISTS`, so startup is a no-op when tables already exist. No migration steps are needed. Tables include:
+When the server starts, [`initializeAppDatabase()`](app/db.ts) applies pending SQL migrations from [`db/migrations`](db/migrations) through the `remix/data-table` runner and then seeds default data. The baseline migration is idempotent, so an existing database adopts the migration journal on its first boot without manual bookkeeping.
 
-| Table              | Purpose                                                                  |
-| ------------------ | ------------------------------------------------------------------------ |
-| `users`            | User accounts with roles (admin, customer)                               |
-| `messages`         | Public message board                                                     |
-| `clients`          | Client data lab records (200 demo rows)                                  |
-| `resources`        | Bookable resources                                                       |
-| `appointments`     | Scheduled appointments with overlap protection via exclusion constraints |
-| `appointoffering`  | Appointment offering time slots                                          |
-| `appointtypes`     | Appointment type categories                                              |
-| `offering_configs` | Resource offering rules (JSONB)                                          |
-| `chatlog`          | AI chat conversation history                                             |
-| `workflow_runs`    | AI workflow execution records                                            |
-| `lists`            | Generic list data (JSONB)                                                |
-| `audit_logs`       | Admin audit trail                                                        |
+Use the migration commands to inspect or change the schema deliberately:
 
-The schema also enables the `pg_trgm`, `btree_gist`, and `pgcrypto` PostgreSQL extensions.
+```sh
+npm run db:status    # applied / pending / drifted / missing
+npm run db:migrate   # apply pending migrations
+npm run db:rollback  # revert the newest migration
+npm run db:reset -- --force  # recreate the database (destructive)
+npm run db:seed      # apply pending migrations and seed
+```
+
+Never edit an applied migration: the runner checksums `up.sql` and fails the next boot on drift. Add a new migration directory instead. See [`db/migrations/README.md`](db/migrations/README.md) and the tables in the baseline at [`db/migrations/20261101000000_baseline/up.sql`](db/migrations/20261101000000_baseline/up.sql).
+
+The schema enables the `pg_trgm`, `btree_gist`, and `pgcrypto` PostgreSQL extensions.
 
 ### 4. Auto-Seed Demo Data
 
-After schema bootstrap, [`seed()`](app/data/seed.ts) checks whether the `users` table is empty. If it is (fresh database), it inserts the following demo data:
+After migrations, [`seed()`](app/data/seed.ts) checks whether the `users` table is empty. If it is (fresh database), it inserts the following demo data:
 
 - **2 users** — admin and customer accounts (see credentials below)
 - **3 messages** — welcome posts on the public message board

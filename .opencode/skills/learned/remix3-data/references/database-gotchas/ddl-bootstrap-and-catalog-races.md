@@ -2,10 +2,22 @@
 
 **Source:** `ddl-migration-dedicated-client` (renamed 2026-10-24)
 **Extracted:** 2026-07-17
-**Updated:** 2026-08-18 (newapp switched from `db.migrate()`/`db.reset()` to an idempotent `db/schema.sql` bootstrap via `db.executeScript()`; the dedicated-client migration workaround was retired)
+**Updated:** 2026-11-01 (newapp adopted the `remix/data-table` runner again with a single idempotent baseline migration; the runner's Postgres advisory lock serializes the baseline's `CREATE EXTENSION`/table DDL)
 **Context:** DDL in test/bootstrap setup that contends on the pool `statement_timeout`, or intermittent Postgres catalog duplicate-key errors during parallel init.
 
-## Current state in newapp (2026-08)
+## Current state in newapp (2026-11)
+
+newapp runs SQL-file migrations from `db/migrations/` through the `remix/data-table` runner:
+
+- `initializeAppDatabase()` calls `db.migrate(await loadMigrations('../db/migrations'))` then `seed(db)`.
+- `db/migrations/20261101000000_baseline/up.sql` is the full, idempotent schema. An existing database runs it once and the journal records it; fresh databases create everything from it.
+- The runner holds a Postgres advisory lock for the whole run (`withMigrationLock`), so parallel test workers and concurrent cold boots serialize instead of racing `pg_extension_name_index`. The old single-retry workaround is no longer needed.
+- Applied migrations are immutable: the runner checksums `up.sql` and fails the next boot on drift or a missing journal entry (see `migration-drift-recovery.md`).
+- `test/setup.ts` creates a fresh test database, drops `public` through a throwaway pool, then calls `initializeAppDatabase()`; every run therefore exercises the same migrations as production.
+
+## Previous state (2026-08 – 2026-10): idempotent bootstrap
+
+newapp used to build the schema from an idempotent `db/schema.sql` through `db.executeScript()` with no journal/checksum. That bootstrap was retired on 2026-11-01. The historical notes still explain the catalog-race diagnosis:
 
 newapp builds the Postgres database from a **caller-owned** `pg.Pool` in `app/db.ts` (so the pool can attach an `'error'` handler) and bootstraps the schema from an idempotent `db/schema.sql`:
 
@@ -40,4 +52,4 @@ Config-backed construction makes the driver own the pool internally (`this.#clie
 
 - A test fails only with multiple files in parallel, with a `pg_class_…` / `pg_extension…` duplicate-key catalog error, and passes in isolation. For Mastra memory tests (`ensureChatThread`'s first `recall`), check that `test/setup.ts` still calls `initializeMastraStorage()`.
 - An unhandled pool `'error'` crash surfaces under config-backed construction (fix: caller-owned pool with a listener, or a driver `onPoolError` option).
-- Changing `db/schema.sql` bootstrap DDL, `initializeAppDatabase()`, or test database reset behavior.
+- Changing `db/migrations` baseline/migration DDL, `initializeAppDatabase()`, or test database reset behavior.

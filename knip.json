@@ -8,6 +8,7 @@
     "app/assets/entry.tsx",
     "app/assets/*.browser.tsx",
     "app/ui/*.browser.tsx",
+    "app/ui/**/*.demo.{ts,tsx}",
     "app/**/public/**/*.{ts,tsx}",
     "app/**/*.test.{ts,tsx}",
     "app/**/*.test.browser.{ts,tsx}",

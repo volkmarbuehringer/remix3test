@@ -36,7 +36,7 @@ Look it up by `run_id` for the ownership gate (403 on mismatch). Record on run s
 3. **Idempotent, parameterized insert:** `INSERT ... ON CONFLICT (run_id) DO NOTHING`, all values bound (`$1`/`$2`), never concatenated.
 
 ### Wiring
-Add the table to **both** `db/schema.sql` (DDL) and the `remix/data-table` DSL (`schema.ts` with `primaryKey: ['run_id']`). Back the store module with the singleton `db` (mirror `active-run-store.ts`), and gate the resume routes *before* calling the agent.
+Add the table as a **new migration** under `db/migrations/<timestamp>_<slug>/` (idempotent `up.sql` + `down.sql`; never edit the baseline) **and** to the `remix/data-table` DSL (`schema.ts` with `primaryKey: ['run_id']`). Back the store module with the singleton `db` (mirror `active-run-store.ts`), and gate the resume routes *before* calling the agent.
 
 ## When to Use
 - Adding user/actor-scoped ownership gating to Mastra suspend/resume routes.

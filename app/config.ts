@@ -26,9 +26,31 @@ function currentNodeEnv(): NodeEnv {
   return NODE_ENV.catch('development').parse(process.env.NODE_ENV)
 }
 
+/** Whether the current (call-time) environment is development. */
+export function isDevelopmentEnv(): boolean {
+  return currentNodeEnv() === 'development'
+}
+
 /** Whether the current (call-time) environment is production. */
 export function isProductionEnv(): boolean {
   return currentNodeEnv() === 'production'
+}
+
+/**
+ * Exact, call-time NODE_ENV match for capabilities that must fail closed.
+ *
+ * `currentNodeEnv()` intentionally falls back to `development` for an unset or
+ * unrecognized value. That is useful for normal app defaults, but a route that
+ * dynamically imports files from disk must not treat `NODE_ENV=staging` (or an
+ * unset variable) as development.
+ */
+export function isExplicitDevelopmentEnv(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
+/** Exact, call-time test-environment match; see {@link isExplicitDevelopmentEnv}. */
+export function isExplicitTestEnv(): boolean {
+  return process.env.NODE_ENV === 'test'
 }
 
 /** A required, non-empty string env var. Throws a descriptive error when unset. */

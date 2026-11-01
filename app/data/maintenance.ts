@@ -10,7 +10,7 @@ const DAY_MS = 24 * HOUR_MS
  * TTL for chat_runs ownership rows abandoned while suspended (browser closed,
  * crash, agent timeout). Terminal runs are deleted inline by clearChatRun;
  * this TTL bounds growth for everything else, as documented on the table in
- * db/schema.sql.
+ * db/migrations/20261101000000_baseline/up.sql.
  */
 const chatRunsTtlMs = envPositiveNumber('CHAT_RUNS_TTL_MS', DAY_MS)
 

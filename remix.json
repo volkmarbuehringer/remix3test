@@ -17,6 +17,16 @@
     "allowPackages": ["@remix-run/ui", "remix"],
     "denyFiles": ["app/**/*.server.*", "app/**/*.test.*"]
   },
+  "db": {
+    "adapter": {
+      "type": "postgres",
+      "connectionString": { "env": "DATABASE_URL" }
+    },
+    "migrations": {
+      "directory": "./db/migrations",
+      "journalTable": "app_migrations"
+    }
+  },
   "test": {
     "concurrency": 6,
     "pool": "forks",

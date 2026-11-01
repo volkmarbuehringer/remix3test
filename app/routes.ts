@@ -309,6 +309,14 @@ export const routes = route({
     detail: get('/detail'),
     items: get('/frames/scroll-restoration-items'),
   }),
+
+  // Development-only component gallery: server-renders every *.demo.tsx under
+  // app/ui and hydrates the selected demo. The controller returns 404 in
+  // production; the route is always mapped so remix doctor sees its entry.
+  ui: route('ui', {
+    index: get('/'),
+    demo: get('/demo/*filename'),
+  }),
 })
 
 // Legal pages for the German-facing site. Kept at the URL root so the footer

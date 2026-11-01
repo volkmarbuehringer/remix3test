@@ -42,7 +42,7 @@ Pass either the `sql` tag or `rawSql(text, values)` (for dynamically built SQL) 
 - `int4` columns (id, `*_id`, `start_min`) → `z.number()`
 - `int8` columns (timestamps, `date`) → `int8` (`z.coerce.number()`, `app/data/rows.ts`) — tolerates the pg string and yields a number for the domain layer
 - Aggregates (`count(*)`, `min`/`max`/`sum`/`avg` over int8, `::numeric` results) → `int8Aggregate`
-- **Check `db/schema.sql` first** — not every `id` is int4: `webhook_requests.id` is `UUID` → `z.string()`
+- **Check the baseline migration first** — not every `id` is int4: `webhook_requests.id` is `UUID` → `z.string()`
 - JSONB columns → `z.record(...)` / `z.array(...)` / `z.unknown()`; opaque bytea → `z.custom<Buffer>()`
 
 Replace hand-written interfaces with `type Row = z.output<typeof rowSchema>` — the schema is the single source of truth. When a consumer needs the *domain* shape (timestamps as numbers), decode wire rows then map explicitly:

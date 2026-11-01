@@ -1,0 +1,83 @@
+import type { EntryComponent } from 'remix/component'
+import { clientEntry } from 'remix/component'
+import { createController } from 'remix/router'
+
+import { assetServer } from '../../assets.ts'
+import { isExplicitDevelopmentEnv, isExplicitTestEnv } from '../../config.ts'
+import { routes } from '../../routes.ts'
+import { discoverDemoFiles, findDemoFile, loadDemoModule } from './discovery.ts'
+import { GalleryDemoPage, GalleryIndexPage } from './gallery-view.tsx'
+
+/**
+ * Development-only component gallery.
+ *
+ * The route is always mapped so `remix doctor` sees its controller, but every
+ * action returns 404 unless the call-time environment is explicitly development
+ * or test. The allowlist (rather than "not production") keeps a staging
+ * deployment or a server started without NODE_ENV from exposing a route that
+ * dynamically imports files from disk. In development and test it scans the
+ * `app/ui` tree for `*.demo.tsx` / `*.demo.ts` files, server-renders the index,
+ * and wraps a selected demo in a client entry so interactive demos hydrate
+ * through the normal asset server and import map.
+ */
+export default createController(routes.ui, {
+  actions: {
+    index(context) {
+      if (!galleryAvailable()) return notFound()
+
+      return context.render(<GalleryIndexPage demos={discoverDemoFiles()} />, {
+        headers: { 'Cache-Control': 'no-store' },
+      })
+    },
+
+    async demo(context) {
+      if (!galleryAvailable()) return notFound()
+
+      let filename = context.params.filename
+      if (typeof filename !== 'string') return notFound()
+
+      let demo = findDemoFile(filename)
+      if (demo === undefined) return notFound()
+
+      try {
+        let assetHref = await assetServer.getHref(demo.absolutePath)
+        let DemoComponent = clientEntry(
+          `${assetHref}#default`,
+          await loadDemoModule(demo),
+        ) as EntryComponent
+
+        return context.render(<GalleryDemoPage demo={demo} DemoComponent={DemoComponent} />, {
+          headers: { 'Cache-Control': 'no-store' },
+        })
+      } catch (error) {
+        return demoFailure(demo.filename, error)
+      }
+    },
+  },
+})
+
+function galleryAvailable(): boolean {
+  return isExplicitDevelopmentEnv() || isExplicitTestEnv()
+}
+
+function notFound(): Response {
+  return new Response('Not Found', {
+    status: 404,
+    headers: {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  })
+}
+
+function demoFailure(filename: string, error: unknown): Response {
+  let message = error instanceof Error ? error.message : String(error)
+
+  return new Response(`Demo "${filename}" failed to load:\n\n${message}`, {
+    status: 500,
+    headers: {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'text/plain; charset=utf-8',
+    },
+  })
+}

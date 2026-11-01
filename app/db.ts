@@ -1,7 +1,8 @@
 import * as path from 'node:path'
-import { readFile } from 'node:fs/promises'
 
 import { Pool } from 'pg'
+import type { MigrationDescriptor } from 'remix/data-table/migrations'
+import { loadMigrations } from 'remix/data-table/migrations/node'
 import { createPostgresDatabase } from 'remix/data-table/postgres'
 
 import { isTest, requireEnv } from './config.ts'
@@ -33,30 +34,37 @@ pool.on('error', (error) => {
 
 export const db = createPostgresDatabase(pool)
 
-async function loadAppSchema() {
-  return await readFile(path.join(import.meta.dirname, '../db/schema.sql'), 'utf8')
-}
+const migrationsDirectory = path.join(import.meta.dirname, '../db/migrations')
 
-const PG_EXTENSION_COLLISION = /duplicate key.*pg_extension/
+/**
+ * The new runner's journal is deliberately distinct from the legacy
+ * `data_table_migrations` table left behind by the pre-2026-08 migration
+ * runner. Existing databases may still contain an old journal row whose
+ * migration file no longer exists; a forward run treats that as an orphaned
+ * entry and aborts. A fresh journal starts empty, the idempotent baseline
+ * applies as a no-op, and the legacy table is simply ignored.
+ */
+export const migrationsJournalTable = 'app_migrations'
 
-async function applyAppSchema(): Promise<void> {
-  let schema = await loadAppSchema()
-  try {
-    await db.executeScript(schema)
-  } catch (error) {
-    // Concurrent cold boot can race CREATE EXTENSION IF NOT EXISTS against
-    // pg_extension. The script runs as one implicit transaction, so the loser
-    // rolls back completely; retrying is a no-op on the winner's catalog.
-    if (error instanceof Error && PG_EXTENSION_COLLISION.test(error.message)) {
-      await db.executeScript(schema)
-    } else {
-      throw error
-    }
-  }
+let cachedMigrations: MigrationDescriptor[] | undefined
+
+/**
+ * Applies pending SQL migrations through the `remix/data-table` runner.
+ *
+ * The runner journals each applied file and checksums its `up.sql`, so an
+ * applied migration must never be edited (add a new directory instead). The
+ * baseline is idempotent, which lets an existing database adopt the journal on
+ * its first boot without manual "mark as applied" surgery. The Postgres driver
+ * wraps the run in a database advisory lock, so concurrent cold boots and
+ * test workers serialize instead of racing catalog DDL.
+ */
+async function applyAppMigrations(): Promise<void> {
+  cachedMigrations ??= await loadMigrations(migrationsDirectory)
+  await db.migrate(cachedMigrations, { journalTable: migrationsJournalTable })
 }
 
 export async function initializeAppDatabase(): Promise<void> {
-  await applyAppSchema()
+  await applyAppMigrations()
   await seed(db)
   // Skip the background retention sweep under test. Every parallel worker (and
   // the global setup) calls this against the same ephemeral database, so the
