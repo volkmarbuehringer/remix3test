@@ -23,7 +23,7 @@ Consolidated from 5 former learned skills (`remix3-data-table`, `database-gotcha
 
 _(formerly `remix3-data-table` — references live under `references/remix3-data-table/`)_
 
-**Consolidated from:** `remix3-data-table-array-in-clause`, `remix3-data-table-dynamic-sort-order-by`, `remix3-data-table-raw-sql-sort-filter`, `remix3-data-table-row-adapter`
+**Consolidated from:** `remix3-data-table-array-in-clause`, `remix3-data-table-dynamic-sort-order-by`, `remix3-data-table-count-with-typed-where`, `remix3-data-table-raw-sql-sort-filter`, `remix3-data-table-row-adapter`, `remix3-data-table-write-returning`, `remix3-data-table-partial-writes-and-hooks`
 
 This skill is the **index** for data-table deltas. For the framework API and canonical query patterns, use `node_modules/remix/src/data-table/README.md` and `node_modules/remix/src/data-schema/README.md`.
 

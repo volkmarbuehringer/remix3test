@@ -96,10 +96,10 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 _(formerly `remix3-bun-runtime` — references live under `references/remix3-bun-runtime/`)_
 
-**Consolidated from:** `bun-run-pnpm-shim`
+**Consolidated from:** the seven former `remix3-bun-runtime` notes (entrypoint, MIME, pnpm shim, runner, SSR signal, TypeScript scoping, validation)
 
-**Extracted:** 2026-09-19
-**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (remix `3.0.0-rc.3`; `@remix-run/ui` 0.10.0; Bun 1.4.2). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
+**Extracted:** 2026-09-19; last vendor re-check 2026-10-14 (build `2c9e033`/source `e6a63ea`, Bun 1.4.3)
+**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (currently `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0; Bun 1.4.3). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
 
 This skill is the **index** for running this Remix 3 + pnpm app under Bun. For the runtime APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -143,7 +143,7 @@ This skill is the **index** for running this Remix 3 + pnpm app under Bun. For t
 
 _(formerly `remix3-testing` — references live under `references/remix3-testing/`)_
 
-**Consolidated from:** `remix3-cliententry-browser-test-stubs`, `remix-test-parallel-interference`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `remix3-html-amp-escaped-assertions`, `remix3-playwright-browser-testing`
+**Consolidated from:** `remix3-cliententry-browser-test-stubs`, `remix-test-parallel-interference`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `remix3-html-amp-escaped-assertions`, `remix3-playwright-browser-testing`, `test-harness-gotchas`, `testing-hygiene` (2026-11-02)
 
 This skill is the **index** for Remix 3 test-suite deltas. For the vendor test runner API (`remix test`, `describe`/`it`, `render`/`act`), use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`). For the canonical test boundaries and patterns (`router.fetch`, state isolation, browser component and e2e flows), use the installed testing guide `node_modules/remix/guides/13-testing.md`.
 

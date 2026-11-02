@@ -277,6 +277,8 @@ This skill is the **index** for theme-token conformance — styling must go thro
 
 _(formerly `remix3-animation` and `imperative-motion-gotchas` — references live under `references/remix3-animation/`)_
 
+**Consolidated from:** `motion-values`, `presence-and-layout`, `reduced-motion` (2026-11-02)
+
 **Extracted:** 2026-09-26 (imperative-motion delta folded 2026-10-24)
 
 This skill is the **pointer/delta index** for guide `node_modules/remix/guides/07-animation.md` (the canonical motion model). The component primitives it composes with (`clientEntry`, `on`, `ref`, `mix`) are covered by the vendor `remix` skill and § Client Entries.
