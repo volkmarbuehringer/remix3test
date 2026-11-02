@@ -20,20 +20,10 @@ The Remix type system expects context keys to be `object` types, and `Symbol` is
 **Solution:** Use `createContextKey` from `remix/router` to create a typed context key, then use it with `Middleware<{ key; value; property }>` and `context.set()`:
 
 ```ts
-import { createContextKey, type Middleware } from 'remix/router'
-
-// 1. Create a typed context key
 const MailerContext = createContextKey<SendEmailFn>()
-
-// 2. Use with Middleware generic and property name
-export function mailer(): Middleware<{
-  key: typeof MailerContext
-  value: SendEmailFn
-  property: 'mailer' // ← becomes accessible as context.mailer
-}> {
-  let sendEmail = createSendEmail(transport)
-  return async (context, next) => {
-    context.set(MailerContext, sendEmail, { property: 'mailer' })
+export function mailer(): Middleware<{ key: typeof MailerContext; value: SendEmailFn; property: 'mailer' }> {
+  return (context, next) => {
+    context.set(MailerContext, createSendEmail(transport), { property: 'mailer' })
     return next()
   }
 }
@@ -41,23 +31,9 @@ export function mailer(): Middleware<{
 
 The `property` name automatically becomes a typed property on the context. No `declare module` augmentation needed.
 
-### Reference: app/middleware/json-render.ts
+### Reference: `app/middleware/json-render.ts`
 
-```ts
-const JsonRenderer = createContextKey<(data: unknown, init?: ResponseInit) => Response>()
-
-export function json(): Middleware<{
-  key: typeof JsonRenderer
-  value: (data: unknown, init?: ResponseInit) => Response
-  property: 'json'
-}> {
-  return (context, next) => {
-    context.set(JsonRenderer, (data, init) => Response.json(data, init), { property: 'json' })
-    return next()
-  }
-}
-// Enables: context.json({ ok: true })
-```
+`createContextKey` + `Middleware<{ key, value, property: 'json' }>`, enabling `context.json(...)`.
 
 ## Avoiding Circular Dependencies
 
@@ -83,26 +59,7 @@ Dependency flow:
 router.ts → middleware/root.ts + types/context.ts → middleware/*.ts
 ```
 
-```typescript
-// app/middleware/root.ts
-// Imports only from remix/* and sibling middleware — NO router/controller imports
-import { createMiddleware } from 'remix/router'
-import { asyncContext } from 'remix/middleware/async-context'
-import { session } from 'remix/middleware/session'
-import { loadDatabase } from './database.ts'
-import { loadAuth } from './auth.ts'
-import { uploadFormData } from './uploads.ts'
-
-export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) {
-  return createMiddleware(
-    session(cookie, storage),
-    asyncContext(),
-    loadDatabase(),
-    loadAuth(),
-    uploadFormData(),
-  )
-}
-```
+`createNewappMiddleware()` lives in `app/middleware/root.ts` and imports only `remix/*` + sibling middleware. `app/types/context.ts` derives `AppContext` from `ReturnType<typeof createNewappMiddleware>`; `app/router.ts` imports both.
 
 ```typescript
 // app/types/context.ts — type-only import, erased at runtime

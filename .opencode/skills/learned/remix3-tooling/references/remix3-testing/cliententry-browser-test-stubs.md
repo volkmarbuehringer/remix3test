@@ -23,82 +23,14 @@ Reading `element.scrollHeight`/`clientHeight`, or overriding `scrollTo`, also tr
 
 ## Solution
 
-The vendor guide `node_modules/remix/guides/13-testing.md` already documents `render`/`act`/`cleanup`.
-This skill is the delta: build a **controlled DOM fixture** the entry will query, stub the
-geometry/measurement APIs it reads, and observe the side-effect call it makes.
+The vendor guide `node_modules/remix/guides/13-testing.md` already documents `render`/`act`/`cleanup`. This skill is the delta: build a controlled DOM fixture the entry will query, stub the geometry/measurement APIs it reads with `Object.defineProperty(..., { configurable: true })`, render, and flush with `result.act(() => {})`; then observe the side-effect call.
 
-```tsx
-import { describe, it, afterEach } from 'remix/test'
-import * as assert from 'remix/assert'
-import { render } from 'remix/component/test'
+Reference implementation: `app/ui/appointments-new.test.browser.tsx:28` (`domRect`), `:42` (`stubMatchMedia`), `:155` (positive/negative fixture test). It covers:
 
-import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
-
-function domRect(top: number): DOMRect {
-  return {
-    x: 0, y: top, width: 0, height: 0, top, right: 0, bottom: top, left: 0,
-    toJSON: () => ({}),
-  }
-}
-
-function stubMatchMedia(matches: boolean): () => void {
-  let original = window.matchMedia
-  // matchMedia returns a full MediaQueryList; the entry only reads `.matches`.
-  window.matchMedia = ((query: string) => ({
-    matches,
-    media: query,
-  })) as unknown as typeof window.matchMedia
-  return () => {
-    window.matchMedia = original
-  }
-}
-
-describe('Create panel reveal', () => {
-  let restoreMatchMedia: (() => void) | undefined
-  let scroller: HTMLElement | undefined
-
-  afterEach(() => {
-    restoreMatchMedia?.()
-    scroller?.remove()
-  })
-
-  it('resets the scroll container when the panel header is above the fold', async () => {
-    restoreMatchMedia = stubMatchMedia(false) // force the desktop branch
-
-    let outer = document.createElement('div')
-    outer.style.overflowY = 'auto'
-    // findScrollParent() checks scrollHeight > clientHeight; force it on an unlaid-out node.
-    Object.defineProperty(outer, 'scrollHeight', { value: 1000, configurable: true })
-    Object.defineProperty(outer, 'clientHeight', { value: 200, configurable: true })
-    let panel = document.createElement('div')
-    panel.setAttribute('data-create-panel', 'true')
-    panel.setAttribute('data-panel-step', 'create:2')
-    outer.appendChild(panel)
-    document.body.appendChild(outer)
-    scroller = outer
-
-    panel.getBoundingClientRect = () => domRect(-120) // header scrolled above the fold
-
-    let scrollCalls: ScrollToOptions[] = []
-    // Neutralize the side effect and record it. defineProperty avoids the overloaded-method cast.
-    Object.defineProperty(outer, 'scrollTo', {
-      configurable: true,
-      value: (options?: ScrollToOptions | number) => {
-        if (typeof options === 'object') scrollCalls.push(options)
-      },
-    })
-
-    let result = render(<CreatePanelScrollLive />)
-    await result.act(() => {}) // flush the mount queueTask
-    assert.equal(scrollCalls.length, 1)
-    assert.equal(scrollCalls[0]?.top, 0)
-
-    // Pair the negative case with a positive one, or "no call" passes vacuously.
-    outer.remove()
-    result.cleanup()
-  })
-})
-```
+- a panel whose `getBoundingClientRect().top < 0` (force a `DOMRect` stub),
+- a scroll parent with forced `scrollHeight`/`clientHeight`,
+- `scrollTo` replaced by a recording stub,
+- `matchMedia` stubbed per test and restored in `afterEach`.
 
 For a delegated listener entry, drive the DOM event and flush with `act`:
 

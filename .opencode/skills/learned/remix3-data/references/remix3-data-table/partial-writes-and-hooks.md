@@ -17,37 +17,7 @@ Three failure modes:
 
 ### 1. Validate the derived column, not the stripped inputs
 
-```ts
-// app/data/schema.ts — appointments
-beforeWrite({ operation, value }) {
-  let next = { ...value }
-  validateAppointmentTimes(next.start_min, next.end_min) // pair rule lives here
-  if (next.start_min !== undefined && next.end_min !== undefined) {
-    next.during = `[${next.start_min},${next.end_min})`
-  }
-  delete next.start_min
-  delete next.end_min
-  return { value: next }
-},
-validate({ operation, value }) {
-  let issues = []
-  if (value.during !== undefined) {
-    let range = parseDuring(value.during)
-    if (
-      range === null ||
-      range.startMin < 0 ||
-      range.endMin > 1440 ||
-      range.startMin >= range.endMin
-    ) {
-      issues.push({
-        message: 'during must be a positive range within a day (0–1440).',
-        path: ['start_min'],
-      })
-    }
-  }
-  return issues.length > 0 ? { issues } : { value }
-},
-```
+In `app/data/schema.ts` (`appointments`), `beforeWrite` folds `start_min`/`end_min` into `during` and deletes the pair; `validate` checks `during` (not the stripped inputs) and keys issues back to `start_min`/`end_min` for the form.
 
 ### 2. Merge one-sided pair updates before writing
 
@@ -59,32 +29,11 @@ if (input.start_min !== undefined || input.end_min !== undefined) {
 }
 ```
 
-`existing` is the row already read for the ownership/24h guard; both computed columns are on it. At the request boundary, run duration/bookability checks on the **merged** pair — not only when both fields were supplied — so a merged 5-minute slot returns 400 instead of reaching the hook:
-
-```ts
-// app/actions/appointment/controller.tsx
-let mergedStartMin = parsed.value.start_min ?? current.start_min
-let mergedEndMin = parsed.value.end_min ?? current.end_min
-if (mergedEndMin - mergedStartMin < MINIMUM_DURATION) {
-  return context.json(
-    { error: `Minimum duration is ${MINIMUM_DURATION} minutes.` },
-    { status: 400 },
-  )
-}
-```
+`existing` is the row already read for the ownership/24h guard; both computed columns are on it. At the request boundary, check the **merged** pair (`parsed.value.start_min ?? current.start_min`, same for `end_min`) against `MINIMUM_DURATION` and return a 400 — see `app/actions/appointment/controller.tsx`. This catches a merged 5-minute slot before it reaches the hook.
 
 ### 3. Gate required checks on create
 
-```ts
-// app/data/schema.ts — appointofferings
-validate({ operation, value }) {
-  let issues = []
-  if (operation === 'create' && value.resource_id === undefined) { /* push */ }
-  if (operation === 'create' && value.day === undefined) { /* push */ }
-  if (operation === 'create' && value.during === undefined) { /* push */ }
-  return issues.length > 0 ? { issues } : { value }
-},
-```
+In `app/data/schema.ts` (`appointofferings`), gate `resource_id`/`day`/`during` on `operation === 'create'`; a partial `db.update` then passes.
 
 If a rule must hold for every write regardless of partiality, put it in SQL (CHECK/exclusion) — a synchronous hook cannot see the stored row.
 

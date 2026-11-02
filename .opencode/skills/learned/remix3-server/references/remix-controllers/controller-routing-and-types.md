@@ -29,31 +29,12 @@ error TS2345: Argument of type 'Controller<...>' is not assignable to parameter 
 
 Single-method routes need `createAction` (not `createController`) and `router.post()`/`router.get()` (not `router.map()`). Pass the Route object directly — `.href()` is unnecessary because verb methods accept Route objects natively:
 
-```typescript
-// routes.ts
-export const routes = route({
-  auth: route('auth', {
-    logout: post('logout'),
-  }),
-})
-
-// controller.tsx — CORRECT
-import { createAction } from 'remix/router'
-import { routes } from '../../routes.ts'
-
-export const authLogout = createAction(routes.auth.logout, () => {
-  let session = getContext().session
-  session.unset('auth')
-  return new Response(null, { status: 302, headers: { Location: routes.home.href() } })
-})
-
-// router.ts — CORRECT (pass Route object directly, no `.href()` needed)
-router.post(routes.auth.logout, authLogout)
-
-// ❌ WRONG — createController fails on single routes
-// createController(routes.auth.logout, { actions: { action() {} } })
-// router.map(routes.auth.logout, logoutController)
+```ts
+export const authLogout = createAction(routes.auth.logout, () => { ... })
+router.post(routes.auth.logout, authLogout) // Route object directly; no .href()
 ```
+
+Reference: `app/actions/auth/controller.tsx:588` (`authLogout`), wired in `app/router.ts`.
 
 ### Complementary Pattern: `form()` Routes Need `createController`
 
@@ -66,34 +47,7 @@ does not satisfy the constraint 'ActionRoute'.
 
 `form()` creates a virtual route map with `index` (GET) and `action` (POST) sub-routes, but `createAction` expects a single `Route` object.
 
-**Fix:** Use `createController` with `actions.index` and `actions.action`, wired via `router.map()`:
-
-```typescript
-// routes.ts
-export const myFormRoute = form('/some-path')
-
-// controller.tsx — CORRECT
-import { createController } from 'remix/router'
-
-export const myFormController = createController<typeof myFormRoute, AppContext>(
-  myFormRoute,
-  {
-    middleware: [requireAuth()],
-    actions: {
-      index(context) {
-        return context.render(...)
-      },
-      async action(context) {
-        // POST handling
-        return new Response(null, { status: 303, headers: { Location: '/' } })
-      },
-    },
-  },
-)
-
-// router.ts — CORRECT
-router.map(myFormRoute, myFormController)
-```
+**Fix:** `form()` creates `{ index, action }`; use `createController` with `actions.index`/`actions.action` and `router.map()`. Reference: `app/routes.ts:50` (`login: form('login')`) and the auth controller's form actions.
 
 ### Quick reference
 
@@ -115,28 +69,15 @@ This happens because removing the generic causes `context.auth` to resolve as `G
 
 **Keep the explicit generic on `createController()`** in any file that passes `context.auth` to a helper function expecting `AuthState<User>`:
 
-```typescript
-// ❌ BROKEN — context.auth becomes GoodAuth<unknown>
-export default createController(routes.admin.users, {
-  middleware: [requireAuth(), requireAdmin()],
-  actions: {
-    async destroy(context) {
-      // getAdminIdentity expects AuthState<User>, gets GoodAuth<unknown>
-      let identity = getAdminIdentity(context.auth) // TS error
-    },
-  },
-})
+```ts
+// ❌ context.auth becomes GoodAuth<unknown>
+export default createController(routes.admin.users, { ... })
 
-// ✅ CORRECT — explicit generic preserves the User type
-export default createController<typeof routes.admin.users, AppContext>(routes.admin.users, {
-  middleware: [requireAuth(), requireAdmin()],
-  actions: {
-    async destroy(context) {
-      let identity = getAdminIdentity(context.auth) // GoodAuth<User> — OK
-    },
-  },
-})
+// ✅ explicit generic preserves the User type
+export default createController<typeof routes.admin.users, AppContext>(routes.admin.users, { ... })
 ```
+
+Reference: the app uses the global fix at `app/middleware/auth.ts:92` (`requireAuthenticatedUser<User>()`), so no per-controller generics remain for the auth case.
 
 **Alternative: fix the source, not the call site.** If `requireAuth()` wraps `requireAuthenticatedUser` without a type argument, the identity type defaults to `unknown` and every gated controller sees `GoodAuth<unknown>`. Pass the identity type through the app's own wrapper once:
 

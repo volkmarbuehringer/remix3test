@@ -10,55 +10,17 @@ A `clientEntry` keys behavior on the enclosing frame's `reloadStart` / `reloadCo
 
 Call the `clientEntry` factory **directly** with a synthetic `Handle` whose `frame` is a plain `EventTarget`, and re-render into the test root on `update`. This is the pattern in `app/ui/pending-submit.test.browser.tsx`; the loading-state test for `/lists` (`app/actions/lists/public/lists-loading.test.browser.tsx`) reuses it for a full entry.
 
+Use the `mountWithFrame` helper in `app/actions/lists/public/lists-loading.test.browser.tsx:48`. It supplies `{ frame: new EventTarget(), props, signal, queueTask, update }` and returns `{ result, frame, dispose }`.
+
 ```tsx
-import { render, type RenderResult } from 'remix/component/test'
-import type { Handle, RemixNode } from 'remix/component'
-import { ListsClient } from './lists-client.tsx'
+let mounted = mountWithFrame(state())
+mounted.frame.dispatchEvent(new Event('reloadStart'))
+assert.ok(mounted.result.container.querySelector('[data-loading-list]'))
 
-function mountWithFrame(initial: ListInitialState) {
-  let frame = new EventTarget()            // the entry only addEventListener()s on it
-  let controller = new AbortController()   // becomes handle.signal; abort on cleanup
-  let inner: (() => RemixNode) | null = null
-  let resultRef: RenderResult | null = null
-
-  let handle = {
-    frame,
-    props: { initialState: initial },
-    signal: controller.signal,
-    // Entries that open a picker/dialog focus via queueTask during the
-    // exercised path; without this the click throws and the follow-up
-    // search/render never runs.
-    queueTask: (task: () => void) => {
-      task()
-    },
-    // Production re-runs the render function through the runtime; here the same
-    // function re-renders into the test root.
-    update: () => {
-      if (resultRef && inner) resultRef.root.render(<div>{inner()}</div>)
-    },
-  } as unknown as Handle<{ initialState?: ListInitialState | null }>
-
-  inner = ListsClient(handle) as unknown as () => RemixNode
-  resultRef = render(<div>{inner()}</div>)
-  return { result: resultRef, frame, dispose: () => { controller.abort(); resultRef?.cleanup() } }
-}
-
-it('shows loading between reloadStart and reloadComplete', () => {
-  let mounted = mountWithFrame(state())
-  assert.ok(mounted.result.container.querySelector('#lists-title'))
-
-  mounted.frame.dispatchEvent(new Event('reloadStart'))
-  assert.ok(mounted.result.container.querySelector('[data-loading-list]'))
-
-  // reloadComplete reads the server marker the frame would have swapped in.
-  let marker = document.createElement('div')
-  marker.id = 'lists-initial-state'
-  marker.setAttribute('data-state', JSON.stringify(state()))
-  document.body.appendChild(marker)
-  mounted.frame.dispatchEvent(new Event('reloadComplete'))
-
-  assert.ok(mounted.result.container.querySelector('#lists-title'))
-})
+// reloadComplete reads the server marker the frame would have swapped in.
+document.body.appendChild(markerWith(state()))
+mounted.frame.dispatchEvent(new Event('reloadComplete'))
+assert.ok(mounted.result.container.querySelector('#lists-title'))
 ```
 
 ## Pitfalls
