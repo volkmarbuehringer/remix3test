@@ -74,7 +74,7 @@ if (!parsed.success) {
 
 ## Solution 3: Password visibility toggle via `data-toggle-pw`
 
-> **Current app pattern (re-checked 2026-10-24):** no `clientEntry`. `PasswordToggle` in `app/ui/password-toggle.browser.tsx` renders a nonce'd `<script>` containing `PASSWORD_TOGGLE_SCRIPT` (`app/ui/password-toggle.script.ts`), so the listener is registered synchronously at parse time (no `import()` gap). See `remix3-server § Security` → `references/security-gotchas/csp-inline-scripts.md`.
+> **Current app pattern (re-checked 2026-10-24):** no `clientEntry`. `PasswordToggle` in `app/ui/password-toggle.browser.tsx` renders a nonce'd `<script>` containing `PASSWORD_TOGGLE_SCRIPT` (`app/ui/password-toggle.script.ts`), so the listener is registered synchronously at parse time (no `import()` gap). See `remix3-server § Security` → `references/security-gotchas/security-checks.md`.
 
 Server-render the toggle button with `data-toggle-pw` pointing at the input's `name`; the script delegates at document level, so it survives frame swaps:
 

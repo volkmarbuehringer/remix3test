@@ -274,10 +274,8 @@ This skill is the **index** for request-handling security deltas. For the framew
 | --- | --- |
 | Every non-GET request returns 403 ("missing csrf token"), a webhook/SSE/agent POST needs to bypass CSRF, or a new `createAction`/`router.post()` route returns a bare 403 | `references/security-gotchas/security-middleware.md` |
 | Choosing a client IP for a localhost guard, login rate limit, or admin allowlist vs. audit logging; `trustProxy` and `X-Forwarded-For` spoofing | `references/security-gotchas/two-tier-ip-trust-model.md` |
-| Sanitizing a `returnTo`/`next`/`redirect` query param; an origin-only check still allows a path that normalizes to `//host` | `references/security-gotchas/return-to-open-redirect.md` |
+| CSP-blocked inline script; `returnTo` open redirect via `//host`; filesystem path traversal/symlink escape | `references/security-gotchas/security-checks.md` |
 | Fixing an IDOR by scoping reads, when a write path SETs the owner column or the row id comes from client input | `references/security-gotchas/idor-scope-write-bypass.md` |
-| Restricting filesystem access to a project root; reviewing `path.resolve(x, y).startsWith(x)` or symlink escapes | `references/security-gotchas/path-traversal-guard.md` |
-| An inline `<script>` is blocked by CSP, or a `clientEntry` loses early clicks to the async `import()` gap | `references/security-gotchas/csp-inline-scripts.md` |
 | Adding a Bearer-token JSON API alongside session-authenticated routes — reuse the backend logic instead of duplicating it | `references/security-gotchas/token-json-api-alongside-session.md` |
 
 ### Core Rules
@@ -292,23 +290,16 @@ This skill is the **index** for request-handling security deltas. For the framew
 - Split IP resolution in two: `connectionIp()` (trusted — the `X-Client-Ip` header stamped by `app/utils/server-handler.ts` from the TCP socket) for **security** decisions (localhost guards, login rate limits, admin allowlists), and `sourceIp()` (untrusted fallback chain `X-Client-Ip` → `Cf-Connecting-Ip` → `X-Forwarded-For` → `X-Real-Ip`) for **logging/audit/analytics only**. `X-Forwarded-For` and `X-Real-Ip` are client-spoofable (e.g. `X-Forwarded-For: 127.0.0.1` passing a localhost guard).
 - `X-Client-Ip` is trustworthy **only with `trustProxy: false`**: `trustProxy: true` derives `client.address` from spoofable forwarded headers and re-enables the attack, unless a trusted reverse proxy strips/rewrites them. Always `set()` (not append) the header so a client cannot smuggle its own. Rate-limit on the socket tier; admin-only agent endpoints should skip IP and key on `auth.identity.id` with `perUser: true`.
 
-**`returnTo` open redirect (`references/security-gotchas/return-to-open-redirect.md`)**
+**Security checks (`references/security-gotchas/security-checks.md`)**
 
-- An origin-only sanitizer still passes a same-origin value whose **pathname** starts with `//`: `new URL('//remix.local//evil.com', 'https://remix.local')` has origin `https://remix.local` but pathname `//evil.com`, and `Location: //evil.com` navigates to `evil.com` (protocol-relative). Reject unless the input `startsWith('/')`, then check **both** `url.origin !== baseURL` **and** `url.pathname.startsWith('//')`, and return `pathname + search + hash`. Upstream fixed the same class in `@remix-run/auth` `sanitizeReturnTo` (PR #11857); URL parsing already normalizes the backslash variant `/\evil.com` off-origin.
+- **`returnTo` open redirect**: an origin-only sanitizer still passes a same-origin value whose **pathname** starts with `//`: `new URL('//remix.local//evil.com', 'https://remix.local')` has origin `https://remix.local` but pathname `//evil.com`, and `Location: //evil.com` navigates to `evil.com` (protocol-relative). Reject unless the input `startsWith('/')`, then check **both** `url.origin !== baseURL` **and** `url.pathname.startsWith('//')`, and return `pathname + search + hash`. Upstream fixed the same class in `@remix-run/auth` `sanitizeReturnTo` (PR #11857); URL parsing already normalizes the backslash variant `/\evil.com` off-origin.
+- **Path traversal**: `path.resolve(root, userPath).startsWith(root)` silently passes sibling directories sharing the root's prefix (`/home/project/my-app-leaks/.env` starts with `/home/project/my-app`), and `path.resolve` does not resolve symlinks. Use `path.relative(projectRoot, resolved)` and reject when `rel.startsWith('..') || path.isAbsolute(rel)`; call `realpathSync(process.cwd())` **once** at module load, and for read operations re-resolve with `fs.realpath` and repeat the check (a `node_modules/.bin/pkg` symlink to `/etc` otherwise escapes). In review, flag any `path.resolve(x, y).startsWith(x)` as a probable vulnerability.
+- **CSP inline scripts**: a bare `<script>{code}</script>` is silently blocked by the `script-src 'self' 'nonce-...'` policy from `security-headers.ts`; render `<script nonce={getCspNonce()}>` so it executes synchronously on parse (no `clientEntry` `import()` timing gap that loses early clicks). The old escaping failure mode (`<`/`>` SSR-escaped) is fixed upstream (`escapeScriptTextContent()` only neutralizes `</script`/`<script`), so only the nonce requirement remains; prefer `clientEntry` if the handler needs dynamic props or re-rendering.
 
 **IDOR ownership-claim write bypass (`references/security-gotchas/idor-scope-write-bypass.md`)**
 
 - Scoping only READ queries does not fix an IDOR: an unscoped write that **SETs the owner column** (`UPDATE ... SET user_id = $1 WHERE id = $2`) lets any authenticated user claim any row by id, then read it through the newly-scoped path (e.g. `file=42` then `GET /resource/42`). Scope the claim to orphan-or-owned rows — `WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)` — and include the owner column in the WHERE of **every** DELETE/UPDATE path.
 - That scoped claim is still bypassable when the row `id` is client-supplied (a plain-text `file=<victimId>` claims any unclaimed upload). Carry a **server-generated** id through a request-scoped channel instead: an `AsyncLocalStorage` scope middleware **before** the body parser (`uploadClaimScope()`), `addUploadedId(id)` after `INSERT … RETURNING id` in the upload handler, and post-auth claim only `takeUploadedIds()` — never `context.formData.get('file')`. `addUploadedId` must throw when the scope is missing so a middleware reorder fails loudly.
-
-**Path-traversal guard (`references/security-gotchas/path-traversal-guard.md`)**
-
-- `path.resolve(root, userPath).startsWith(root)` silently passes sibling directories sharing the root's prefix (`/home/project/my-app-leaks/.env` starts with `/home/project/my-app`), and `path.resolve` does not resolve symlinks. Use `path.relative(projectRoot, resolved)` and reject when `rel.startsWith('..') || path.isAbsolute(rel)`; call `realpathSync(process.cwd())` **once** at module load, and for read operations re-resolve the target with `fs.realpath` and repeat the `path.relative` check (a `node_modules/.bin/pkg` symlink to `/etc` otherwise escapes). In review, flag any `path.resolve(x, y).startsWith(x)` as a probable vulnerability.
-
-**CSP inline scripts (`references/security-gotchas/csp-inline-scripts.md`)**
-
-- A bare `<script>{code}</script>` is silently blocked by the `script-src 'self' 'nonce-...'` policy from `security-headers.ts`; render `<script nonce={getCspNonce()}>` so it executes synchronously on parse (no `clientEntry` `import()` timing gap that loses early clicks).
-- The separate "content escaping" failure mode (`<`/`>` in JS string literals SSR-escaped to `&lt;`/`&gt;`) is **fixed upstream** (commit `8ddca1f04`, `escapeScriptTextContent()` now preserves `<`/`>` and only escapes `</script`/`<script` sequences), so only the nonce requirement remains; prefer `clientEntry` if the handler needs dynamic props or re-rendering.
 
 **Token JSON API alongside session routes (`references/security-gotchas/token-json-api-alongside-session.md`)**
 

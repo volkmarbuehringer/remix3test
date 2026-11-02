@@ -81,7 +81,7 @@ let total = await countUploads(db, userId, filter) // uses whereStatement(userId
 - You're passing optional sort/filter params through layered functions and `tsc` complains under `exactOptionalPropertyTypes`.
 
 ## Related
-- `dynamic-sort-order-by.md` (this index) — the typed `db.findMany({ orderBy })` TS2322 counterpart (same whitelist discipline)
-- `array-in-clause.md` (this index) — `inList` / `= ANY($1)` multi-ID filter
+- `query-patterns.md` (this index) — the typed `db.findMany({ orderBy })` TS2322 counterpart (same whitelist discipline)
+- `query-patterns.md` (this index) — `inList` / `= ANY($1)` multi-ID filter
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas (`references/raw-sql-wire-honest-rows.md`)
 - `typescript-gotchas` (`references/exact-optional-property-types.md`) — the general `exactOptionalPropertyTypes` widening pattern

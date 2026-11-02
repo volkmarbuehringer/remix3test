@@ -1,0 +1,50 @@
+# JSX Attribute Conventions
+
+**Source:** consolidated from `remix3-svg-attributes`, `remix3-jsx-attribute-rename-blind-spot`
+
+**Validated:** 2026-10-22 against build `060b32a` / source `56f1fb6` (`remix` 3.0.0, `component` 1.0.0, `ui` 0.12.1).
+**Context:** Attributes in `remix/component` JSX — SVG naming and runtime-renamed `data-rmx-*` props.
+
+## SVG attributes use kebab-case
+
+React/Preact camelCase names (`strokeWidth`, `strokeLinecap`, `stopColor`) do not render: Remix 3's JSX runtime passes attributes through verbatim, and the SVG parser only recognizes lowercase kebab-case.
+
+```tsx
+// ❌ React convention — silently broken
+<svg strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <stop stopColor="#6366f1" />
+</svg>
+
+// ✅ Native SVG convention
+<svg stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <stop stop-color="#6366f1" />
+</svg>
+```
+
+Common renames: `strokeWidth`→`stroke-width`, `strokeLinecap`→`stroke-linecap`, `strokeLinejoin`→`stroke-linejoin`, `strokeMiterlimit`→`stroke-miterlimit`, `fillOpacity`→`fill-opacity`, `strokeOpacity`→`stroke-opacity`, `strokeDasharray`→`stroke-dasharray`, `stopColor`→`stop-color`, `stopOpacity`→`stop-opacity`, `clipRule`→`clip-rule`, `fillRule`→`fill-rule`.
+
+## Attribute renames are invisible to typecheck and render tests
+
+`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/jsx.ts:17`), so every attribute is accepted on any intrinsic element. Consequences:
+
+- Typos, removed attributes, and renames compile cleanly.
+- Server-render assertions pass because they check what the component **emits**, not what the runtime **reads**.
+- Breakage surfaces only when the real browser runtime runs.
+
+Real case: the runtime renamed frame-navigation attributes from `rmx-*` to `data-rmx-*` (commit `0839bbf77`, beta.11). The app still emitted bare `rmx-*` in 129 places; typecheck and all tests passed while frame navigation was silently dead.
+
+When a runtime contract changes, verify at the runtime layer:
+
+1. **Grep the active installed package**, not the source or a stale `.pnpm` copy — resolve the one `remix` links:
+   ```bash
+   UI=$(dirname "$(node -e "console.log(require.resolve('@remix-run/component/package.json',{paths:[require.resolve('remix/package.json')]}))")")
+   rg -n "getAttribute\('data-rmx" "$UI/dist/runtime/navigation.js"
+   ```
+2. **Sweep for stale attributes** with a negative lookbehind so `data-rmx-*` is excluded:
+   ```bash
+   rg -n '(?<!data-)rmx-(target|src|document|history|reset-scroll|preserve-dom)' app/ -P
+   ```
+3. **Add a focused render test** asserting the new attribute name is emitted.
+4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
+
+Current reads (build `060b32a`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:631`/`:647` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-history` in `dist/runtime/navigation.js:488-516`, and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:35`.

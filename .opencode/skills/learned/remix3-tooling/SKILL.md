@@ -99,7 +99,7 @@ _(formerly `remix3-bun-runtime` — references live under `references/remix3-bun
 **Consolidated from:** `bun-run-pnpm-shim`
 
 **Extracted:** 2026-09-19
-**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (remix `3.0.0-rc.3`; `@remix-run/ui` 0.10.0; Bun 1.4.2). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/validation-and-result.md`.
+**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (remix `3.0.0-rc.3`; `@remix-run/ui` 0.10.0; Bun 1.4.2). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
 
 This skill is the **index** for running this Remix 3 + pnpm app under Bun. For the runtime APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -107,40 +107,19 @@ This skill is the **index** for running this Remix 3 + pnpm app under Bun. For t
 
 | Task involves... | Start with |
 | --- | --- |
-| `server.bun.ts`, sharing the router/DB pipeline, or `X-Client-Ip` from `requestIP()` | `references/remix3-bun-runtime/entrypoint-and-shared-handler.md` |
-| `test:bun`, `IS_BUN`, `--coverage` under Bun, or which parts of the suite change | `references/remix3-bun-runtime/test-runner-and-bun-awareness.md` |
-| `TypeError: Type error` from `addEventListener(..., { signal: handle.signal })` during SSR | `references/remix3-bun-runtime/ssr-signal-eventtarget.md` |
-| Uploads rejected under Bun only (`Dateityp nicht erlaubt.`); `File.type` gains `;charset=utf-8` | `references/remix3-bun-runtime/file-mime-charset.md` |
-| `@types/bun` breaking either program (`Property 'preconnect'` in the main program, `Property 'image'` in the Bun program) | `references/remix3-bun-runtime/typescript-types-scoping.md` |
-| `bun run <bin>` silently executing Node in a pnpm project | `references/remix3-bun-runtime/pnpm-bin-shim.md` |
-| Re-validating the version-pinned claims, or the suite's Bun pass/fail result | `references/remix3-bun-runtime/validation-and-result.md` |
+| Any Bun runtime divergence: `server.bun.ts`/IP, `test:bun`, SSR `handle.signal`, upload MIME, `@types/bun` programs, `bun run <bin>` | `references/remix3-bun-runtime/gotchas.md` |
 
 ### Core Rules
 
-**Entrypoint (`references/remix3-bun-runtime/entrypoint-and-shared-handler.md`)**
+**Bun runtime (`references/remix3-bun-runtime/gotchas.md`)**
 
-- `server.bun.ts` must reuse `server.ts`'s router/DB bootstrap through one shared `createServerHandler(router)`; the only Bun-specific part is reading the trusted socket address from `runtime.requestIP(request)?.address` in `fetch(request, runtime)`. Bun auto-loads `.env` (no `--env-file`).
-
-**Test runner (`references/remix3-bun-runtime/test-runner-and-bun-awareness.md`)**
-
-- `"test:bun": "NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test"` — plain `bun run remix test` runs Node through the pnpm shim. `@remix-run/test` is Bun-aware (`IS_BUN`): native `Glob` discovery, skips `@remix-run/node-tsx`, and skips the Node V8 coverage loader, so `--coverage` is not meaningful under Bun.
-
-**SSR signal (`references/remix3-bun-runtime/ssr-signal-eventtarget.md`)**
-
-- `handle.signal` is a frozen plain object during SSR, not an `AbortSignal`; Bun's `EventTarget` throws `TypeError: Type error` on `{ signal: handle.signal }`. Guard any registration that can run during SSR with `typeof document !== 'undefined'`.
-
-**File MIME (`references/remix3-bun-runtime/file-mime-charset.md`)**
-
-- Bun's `File.type` appends `;charset=utf-8`, so exact-match allowlists reject valid uploads. Normalize through `ContentType.from(mime).mediaType?.toLowerCase()`.
-
-**TypeScript types (`references/remix3-bun-runtime/typescript-types-scoping.md`)**
-
-- Never add `"bun"` to the main `tsconfig` `types` (Bun's `fetch` requires `preconnect`, breaking `fetch` mocks). Use `tsconfig.bun.json` with `files: ["server.bun.ts"]` and exclude `server.bun.ts` from the base.
-- Bun's global `File` adds `image()`, so the future `FileUpload` is not structurally assignable to `FileLike` in `tsconfig.bun.json` even though the main program accepts it. Cast at the `createFsFileStorage().set()` boundary (`as unknown as File`), not by widening the vendor type.
-
-**pnpm bin shim (`references/remix3-bun-runtime/pnpm-bin-shim.md`)**
-
-- `bun run <bin>` resolves through `node_modules/.bin/<bin>`, a `/bin/sh` shim ending in `exec node …`, so it silently runs Node. Force Bun with `bun --bun run <bin>`, or invoke the package's real dist entry.
+- `server.bun.ts` must reuse `server.ts`'s router/DB bootstrap through one shared `createServerHandler(router)`; the only Bun-specific part is reading the trusted socket address from `runtime.requestIP(request)?.address`. Bun auto-loads `.env`.
+- `"test:bun": "NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test"` — plain `bun run remix test` runs Node through the pnpm shim. `@remix-run/test` is Bun-aware (`IS_BUN`): native `Glob`, skips `node-tsx`, and skips the V8 coverage loader, so `--coverage` is not meaningful.
+- `handle.signal` is a frozen plain object during SSR, not an `AbortSignal`; Bun throws `TypeError: Type error` on `{ signal: handle.signal }`. Guard SSR-reachable registrations with `typeof document !== 'undefined'`.
+- Bun's `File.type` appends `;charset=utf-8`, so normalize through `ContentType.from(mime).mediaType?.toLowerCase()`.
+- Never add `"bun"` to the main `tsconfig` `types` (Bun's `fetch` requires `preconnect`). Use `tsconfig.bun.json` with `files: ["server.bun.ts"]` and exclude it from the base.
+- Bun's global `File` adds `image()`, so `FileUpload` is not assignable to `FileLike` in the Bun program; cast at the `createFsFileStorage().set()` boundary (`as unknown as File`).
+- `bun run <bin>` resolves through a `/bin/sh` shim ending in `exec node …`, so it silently runs Node. Force Bun with `bun --bun run <bin>` or invoke the dist entry.
 
 ### When to Use
 
@@ -177,13 +156,11 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | A `*.test.browser.tsx` must drive a `clientEntry`'s `reloadStart`/`reloadComplete` behavior (loading/pending state, pre-swap flush), and the mounted runtime frame cannot be dispatched on | `references/remix3-testing/frame-event-cliententry-tests.md` |
 | Parallel tests interfere despite ephemeral per-run DBs; a test passes in isolation but fails in the full suite; a shared-DB test fails even alone (`LIMIT 1` without `ORDER BY`, seed rows relative to today); another suite's unscoped `afterEach` `DELETE` removed your live fixture; a background retention/cleanup timer swept the old row your test just inserted | `references/remix3-testing/parallel-test-interference.md` |
 | A Playwright/browser-test harness failure: `networkidle` on SSE, unforgeable `window.location`, native `<select>` change, existence-only `waitFor`, external HTTP mock port, reproduction engine | `references/remix3-testing/test-harness-gotchas.md` |
-| A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/remix3-testing/html-amp-escaped-assertions.md` |
+| Rendered-HTML `&amp;` assertion failures, a crash card hiding the stack, or ad-hoc verification against a destructive dev-server control | `references/remix3-testing/testing-hygiene.md` |
 | A rendered page passes the JSX AST rule but you need to catch invalid content models (`<a><button>`, `<h2>` in `<span>`, `<style>` in `<div>`) in dynamically composed HTML or raw `remix/html-template` output | `references/remix3-testing/rendered-html-conformance-html-validate.md` |
-| You are ad-hoc verifying a UI change against the running dev server and the path includes a destructive control (delete/clear, or arm-then-confirm) | `references/remix3-testing/ad-hoc-verification-safety.md` |
 | A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/remix3-testing/state-isolation-and-e2e-serve.md` |
 | A hover/focus-revealed control behaves differently with a real pointer vs programmatic `.click()`/`.focus()`; you need to test `:hover`/`:focus-visible`, transient opacity, or focus retention across a reorder | `references/remix3-testing/input-modality-and-hover-testing.md` |
 | An e2e types into an input right after `goto` and the field settles missing leading keystrokes (passes idle/alone, fails under suite load); you need baseline attribution for a flaky e2e | `references/remix3-testing/keystroke-loss-hydration-race.md` |
-| A generic crash card hides the real exception stack from `pageerror`/console | `references/remix3-testing/crash-card-swallowed-stack.md` |
 
 ### Core Rules
 
@@ -223,7 +200,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Bind the mock with `node:http` `createServer` on **port 0** (OS-assigned) to avoid `EADDRINUSE` with a real local service, and read the target URL through a **function** evaluated at request time (`function externalUrl() { return process.env.EXTERNAL_URL ?? ... }`) — a module-level `const` is evaluated at import, before `before()` can override it, and the test then silently skips the external-forwarding path.
 - In `before()` set `process.env.EXTERNAL_URL` from `mockServer.address()` once listening; in `after()` call `mockServer?.close()` and `delete process.env.EXTERNAL_URL` so other tests are unaffected. Verify the forward actually happened via a side effect (e.g. the stored response status in the DB), not just a 2xx.
 
-**HTML-escaped assertions (`references/remix3-testing/html-amp-escaped-assertions.md`)**
+**HTML-escaped assertions (`references/remix3-testing/testing-hygiene.md`)**
 
 - Rendered HTML serializes `&` in attribute values as `&amp;` (and `"` as `&quot;`), and `response.text()` returns that serialized HTML with entities intact — so a string assertion written with the raw `&` never matches and fails with no hint of the cause. Match the escaped form in `response.text()`, including in absence assertions.
 - Prefer asserting on a redirect `Location` header when possible: headers are not HTML-escaped and keep the raw `&`.
@@ -239,11 +216,11 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - E2E uses `t.serve(await createTestServer((request) => router.fetch(request)))` (arrow adapter, not `createTestServer(router.fetch)`); `t.serve` closes the server/page, but DB/file fixtures created outside it need their own cleanup, and Firefox-broken assertions are scoped with `isFirefox(page)` rather than skipped.
 - The ephemeral DB is per-run, not per-test: parallel workers accumulate rows, so a test that paginates still owns its cleanup (see `parallel-test-interference.md`).
 
-**Ad-hoc verification safety (`references/remix3-testing/ad-hoc-verification-safety.md`)**
+**Ad-hoc verification safety (`references/remix3-testing/testing-hygiene.md`)**
 
 - **Never verify a destructive control against the running dev server.** It shares the persistent `DATABASE_URL`, and a two-step arm/confirm button (e.g. `/lists` → `✕ Alle löschen`, label flips to "Wirklich alle löschen?") executes on the second click. Prove the behavior non-destructively (outside click / `Escape` / assert `details[open]`), or move the path into a seeded `*.test.e2e.ts` that deletes only its own rows.
 
-**Playwright / browser-run debugging (`references/remix3-testing/test-harness-gotchas.md`, `references/remix3-testing/crash-card-swallowed-stack.md`)**
+**Playwright / browser-run debugging (`references/remix3-testing/test-harness-gotchas.md`, `references/remix3-testing/testing-hygiene.md`)**
 
 - **Native `<select>` change events are unreliable**: `selectOption` fires the remix `on('change')` handler in Chromium only; a synthetic `dispatchEvent(new Event('change'))` does not reach it on selects even in Chromium (it does on checkboxes — host element type matters). Retry the interaction until the DOM reflects the change (hydration-gap no-ops) and scope Firefox out with `isFirefox(page)` + a smoke check (`references/remix3-testing/test-harness-gotchas.md`).
 - **Hydration swallows early keystrokes** in e2e typing: the first client flush lands before `on('input')` binds, so app state loses leading characters and no `waitFor` widening can converge. Settle-check `inputValue()` after typing and re-type with **real keystrokes** (bounded ~3 rounds) — never `fill()`, which fixes the DOM without dirtying the editor. Attribute flakiness to baseline first (`git worktree add … HEAD~n` + symlinked `node_modules` + copied `.env`, run the file 3× there). See `references/remix3-testing/keystroke-loss-hydration-race.md`.

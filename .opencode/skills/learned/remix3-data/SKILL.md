@@ -33,15 +33,15 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| Querying by multiple IDs — `inList()` (and its input-order caveat) | `references/remix3-data-table/array-in-clause.md` |
-| `db.findMany({ orderBy })` rejecting a dynamic sort column (TS2322 OrderByTuple) | `references/remix3-data-table/dynamic-sort-order-by.md` |
+| Querying by multiple IDs (`inList()`), a dynamic `orderBy` column (TS2322), or `db.count` rejecting a shared `WhereInput` (TS2345) | `references/remix3-data-table/query-patterns.md` |
 | Raw-SQL grid (`sql`/`rawSql`/`db.exec`) needing safe sort + filter columns | `references/remix3-data-table/raw-sql-sort-filter.md` |
 | `TableRow<typeof table>` won't assign to a UI row type (unknown json/bigint columns) | `references/remix3-data-table/row-adapter.md` |
-| Counting filtered rows for a grid total, or a TS2345 from `db.count` rejecting a shared `WhereInput` predicate | `references/remix3-data-table/count-with-typed-where.md` |
 | Insert/update needs the written row back, or an optimistic-concurrency update must detect a zero-row match | `references/remix3-data-table/write-returning.md` |
 | A `validate`/`beforeWrite` hook silently passes, a one-sided paired-column update throws `DataTableConstraintError`, or required fields fail every partial `db.update` | `references/remix3-data-table/partial-writes-and-hooks.md` |
 
 ### Core Rules
+
+**Query patterns (`references/remix3-data-table/query-patterns.md`)**
 
 - **Multi-ID filter**: `where: inList('id', ids)` (vendor operator). Fall back to `db.exec` + `= ANY($1)` + `array_position` only when the input-ID order must be preserved.
 - **Dynamic sort column**: narrow to a `SORTABLE_FIELDS` union and cast (`as ListSortColumn`, not `as any`); add a stable `['id','desc']` tiebreaker.

@@ -81,7 +81,7 @@ if (context.request.headers.get('X-Remix-Frame') === 'true') {
 - Server test via `router.fetch(url, { headers: { Cookie } })`: assert `Content-Type: application/pdf`, a `Content-Disposition` filename, and `String.fromCharCode(...bytes.subarray(0, 4)) === '%PDF'`.
 - Assert the page's link carries the active params: `data-rmx-document`, `/report1/pdf?`, `month=3`, `filter=Admin`.
 - Assert the shim: framed request → 302 whose `Location` carries `frameDownload=1`; the marked framed request → 200 HTML (not `%PDF`).
-- Browser/client behaviors are a separate skill: `remix3-testing` (`references/test-harness-gotchas.md`, `references/crash-card-swallowed-stack.md`).
+- Browser/client behaviors are a separate skill: `remix3-testing` (`references/test-harness-gotchas.md`, `references/testing-hygiene.md`).
 
 ## When to Use
 

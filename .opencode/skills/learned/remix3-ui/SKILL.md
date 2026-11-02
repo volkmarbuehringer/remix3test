@@ -285,30 +285,21 @@ This skill is the **pointer/delta index** for guide `node_modules/remix/guides/0
 
 | Task involves... | Start with |
 | --- | --- |
-| A node enters/exits, toggles presence, or a keyed list reorders/expands | `references/remix3-animation/presence-and-layout.md` |
-| Choosing `spring()` vs `spring.transition()` vs `tween()`; imperatively animating a node; interruption | `references/remix3-animation/motion-values.md` |
-| `prefers-reduced-motion`, gating animation before JS loads, or the app's motion helper — including WAAPI (`element.animate()`) and `transitionend` teardown leaks | `references/remix3-animation/reduced-motion.md` |
+| Motion values, entrance/exit/layout animation, reduced-motion gating, or WAAPI/`transitionend` teardown | `references/remix3-animation/gotchas.md` |
 
 ### Core Rules
 
-**Presence and layout (`references/remix3-animation/presence-and-layout.md`)**
+**Animation (`references/remix3-animation/gotchas.md`)**
 
-- `animateEntrance(...)` runs on insert; `animateExit(...)` keeps a removed node in the DOM until its exit finishes. Both are mixins, composed into a `mix` array with `css()`/`on()`/`ref()`.
+- `animateEntrance(...)` runs on insert; `animateExit(...)` keeps a removed node in the DOM until its exit finishes. Both are mixins, composed with `css()`/`on()`/`ref()`.
 - Pass `true`/`false` to enable/disable without reshaping the array; `animateEntrance({ initial: false })` skips the first insertion for a key; a keyed element that returns before its exit ends is reclaimed and animated back.
-- Stable `key`s are required for enter/exit/replace and for `animateLayout(...)` in lists. `animateLayout` measures before/after and animates the delta; size projects by default, `size: false` animates position only.
-- The app already gates presence motion: `app/utils/motion.ts` exports `entrance(config)` and `exit(config)` returning `false` under reduced motion; wrap as `animateEntrance(entrance({...}))` / `animateExit(exit({...}))`. Reduced motion is otherwise handled globally by the shell rule in `app/ui/document.tsx` — but WAAPI (`element.animate()`) is *not* covered and must check `prefersReducedMotion()`. Exit-animation teardowns are created asynchronously: in browser tests, poll for DOM removal rather than awaiting one `getAnimations()` snapshot.
-
-**Motion values (`references/remix3-animation/motion-values.md`)**
-
+- Stable `key`s are required for enter/exit/replace and for `animateLayout(...)`. `animateLayout` measures before/after and animates the delta; `size: false` animates position only.
+- `app/utils/motion.ts` exports `entrance(config)`/`exit(config)` returning `false` under reduced motion; wrap as `animateEntrance(entrance({...}))` / `animateExit(exit({...}))`. The shell rule in `app/ui/document.tsx` handles CSS globally, but WAAPI (`element.animate()`) is not covered and must check `prefersReducedMotion()`.
 - `spring()` returns an iterator decorated for CSS and Web Animations: stringify it in CSS, spread it into options (`{ ...spring('snappy') }`), or iterate it. `spring.transition(property, name)` builds a CSS transition value.
 - `tween({from,to,duration,curve})` + `next(ts) -> { value, done }` and `easings` are for canvas, counters, and non-CSS values; prefer CSS/WAAPI for ordinary UI.
 - Interruption is the default: handler signals abort, mixins cancel/replace in-flight work, and imperative code keeps the current `Animation` in setup scope and `cancel()`s it before restarting.
-
-**Reduced motion (`references/remix3-animation/reduced-motion.md`)**
-
-- Respect it at the CSS boundary first (`@media (prefers-reduced-motion: reduce)` inside `css()`), because it works before JS and for server-rendered frames; then check `matchMedia` for JS-driven motion.
-- The shell's CSS guard does **not** reach `element.animate()`: gate every imperative animation on `prefersReducedMotion()` yourself. The same `transition: none !important` also beats inline `element.style.transition`, so `transitionend` never fires under reduced motion — pair every `transitionend` teardown with a timeout fallback (`app/ui/toast.ts`).
-- Exit teardowns are created asynchronously, so browser tests must poll for DOM removal instead of awaiting one `getAnimations()` snapshot (`references/remix3-animation/presence-and-layout.md`).
+- The shell's `transition: none !important` beats inline `element.style.transition`, so `transitionend` never fires under reduced motion — pair every `transitionend` teardown with a timeout fallback (`app/ui/toast.ts`).
+- Exit teardowns are created asynchronously; browser tests must poll for DOM removal instead of awaiting one `getAnimations()` snapshot.
 - Reduced motion is not "no feedback" — prefer shorter fades, instant layout, or non-motion state changes.
 
 ### When to Use
@@ -528,8 +519,7 @@ This skill is the **index** for the consolidated JSX attribute conventions. Read
 
 | Task involves... | Start with |
 | --- | --- |
-| Writing inline SVG in Remix 3 — React camelCase attributes not rendering | `references/remix3-jsx-attribute-conventions/svg-attributes-kebab-case.md` |
-| An `rmx-*` runtime attribute appears dead, or an upstream runtime renames/removes an attribute | `references/remix3-jsx-attribute-conventions/attribute-renames-runtime-verification.md` |
+| Writing inline SVG (camelCase attributes do not render), or an `rmx-*` runtime attribute appears dead after a rename | `references/remix3-jsx-attribute-conventions/jsx-attributes.md` |
 
 ### Core Rules
 
@@ -538,8 +528,8 @@ Remix 3 uses its own JSX runtime (`remix/component`, `jsxImportSource: "remix/co
 1. SVG presentation attributes must be written in **kebab-case** (the SVG spec's lowercase form), not React camelCase.
 2. Because JSX props are typed as `Record<string, any>`, attribute renames/typos **compile without error** — verify runtime attribute contracts at the runtime layer, not via `tsc` or render assertions.
 
-- **Kebab-case SVG**: `stroke-width`, `stroke-linecap`, `stroke-linejoin`, `stop-color`, `fill-rule`, etc. — see the full mapping in `references/remix3-jsx-attribute-conventions/svg-attributes-kebab-case.md`.
-- **`ElementProps = Record<string, any>`**: strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX, so renames and typos pass typecheck; server-render tests pass too because they assert what a component *emits*, not what the runtime *reads*. See `references/remix3-jsx-attribute-conventions/attribute-renames-runtime-verification.md`.
+- **Kebab-case SVG**: `stroke-width`, `stroke-linecap`, `stroke-linejoin`, `stop-color`, `fill-rule`, etc. — see the full mapping in `references/remix3-jsx-attribute-conventions/jsx-attributes.md`.
+- **`ElementProps = Record<string, any>`**: strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX, so renames and typos pass typecheck; server-render tests pass too because they assert what a component *emits*, not what the runtime *reads*. See `references/remix3-jsx-attribute-conventions/jsx-attributes.md`.
 - **Verify at the runtime layer**: grep the installed package for the actual attribute, sweep the app with a negative-lookbehind regex, add a render test for the new name, and exercise the real flow in a browser.
 
 ### When to Use
