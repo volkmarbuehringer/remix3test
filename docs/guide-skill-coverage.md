@@ -42,7 +42,7 @@
 
 ## Learned skills not tied to a guide chapter
 
-- `remix3-tooling` (§ Build & Tooling) → `references/remix3-build-and-tooling/guide-chapter-audit.md` — the chapter re-audit workflow (build diff, stream probes, anchor re-pinning, registry update); extracted 2026-10-31 from the §06 audit.
+- `remix3-tooling` (§ Build & Tooling) → `docs/guide-chapter-audit.md` — the chapter re-audit workflow (build diff, stream probes, anchor re-pinning, registry update); extracted 2026-10-31 from the §06 audit.
 - `remix3-ui` (§ Client Entries) → `references/remix3-client-entries/client-entry-decomposition.md` — decomposing a large `clientEntry` / `.browser.tsx` into styles/state/API/drag/view modules. A cross-cutting practice for chapters 04 (rendering-ui) and 05 (interactivity), now contained by the chapter-05 owner skill.
 - `remix3-ui` (§ Client Entries) → `references/remix3-client-entries/client-entry-factory-extraction.md` — deduplicating several similar `clientEntry`s behind one shared factory while keeping `clientEntry(import.meta.url + '#Name', …)` at each call site so hydration still resolves. Cross-cutting for chapters 04 (rendering-ui) and 05 (interactivity).
 - `remix3-ui` (§ Client Entries) → `references/remix3-client-entries/browser-only-behavior-mixin.md` — converting per-element `ref()` event wiring into one delegated browser-only behavior mixin (`createMixin(type, { ssr: false })`), with the delegation trap (`e.currentTarget` becomes the container, row-scoped handlers take the row explicitly) and the exported wiring function the browser test drives. First application: `app/actions/lists/public/lists-drag-mixin.ts`. Cross-cutting for chapters 04 (rendering-ui) and 05 (interactivity).

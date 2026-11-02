@@ -15,12 +15,12 @@ typecheck/lint/format/tests. Use `--dry-run`, `--no-tests`, or `--allow-dirty`.
 
 ## `install` has no cache-bypass flag
 
-| flag | actual effect |
-| --- | --- |
-| `--force` | refetches store-modified packages and can recreate the lockfile, but still prepares the git-hosted monorepo per `path:` entry |
-| `--store-dir <empty>` | true cold cache (re-downloads everything); deleting `.pnpm-store/` is equivalent |
-| `--prefer-offline` / `--offline` | the opposite: prefer / require the cache |
-| `--ignore-scripts` | skips lifecycle scripts, **not** the git prepare/extract |
+| flag                             | actual effect                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--force`                        | refetches store-modified packages and can recreate the lockfile, but still prepares the git-hosted monorepo per `path:` entry |
+| `--store-dir <empty>`            | true cold cache (re-downloads everything); deleting `.pnpm-store/` is equivalent                                              |
+| `--prefer-offline` / `--offline` | the opposite: prefer / require the cache                                                                                      |
+| `--ignore-scripts`               | skips lifecycle scripts, **not** the git prepare/extract                                                                      |
 
 `--frozen-store` is for a read-only store and is incompatible with `--force`.
 
@@ -64,7 +64,7 @@ the generated tarball's own dependencies on the branch: they are still
 `remix-run/remix#preview/main&path:packages/…`. A lockless install can therefore
 resolve the top-level SHA you wrote while pulling a newer tip for the transitive
 `@remix-run/*` set — the "Branch-pin transitive race" note in
-`upstream-dependency-analysis.md`. The unified
+`../.opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md`. The unified
 lockfile is the only artifact that pins all 268 refs together; do not delete it.
 
 ## A frozen install does not prune old build dirs

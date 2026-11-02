@@ -3,23 +3,13 @@
 **Source:** `remix3-css-hover-reveal`
 
 **Extracted:** 2026-08-24
-**Revalidated:** 2026-10-26 against the installed `@remix-run/component@1.1.0` (build `8ae2f755`, shipped in `remix` 3.1.0) — **the old "no rule emitted" behavior is fixed; the `:focus-within` recommendation was replaced after a reorder bug.**
+**Revalidated:** 2026-10-26 against the installed `@remix-run/component@1.1.0` (build `8ae2f755`, shipped in `remix` 3.1.0).
 
-## Status: the CSS selector works now
+## Current behavior
 
-On current builds `css()` emits nested parent→child rules verbatim and the browser applies them inside the adopted `@layer rmx.*` stylesheet. Verified in Chromium and Firefox with an adopted stylesheet and the runtime's `@layer` wrapper:
+`css()` emits nested parent→child rules verbatim and the browser applies them inside the adopted `@layer rmx.*` stylesheet. `&:hover > *`, `&:hover > [data-row-action]`, and `&:hover [data-row-action]` all match (verified in Chromium + Firefox); complex child selectors (`& > form > button`, `& > a`) also work, so per-button group styling can live on the container.
 
-```ts
-css({
-  '&:hover > *': { opacity: '1' },
-  '&:hover > [data-row-action]': { opacity: '1' },
-  '&:hover [data-row-action]': { opacity: '1' },
-})
-```
-
-All three now match. Complex child selectors (`& > form > button`, `& > a`) also work, so per-button group styling can live on the container.
-
-**Legacy note (pre-fix builds only):** the original delta reported that these selectors emitted nothing, while `:hover` on the element itself and non-hover child combinators worked; the fallback was a `clientEntry` toggling inline `style.opacity`. Do not apply that fallback on current builds.
+The pre-fix fallback — a `clientEntry` toggling inline `style.opacity` because these selectors emitted nothing — is gone. Do not reintroduce it on current builds.
 
 ## Preferred solution
 

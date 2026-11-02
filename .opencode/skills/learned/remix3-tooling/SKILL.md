@@ -35,8 +35,8 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
 | A branch-pinned (`github:…#branch`) dependency may have upstream changes, you must judge whether to update, or you are pinning release-day versions across the post-#11948 split lines (currently `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
-| Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `references/remix3-build-and-tooling/guide-chapter-audit.md` |
-| `pnpm update`/`install` on the branch-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, `ERR_PNPM_PREPARE_PACKAGE`, codeload 429/retry storms), or you need to bump an unrelated package without re-preparing the monorepo tarball | `references/remix3-build-and-tooling/pnpm-git-hosted-installs.md` |
+| Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `docs/guide-chapter-audit.md` |
+| `pnpm update`/`install` on the branch-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, `ERR_PNPM_PREPARE_PACKAGE`, codeload 429/retry storms), or you need to bump an unrelated package without re-preparing the monorepo tarball | `docs/pnpm-git-hosted-installs.md` |
 
 ### Core Rules
 
@@ -65,9 +65,9 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 **Upstream dependency analysis (`references/remix3-build-and-tooling/upstream-dependency-analysis.md`)**
 
-- For a `github:owner/repo#branch&path:subdir` pin, read the resolved commit from `pnpm-lock.yaml`, `git log <pinned>..origin/<branch>` and `git diff --stat` the package, grep the codebase for each changed API, then run `typecheck` + tests. Focus on new opaque types, changed defaults, and new runtime validation that can turn an unchecked `as` cast into a 500 (`dev-gotchas § TypeScript` → `references/typescript-gotchas/vendor-validator-cast-audit.md`).
+- For a `github:owner/repo#branch&path:subdir` pin, read the resolved commit from `pnpm-lock.yaml`, `git log <pinned>..origin/<branch>` and `git diff --stat` the package, grep the codebase for each changed API, then run `typecheck` + tests. Focus on new opaque types, changed defaults, and new runtime validation that can turn an unchecked `as` cast into a 500 (`dev-gotchas § TypeScript` → `references/typescript-gotchas/vendor-validator-cast-audit.md`). Per-bump records: `docs/remix-pin-history.md`.
 
-**Guide chapter audits (`references/remix3-build-and-tooling/guide-chapter-audit.md`)**
+**Guide chapter audits (`docs/guide-chapter-audit.md`)**
 
 - Diff the chapter between the previously pinned and current installs first; no diff means the drift is app-side. Verify each claim in code, probe streaming order with a throwaway router test (a `readUntil` + `assert.includes` test proves nothing), re-pin the owner skill's line anchors and behavioral claims, then record fixes in `docs/guide-skill-coverage.md` and run the full suites — middleware/shell changes touch every page.
 

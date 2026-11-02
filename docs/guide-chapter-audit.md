@@ -43,7 +43,7 @@ encoding, the route that serves both document and fragment. Keep a section → v
 
 ### 3. Probe runtime behavior; do not trust test names
 
-Run a throwaway `tmp/*.test.ts` against the real test router and record *cumulative offsets*, so
+Run a throwaway `tmp/*.test.ts` against the real test router and record _cumulative offsets_, so
 ordering is observable:
 
 ```ts
@@ -75,7 +75,7 @@ of deleting the delta.
 
 ### 5. Fix, then record in the registry
 
-Land fixes with regression tests: middleware-order behavior needs a *server* test through the real
+Land fixes with regression tests: middleware-order behavior needs a _server_ test through the real
 router stack; resolver/HTTP policy needs a browser test. Then update
 `docs/guide-skill-coverage.md` — a dated paragraph in the intro plus the chapter row's
 fix/deviation tail. Vendor guides stay canonical; record pointers and deltas, never the guide's API.

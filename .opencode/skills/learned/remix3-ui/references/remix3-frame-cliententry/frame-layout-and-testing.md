@@ -161,14 +161,9 @@ function restoreFilterValue(url: string) {
 
 For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern after `frame.reload()`.
 
-### Corrected mechanism (this fork) + the simpler clear/reset fix
+### Why the input keeps its value
 
-`diff-dom.ts` is not obsolete in this fork: `frame.ts` still installs frame server HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders of that content go through `@remix-run/component` `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (verified on `remix` 3.0.0-rc.3, installable build `3e516fcc2`, source `9ed3a5c`):
-
-- `diffVNodes(curr, next)` reuses an existing host DOM node whenever `curr.kind === next.kind && curr.type === next.type` — it **ignores `key`**, so putting `key={...}` on an `<input>` to force a remount does **not** work.
-- `patchHostProps` skips a prop when `prevValue === nextValue` and only sets the `defaultValue` **property** (not the live `.value`) on change, so the displayed value isn't restored either.
-
-**Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a *different* value (e.g. clearing a filter to `''`), the input reuses its DOM node and keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
+`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (verified on build `3e516fcc2`): `diffVNodes` reuses a host node whenever `kind` and `type` match and **ignores `key`**, and `patchHostProps` only sets the `defaultValue` *property* when the prop changes. **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
 
 **Simplest reliable fix — full-page navigation for clear/reset.** Instead of a client-side restore, make "clear"/"reset" a plain `<a href>` with **no `data-rmx-target`** (as `/admin/clients` already does). The browser does a full document load, so every input mounts fresh with the server's new `defaultValue`:
 

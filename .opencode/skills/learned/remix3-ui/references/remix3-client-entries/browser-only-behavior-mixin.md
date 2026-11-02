@@ -3,8 +3,7 @@
 **Source:** session 2026-10-16 (lists drag-and-drop extraction, item #4 of the
 interactivity track). Commit `868aa6c`. Verified against remix build
 `7f900151` (`@remix-run/component` 1.0.0, where #12019 "browser-only mixins"
-landed the `MixinOptions` argument — see `remix3-build-and-tooling` →
-`references/upstream-dependency-analysis.md`).
+landed the `MixinOptions` argument — see `docs/remix-pin-history.md`).
 
 **Context:** `app/actions/lists/public/lists-view.tsx` wired drag-and-drop with
 two kinds of `ref()` mixins: per-row listeners (dragstart/dragover/drop/dragend

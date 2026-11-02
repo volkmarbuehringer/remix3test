@@ -99,7 +99,7 @@ Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event whi
 
 ## Client resolveFrame Signature (ResolveFrameOptions)
 
-**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails. Because the app **shadows the runtime's `defaultResolveFrame`**, upstream changes to the default's request encoding do not reach `app/assets/frame-response.browser.tsx`; re-sync it after every pin bump (see `remix3-build-and-tooling` → `references/upstream-dependency-analysis.md`).
+**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails. Because the app **shadows the runtime's `defaultResolveFrame`**, upstream changes to the default's request encoding do not reach `app/assets/frame-response.browser.tsx`; re-sync it after every pin bump (see `docs/remix-pin-history.md`).
 
 Use the options-object signature and build the request body from `options.formData` yourself. As of #11938 (installable build `044d8372`) the runtime default is: GET/HEAD send no body, POST defaults to `application/x-www-form-urlencoded`, `multipart/form-data` stays raw `FormData`, `text/plain` becomes a text blob, field names are normalized, and the matching `Content-Type` is set explicitly:
 
