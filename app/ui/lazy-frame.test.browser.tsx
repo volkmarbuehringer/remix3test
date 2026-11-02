@@ -1,10 +1,10 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { css, run, type AppRuntime } from 'remix/component'
+import { css, run, type AppRuntime, type RemixNode } from 'remix/component'
 import { renderToString } from 'remix/component/server'
 import { render, type RenderResult } from 'remix/component/test'
 
-import { LazyFrame } from './lazy-frame.browser.tsx'
+import { LazyFrame, resetLazyFrameObserverPools } from './lazy-frame.browser.tsx'
 
 // ---------------------------------------------------------------------------
 // LazyFrame deferral mechanism (browser suite).
@@ -24,11 +24,6 @@ type ObserverCallback = (entries: RecordedEntry[], observer: unknown) => void
 
 class FakeIO {
   static instances: FakeIO[] = []
-  static last(): FakeIO {
-    let instance = FakeIO.instances.at(-1)
-    assert.ok(instance, 'the entry must create an IntersectionObserver')
-    return instance
-  }
 
   callback: ObserverCallback
   options: { rootMargin?: string }
@@ -64,18 +59,23 @@ let hydrationRuntime: AppRuntime | null = null
 let resolveCalls: string[] = []
 
 function installFakeIO() {
+  resetLazyFrameObserverPools()
   FakeIO.instances = []
   resolveCalls = []
   window.IntersectionObserver = FakeIO as unknown as typeof IntersectionObserver
 }
 
-function renderLazy(rootMargin: string): RenderResult {
+function renderLazy(
+  rootMargin: string,
+  options?: { pauseAnimationsWhenInactive?: boolean; children?: RemixNode },
+): RenderResult {
   root = render(
     <LazyFrame
       src="/admin/fragments/user-detail/1"
       name="user-detail-1"
       rootMargin={rootMargin}
-      children="Wird später geladen…"
+      {...(options?.pauseAnimationsWhenInactive ? { pauseAnimationsWhenInactive: true } : {})}
+      children={options?.children ?? 'Wird später geladen…'}
     />,
     {
       frameInit: {
@@ -88,6 +88,20 @@ function renderLazy(rootMargin: string): RenderResult {
     },
   )
   return root
+}
+
+function loadObserver(rootMargin: string): FakeIO {
+  let observer = FakeIO.instances.find((instance) => instance.options.rootMargin === rootMargin)
+  assert.ok(observer, `expected a load observer for ${rootMargin}`)
+  return observer
+}
+
+function activityObserver(): FakeIO {
+  let observer = FakeIO.instances.find(
+    (instance) => instance.options.rootMargin === '0px 0px 0px 0px',
+  )
+  assert.ok(observer, 'expected the activity observer')
+  return observer
 }
 
 async function settle(ms = 50) {
@@ -133,12 +147,13 @@ describe('LazyFrame deferral', () => {
   it('renders the placeholder and never resolves the frame while hidden', async () => {
     installFakeIO()
     let result = renderLazy('1px 0px')
+    let load = loadObserver('1px 0px')
 
     // A non-intersecting report (a collapsed <details>, far below the fold) is
     // exactly what the browser delivers for a hidden host.
-    let host = FakeIO.last().observed[0]!
+    let host = load.observed[0]!
     assert.ok(host, 'the entry must observe its host element')
-    await result.act(() => FakeIO.last().fire(host, false))
+    await result.act(() => load.fire(host, false))
     await settle()
 
     assert.equal(resolveCalls.length, 0, 'a hidden host must not resolve the frame')
@@ -151,9 +166,10 @@ describe('LazyFrame deferral', () => {
   it('mounts the frame exactly on the first intersecting report', async () => {
     installFakeIO()
     let result = renderLazy('2px 0px')
-    let host = FakeIO.last().observed[0]!
+    let load = loadObserver('2px 0px')
+    let host = load.observed[0]!
 
-    await result.act(() => FakeIO.last().fire(host, true))
+    await result.act(() => load.fire(host, true))
     await settle()
     assert.equal(resolveCalls.length, 1, 'intersecting must mount the Frame and resolve once')
     // Resolution is async (resolveFrame returns a promise), so let the resolved
@@ -171,20 +187,21 @@ describe('LazyFrame deferral', () => {
 
     // The entry stops observing its host once mounted — this is the retention
     // guarantee: a later reopen/scroll can never refetch.
-    assert.ok(FakeIO.last().unobserved.includes(host), 'the host must be unobserved after mounting')
+    assert.ok(load.unobserved.includes(host), 'the host must be unobserved after mounting')
   })
 
   it('never remounts or refetches on a second intersecting report', async () => {
     installFakeIO()
     let result = renderLazy('5px 0px')
-    let host = FakeIO.last().observed[0]!
+    let load = loadObserver('5px 0px')
+    let host = load.observed[0]!
 
-    await result.act(() => FakeIO.last().fire(host, true))
+    await result.act(() => load.fire(host, true))
     assert.equal(resolveCalls.length, 1)
 
     // Even if a stale/duplicate report reaches the callback, the mounted frame
     // must not be requested again.
-    await result.act(() => FakeIO.last().fire(host, true))
+    await result.act(() => load.fire(host, true))
     await settle()
     assert.equal(resolveCalls.length, 1, 'a second intersecting report must not refetch')
   })
@@ -192,12 +209,13 @@ describe('LazyFrame deferral', () => {
   it('keeps mounted content when the host goes non-intersecting again', async () => {
     installFakeIO()
     let result = renderLazy('3px 0px')
-    let host = FakeIO.last().observed[0]!
+    let load = loadObserver('3px 0px')
+    let host = load.observed[0]!
 
-    await result.act(() => FakeIO.last().fire(host, true))
+    await result.act(() => load.fire(host, true))
     assert.equal(resolveCalls.length, 1)
 
-    await result.act(() => FakeIO.last().fire(host, false)) // e.g. the disclosure closes
+    await result.act(() => load.fire(host, false)) // e.g. the disclosure closes
     await settle()
     assert.ok(
       result.container.querySelector('#lazy-detail-content'),
@@ -209,11 +227,49 @@ describe('LazyFrame deferral', () => {
   it('pools one observer per rootMargin and forwards rootMargin', () => {
     installFakeIO()
     renderLazy('4px 0px')
-    assert.equal(FakeIO.instances.length, 1, 'the first host creates its margin-pool observer')
+    assert.equal(FakeIO.instances.length, 2, 'load and activity observers are created')
     assert.equal(FakeIO.instances[0]!.options.rootMargin, '4px 0px')
+    assert.equal(FakeIO.instances[1]!.options.rootMargin, '0px 0px 0px 0px')
 
     renderLazy('4px 0px')
-    assert.equal(FakeIO.instances.length, 1, 'the same rootMargin reuses the pooled observer')
+    assert.equal(FakeIO.instances.length, 2, 'the same rootMargins reuse the pooled observers')
+  })
+
+  it('pauses and resumes descendant animations without unmounting the frame', async () => {
+    installFakeIO()
+    let result = renderLazy('6px 0px', {
+      pauseAnimationsWhenInactive: true,
+      children: (
+        <div id="animated" mix={css({ animation: 'lazy-pause 1s linear infinite' })}>
+          animated
+        </div>
+      ),
+    })
+
+    assert.equal(FakeIO.instances.length, 2, 'load and activity observers are registered')
+    let activity = activityObserver()
+    let host = activity.observed[0]!
+    let animated = result.container.querySelector<HTMLElement>('#animated')
+    assert.ok(animated, 'the placeholder child must render')
+
+    // Offscreen/inactive is the initial state, so animations start paused.
+    assert.equal(getComputedStyle(animated).animationPlayState, 'paused')
+
+    await result.act(() => activity.fire(host, true))
+    assert.equal(
+      getComputedStyle(animated).animationPlayState,
+      'running',
+      'entering the viewport resumes animations',
+    )
+    assert.equal(resolveCalls.length, 0, 'activity observation must not mount the frame')
+
+    await result.act(() => activity.fire(host, false))
+    assert.equal(
+      getComputedStyle(animated).animationPlayState,
+      'paused',
+      'leaving the viewport pauses animations again',
+    )
+    assert.equal(resolveCalls.length, 0, 'pausing must not refetch or unmount the frame')
   })
 
   it('hydrates css() mixins in serialized children and fallback props', async () => {
@@ -256,8 +312,9 @@ describe('LazyFrame deferral', () => {
     assert.equal(placeholderStyle.color, 'rgb(1, 2, 3)')
     assert.equal(placeholderStyle.fontWeight, '700')
 
-    let host = FakeIO.last().observed[0]!
-    FakeIO.last().fire(host, true)
+    let load = loadObserver('320px 0px')
+    let host = load.observed[0]!
+    load.fire(host, true)
     hydrationRuntime.flush()
     await settle()
 

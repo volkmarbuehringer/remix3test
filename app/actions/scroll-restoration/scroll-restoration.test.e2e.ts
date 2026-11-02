@@ -86,4 +86,92 @@ describe('scroll restoration', () => {
       `Expected traversal to restore ${scrollPosition}, got ${restoredPosition}`,
     )
   })
+
+  it('restores forward traversal scroll after a replace navigation with resetScroll=false', async (t) => {
+    let page = await t.serve(await createTestServer((request) => router.fetch(request)))
+    await page.goto(routes.scrollRestoration.index.href())
+
+    let reproduction = page.locator('#store-scroll-reproduction')
+    let hydrationCheck = reproduction.getByRole('button', {
+      name: 'Hydration check: 0',
+      exact: true,
+    })
+    await hydrationCheck.waitFor()
+
+    if (isFirefox(page)) {
+      // Same remix-ui Firefox click-handler limitation as the first test; keep
+      // a page-load smoke check so the project is still exercised.
+      await page.getByText('List row 48', { exact: true }).waitFor()
+      return
+    }
+
+    await hydrationCheck.click()
+    await reproduction.getByRole('button', { name: 'Hydration check: 1', exact: true }).waitFor()
+
+    await page.locator('#scroll-restoration-list-end').scrollIntoViewIfNeeded()
+    let listScrollPosition = await page.evaluate(() => window.scrollY)
+    assert.ok(
+      listScrollPosition > 1000,
+      `Expected the list page to scroll far down, got ${listScrollPosition}`,
+    )
+
+    await page.getByRole('link', { name: 'Open the shorter detail page' }).click()
+    await page.getByRole('heading', { name: 'Short detail view' }).waitFor()
+    await reproduction.getByRole('button', { name: 'Hydration check: 1', exact: true }).waitFor()
+    await page.waitForFunction(() => window.navigation.transition === null)
+
+    await page.evaluate(() => window.scrollTo(0, 150))
+    let detailScrollPosition = await page.evaluate(() => window.scrollY)
+    assert.equal(detailScrollPosition, 150)
+
+    await page.getByRole('button', { name: 'Replace the URL without resetting scroll' }).click()
+    await page.waitForURL((url) => url.searchParams.get('replaced') === '1')
+    await page.waitForFunction(() => window.navigation.transition === null)
+    assert.equal(
+      await page.evaluate(() => window.scrollY),
+      detailScrollPosition,
+      'the replace navigation must keep the current scroll position',
+    )
+    // Version-pinned vendor state shape (remix 3.1.0); the scroll assertion
+    // above is the authoritative behaviour check.
+    assert.equal(
+      await page.evaluate(() => {
+        let state = window.navigation.currentEntry?.getState()
+        return typeof state === 'object' && state !== null && 'resetScroll' in state
+          ? state.resetScroll
+          : undefined
+      }),
+      'manual',
+      'resetScroll=false is represented as a manual reset policy',
+    )
+
+    await page.goBack()
+    await page.getByText('List row 48', { exact: true }).waitFor()
+    await reproduction.getByRole('button', { name: 'Hydration check: 1', exact: true }).waitFor()
+    await page.waitForFunction(
+      ({ expected, tolerance }) => Math.abs(window.scrollY - expected) < tolerance,
+      { expected: listScrollPosition, tolerance: 50 },
+    )
+
+    await page.goForward()
+    await page.getByRole('heading', { name: 'Short detail view' }).waitFor()
+    await reproduction.getByRole('button', { name: 'Hydration check: 1', exact: true }).waitFor()
+    await page.waitForFunction(
+      ({ expected, tolerance }) =>
+        window.navigation.transition === null && Math.abs(window.scrollY - expected) < tolerance,
+      { expected: detailScrollPosition, tolerance: 50 },
+    )
+
+    // The restored position must survive the frames in which the page shrinks to its own height.
+    let detailRestoredPosition = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve(window.scrollY))),
+        ),
+    )
+    assert.ok(
+      Math.abs(detailRestoredPosition - detailScrollPosition) < 50,
+      `Expected forward traversal to restore detail scroll ${detailScrollPosition}, got ${detailRestoredPosition}`,
+    )
+  })
 })

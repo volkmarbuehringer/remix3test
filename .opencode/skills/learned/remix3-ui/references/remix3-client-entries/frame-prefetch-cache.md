@@ -1,17 +1,19 @@
 # Frame prefetching with a one-shot response cache
 
-**Extracted:** 2026-10-23 · **Pin:** remix 3.1.0 (build `8ae2f755` / source `0b35d81`)
+**Extracted:** 2026-10-23 · **Updated:** 2026-11-02 · **Pin:** remix 3.1.0 (build `57ecca4cba` / source `a178e1f`)
 **Vendor:** `@remix-run/component/src/runtime/prefetch.ts` (`startPrefetching`, `getIntentAnchor`), `run.ts` (`prefetch` option), installed guide `node_modules/remix/guides/05-interactivity.md` §"Prefetch links before navigation".
 
 ## Why the default prefetcher is not enough here
 
 - `app/assets/entry.tsx` replaces the runtime default with `run({ resolveFrame })`: every frame request adds `X-Remix-Frame`/`X-Remix-Target`, a one-shot `X-Agent-Prefill` payload, `cache: 'no-store'`, and the 4xx-renders / 5xx-`ErrorCard` / 401-redirect policy, then reconciles `X-Remix-Redirect-To` into `frame.src`.
-- The default prefetcher (`createDefaultPrefetch`) fetches HTML on its own and only discovers JavaScript/CSS/image/font `<link rel="prefetch">` hints. It never goes through the custom resolver, and the navigation resolves again — so its HTML is discarded and the app pays a second SSR per hovered link.
+- The default prefetcher (`createDefaultPrefetch`) fetches HTML on its own and discovers JavaScript/CSS/image/font `<link rel="prefetch">` hints. It never goes through the custom resolver, and the navigation resolves again — so its HTML is discarded and the app pays a second SSR per hovered link.
+- Replacing it also drops the asset-hint half. `app/assets/frame-asset-prefetch.browser.ts` restores it: after a successful warm, a clone of the HTML is parsed inertly and destination assets get low-priority hints.
 - The 3.1 answer is the `prefetch` hook: the runtime calls it on intent, the app stores the response the navigation *would* have fetched, and `resolveFrame` claims it. `run.ts` documents exactly this pairing ("use it with `resolveFrame` to reuse uncacheable HTML").
 
 ## Wiring
 
 - `app/assets/frame-prefetch.browser.ts` — the one-shot cache: `prefetchFrame(src, options)` (the `PrefetchFrame` hook; the warm promise is kept in an `inFlight` map), `claimPrefetchedFrame(url, target, signal)` (stored entry **or** awaits a warm still in flight), `takePrefetchedFrame(url, target)` (sync claim), `clearPrefetchedFrames()`. Key is `target + ' ' + absolute href`; entries are single use, TTL 10 s, max 8, and consuming one clears the rest.
+- `app/assets/frame-asset-prefetch.browser.ts` — `prefetchFrameAssets(response, sourceUrl)` parses the warmed HTML and emits `<link rel="prefetch">` hints; `clearPrefetchedAssets()` is the test-only pending-hint cleanup.
 - `app/assets/frame-response.browser.tsx` — one request path, two modes: `fetchFrameResponse` classifies the outcome, `resolveFrameResponse` is navigation mode, `prefetchFrameResponse` is prefetch mode.
 - `app/assets/entry.tsx` — `run({ prefetch })`; `resolveFrame` **awaits** `claimPrefetchedFrame` for a plain GET (method `get`/undefined, no `formData`), deletes the prefill entry on a hit, reconciles the redirect header for both cached and fetched responses, and only clears + fetches when the claim misses.
 
@@ -24,7 +26,8 @@
 - **5xx is never cached.** The recovery card is a client-side component, not a reusable fragment; 4xx validation fragments are cached because a real navigation renders them.
 - **CSP nonces.** Frame fragments carry the nonce of the response that rendered them. Reuse is same-document and short-lived; the app's frame content has inert JSON scripts plus import maps that the runtime appends with the installed map's nonce. Do not introduce executable `nonce={getCspNonce()}` inline scripts into frame fragments — a warmed copy would carry a stale nonce.
 - **Warm requests are `priority: 'low'`**, matching the vendor default, so a hover warm does not compete with the navigation it accelerates; navigation requests keep the browser default.
-- **The override replaces the default prefetcher**, including its asset-hint discovery. Asset hints would have to be added inside `prefetchFrame` (read the warmed HTML, emit `<link rel="prefetch">`); not done, because the warm already removes the navigation round trip.
+- **Asset hints are part of the warm.** `prefetchFrame()` calls `prefetchFrameAssets()` after storing the response. Discovery mirrors the vendor default: clone + inert `<template>` parse, honor `<base href>`, recurse into nested `<template>` content, skip assets the document already has, dedupe by `href`/`as`/`crossorigin`/`integrity`/`referrerpolicy`, and remove each hint on `load`/`error`. Hints are independent of the one-shot HTML cache: `clearPrefetchedFrames()` does not remove them, because a destination entry module or stylesheet stays useful after the one-shot fragment is invalidated. Do not run scripts from the parsed HTML or inject its nonce-bearing nodes.
+- **Head reconciliation is not vendor-identical.** The vendor registers its hints in the internal `pendingPrefetchLinks` WeakSet, which `frame.ts`'s head diff preserves. These app-owned hints are outside that set, so a top-level frame navigation can remove an in-flight hint without firing `load`/`error`. `prefetchAsset()` treats a disconnected pending hint as stale and re-creates it, and a 15 s fallback timer clears a hint that never settles; without both, the pending promise would suppress that asset for the rest of the document's lifetime.
 
 ## Adoption points
 
@@ -33,5 +36,6 @@ Seven anchors carry `data-rmx-prefetch="intent"`: the admin-lists filter tabs (A
 ## Tests
 
 - `app/assets/frame-prefetch.test.browser.ts` — single use, concurrent dedupe, in-flight claim (one request), abort-while-waiting, target keying, cross-origin skip, sibling invalidation, refused responses.
+- `app/assets/frame-asset-prefetch.test.browser.ts` — scripts/styles/modulepreloads/image/font preloads, `<base>` resolution, nested templates, document dedupe, `imagesrcset`/media skips, non-HTML/partial responses, re-creation after a disconnected hint, and the `prefetchFrame()` wiring. Uses a `MutationObserver` plus a bounded `waitFor` poll because hints disappear on the first 404; do not assert on the live DOM after a fixed sleep.
 - `app/actions/admin/admin-lists-prefetch.test.e2e.ts` — the real runtime: hover the marked "Leer" tab, assert one fragment request, click, assert the count stays 1 and the URL moves to `status=empty`.
 - `app/assets/frame-response.test.browser.ts` § `prefetchFrameResponse` — no navigation on redirect/401, 5xx skipped, 4xx cached, prefill retained on prefetch and consumed on navigation.

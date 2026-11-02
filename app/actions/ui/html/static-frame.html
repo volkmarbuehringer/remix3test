@@ -1,0 +1,91 @@
+<style>
+  [data-static-frame-fragment] {
+    --static-frame-ink: #ffffff;
+    --static-frame-muted: rgba(255, 255, 255, 0.72);
+    --static-frame-accent: #7dd3fc;
+    position: relative;
+    margin: 0;
+    padding: clamp(20px, 4vw, 36px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    background: linear-gradient(145deg, #10182d, #1b2946);
+    color: var(--static-frame-ink);
+    isolation: isolate;
+  }
+
+  [data-static-frame-fragment] .static-frame__eyebrow {
+    margin: 0 0 10px;
+    color: var(--static-frame-accent);
+    font:
+      700 11px/1.4 ui-sans-serif,
+      system-ui,
+      sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  [data-static-frame-fragment] h2 {
+    margin: 0;
+    font:
+      720 clamp(24px, 4vw, 36px) / 1.05 ui-sans-serif,
+      system-ui,
+      sans-serif;
+    letter-spacing: -0.035em;
+  }
+
+  [data-static-frame-fragment] p {
+    max-width: 46ch;
+    margin: 14px 0 0;
+    color: var(--static-frame-muted);
+    font:
+      500 14px/1.65 ui-sans-serif,
+      system-ui,
+      sans-serif;
+  }
+
+  [data-static-frame-fragment] code {
+    color: var(--static-frame-ink);
+  }
+
+  [data-static-frame-fragment] .static-frame__pulse {
+    position: absolute;
+    z-index: -1;
+    top: -72px;
+    right: -56px;
+    width: 220px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(125, 211, 252, 0.42), transparent 68%);
+    animation: static-frame-pulse 4s ease-in-out infinite;
+  }
+
+  @keyframes static-frame-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(0.92);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-static-frame-fragment] .static-frame__pulse {
+      animation: none;
+    }
+  }
+</style>
+
+<article data-static-frame-fragment>
+  <div class="static-frame__pulse" aria-hidden="true"></div>
+  <p class="static-frame__eyebrow">Checked-in HTML fragment</p>
+  <h2>No component renderer required</h2>
+  <p>
+    This file is streamed from disk with <code>openLazyFile()</code> and
+    <code>createFileResponse()</code>. A <code>&lt;Frame&gt;</code> adopts the response as ordinary
+    DOM, so plain HTML artifacts can share the document's styles and theme tokens.
+  </p>
+</article>

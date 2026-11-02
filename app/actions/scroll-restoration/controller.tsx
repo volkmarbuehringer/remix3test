@@ -2,6 +2,11 @@ import { createController } from 'remix/router'
 
 import { Document } from '../../ui/document.tsx'
 import { routes } from '../../routes.ts'
+import {
+  ScrollAnchoringDetail,
+  ScrollAnchoringList,
+  ScrollAnchoringReproduction,
+} from './public/scroll-anchoring.tsx'
 import { ScrollRestorationList, StoreScrollReproduction } from './public/scroll-restoration.tsx'
 
 /**
@@ -43,6 +48,12 @@ export default createController(routes.scrollRestoration, {
               Open the shorter detail page →
             </a>
           </section>
+
+          <p>
+            <a id="scroll-anchoring-link" href={routes.scrollRestoration.anchoring.href()}>
+              Open the scroll-anchoring variant →
+            </a>
+          </p>
         </Document>,
       )
     },
@@ -60,6 +71,51 @@ export default createController(routes.scrollRestoration, {
           <StoreScrollReproduction variant="detail" />
         </Document>,
       )
+    },
+
+    anchoring(context) {
+      return context.render(
+        <Document title="Scroll anchoring restoration">
+          <a href={routes.home.href()}>← Back to home</a>
+          <h1>Scroll anchoring restoration</h1>
+          <p>
+            This isolates the case where reconciliation inserts content before a preserved client
+            entry and browser scroll anchoring interferes with traversal restoration.
+          </p>
+
+          <ScrollAnchoringReproduction variant="list" />
+
+          <section id="scroll-anchoring-list-end">
+            <h2>End of the anchoring list</h2>
+            <a
+              id="scroll-anchoring-detail-link"
+              href={routes.scrollRestoration.anchoringDetail.href()}
+            >
+              Open the anchoring detail page →
+            </a>
+          </section>
+        </Document>,
+      )
+    },
+
+    anchoringDetail(context) {
+      return context.render(
+        <Document title="Scroll anchoring restoration">
+          <a href={routes.home.href()}>← Back to home</a>
+          <h1>Scroll anchoring restoration</h1>
+          <p>
+            The detail-only client entry below precedes the preserved collection entry, so browser
+            scroll anchoring can shift the document while traversal restoration is settling.
+          </p>
+
+          <ScrollAnchoringDetail />
+          <ScrollAnchoringReproduction variant="detail" />
+        </Document>,
+      )
+    },
+
+    anchoringItems(context) {
+      return context.render(<ScrollAnchoringList loadedAt={new Date().toLocaleTimeString()} />)
     },
 
     items(context) {

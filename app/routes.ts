@@ -308,6 +308,12 @@ export const routes = route({
     index: get('/'),
     detail: get('/detail'),
     items: get('/frames/scroll-restoration-items'),
+    // Scroll-anchoring reproduction: a detail-only client entry is inserted
+    // before the preserved collection entry, so browser scroll anchoring can
+    // interfere with traversal restoration.
+    anchoring: get('/anchoring'),
+    anchoringDetail: get('/anchoring/detail'),
+    anchoringItems: get('/frames/scroll-anchoring-items'),
   }),
 
   // Development-only component gallery: server-renders every *.demo.tsx under
@@ -316,6 +322,10 @@ export const routes = route({
   ui: route('ui', {
     index: get('/'),
     demo: get('/demo/*filename'),
+    // Checked-in HTML fragments streamed from disk through `openLazyFile()` +
+    // `createFileResponse()`. Used by the lazy-frames/static-artifact pattern:
+    // a `<Frame>` can consume plain HTML without the component renderer.
+    html: get('/html/:name'),
   }),
 })
 

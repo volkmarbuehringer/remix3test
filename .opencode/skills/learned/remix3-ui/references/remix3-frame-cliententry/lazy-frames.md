@@ -30,6 +30,8 @@ App port deltas from the upstream demo:
 
 - forward `name` — load-bearing, see below
 - the host needs a non-zero box or `IntersectionObserver` may never report it once a hidden container opens. A `css()` mixin on the element the entry itself returns is safe (composed during SSR, re-created with a live `type` on the client).
+- `pauseAnimationsWhenInactive` is implemented: a second zero-margin observer tracks the mounted host and toggles a host-level `css()` mixin that sets `animationPlayState: 'paused !important'` on descendants. The frame is never unmounted, so its state and content survive offscreen periods; only motion pauses. The initial state is paused until the first activity report.
+- A Frame can also consume a checked-in HTML file with no component renderer: `app/actions/ui/controller.tsx` serves `/ui/html/:name` through `openLazyFile()` + `createFileResponse()` from an explicit file map (no path derivation, so traversal is impossible). `createFileResponse` supplies MIME/length/ETag/Last-Modified/HEAD; the fragment is a development artifact like the gallery.
 
 ## Trap: `name` Is Load-Bearing For Auth Failure
 
@@ -53,6 +55,10 @@ That same fetch is the regression test: assert the fragment ships placeholders a
 ## Verifying Browser Behavior
 
 `app/actions/admin/fragments/lazy-frames.test.e2e.ts` counts requests to the frame route per page and asserts: 0 while collapsed (and no loaded content in the DOM), exactly 1 after opening, still 1 after closing and reopening — retention, because the mounted frame is not remounted.
+
+`app/ui/lazy-frame.test.browser.tsx` covers the activity path: every host registers a second zero-margin observer (pooled, so the prop can be toggled after mount). With `pauseAnimationsWhenInactive`, an animated child computes `animation-play-state: paused`, flips to `running` on intersection, back to `paused` on exit, and the frame is never mounted/refetched by the activity observer.
+
+When a browser test replaces `window.IntersectionObserver`, call `resetLazyFrameObserverPools()` before rendering. The module-level pool map survives `FakeIO.instances = []`, so a zero-margin pool created by an earlier test otherwise reuses the stale fake observer: the new host is never observed and the pause assertions fail. The reset helper is exported test-only; production keeps its pools for the page lifetime.
 
 ## Cost
 

@@ -14,6 +14,11 @@ type LazyFrameProps = {
   name?: string
   /** Preload margin; defaults to `320px 0px`, mirroring the upstream demo. */
   rootMargin?: string
+  /**
+   * Pause descendant CSS animations while the mounted frame is outside the viewport.
+   * The frame stays mounted (and its state intact); only `animation-play-state` changes.
+   */
+  pauseAnimationsWhenInactive?: boolean
   /** Shown after the host nears the viewport while the frame request is in flight. */
   fallback?: Renderable
   children?: RemixNode
@@ -40,7 +45,7 @@ const defaultRootMargin = '320px 0px'
  * LazyFrame instances with the same `rootMargin` share one observer, registering
  * their host for its element lifetime (as the upstream lazy-frames demo does).
  *
- * Two app-specific constraints, both verified against the pinned runtime:
+ * Three app-specific constraints, all verified against the pinned runtime:
  *
  * - `children` and `fallback` cross the client-entry boundary by serialization.
  *   Since remix #12067, JSX fragments and string/number keys survive that
@@ -53,11 +58,18 @@ const defaultRootMargin = '320px 0px'
  * - The host needs a non-zero box for `IntersectionObserver` to report it once
  *   it becomes visible (a closed `<details>` is not rendered). The placeholder
  *   children give it height; `minHeight` only guards the empty case.
+ * - `pauseAnimationsWhenInactive` tracks the mounted host with a zero-margin
+ *   observer, so a frame that leaves the viewport pauses its descendant CSS
+ *   animations without being removed. The observer is registered for every host
+ *   (pooled by rootMargin), so toggling the prop after mount is supported. The
+ *   host-level `css()` mixin is created by the entry itself, so it never crosses
+ *   the serialization boundary.
  */
 export const LazyFrame = clientEntry(
   import.meta.url + '#LazyFrame',
   function LazyFrameEntry(handle: Handle<LazyFrameProps>) {
     let requested = false
+    let active = false
 
     let observe = ref((node, signal) => {
       let stopLoading = observeIntersection(
@@ -72,10 +84,31 @@ export const LazyFrame = clientEntry(
         },
         handle.props.rootMargin ?? defaultRootMargin,
       )
+
+      // Registered for every host (pooled by the shared zero-margin observer) so
+      // toggling the prop after mount still has a live activity signal.
+      observeIntersection(
+        node,
+        signal,
+        (entry) => {
+          let nextActive = entry.isIntersecting
+          if (active === nextActive) return
+
+          active = nextActive
+          if (handle.props.pauseAnimationsWhenInactive) void handle.update()
+        },
+        '0px 0px 0px 0px',
+      )
     })
 
     return () => (
-      <div mix={[observe, hostStyle]}>
+      <div
+        mix={[
+          observe,
+          hostStyle,
+          handle.props.pauseAnimationsWhenInactive && !active && pausedAnimationsStyle,
+        ]}
+      >
         {requested ? (
           <Frame
             src={handle.props.src}
@@ -93,6 +126,12 @@ export const LazyFrame = clientEntry(
 )
 
 const intersectionObserverPools = new Map<string, IntersectionObserverPool>()
+
+/** Test-only: drop pooled observers so a fresh IntersectionObserver stub can be installed. */
+export function resetLazyFrameObserverPools(): void {
+  for (let pool of intersectionObserverPools.values()) pool.observer.disconnect()
+  intersectionObserverPools.clear()
+}
 
 function observeIntersection(
   node: Element,
@@ -151,4 +190,11 @@ function observeIntersection(
 /** Runtime mixin on the entry's own host — never serialized, so it is safe. */
 const hostStyle = css({
   minHeight: '2.75rem',
+})
+
+/** Host-level pause for descendant animations; applied only while the frame is inactive. */
+const pausedAnimationsStyle = css({
+  '& *, & *::before, & *::after': {
+    animationPlayState: 'paused !important',
+  },
 })

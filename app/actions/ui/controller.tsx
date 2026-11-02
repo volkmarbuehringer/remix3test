@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'node:url'
+
 import type { EntryComponent } from 'remix/component'
 import { clientEntry } from 'remix/component'
+import { openLazyFile } from 'remix/fs'
+import { createFileResponse } from 'remix/response/file'
 import { createController } from 'remix/router'
 
 import { assetServer } from '../../assets.ts'
@@ -7,6 +11,12 @@ import { isExplicitDevelopmentEnv, isExplicitTestEnv } from '../../config.ts'
 import { routes } from '../../routes.ts'
 import { discoverDemoFiles, findDemoFile, loadDemoModule } from './discovery.ts'
 import { GalleryDemoPage, GalleryIndexPage } from './gallery-view.tsx'
+
+// Checked-in HTML artifacts served through a frame. The explicit map (rather than
+// deriving a path from `:name`) keeps traversal and arbitrary disk reads impossible.
+const HTML_FRAGMENTS = new Map<string, URL>([
+  ['static-frame', new URL('./html/static-frame.html', import.meta.url)],
+])
 
 /**
  * Development-only component gallery.
@@ -52,6 +62,36 @@ export default createController(routes.ui, {
       } catch (error) {
         return demoFailure(demo.filename, error)
       }
+    },
+
+    // Streams a checked-in HTML artifact from disk. `createFileResponse()` owns
+    // the MIME type, length, ETag/Last-Modified, HEAD, and conditional requests;
+    // `openLazyFile()` means the file is not read until the response body is
+    // consumed. No component renderer is involved — a `<Frame>` can adopt the
+    // response as ordinary DOM, exactly like the upstream lazy-frames demo.
+    html(context) {
+      if (!galleryAvailable()) return notFound()
+
+      let name = context.params.name
+      if (typeof name !== 'string') return notFound()
+
+      let url = HTML_FRAGMENTS.get(name)
+      if (url === undefined) return notFound()
+
+      let filename: string
+      try {
+        // Resolve at request time so a non-file `import.meta.url` in a future
+        // bundling/runtime degrades to 404 instead of failing module import.
+        filename = fileURLToPath(url)
+      } catch {
+        return notFound()
+      }
+
+      return createFileResponse(openLazyFile(filename), context.request, {
+        cacheControl: 'no-store',
+        // Already off by default for HTML; pinned here so the contract is explicit.
+        acceptRanges: false,
+      })
     },
   },
 })

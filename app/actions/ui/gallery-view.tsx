@@ -29,6 +29,17 @@ export function GalleryIndexPage(handle: Handle<GalleryIndexPageProps>) {
               Neue Demo anlegen: <code>app/ui/…/name.demo.tsx</code> mit einem Default-Export, der
               eine Komponente zurückgibt. Die Galerie ist nur in Entwicklung und Tests erreichbar.
             </p>
+            <p mix={hintCss}>
+              Statisches HTML-Fragment:{' '}
+              <a
+                href={routes.ui.html.href({ name: 'static-frame' })}
+                data-rmx-document
+                mix={css({ color: theme.colors.text.primary, textDecoration: 'underline' })}
+              >
+                static-frame
+              </a>{' '}
+              — gestreamt mit <code>openLazyFile()</code> + <code>createFileResponse()</code>.
+            </p>
           </header>
 
           {groups.length === 0 ? (

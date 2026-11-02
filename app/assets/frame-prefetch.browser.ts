@@ -1,5 +1,6 @@
 import type { PrefetchOptions } from 'remix/component'
 
+import { prefetchFrameAssets } from './frame-asset-prefetch.browser.ts'
 import { prefetchFrameResponse } from './frame-response.browser.tsx'
 
 /**
@@ -10,6 +11,11 @@ import { prefetchFrameResponse } from './frame-response.browser.tsx'
  * fetches with its own request and the navigation fetches again. Warming through
  * `prefetchFrameResponse` stores the same response the navigation would have fetched, so
  * an intent turns the follow-up click into a cache hit instead of a second SSR.
+ *
+ * The override also replaces the default prefetcher's asset-hint discovery. After a
+ * successful warm, `prefetchFrameAssets()` reads a clone of the HTML and emits low-priority
+ * `<link rel="prefetch">` hints for the destination's scripts, styles, and declared image
+ * and font preloads, so the navigation does not start those requests cold.
  *
  * Entries are single use and short lived. Frame HTML carries the CSP nonce of the response
  * that rendered it, so a warmed fragment is only reusable inside the document that asked
@@ -54,7 +60,10 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
   let startedIn = generation
   let warm = prefetchFrameResponse(url, options)
     .then((response) => {
-      if (response && generation === startedIn) storePrefetchedFrame(key, response)
+      if (response && generation === startedIn) {
+        storePrefetchedFrame(key, response)
+        prefetchFrameAssets(response, url)
+      }
     })
     .catch(() => {
       // A failed prefetch is a no-op; the navigation fetches again.

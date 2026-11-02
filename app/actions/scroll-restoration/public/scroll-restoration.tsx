@@ -1,30 +1,7 @@
-import { clientEntry, Frame, css, on, type Handle } from 'remix/component'
+import { clientEntry, Frame, css, navigate, on, type Handle } from 'remix/component'
 
 import { routes } from '../../../routes.ts'
-
-const listItems = Array.from({ length: 48 }, (_, index) => index + 1)
-
-const rowStyle = {
-  minHeight: 76,
-  display: 'flex',
-  alignItems: 'center',
-  border: '1px solid rgba(0,0,0,0.12)',
-  borderRadius: 10,
-  padding: '0 18px',
-  background: 'rgba(0,0,0,0.03)',
-}
-
-const panelStyle = {
-  position: 'sticky',
-  top: 12,
-  zIndex: 1,
-  padding: 14,
-  marginBottom: 12,
-  background: '#151c35',
-  color: '#ffffff',
-  borderRadius: 10,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-}
+import { listItems, panelStyle, rowStyle } from './scroll-fixtures.ts'
 
 /**
  * The frame-served tall collection. Rendered as a blocking `<Frame>` on the
@@ -96,6 +73,23 @@ export const StoreScrollReproduction = clientEntry(
               The top-level client entry now renders much less content than the collection. Use the
               browser Back button while this short layout is present.
             </p>
+            <button
+              type="button"
+              id="scroll-restoration-replace-button"
+              style={{ marginTop: 16, cursor: 'pointer' }}
+              mix={on('click', () => {
+                void navigate(
+                  routes.scrollRestoration.detail.href(undefined, {
+                    searchParams: { replaced: '1' },
+                  }),
+                  { history: 'replace', resetScroll: false },
+                ).catch(() => {
+                  // Superseded by another navigation; the runtime owns the abort.
+                })
+              })}
+            >
+              Replace the URL without resetting scroll
+            </button>
           </article>
         )}
       </section>
