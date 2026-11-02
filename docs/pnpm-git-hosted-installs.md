@@ -46,6 +46,22 @@ Writes outside the workspace are denied. Install into a workspace store:
 pnpm update remix @remix-run/ui --store-dir "$PWD/.pnpm-store"
 ```
 
+The flag alone does not cover the git-hosted prepare: pnpm runs a **nested**
+`pnpm install` for the extracted monorepo, and that child inherits only the
+environment, not the CLI flags. Give it the store and cache as npm config:
+
+```sh
+npm_config_store_dir="$PWD/.pnpm-store" \
+npm_config_cache_dir="$PWD/.pnpm-store/cache" \
+  pnpm update remix @remix-run/ui --store-dir "$PWD/.pnpm-store"
+```
+
+Without them the nested install falls back to the default store and, when
+`~/.local/share/pnpm/store` or `~/.cache/pnpm` is read-only, the update dies
+with `ERR_PNPM_PREPARE_PACKAGE` (nested `pnpm install`, exit 226).
+`npm run update:remix` exports both and relinks `node_modules` when its
+`.modules.yaml` names a different store.
+
 Add `.pnpm-store/` to `.git/info/exclude` (local) or `.gitignore`, and keep it
 alongside `node_modules`. The lockfile's tarball refs/integrity are unaffected.
 
@@ -94,6 +110,9 @@ With a warm content-addressable store the 2026-10-31 bump downloaded only 50
 packages and took ~4m45s; the prepare-per-path cost remains.
 
 ## `ERR_PNPM_PREPARE_PACKAGE` when updating an unrelated package
+
+(For the remix pin itself, check the EROFS section first: the nested prepare
+install usually just needs `npm_config_store_dir`/`npm_config_cache_dir`.)
 
 `pnpm update nodemailer` still re-resolved/re-prepared the git-hosted remix
 package and failed in its nested `pnpm install` (exit 226). Patch the lock and

@@ -13,6 +13,14 @@ import * as path from 'node:path'
 // Steps: resolve preview/main -> pnpm update -> verify one build in the lock ->
 // frozen-install consistency check -> repoint the vendor skill symlink ->
 // typecheck/lint/format (+ full tests unless --no-tests).
+//
+// The store and metadata cache are exported to pnpm as npm_config_* variables
+// so the nested `pnpm install` that prepares the git-hosted tarball inherits
+// them; --store-dir alone does not reach that child process, which then falls
+// back to the default (possibly read-only) store and fails with
+// ERR_PNPM_PREPARE_PACKAGE. If node_modules is linked from another store, it is
+// removed first so pnpm relinks instead of failing with
+// ERR_PNPM_UNEXPECTED_STORE.
 // ---------------------------------------------------------------------------
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -33,6 +41,21 @@ const SHA_RE = /^[0-9a-f]{40}$/
 // per package (…+57ecca4cba2d566_… vs …+57ecca4cba2_…). Ten hex chars match
 // every install of a build while staying distinct from other builds.
 const BUILD_KEY_LENGTH = 10
+const STORE_VERSION_SEGMENT = /\/v\d+$/
+
+// pnpm runs a nested `pnpm install` to prepare a git-hosted package. That child
+// does not inherit --store-dir/--cache-dir flags, only the environment, so set
+// the npm_config_* equivalents for every pnpm invocation.
+let pnpmEnv: NodeJS.ProcessEnv = process.env
+
+function environmentForStore(storeDir: string | undefined): NodeJS.ProcessEnv {
+  if (!storeDir) return process.env
+  return {
+    ...process.env,
+    npm_config_store_dir: storeDir,
+    npm_config_cache_dir: path.join(storeDir, 'cache'),
+  }
+}
 
 type Options = {
   dryRun: boolean
@@ -66,6 +89,9 @@ Options:
   -h, --help          Show this help
 
 The package.json specs stay on #preview/main; the unified lockfile is the pin.
+The store and cache are passed to pnpm's nested prepare install as npm_config_*
+variables. If node_modules is linked from a different store, it is removed first
+so pnpm relinks into the requested one.
 `)
 }
 
@@ -102,6 +128,7 @@ function run(command: string, args: string[], capture = false): string {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: capture ? 'pipe' : 'inherit',
+    env: command === 'pnpm' ? pnpmEnv : process.env,
   })
   if (result.error) throw result.error
   if (result.status !== 0) {
@@ -222,6 +249,36 @@ function short(sha: string): string {
   return sha.slice(0, 10)
 }
 
+function linkedStore(): string | undefined {
+  try {
+    let modules = fs.readFileSync(path.join(ROOT, 'node_modules/.modules.yaml'), 'utf8')
+    return /"?storeDir"?\s*:\s*"([^"]+)"/.exec(modules)?.[1]
+  } catch {
+    return undefined
+  }
+}
+
+// pnpm refuses to reuse a node_modules tree linked from another store
+// (ERR_PNPM_UNEXPECTED_STORE), and a plain `pnpm install` will not relink it
+// while node_modules/.pnpm/lock.yaml matches. Only removing the tree makes the
+// next install relink; the packages themselves stay in the store.
+function relinkIntoStore(storeDir: string | undefined, dryRun: boolean): void {
+  if (!storeDir) return
+  let linked = linkedStore()
+  if (!linked) return
+
+  let store = path.resolve(storeDir).replace(STORE_VERSION_SEGMENT, '')
+  if (path.resolve(linked).replace(STORE_VERSION_SEGMENT, '') === store) return
+
+  console.log(`Store mismatch: node_modules is linked from ${linked}, not ${storeDir}.`)
+  if (dryRun) {
+    console.log('Dry run: would remove node_modules so pnpm relinks into that store.')
+    return
+  }
+  console.log('Removing node_modules so pnpm relinks into that store (packages stay in the store).')
+  fs.rmSync(path.join(ROOT, 'node_modules'), { recursive: true, force: true })
+}
+
 function repointSkillLink(build: string): void {
   let link = path.join(ROOT, '.agents/skills/remix')
   let virtual = path.join(ROOT, 'node_modules/.pnpm')
@@ -254,6 +311,7 @@ function repointSkillLink(build: string): void {
 
 async function main(): Promise<void> {
   let options = parseOptions(process.argv.slice(2))
+  pnpmEnv = environmentForStore(options.storeDir)
   assertBranchSpecs()
 
   if (!options.dryRun && !options.allowDirty) {
@@ -298,11 +356,13 @@ async function main(): Promise<void> {
   }
 
   if (options.dryRun) {
+    relinkIntoStore(options.storeDir, true)
     console.log('\nDry run: would run pnpm update remix @remix-run/ui.')
     return
   }
 
   console.log('\n== Installing ==')
+  relinkIntoStore(options.storeDir, false)
   let storeFlags = options.storeDir ? ['--store-dir', options.storeDir] : []
   run('pnpm', ['update', 'remix', '@remix-run/ui', ...NETWORK_FLAGS, ...storeFlags])
 
