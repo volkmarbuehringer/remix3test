@@ -6,19 +6,15 @@ import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
 import { isProduction, isTest, requireEnv } from '../config.ts'
-import { serializeSessionStorage } from '../utils/serialized-session-storage.ts'
 
 const appRootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
 
-// Tests run many worker processes against one checkout. The fs store writes a
-// session file non-atomically, and a reader that catches the truncated file
-// fails JSON.parse ("Unexpected end of JSON input") and silently loses the
-// session — observed as a logged-out uploads grid under parallel load. Test
-// workers are separate processes that share module state with their in-process
-// test server, so an in-memory store is both per-worker-isolated and race-free.
-// Non-test runs keep the fs store but serialize its reads/writes in-process so
-// a frame reload or cancel cannot read a session file mid-write.
+// Tests run many worker processes against one checkout. A per-worker in-memory
+// store keeps them from sharing session files (or state left by earlier runs)
+// in tmp/sessions. Non-test runs use the fs store, which saves by writing a
+// temporary file and renaming it over the session file (remix #12148), so an
+// overlapping read can no longer observe a partially written session.
 if (!isTest) {
   fs.mkdirSync(sessionDirectoryPath, { recursive: true })
 }
@@ -36,7 +32,7 @@ export const sessionCookie = createCookie('session', {
 
 export const sessionStorage = isTest
   ? createMemorySessionStorage()
-  : serializeSessionStorage(createFsSessionStorage(sessionDirectoryPath))
+  : createFsSessionStorage(sessionDirectoryPath)
 
 /**
  * Serialize a raw session id into the cookie value the session middleware
