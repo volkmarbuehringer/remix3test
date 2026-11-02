@@ -62,6 +62,12 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.
 
+**Session storage (`app/middleware/session.ts`, build `3f182ccc`)**
+
+- The fs store saves via temp file + rename (remix #12148), so an overlapping read never sees a partial session — do not re-add a per-operation serialization wrapper; that workaround was removed when the pin moved.
+- The middleware reads before the handler and saves afterwards, so two overlapping requests still overwrite each other's snapshot. `mergeSessionWrites()` (`app/utils/session-storage-merge.ts`) re-applies only this request's changed keys on the stored session at save time, including the `success`/`error` flash keys. A flash key must not also be used as a regular value: `Session.get()` reads the value map first.
+- `SESSION_DIR` overrides `tmp/sessions`; abandoned files are swept at boot and hourly (`SESSION_RETENTION_MS`, default 60 days — two cookie lifetimes). Tests keep the per-worker memory store for isolation.
+
 **Opaque `RoutePattern` (`references/remix-controllers/routepattern-opaque-access.md`)**
 
 - `RoutePattern` is opaque on current builds: use `.source`/`toString()`, `.toJSON()`, or `getRoutePatternCaptures(pattern)`; never `.pathname.tokens`/`_parts`. The common parent-path rewrite is string-based: `route.pattern.source.replace(/\/[:*][^/]*$/, '/')` (the app's `routeParentPath()` in `app/route-labels.ts`).

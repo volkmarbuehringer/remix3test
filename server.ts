@@ -8,8 +8,10 @@ import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
 import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
 import { configuredPublicOrigin } from './app/utils/public-origin.ts'
+import { startSessionMaintenance, stopSessionMaintenance } from './app/middleware/session.ts'
 
 await initializeAppDatabase()
+startSessionMaintenance()
 
 const REQUIRED_ENV = ['SESSION_SECRET', 'DATABASE_URL'] as const
 for (let key of REQUIRED_ENV) {
@@ -92,6 +94,7 @@ let shuttingDown = false
 function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
+  stopSessionMaintenance()
   void closeAppDatabase()
   server.close(() => assetServer.close().finally(() => process.exit(0)))
   server.closeAllConnections()
