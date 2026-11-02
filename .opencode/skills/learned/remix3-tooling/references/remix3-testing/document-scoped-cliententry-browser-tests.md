@@ -91,7 +91,7 @@ describe('ListsSidebarKeyboard', () => {
   listeners once per document; do not expect `cleanup()` to remove them. Every test still needs its
   own fixture.
 - Programmatic `.click()` on a tab anchor is safe (same-document hash change); never trigger
-  `location.reload`/`assign` — see `location-reload-unforgeable.md`.
+  `location.reload`/`assign` — see `test-harness-gotchas.md`.
 
 ## Pitfalls
 
@@ -103,7 +103,7 @@ describe('ListsSidebarKeyboard', () => {
   sees stale rows and duplicate matches.
 - **Mirror the real DOM exactly.** `Glyph` emits `<use xlink:href="#rmx-glyph-<name>">` only; a fixture or assertion that uses a plain `href` is testing a different attribute from the one the entry reads/writes.
 - **Both engines run.** Keep assertions engine-neutral (no `networkidle`, no native `<select>`
-  change assumptions — see `select-change-events.md`).
+  change assumptions — see `test-harness-gotchas.md`).
 
 ## When to Use
 

@@ -1,84 +1,25 @@
-# Remix CLI and DevOps
+# Remix CLI and node-tsx (app deltas)
 
 **Source:** `remix-cli-devops`
 
-Covers `remix/cli` and `remix/node-tsx`.
+Canonical API: `node_modules/remix/src/cli/README.md`, `node_modules/remix/src/node-tsx/README.md`, and guide chapter 14. This file keeps only the app-specific seams.
 
-## CLI Commands
+## Route-tree discovery
 
-- `remix new <dir>` — scaffold a new Remix app
-- `remix test` — run project tests
-- `remix doctor` / `remix doctor --fix` — check project conventions and fix low-risk issues
-- `remix routes` / `remix routes --table` — inspect the route tree
-- `remix version` — print installed version
-- `remix completion bash|zsh` — install shell completion
+`remix routes` reads only the export **named `routes`** from `routes.ts`. The loader worker requires `'routes' in routeModule` and otherwise throws `must export a named "routes" value`. Independently mounted named trees (`adminRoutes`, `aiRoutes`, …) work at runtime but are invisible in CLI output — do not treat missing routes in `remix routes` as a wiring error.
 
-Programmatic: `import { runRemix } from 'remix/cli'`
+## App scripts
 
-> **Note — multiple route trees:** When `routes.ts` exports multiple named route trees (e.g., `routes`, `adminRoutes`, `aiRoutes` composed via `router.map()`), `remix routes` reads only the export **named `routes`**. The loader worker (`load-route-map-worker.ts`) does `import(routesFile)` and requires `'routes' in routeModule`, throwing `must export a named "routes" value` otherwise. Independently mounted named trees (`adminRoutes`, `aiRoutes`, …) work at runtime but don't appear in CLI output. Don't treat missing routes in `remix routes` as a wiring error.
+- Test scripts pass a positional glob plus `--type=server|browser|e2e`; there is no `--run <pattern>`.
+- A positional argument with no glob metacharacters, path separator, or `.ts`/`.tsx` extension expands to `**/*<name>*.test*.{ts,tsx}` — `remix test frame` matches `frame.test.ts`, not `frame.ts`. Multiple arguments form a union; expanded arguments override `--glob.test`.
+- `remix test` defaults `NODE_ENV` to `test` via `process.env.NODE_ENV ??= 'test'`; an explicit value wins. App scripts still prefix `NODE_ENV=test`.
+- `runRemix` from `remix/cli` is available for programmatic use.
 
 ## node-tsx
 
-Register the TypeScript/JSX loader to run `.ts`, `.tsx`, `.jsx` files directly:
+App scripts run source through `node --import remix/node-tsx`; `loadModule` from `remix/node-tsx/load-module` scopes JSX loading. Required tsconfig flags: `module`/`moduleResolution: NodeNext`, `allowImportingTsExtensions`, `isolatedModules`, `verbatimModuleSyntax`, `rewriteRelativeImportExtensions`.
 
-```sh
-node --import remix/node-tsx ./server.ts
-```
-
-Or side-effect import in code: `import 'remix/node-tsx'`
-
-Use `loadModule` for scoped JSX: `import { loadModule } from 'remix/node-tsx/load-module'`
-
-## TypeScript Config for node-tsx
-
-```json
-{
-  "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "rewriteRelativeImportExtensions": true
-  }
-}
-```
-
-## Testing
-
-### CLI Filter Syntax
-
-`remix test` does NOT support `--run <pattern>` like Vitest or Jest. Pass the glob as a positional argument and use `--type` to filter:
-
-```sh
-# Run a single test file
-remix test "**/appointments*" --type=server
-
-# Run tests by partial filename (build 3e516fcc2 / remix 3.0.0-rc.3, upstream #11931)
-remix test appointments --type=server
-
-# Run all tests including browser and e2e
-remix test "**/*.test.*"
-
-# Run with coverage
-remix test --coverage
-```
-
-> **Partial filenames (build `3e516fcc2`, upstream #11931):** a positional argument with no glob metacharacters (`*?[]{}()`), no path separator, and no `.ts`/`.tsx` extension expands to `**/*<name>*.test*.{ts,tsx}` — `remix test frame` runs `src/frame.test.ts` but not `src/frame.ts`. Arguments containing glob syntax or a path/extension pass through unchanged, multiple arguments select the union, and positional arguments (expanded or not) override `--glob.test`.
-
-Available `--type` values: `server`, `browser`, `e2e`.
-
-### `NODE_ENV` Defaults to `test`
-
-`remix test` sets `NODE_ENV` to `test` when it is unset: `runRemixTest()` runs `process.env.NODE_ENV ??= 'test'` (`@remix-run/test` `src/cli.ts:71`) before spawning workers, so guards like `if (process.env.NODE_ENV !== 'test')` fire without a script prefix. Because it uses `??=` (not `=`), an explicit `NODE_ENV` still wins. This app keeps the prefix on its scripts anyway:
-
-```json
-"scripts": {
-  "test": "NODE_ENV=test remix test"
-}
-```
-
-### Mocking ES Module Named Exports
+## Mocking frozen ES module exports
 
 `mock.method(obj, methodName)` cannot spy on named ES module exports because ES module namespaces are frozen:
 
@@ -89,11 +30,7 @@ import * as scrollLock from 'app/utils/scroll-lock.ts'
 mock.method(scrollLock, 'lockScroll', () => () => {})
 ```
 
-Two workarounds:
-
-**Prefer side-effect testing** — set up a realistic DOM mock and assert on DOM changes instead of mocking the function.
-
-**Wrap the export in an object** if you must mock it:
+Prefer side-effect testing: set up a realistic DOM mock and assert on DOM changes instead of mocking the function. If you must mock, wrap the export in a mutable object:
 
 ```ts
 // app/utils/lock-scroll.ts

@@ -120,7 +120,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 _(formerly `postgres-gotchas` — references live under `references/postgres-gotchas/`)_
 
-**Consolidated from:** `postgres-idempotent-fk-alteration`, `postgres-limit-without-order`, `postgres-locale-error-matching`
+**Consolidated from:** the five former `postgres-gotchas` notes (FK alteration, `LIMIT`, locale, `int8`, index safety)
 
 Covers five PostgreSQL pitfalls:
 1. Idempotent FK constraint alteration (`ON DELETE` behavior changes)
@@ -133,11 +133,7 @@ Covers five PostgreSQL pitfalls:
 
 | Task involves... | Start with |
 | --- | --- |
-| Changing an existing FK `ON DELETE` behavior in an idempotent migration | `references/postgres-gotchas/idempotent-fk-alteration.md` |
-| A test helper or query relying on a "first" or "default" row (`LIMIT 1`) | `references/postgres-gotchas/limit-without-order-by.md` |
-| A Postgres library crashing because its error-text regex assumes English | `references/postgres-gotchas/locale-dependent-error-matching.md` |
-| A Zod / Mastra `outputSchema` expecting `number` for an `int8`/`BIGINT` column | `references/postgres-gotchas/int8-returned-as-string.md` |
-| A review proposes dropping an index, or `pg_stat_user_indexes.idx_scan` is 0 | `references/postgres-gotchas/index-drop-safety.md` |
+| Any of: FK `ON DELETE` changes, `LIMIT` without `ORDER BY`, locale-dependent errors, `int8`/`BIGINT` strings, index-drop safety | `references/postgres-gotchas/gotchas.md` |
 
 ### Core Rules
 
