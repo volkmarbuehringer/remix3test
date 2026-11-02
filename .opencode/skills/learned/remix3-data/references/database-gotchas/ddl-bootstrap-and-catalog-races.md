@@ -2,32 +2,22 @@
 
 **Source:** `ddl-migration-dedicated-client` (renamed 2026-10-24)
 **Extracted:** 2026-07-17
-**Updated:** 2026-11-01 (newapp adopted the `remix/data-table` runner again with a single idempotent baseline migration; the runner's Postgres advisory lock serializes the baseline's `CREATE EXTENSION`/table DDL)
+**Updated:** 2026-11-02 (removed the retired `db/schema.sql` bootstrap recipe; the app runs the `remix/data-table` runner with a single idempotent baseline and a distinct `app_migrations` journal)
 **Context:** DDL in test/bootstrap setup that contends on the pool `statement_timeout`, or intermittent Postgres catalog duplicate-key errors during parallel init.
 
 ## Current state in newapp (2026-11)
 
 newapp runs SQL-file migrations from `db/migrations/` through the `remix/data-table` runner:
 
-- `initializeAppDatabase()` calls `db.migrate(await loadMigrations('../db/migrations'))` then `seed(db)`.
+- `app/db.ts` builds a caller-owned `pg.Pool`, attaches an `'error'` listener, then calls `db.migrate(await loadMigrations('../db/migrations'), { journalTable: 'app_migrations' })` and `seed(db)`. `remix.json` records the same journal under `db.migrations.journalTable`.
 - `db/migrations/20261101000000_baseline/up.sql` is the full, idempotent schema. An existing database runs it once and the journal records it; fresh databases create everything from it.
 - The runner holds a Postgres advisory lock for the whole run (`withMigrationLock`), so parallel test workers and concurrent cold boots serialize instead of racing `pg_extension_name_index`. The old single-retry workaround is no longer needed.
 - Applied migrations are immutable: the runner checksums `up.sql` and fails the next boot on drift or a missing journal entry (see `migration-drift-recovery.md`).
 - `test/setup.ts` creates a fresh test database, drops `public` through a throwaway pool, then calls `initializeAppDatabase()`; every run therefore exercises the same migrations as production.
 
-## Previous state (2026-08 – 2026-10): idempotent bootstrap
+## Retired: idempotent `db/schema.sql` bootstrap (2026-08 – 2026-10)
 
-newapp used to build the schema from an idempotent `db/schema.sql` through `db.executeScript()` with no journal/checksum. That bootstrap was retired on 2026-11-01. The historical notes still explain the catalog-race diagnosis:
-
-newapp builds the Postgres database from a **caller-owned** `pg.Pool` in `app/db.ts` (so the pool can attach an `'error'` handler) and bootstraps the schema from an idempotent `db/schema.sql`:
-
-- `initializeAppDatabase()` runs `db.executeScript(await loadAppSchema())` then `seed(db)`. `db/schema.sql` uses `CREATE TABLE/INDEX/EXTENSION IF NOT EXISTS`, so startup is a no-op when tables already exist.
-- There is **no migration journal** and no checksum tracking. `db.migrate()`/`db.reset({ migrations, seed })`/`loadAppMigrations()` are not used; `db/migrations/` and `remix.json`'s `db.migrations.directory` were removed.
-- `db.executeScript()` runs the multi-statement script via the driver's simple-query path on the caller-owned app pool, so DDL inherits the pool `statement_timeout: 30000`. `db.exec(sql, [])` cannot be used instead — it routes through the parameterized extended protocol, which rejects multi-statement scripts.
-- `CREATE EXTENSION IF NOT EXISTS` is **not advisory-lock-serialized**. Two instances cold-booting an empty catalog can race and one fails with a `pg_extension_name_index` duplicate-key error; the whole implicit-transaction script rolls back, so a single retry in `initializeAppDatabase()` is a safe no-op. `CREATE TABLE/INDEX IF NOT EXISTS` are catalog-lock-serialized and safe under concurrency.
-- `test/setup.ts` creates a fresh test DB, drops/recreates `public` through a throwaway pool (config-only `db.wipe()` is unavailable on the caller-owned pool), then calls `initializeAppDatabase()`.
-
-Do not reintroduce a dedicated `pg.Client` migration path for this app; the runner it worked around is gone.
+The app previously built the schema from a `db/schema.sql` script through `db.executeScript()` with no journal or checksum, and retried the script once when two cold boots raced on `CREATE EXTENSION IF NOT EXISTS`. That bootstrap was retired on 2026-11-01 and **`db/schema.sql` no longer exists**. The runner's advisory lock now covers the race, so neither the schema file nor the retry belongs in a recovery path. Do not reintroduce them, and do not reintroduce a dedicated `pg.Client` migration path; the runner it worked around is gone.
 
 ### Diagnosing an intermittent catalog duplicate-key in tests
 
@@ -38,7 +28,7 @@ Do not reintroduce a dedicated `pg.Client` migration path for this app; the runn
 **Confirm it's an infra race, not a regression:**
 1. Run the failing test file **alone** — it should pass deterministically.
 2. Run the **full suite** (`npm test`) — green (the same race may surface in a *different* file, so the single-file pass is the strong signal).
-3. For a fully deterministic run, pass `--concurrency 1` to `remix test` to serialize DDL init — slower, but avoids the race.
+3. For a fully deterministic run, pass `--concurrency 1` to `remix test` to serialize DDL init — slower, but avoids the race when a new storage still performs its own DDL.
 
 ### Config-backed pool tradeoff: no `'error'` listener
 

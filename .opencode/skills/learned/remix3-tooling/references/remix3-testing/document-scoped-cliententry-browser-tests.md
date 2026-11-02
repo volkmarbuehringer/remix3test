@@ -2,11 +2,11 @@
 
 **Source:** `remix3-testing` (session 2026-10-04)
 **Extracted:** 2026-10-04
-**Context:** Adding isolated browser coverage for `app/ui/settings-enhance.browser.tsx` (the
-`/settings` entry) and `app/actions/lists/public/{lists-row-actions,lists-sidebar-keyboard}.tsx`.
-(**Obsolete 2026-10-14:** `settings-enhance.browser.tsx` was deleted — the settings tabs are now
-server-rendered by `SettingsTabs` in `app/actions/settings/controller.tsx:396`, so the
-`SettingsEnhance` example below is historical; the guidance still applies to the lists entries.)
+**Updated:** 2026-11-02 (replaced the deleted `settings-enhance.browser.tsx` example with the live `lists-sidebar-keyboard` entry)
+**Context:** Adding isolated browser coverage for a `clientEntry` that renders only a hidden marker and does
+all its work through `document`/`window` — e.g. `app/actions/lists/public/lists-sidebar-keyboard.tsx`
+and `app/actions/lists/public/lists-row-actions.tsx`.
+
 Complements `cliententry-browser-test-stubs.md` (geometry/media stubs); this delta covers fixture
 ownership, state reset, and fixture fidelity for entries that query `document` instead of rendering
 their own DOM.
@@ -23,8 +23,8 @@ renders only a hidden marker `<div>` and does all its work in a `ref` callback t
 2. **State bleed** — the entry writes `location.hash`/`history.replaceState` (ARIA tabs, deep
    links), so one test's hash deep-links the next test's mount.
 3. **Fixture infidelity** — the fixture must mirror the server-rendered markup. `Glyph` renders
-   only `xlink:href` (see `remix3-theme-conformance → references/glyph-add.md`), so a fixture with
-   a plain `href` asserts a different attribute than the entry writes.
+   only `xlink:href` (see `remix3-ui § Theme Tokens → references/remix3-theme-conformance/glyph-add.md`),
+   so a fixture with a plain `href` asserts a different attribute than the entry writes.
 
 ## Solution
 
@@ -36,40 +36,50 @@ import { describe, it, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
-import { SettingsEnhance } from './settings-enhance.browser.tsx'
+import { ListsSidebarKeyboard } from './lists-sidebar-keyboard.tsx'
+
+const ROWS_HTML = `
+  <div data-list-id="1">
+    <a href="/lists?load=1"><span data-list-name>Alpha</span></a>
+  </div>
+  <div data-list-id="2">
+    <a href="/lists?load=2"><span data-list-name>Beta</span></a>
+  </div>
+`
 
 let fixture: HTMLElement | null = null
 let cleanup: (() => void) | null = null
 
 function mount(html: string): HTMLElement {
   let host = document.createElement('div')
-  host.innerHTML = html            // mirror the server-rendered markup
-  document.body.appendChild(host)  // the entry queries document, not result.container
+  host.innerHTML = html // mirror the server-rendered markup
+  document.body.appendChild(host) // the entry queries document, not result.container
   fixture = host
   return host
 }
 
 beforeEach(() => {
-  // Tab code writes `#<panel>` via history.replaceState; clear it or the next
-  // test mounts already deep-linked.
+  // Tab/deep-link code writes the hash via history.replaceState; clear it or the
+  // next test mounts already deep-linked.
   history.replaceState(null, '', window.location.pathname + window.location.search)
 })
 
 afterEach(() => {
-  cleanup?.()        // dispose the render root
+  cleanup?.() // dispose the render root
   cleanup = null
-  fixture?.remove()  // even when an assertion threw: document listeners persist
+  fixture?.remove() // even when an assertion threw: document listeners persist
   fixture = null
 })
 
-describe('SettingsEnhance tabs', () => {
-  it('activates a tab when it is clicked', () => {
-    let host = mount(tabsHtml('settings-profile'))
-    cleanup = render(<SettingsEnhance />).cleanup
+describe('ListsSidebarKeyboard', () => {
+  it('installs a roving tab stop on the row anchors', () => {
+    let host = mount(ROWS_HTML)
+    cleanup = render(<ListsSidebarKeyboard />).cleanup
 
-    let tab = host.querySelector('[data-settings-tab][aria-controls="settings-password"]') as HTMLElement
-    tab.click()
-    assert.equal(host.querySelector('#settings-password')?.hasAttribute('hidden'), false)
+    let first = host.querySelector('[data-list-id="1"] a[href]') as HTMLAnchorElement
+    let second = host.querySelector('[data-list-id="2"] a[href]') as HTMLAnchorElement
+    assert.equal(first.getAttribute('tabindex'), '0')
+    assert.equal(second.getAttribute('tabindex'), '-1')
   })
 })
 ```
@@ -91,9 +101,7 @@ describe('SettingsEnhance tabs', () => {
   iframe URL, and the next `init()` reads it.
 - **Remove the fixture even when the assertion throws**, or a later test's `document.querySelectorAll`
   sees stale rows and duplicate matches.
-- **Mirror the real DOM exactly.** `Glyph` emits `<use xlink:href="#rmx-glyph-<name>">` only; the
-  settings toggle writes both `xlink:href` and plain `href`, and the glyph names the *action*
-  (`eye` = show while hidden, `eyeOff` = hide once revealed).
+- **Mirror the real DOM exactly.** `Glyph` emits `<use xlink:href="#rmx-glyph-<name>">` only; a fixture or assertion that uses a plain `href` is testing a different attribute from the one the entry reads/writes.
 - **Both engines run.** Keep assertions engine-neutral (no `networkidle`, no native `<select>`
   change assumptions — see `select-change-events.md`).
 
@@ -105,4 +113,6 @@ describe('SettingsEnhance tabs', () => {
 - An entry writes the URL hash (`history.replaceState`, `href="#…"` anchors).
 
 Related: `cliententry-browser-test-stubs.md` (geometry/media stubs),
-`remix3-client-entries → references/aria-tabs.md` (production tabs pattern).
+`remix3-ui § Client Entries → references/remix3-client-entries/aria-tabs.md` (production tabs pattern),
+`remix3-ui § Client Entries → references/remix3-client-entries/roving-tabindex-keyboard-lists.md`
+(roving tabindex details).

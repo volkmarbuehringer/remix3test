@@ -14,10 +14,10 @@ No skill names `app/ui/theme/upstream-button.ts`, `@remix-run/ui/accordion`, or 
 
 Use the guide's selection model, then this app's concrete decisions.
 
-**Selection order (installed `@remix-run/ui` 0.12.1):**
+**Selection order (installed `@remix-run/ui` 0.13.0):**
 
 1. **Native elements styled with `css()`** — keep the real `<button>`/`<input>`/checkbox/radio and style it with `remix/component` style descriptors (guide §"Styling with css and dynamic style values"). The former `@remix-run/ui` styled `button`/`input`/`checkbox`/`radio` mixins and the `breadcrumbs` module were deleted in the 0.11 → 0.12 cleanup (#11986), so there is no vendor style mixin to import; the app vendors its own button (`app/ui/theme/upstream-button.ts`).
-2. **Headless primitives** — `@remix-run/ui` 0.12.1 ships `accordion`, `anchor`, `animation`, `combobox`, `listbox`, `menu`, `popover`, `select`, `tabs`, and `toggle` (ui README "Primitives" and "Animation"). They own structural attributes, keyboard/focus behavior, and disclosure/selection state. Use `default*` for uncontrolled and the controlled prop/callback when the parent owns state (names differ by component). Use them only when the product needs their behavior or different markup, not just different colors; the app then owns labels, ARIA, and pointer/keyboard behavior. Select/combobox still need a hidden input to participate in a form. There are no `/primitives` subpaths in this build.
+2. **Headless primitives** — `@remix-run/ui` 0.13.0 ships `accordion`, `anchor`, `animation`, `combobox`, `listbox`, `menu`, `popover`, `select`, `tabs`, and `toggle` (ui README "Primitives" and "Animation"). They own structural attributes, keyboard/focus behavior, and disclosure/selection state. Use `default*` for uncontrolled and the controlled prop/callback when the parent owns state (names differ by component). Use them only when the product needs their behavior or different markup, not just different colors; the app then owns labels, ARIA, and pointer/keyboard behavior. Select/combobox still need a hidden input to participate in a form. There are no `/primitives` subpaths in this build.
 
 Interactive controls must sit inside a `clientEntry(...)` boundary, directly or via an interactive ancestor (see `remix3-client-entries`).
 

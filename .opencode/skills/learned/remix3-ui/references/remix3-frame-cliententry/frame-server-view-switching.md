@@ -4,8 +4,9 @@
 
 **Context:** Replacing a page-wide tab `clientEntry` (four `hidden` panels +
 `aria-selected` + hash deep-linking) with URL-addressable, frame-swapped sections.
-Verified on `/settings`: `app/ui/settings-enhance.browser.tsx` (283 lines) + its
-376-line test deleted; `app/actions/settings/controller.tsx` net +4 lines.
+Applied to `/settings`: the former `app/ui/settings-enhance.browser.tsx` (283 lines) and
+its 376-line test were deleted, and `app/actions/settings/controller.tsx` gained the frame
+branch. The controller's server-rendered `SettingsTabs` remains the reference implementation.
 
 ## Problem
 

@@ -62,7 +62,7 @@ Key focus areas when reviewing diffs:
 - Before running `pnpm update <dep>` or `npm update <dep>`
 - When debugging regressions after a dependency update
 
-## Version Lines After the Component/UI Split (#11948)
+## Version Lines After the Component/UI Split (#11948) — historical (2026-10-15)
 
 As of 2026-10-15 the repo still carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. The app's branch pin (`preview/main`) resolves to the generated installable-build commit `48b54a55` (built from `aa2efcd`, i.e. `2c9e033` plus #11987/#11992/#11999), where `remix` has crossed to **stable `3.0.0`** and `@remix-run/component` / `-hmr` to **`1.0.0`**:
 
