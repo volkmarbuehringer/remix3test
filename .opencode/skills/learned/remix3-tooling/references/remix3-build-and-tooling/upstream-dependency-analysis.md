@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-10-31 (method unchanged; current pin `57ecca4cba` / source `a178e1f`)
+**Re-validated:** 2026-11-02 (method unchanged; current pin `3f182ccc` / source `26db8a3`)
 **Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -57,7 +57,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at unified build `57ecca4cba` / source `a178e1f`.
+Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at unified build `3f182ccc` / source `26db8a3`.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes for the branch-pinned install are in [`docs/pnpm-git-hosted-installs.md`](../../../../../../docs/pnpm-git-hosted-installs.md).
 
