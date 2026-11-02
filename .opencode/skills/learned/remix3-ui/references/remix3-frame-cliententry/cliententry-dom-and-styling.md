@@ -25,29 +25,18 @@ Use **parent-container CSS with child selectors** instead of passing mixins as p
 const actionBtnGroup = css({
   display: 'inline-flex',
   alignItems: 'stretch',
-  // Edit is a link styled as a button (see "Never nest a button inside a link"),
-  // so the styles live on the direct <a> — there is no inner <button> to target.
-  '& > a': {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    borderRight: 'none',
-  },
-  '& > form > button': {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
+  // Edit is the direct <a>; Del is inside <form><button/></form>.
+  '& > a': { borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRight: 'none' },
+  '& > form > button': { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
 })
 
-// Usage — no mix props needed on DelButton
 <div mix={actionBtnGroup}>
-  <a href={editUrl} mix={[buttonLink({ tone: 'secondary' }), smallBtnStyle]}>
-    Edit
-  </a>
-  <DelButton action={delUrl} offset={...} sort={...} order={...} filterValue={...} />
+  <a href={editUrl} mix={buttonLink({ tone: 'secondary' })}>Edit</a>
+  <DelButton action={delUrl} ... />
 </div>
 ```
 
-The CSS targets the known DOM structure: Edit is the direct `<a>` (the button styles are on the link itself, not a nested button) → `& > a`; Del is inside `<form><button/></form>` (from DelButton) → `& > form > button`. `remix/component` CSS-in-JS uses scoped selectors, so `&` resolves to the generated scoped class; combined with child combinators (`>`) you can target nested elements without passing CSS objects through serializable prop boundaries.
+The CSS targets the known DOM structure: Edit is the direct `<a>` → `& > a`; Del is inside `<form><button/></form>` → `& > form > button`. `remix/component` scopes `&` to the generated class, so child combinators reach nested elements without passing CSS objects through serializable prop boundaries.
 
 ### Never nest a button inside a link
 
@@ -77,45 +66,11 @@ Use when creating joined button groups where one button is a `clientEntry` compo
 
 **Context:** Building a joined flat button group (edit | delete | move-up | move-down) on a direct child of a row in a `remix/component` app, mirroring the `/admin/lists` row-action group.
 
-The container child-selector approach works for a **two**-button group (first = left radius, last = right radius). For **3+ direct buttons**, styling via a container rule is unreliable in this `css()` runtime — the `button()` mixin's pill styles (`borderRadius: 999px`) can win, leaving egg-shaped buttons with no shared vertical border.
+The container child-selector approach works for a **two**-button group (first = left radius, last = right radius). For **3+ direct buttons**, styling via a container rule is unreliable: the `button()` mixin's pill styles (`borderRadius: 999px`) can win the layer contest, leaving egg-shaped buttons with no shared vertical border.
 
-Apply the flat square styles **per-button** instead of via a container `> button` rule — exactly how `/admin/lists` does it with its own `iconActionStyle`:
+Apply flat square styles **per button** instead. Only the first gets the left radius, only the last the right; middle buttons stay perfectly square. Mark contested borders `!important` (see the cascade pitfall below).
 
-```tsx
-let iconActionStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRight: 'none', // shared border — every button drops its right border
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-})
-// First button gets the left radius; last button restores right border + radius.
-let iconActionFirstStyle = css({ borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}` })
-let iconActionLastStyle = css({
-  borderRight: `1px solid ${theme.colors.border.default}`,
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-})
-// Danger (delete) button hover treatment.
-let iconActionDangerStyle = css({
-  color: theme.colors.action.danger.background,
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-```
-
-Per-button mix arrays (order: base, then first/last/danger):
-
-- First button: `[iconActionStyle, iconActionFirstStyle]`
-- Middle buttons: `[iconActionStyle]` (square, no radius)
-- Last button: `[iconActionStyle, iconActionLastStyle]`
-- Delete: `[iconActionStyle, iconActionDangerStyle]`
+Reference implementation: `app/ui/mixins/segmented.ts:1-80` (`segmentedButton({ isFirst, isLast })`), with the `/admin/lists` icon variant in `app/actions/lists/public/lists-styles.ts:1064-1100` (`iconActionStyle`). Mix order per button: base, then first/last/danger.
 
 ### Radius pitfall (double-rounded corners)
 
@@ -144,180 +99,38 @@ Single clientEntry
   └── On error: append <div> error to the cell
 ```
 
-#### Implementation Pattern
+#### Implementation shape
+
+One entry per page; use click delegation and DOM replacement rather than per-row entries:
 
 ```tsx
-import { clientEntry, css, type Handle } from 'remix/component'
+export const InlineEdit = clientEntry(import.meta.url + '#InlineEdit', (handle) => {
+  let activeCell: HTMLTableCellElement | null = null
+  let saving = false
 
-export const InlineEdit = clientEntry(
-  import.meta.url + '#InlineEdit',
-  function InlineEdit(handle: Handle) {
-    let activeInput: HTMLInputElement | null = null
-    let activeCell: HTMLTableCellElement | null = null
-    let activeRowId: number | null = null
-    let originalValue = ''
-    let saving = false
+  function onCellClick(e: Event) { ... } // named: same ref for removeEventListener
 
-    handle.signal.addEventListener('abort', () => {
-      cleanup()
-    })
+  return () => {
+    // find the table, addEventListener('click', onCellClick), remove on handle.signal abort
+  }
 
-    function cleanup() {
-      activeInput = null
-      activeCell = null
-      activeRowId = null
-      originalValue = ''
-      saving = false
-    }
-
-    // ⚠️ MUST use named function — not anonymous arrow
-    // The same reference is used for both addEventListener and removeEventListener
-    function onCellClick(e: Event) {
-      if (saving) return
-      let cell = (e.target as HTMLElement).closest<HTMLTableCellElement>('[data-inline-edit]')
-      if (!cell) return
-      if (activeCell) {
-        commitEdit()
-        return
-      } // save current, don't open new
-      startEdit(cell)
-    }
-
-    return () => {
-      if (typeof document !== 'undefined') {
-        let table = document.querySelector<HTMLElement>('#my-table')
-        if (!table) return <div mix={css({ display: 'none' })} />
-
-        table.addEventListener('click', onCellClick)
-
-        handle.signal.addEventListener('abort', () => {
-          table.removeEventListener('click', onCellClick) // same ref
-        })
-      }
-      return <div mix={css({ display: 'none' })} />
-    }
-
-    function startEdit(cell: HTMLTableCellElement) {
-      if (saving) return
-      let row = cell.closest<HTMLTableRowElement>('[data-row-id]')
-      if (!row) return
-
-      activeRowId = Number(row.getAttribute('data-row-id'))
-      originalValue = cell.textContent?.trim() ?? ''
-      activeCell = cell
-
-      let input = document.createElement('input')
-      input.type = 'email'
-      input.value = originalValue
-      input.addEventListener('keydown', onInputKeydown)
-      input.addEventListener('blur', onInputBlur)
-
-      cell.textContent = ''
-      cell.appendChild(input)
-      activeInput = input
-      input.focus()
-      input.select()
-    }
-
-    function onInputKeydown(e: KeyboardEvent) {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        commitEdit()
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        cancelEdit()
-      }
-    }
-
-    function onInputBlur() {
-      if (!saving) commitEdit()
-    }
-
-    function commitEdit() {
-      if (!activeInput || !activeCell || !activeRowId) return
-      let newValue = activeInput.value.trim()
-      if (!newValue || newValue === originalValue) {
-        revertCell()
-        return
-      }
-
-      saving = true
-      let csrfToken = readCsrfToken()
-      let rowId = activeRowId
-
-      fetch(`/resource/${rowId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Csrf-Token': csrfToken,
-        },
-        body: JSON.stringify({ email: newValue }),
-      })
-        .then(async (res) => {
-          if (res.ok) {
-            cleanup()
-            handle.frame.reload().catch(() => {}) // ⚠️ frame.reload() returns a Promise
-          } else {
-            let data = await res.json().catch(() => ({ error: 'Save failed' }))
-            saving = false
-            showError(data.error || 'Save failed')
-          }
-        })
-        .catch(() => {
-          saving = false
-          showError('Network error')
-        })
-    }
-
-    function cancelEdit() {
-      revertCell()
-    }
-
-    function revertCell() {
-      if (activeCell && activeInput) {
-        activeCell.textContent = originalValue
-      }
-      cleanup()
-    }
-
-    function showError(msg: string) {
-      if (!activeCell || !activeInput) return
-      let err = document.createElement('div')
-      err.textContent = msg
-      err.style.cssText = 'color:red;font-size:0.7rem;margin-top:2px;'
-      activeCell.appendChild(err)
-      activeInput.focus()
-    }
-  },
-)
+  function startEdit(cell: HTMLTableCellElement) { /* swap textContent for <input type="email"> */ }
+  function commitEdit() { /* fetch PUT + JSON/CSRF; on ok cleanup(); handle.frame.reload().catch(() => {}) */ }
+  function revertCell() { /* restore originalValue via textContent */ }
+})
 ```
+
+The UI stays a single server-rendered table; the entry only mutates the active cell. Commit on Enter/blur, revert on Escape; on a failed save append a small text node to the cell and keep the input focused.
 
 #### Server-Side Wiring
 
 The server-rendered table needs:
 
 1. **`data-inline-edit`** on editable cells
-2. **`data-row-id`** on each `<tr>`
-3. **CSRF token** embedded (e.g., `<script id="grid-state" ...>` or `<meta name="csrf-token">`)
+2. **`data-row-id`** on each `<tr>` (see `app/actions/client/grid-page.tsx:413`)
+3. **CSRF token** embedded (e.g. `<script id="grid-state" ...>` or `<meta name="csrf-token">`)
 4. **`tabindex={0}`, `role="button"`, `aria-label`** on editable cells for keyboard access
 5. **Controller** must accept `Content-Type: application/json` bodies for partial updates
-
-```tsx
-// Grid page (server component)
-<td data-inline-edit="email" tabindex={0} role="button" aria-label={`Edit email: ${row.email}`}>
-  {row.email}
-</td>
-```
-
-```typescript
-// Controller
-if (contentType.includes('application/json')) {
-  let body = await request.json()
-  // validate + update + return JSON
-  return context.json({ ok: true })
-}
-// else: existing form-data path unchanged
-```
 
 #### Pitfalls
 
@@ -342,22 +155,7 @@ Wrap the interactive element in a `clientEntry` component. Props must be seriali
 
 A `clientEntry` that registers global event listeners (e.g., theme toggle, analytics, keyboard shortcuts) must mount in the **root `<Document>` wrapper**, not `<Layout>`. Pages rendered directly through `<Document>` (standalone landing pages) never mount `<Layout>`, so the `clientEntry` never hydrates and the feature silently breaks.
 
-```tsx
-// app/ui/document.tsx — shared by ALL pages
-export function Document(handle: Handle<DocumentProps>) {
-  return () => (
-    <html>
-      <head>...</head>
-      <body>
-        {children}
-        <ThemeToggle /> {/* ← mounted on every page */}
-      </body>
-    </html>
-  )
-}
-```
-
-Remove duplicate mounts from `<Layout>` — `<Document>` is the single root wrapper for all routes, and `clientEntry` components use an `initialized` flag to prevent duplicate hydration.
+Mount it once in `app/ui/document.tsx:37` (`Document`), the single root wrapper every page renders — standalone pages skip `<Layout>`, so a `<Layout>` mount silently never hydrates. Remove duplicate mounts; the `clientEntry`'s `initialized` flag prevents double hydration.
 
 Use when the `on` mixin compiles but the handler doesn't fire (suspect missing `clientEntry`), adding `confirm()` dialogs to admin action buttons, or mounting a global behavior `clientEntry` so it hydrates on every page (Document, not Layout).
 
@@ -376,40 +174,23 @@ Adding HTML5 Drag and Drop (`dragstart`, `dragover`, `drop`, `dragend`) to a Rem
 Attach drag event listeners via `ref()` with an `AbortController` for cleanup:
 
 ```ts
-import { clientEntry, ref, css } from 'remix/component'
-
 export const MyList = clientEntry(import.meta.url + '#MyList', (handle) => {
   let items = [...]
-
-  let handleDragStart = (e: DragEvent, index: number) => { ... }
-  let handleDragOver = (e: DragEvent, index: number) => { ... }
-  let handleDrop = () => { ... }
-  let handleDragEnd = () => { ... }
-
   return () => (
     <div>
       {items.map((item, index) => (
-        <div
-          key={item.id}
+        <div key={item.id} draggable="true" data-index={index}
           mix={ref((el) => {
             let ac = new AbortController()
-            el.addEventListener('dragstart', (e) => {
-              let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
-              handleDragStart(e as DragEvent, idx)
-            }, { signal: ac.signal })
-            el.addEventListener('dragover', (e) => {
-              let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
-              handleDragOver(e as DragEvent, idx)
-            }, { signal: ac.signal })
-            el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
-            el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
+            for (let type of ['dragstart', 'dragover', 'drop', 'dragend'] as const) {
+              el.addEventListener(type, (e) => {
+                let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+                onDrag(type, e as DragEvent, idx) // dispatch to the handlers below
+              }, { signal: ac.signal })
+            }
             return () => ac.abort()
           })}
-          draggable="true"
-          data-index={index}
-        >
-          ...
-        </div>
+        >...</div>
       ))}
     </div>
   )
@@ -424,29 +205,26 @@ Visual feedback must use **direct DOM manipulation**:
 let draggedEl: HTMLElement | null = null
 let indicatorEl: HTMLElement | null = null
 
-let handleDragStart = (e: DragEvent, index: number) => {
-  let el = e.currentTarget as HTMLElement
-  draggedEl = el
-  el.style.opacity = '0.4'
+let handleDragStart = (e: DragEvent) => {
+  draggedEl = e.currentTarget as HTMLElement
+  draggedEl.style.opacity = '0.4'
 }
 
-let handleDragOver = (e: DragEvent, index: number) => {
+let handleDragOver = (e: DragEvent) => {
   e.preventDefault()
   e.stopPropagation()
-  if (targetEl) targetEl.style.borderTop = '2px solid blue'
+  if (indicatorEl) indicatorEl.style.borderTop = '2px solid blue'
 }
 
 let handleDrop = () => {
-  if (indicatorEl) indicatorEl.style.borderTop = ''
   items = reorderedItems
-  handle.update()
+  handle.update() // only after the drop, never during dragover
 }
 
 let handleDragEnd = () => {
-  let dirty = draggedEl !== null || indicatorEl !== null
   if (draggedEl) draggedEl.style.opacity = ''
   if (indicatorEl) indicatorEl.style.borderTop = ''
-  if (dirty) handle.update()
+  if (draggedEl || indicatorEl) handle.update()
 }
 ```
 
@@ -498,29 +276,19 @@ Inline `<script>` tags in frame responses **do not execute**. This blocks client
 Place a `<div id="your-target" />` **inside** the scrollable overflow container (`overflow-y: auto`), then navigate to the URL with `#your-target` hash. The browser's native fragment scrolling finds the **nearest scrollable ancestor** of the target element and scrolls THAT container.
 
 ```tsx
-// ❌ Broken in frame navigation: inline script never fires
-<div id="chat-messages" mix={conversationStyle}>
-  {messages.map(msg => <div>{msg}</div>)}
-</div>
+// ❌ inline <script> never executes in a frame response
+<div id="chat-messages">{messages}</div>
 <div id="chat-end" />
-<script>document.getElementById('chat-messages').scrollTop = ...</script>
 
-// ✅ Works: fragment scrolls the overflow container natively
+// ✅ anchor inside the scroller → native fragment scrolling
 <div id="chat-messages" mix={conversationStyle}>
-  {messages.map(msg => <div>{msg}</div>)}
-  <div id="chat-end" />  {/* ← inside the scrollable container */}
+  {messages}
+  <div id="chat-end" />
 </div>
 ```
 
-Then include the hash in navigation URLs:
-
 ```ts
-// On success POST redirect
-let url = routes.chat.index.href() + '?threadId=' + id + '#chat-end'
-return redirect(url)
-
-// On links to existing conversations
-let link = routes.chat.index.href() + '?threadId=' + id + '#chat-end'
+return redirect(routes.chat.index.href() + '?threadId=' + id + '#chat-end')
 ```
 
 How it works: the browser parses the URL hash, finds the element with the matching `id`, walks up the DOM tree to the first ancestor with `overflow: auto` or `overflow: scroll`, and scrolls that ancestor to make the target visible (at the bottom if it's the last child). The container needs `overflow-y: auto` (or `scroll`).

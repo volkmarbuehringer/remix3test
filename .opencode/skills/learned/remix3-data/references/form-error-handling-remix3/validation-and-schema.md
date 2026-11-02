@@ -24,20 +24,7 @@ Use the guide's `parseSafe` re-render pattern (`node_modules/remix/guides/09-for
 When `formValues` are present (validation failure), use them for `selected`; otherwise fall back to the row value:
 
 ```tsx
-<select name="role">
-  <option
-    value="Admin"
-    selected={formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'}
-  >
-    Admin
-  </option>
-  <option
-    value="Editor"
-    selected={formValues?.role !== undefined ? formValues.role === 'Editor' : row.role === 'Editor'}
-  >
-    Editor
-  </option>
-</select>
+<option value="Admin" selected={formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'}>
 ```
 
 **Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. `remix/component` compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it.
@@ -55,20 +42,7 @@ reaches application code: Standard Schema issues expose only `message` and `path
 message to translate it breaks whenever the vendor rewords a check, and silently falls
 back to English when it does.
 
-```typescript
-export function clientErrorMap(context: s.ErrorMapContext): string | undefined {
-  let field = context.path?.[0]
-
-  if (field === 'name' && context.code === 'string.min_length') {
-    return 'Der Name muss mindestens 8 Zeichen enthalten.'
-  }
-  if (field === 'email' && context.code === 'string.email') {
-    return 'Bitte eine gültige E-Mail-Adresse eingeben.'
-  }
-  // role/status are mapped by field (enum checks); other pairs keep the vendor default.
-  return undefined
-}
-
+```ts
 let parsed = s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap })
 ```
 
@@ -78,26 +52,12 @@ let parsed = s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap 
   `string.max_length`, so the same code needs different German copy per field.
 - Keep `issuesToFieldErrors(parsed.issues)` for the field→message map; the messages are
   already localized at parse time.
-- Reference implementation + regression test: `app/actions/client/controller.tsx`
+- Reference implementation + regression test: `app/actions/client/controller.tsx:105`
   (`clientErrorMap`), `app/actions/client/controller.test.ts`.
 
 ### Schema with coerce.number() + .refine()
 
-```typescript
-// app/utils/offering-schema.ts — declarative, no hand-written validation
-import * as s from 'remix/data-schema'
-import * as coerce from 'remix/data-schema/coerce'
-
-export const offeringSaveSchema = f.object({
-  resource_id: f.field(coerce.number().refine((n) => n > 0, 'ist erforderlich.')),
-  start_min: f.field(
-    coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 60 === 0, 'ist ungültig.'),
-  ),
-  day: f.field(
-    s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich.'),
-  ),
-})
-```
+Declarative schema in `app/utils/offering-schema.ts:8` (`offeringSaveSchema`) — `f.object` + `f.field`, `coerce.number().refine(...)` for ids/minutes, and `s.string().refine(...)` for the date. No hand-written validation.
 
 ### `coerce.number()` Empty-Select Pitfall
 
@@ -110,20 +70,7 @@ From the `coerce.js` source:
 if (trimmed.length === 0) return fail('Expected number', ...)
 ```
 
-**Fix:** Pre-check empty select values in the controller before calling `parseSafe`:
-
-```typescript
-let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-if (!resourceIdRaw.trim()) {
-  return renderPage(context, await loadPageData(context, {
-    creating: true,
-    fieldErrors: { resource_id: 'ist erforderlich.' },
-  }), { status: 400 })
-}
-
-// Only reaches parseSafe if resource_id is non-empty
-let result = s.parseSafe(offeringSaveSchema, formData)
-```
+**Fix:** pre-check empty select values in the controller before `parseSafe` (e.g. `app/actions/verwaltung/appointments/controller.tsx:339`), returning the 400 re-render with `fieldErrors: { resource_id: 'ist erforderlich.' }`.
 
 **Failed approach:** `s.string().refine(...).pipe(coerce.number()).refine(...)` — TypeScript fails because `.refine()` after `.pipe()` still expects the string type predicate:
 
@@ -163,20 +110,12 @@ selected exactly when empty:
 
 ```tsx
 let resourceValue =
-  resolvedResourceId != null && String(resolvedResourceId) !== ""
-    ? String(resolvedResourceId)
-    : ""
+  resolvedResourceId != null && String(resolvedResourceId) !== "" ? String(resolvedResourceId) : ""
 
 <select name="resource_id" required>
-  <option value="" disabled selected={resourceValue === ""}>
-    Ressource auswählen...
-  </option>
+  <option value="" disabled selected={resourceValue === ""}>Ressource auswählen...</option>
   {resources.map((res) => (
-    <option
-      key={res.id}
-      value={res.id}
-      selected={resourceValue !== "" && resourceValue === String(res.id)}
-    >
+    <option key={res.id} value={res.id} selected={resourceValue !== "" && resourceValue === String(res.id)}>
       {res.name}
     </option>
   ))}
@@ -196,105 +135,19 @@ was before the frame re-render. Add all three:
 - `aria-invalid="true"` plus `aria-describedby` pointing at the error element id on
   the rejected control. Use the **string** `aria-invalid="true"`; Remix 3 renders
   `aria-invalid={true}` as a bare `aria-invalid` attribute, which is not a valid ARIA value.
-- A tiny `clientEntry` inside the form that focuses the first invalid control:
-
-```tsx
-export const FormErrorFocus = clientEntry(
-  import.meta.url + "#FormErrorFocus",
-  function FormErrorFocus(handle: Handle) {
-    return () => (
-      <div
-        mix={[
-          css({ display: "none" }),
-          ref((el) => {
-            if (!el || typeof document === "undefined") return
-            let scope: ParentNode = el.closest("form") ?? document
-            let target = scope.querySelector('[aria-invalid="true"]') as HTMLElement | null
-            target?.focus()
-          }),
-        ]}
-      />
-    )
-  },
-)
-```
-
-Scope with `el.closest("form")` so a page with several forms (filter bar plus edit
-panel) focuses the right one. A clean page has no `aria-invalid`, so the entry is a
-no-op on initial load.
+- Render `FormErrorFocus` from `app/ui/form-error-focus.browser.tsx:10` inside the form; it focuses the first `[aria-invalid="true"]` within `el.closest("form")` and is a no-op on a clean page.
 
 ### Shared Utilities: `app/utils/schema-utils.ts`
 
-Instead of local `issuesToFieldErrors` and `extractFormValues` functions, import from the shared module:
-
-```typescript
-import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
-
-let formValues = readFormFieldValues(KEYS, formData)
-let result = s.parseSafe(schema, formData)
-if (!result.success) {
-  let fieldErrors = issuesToFieldErrors(result.issues)
-  // ...
-}
-```
-
-The shared `readFormFieldValues` is equivalent to the old `extractFormValues` — reads raw string values from FormData before coercion, preserving exactly what the user typed.
+Instead of local `issuesToFieldErrors` and `extractFormValues` functions, import from `app/utils/schema-utils.ts`. The shared `readFormFieldValues` is equivalent to the old `extractFormValues` — it reads raw string values from FormData before coercion, preserving exactly what the user typed.
 
 ### Cross-Field Validation
 
-Cross-field rules (e.g., `endMin > startMin`) remain as manual post-parse checks in the controller, matching the timeboxer demo pattern for domain validations that involve multiple fields:
-
-```typescript
-if (result.value.end_min <= result.value.start_min) {
-  let data = await loadPageData(context, {
-    creating: true,
-    formValues,
-    formError: 'muss nach der Startzeit liegen.',
-    fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-    ...gridStateOverrides(gridValues),
-  })
-  return renderPage(context, data, { status: 400 })
-}
-```
+Cross-field rules (e.g. `endMin > startMin`) remain manual post-parse checks in the controller, matching the timeboxer demo pattern for domain validations that involve multiple fields. Return the 400 re-render with both `formError` and the field error (reference: `app/actions/verwaltung/appointments/controller.tsx:375`).
 
 ### Multi-Step Wizard State Preservation
 
-In a Remix multi-step wizard, form submissions are POST requests. When validation fails and the action re-renders the page, `context.url.searchParams` is empty (POST has no query params). Wizard context values like `resource_id`, `day`, and `step` are only in `formData`, not the URL. If the shared data loader uses URL params to derive wizard data (offerings, time slots), the re-rendered page will have broken UI — empty dropdowns, missing computed data.
-
-**Solution:** Extract wizard context from `formData` at the top of the action handler, and pass them explicitly as overrides to the data loading function on every error re-render path.
-
-```typescript
-// In the action handler:
-let formData = context.formData
-
-// Extract wizard context from hidden form fields
-let wizardResourceId = (formData.get('resource_id') as string) || undefined
-let dateRaw = (formData.get('date') as string) || undefined
-let wizardDay = dateRaw ? new Date(dateRaw + 'T00:00:00Z').getTime() : undefined
-
-// Pass to every error re-render:
-let data = await loadPageData(context, userId, {
-  step: 3,
-  wizardResourceId,
-  wizardDay,
-  formValues,
-  fieldErrors,
-  formError: 'Validation failed.',
-})
-return renderPage(context, data, { status: 400 })
-```
-
-The data loader then uses `overrides.wizardResourceId` and `overrides.wizardDay` (falling back to URL params for GET requests):
-
-```typescript
-let wizardResourceId =
-  overrides?.wizardResourceId ?? context.url.searchParams.get('resource_id') ?? undefined
-
-let wizardDayStr =
-  overrides?.wizardDay !== undefined
-    ? String(overrides.wizardDay)
-    : context.url.searchParams.get('day') || undefined
-```
+In a multi-step wizard, POST has no query params, so `context.url.searchParams` is empty on a validation re-render and URL-derived wizard data (offerings, slots) breaks. Extract `resource_id`, `day`, and `step` from `formData` at the top of the action, pass them as loader overrides on every error path, and let the loader fall back to URL params for GET. Reference: `app/actions/appointments-new/controller.tsx:224` (`wizardResourceId`/`wizardDay`).
 
 ## Testing Form Validation
 

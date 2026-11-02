@@ -19,77 +19,15 @@ Admin CRUD forms often have sort/filter/pagination state that must survive POST 
 
 ### Shared Page Data Loader
 
-Extract a `loadXxxPageData(context, overrides?)` function serving both GET index and POST error re-render:
+Extract one `loadXxxPageData(context, overrides?)` used by both the GET index and every POST-error re-render. `overrides?.foo ?? urlParam` — the override wins, the URL is the fallback. Include the grid fields (`offset`, `hasMore`, `prev/nextOffset`, `sortColumn`, `sortDirection`, `filter`) plus the panel/error fields (`editRow`, `creating`, `formValues`, `fieldErrors`, `formError`).
 
-```typescript
-interface PageData {
-  rows: Row[]
-  offset: number
-  hasMore: boolean
-  prevOffset: number
-  nextOffset: number
-  sortColumn: string
-  sortDirection: 'asc' | 'desc'
-  filter: string | undefined
-  editRow: Row | null
-  creating: boolean
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
-}
-
-async function loadPageData(
-  context: AppContext,
-  overrides?: Partial<
-    Pick<
-      PageData,
-      | 'creating'
-      | 'editRow'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
-    >
-  >,
-): Promise<PageData> {
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
-  // Sort, query, paginate...
-  return {
-    rows,
-    offset,
-    hasMore,
-    prevOffset,
-    nextOffset,
-    sortColumn,
-    sortDirection,
-    filter,
-    editRow,
-    creating,
-    formValues: overrides?.formValues,
-    fieldErrors: overrides?.fieldErrors,
-    formError: overrides?.formError,
-  }
-}
-```
-
-Key pattern: `overrides?.foo ?? urlParam` — override takes precedence, URL param is fallback.
+Reference: `app/actions/admin/webhook-requests/controller.tsx:100` (`loadPageData`), `app/actions/client/controller.tsx:177` (`loadGridData`) and `:249` (`renderClientsError`).
 
 ### Grid State from FormData
 
-Hidden inputs carry sort/filter/pagination state across POST. Use `app/utils/grid-state.ts`:
+Hidden inputs carry sort/filter/pagination across POST. `app/utils/grid-state.ts` exposes `gridStateFromFormData`, `gridStateToParams`, and `gridStateOverrides`; spread the last one into the loader:
 
 ```typescript
-import {
-  gridStateFromFormData, // from FormData
-  gridStateToParams, // to URLSearchParams
-  gridStateOverrides, // every loader override in one object
-  type GridState,
-} from '../utils/grid-state.ts'
-
 let gridValues = gridStateFromFormData(formData)
 let data = await loadPageData(context, {
   creating: true,
@@ -97,68 +35,22 @@ let data = await loadPageData(context, {
   fieldErrors,
   ...gridStateOverrides(gridValues),
 })
-return renderPage(context, data, { status: 400 })
 ```
 
-`gridStateOverrides()` (typed `GridStateOverrides`) is the single place the six loader overrides are
-built — one spread replaces the per-branch getter block that used to be copy-pasted into every
-re-render branch, and the sort direction flows through `gridStateDirection()`'s whitelist, so an
-invalid `_order` falls back to the caller's default instead of reaching a raw-SQL `ORDER BY`
-compiler (which throws). Adding a new grid field means adding it inside `gridStateOverrides()` once;
-existing branches need no change.
+`gridStateOverrides()` (typed `GridStateOverrides`) is the single place the six loader overrides are built — one spread replaces the per-branch getter block that used to be copy-pasted into every re-render branch, and the sort direction flows through `gridStateDirection()`'s whitelist, so an invalid `_order` falls back to the caller's default instead of reaching a raw-SQL `ORDER BY` compiler (which throws). Adding a new grid field means adding it inside `gridStateOverrides()` once; existing branches need no change.
 
 ### Optional Update Fields: Keep Absence Real
 
-`readFormFieldValues()` fills every key with `''`, so a field omitted from a
-partial submit still looks present. If the update schema allows optional fields
-(e.g. `s.optional(s.enum_([...]))`), `formValues` then overrides the row with
-`''`; if `editRow` is rebuilt from raw values, the edit panel shows fabricated
-defaults (Viewer/Active, a blank date) and a later save writes them back.
+`readFormFieldValues()` fills every key with `''`, so a field omitted from a partial submit still looks present. If the update schema allows optional fields (e.g. `s.optional(s.enum_([...]))`), `formValues` then overrides the row with `''`; if `editRow` is rebuilt from raw values, the edit panel shows fabricated defaults (Viewer/Active, a blank date) and a later save writes them back.
 
-Keep absence real and load the current row:
+Keep absence real: delete keys the form did not submit before building `formValues`, and load the current row instead of rebuilding `editRow` from raw values.
 
-```typescript
-const OPTIONAL_KEYS = ['role', 'status', 'registered'] as const
-
-function readSubmittedValues(formData: FormData): Record<string, string> {
-  let values = readFormFieldValues(CLIENT_FORM_KEYS, formData)
-  for (let key of OPTIONAL_KEYS) {
-    if (!formData.has(key)) delete values[key]
-  }
-  return values
-}
-
-let existing = (await db.findOne(clients, { where: { id } })) as Row | null
-if (!existing) {
-  context.session.flash('error', 'Kunde nicht gefunden.')
-  return editingRedirect(
-    routes.admin.clients.index.href(),
-    null,
-    gridStateFromForm(rawValues),
-  )
-}
-
-return renderGridFormError({
-  editRow: existing,
-  formValues: readSubmittedValues(formData),
-  fieldErrors: issuesToFieldErrors(parsed.issues),
-  ...
-})
-```
-
-- Required fields stay in `formValues` (empty when omitted) so their errors
-  remain visible; only absent optional keys are deleted.
+- Required fields stay in `formValues` (empty when omitted) so their errors remain visible; only absent optional keys are deleted.
 - The edit panel's `<select>`/date controls then fall back to `row.*`.
 - Do **not** rebuild `editRow` from raw values; load the current row.
-- Trigger: a partial/API PUT that omits optional fields and fails another
-  field. Browser forms submit every control, so normal UI submissions are
-  unaffected — but the schema explicitly supports omission.
-- Parse with `parseSafe(schema, formData, { errorMap })` so vendor check messages are
-  localized by `code`; `issuesToFieldErrors()` then only keys them by field. See
-  `validation-and-schema.md` § "Localize Built-In Check Messages by `code`, Not `message`".
-- Reference implementation: `app/actions/client/controller.tsx`
-  (`readClientFormValues`) and the partial-PUT test in
-  `app/actions/client/controller.test.ts`.
+- Trigger: a partial/API PUT that omits optional fields and fails another field. Browser forms submit every control, so normal UI submissions are unaffected — but the schema explicitly supports omission.
+- Parse with `parseSafe(schema, formData, { errorMap })` so vendor check messages are localized by `code`; `issuesToFieldErrors()` then only keys them by field. See `validation-and-schema.md` § "Localize Built-In Check Messages by `code`, Not `message`".
+- Reference implementation: `app/actions/client/controller.tsx:207` (`readClientFormValues`) and the partial-PUT test in `app/actions/client/controller.test.ts`.
 
 ### Keep an Open Edit/Create Panel Across Grid Navigation
 
@@ -182,70 +74,19 @@ function withPanelState(href: string, editingId: number | null | undefined, crea
 
 ### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
 
-When an admin **grid** page routes its validation-error re-render through the shared helper (`app/ui/admin-grid-error.tsx` → `renderGridFormError`), the response is always **status 200**, NOT 400.
+When an admin **grid** page routes its validation-error re-render through `renderGridFormError` (`app/ui/admin-grid-error.tsx`), the response is always **status 200**, NOT 400. The admin frame transport treats any non-OK response as an unrecoverable error card, so a validation-error re-render MUST be a 200 to show inline field errors in the frame; the helper renders `renderAdminPage(..., { status: 200 })` (`app/ui/admin-grid-error.tsx:79`).
 
-**Why:** the admin frame transport treats any non-OK response as an unrecoverable error card, so a validation-error re-render MUST be a 200 to show inline field errors in the frame. The helper renders `renderAdminPage(..., { status: 200 })`.
-
-This is the `/admin/users` pattern — `renderUsersError` delegates to `renderGridFormError` (status 200) and the users tests assert `response.status === 200` on validation failure. A grid action using this helper MUST assert 200, not 400:
-
-```typescript
-import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-grid-error.tsx'
-
-async function renderClientsError(context, opts): Promise<Response> {
-  let grid: AdminGridErrorState = { offset: opts.offset, sortColumn: opts.column, sortDirection: opts.direction, filter: opts.filter, pageSize: opts.pageSize }
-  return renderGridFormError<Row>({
-    render: context.render,
-    activeItem: 'clients',
-    loadRows: () => loadGridData(context.db, opts),
-    buildPage: (page) => <ClientPage ... />,
-    formValues: opts.formValues,
-    fieldErrors: opts.fieldErrors,
-    grid,
-  }) // → renderAdminPage(..., { status: 200 })
-}
-```
+This is the `/admin/users` pattern. A grid action using this helper MUST assert 200, not 400. Reference call: `app/actions/client/controller.tsx:249` (`renderClientsError`).
 
 **Contrast:** `context.render(<Page/>, { status: 400 })` (direct re-render in `validation-and-schema.md`) is for full-page / non-admin-frame forms. Inside the admin frame, route validation through `renderGridFormError` so inline errors appear at 200. When a spec/test says "returns 400" for a grid page that uses `renderGridFormError`, it describes stale behavior — correct it to 200 (see the users test `assert.equal(response.status, 200)`).
 
 ### Form Error Banner Styles
 
-Two distinct banners — page level (solid) and form level (subtle):
-
-```css
-/* Page-level (above table, no form active) */
-table.errorBanner: {
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-}
-
-/* Form-internal (inside form panel on validation failure) */
-formErrorBanner: {
-  background: `${theme.colors.action.danger.background}15`,  /* ~8% opacity */
-  border: `1px solid ${theme.colors.action.danger.background}`,
-  color: theme.colors.action.danger.background,
-}
-```
+Two banners: page-level solid `table.errorBanner` (`app/ui/mixins/admin-table.ts:636`) and form-internal subtle `formErrorBanner` (e.g. `app/ui/admin-offerings-create-page.tsx:41`), both using the danger background/foreground tokens. The form variant uses the background at ~8% opacity with a 1px border.
 
 ### Avoid Double Error Display
 
-When a form panel is open, `formError` renders ONLY inside the form, NOT at page level. Use `!hasFormPanel` to gate:
-
-```tsx
-// Page-level grid section — hidden when form is open
-{
-  !hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null
-}
-{
-  !hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null
-}
-
-// Inside the form component
-{
-  formError ? <div mix={formErrorBanner}>{formError}</div> : null
-}
-```
-
-Keep `formError` (form validation) and `error` (destroy flow) strictly separate — never chain them.
+When a form panel is open, render `formError` only inside the form; gate the page-level banner with `!hasFormPanel` so it does not double-display (`app/actions/client/page.tsx:77`). Keep `formError` (form validation) and `error` (destroy flow) strictly separate — never chain them.
 
 ### JSX Text Content Warning
 
