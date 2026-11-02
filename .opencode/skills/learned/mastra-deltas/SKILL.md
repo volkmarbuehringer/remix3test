@@ -178,6 +178,6 @@ This skill is the **index** for the agent-routing pipeline. For the SSE transpor
 ### Related Skills
 
 - `mastra-deltas § Agent` — the SSE transport that carries `navigate` and `question` events
-- `remix3-forms § Validation Errors` — validation errors re-render inline and preserve user edits over prefill values
+- `remix3-data § Validation Errors` — validation errors re-render inline and preserve user edits over prefill values
 - `remix3-server § Security` (`references/security-gotchas/security-middleware.md`) — CSRF configuration for agent endpoints
 - `dev-gotchas § Rate Limiter` — rate limiter settings for multi-step agent flows

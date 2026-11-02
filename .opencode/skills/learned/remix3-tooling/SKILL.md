@@ -203,7 +203,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 - The guide's example mounts a self-contained component, but most full-page entries here render only a hidden marker and work through `document`/`window` in a `ref` callback. Append the fixture to `document.body` (not `result.container`) and assert against the fixture; `result.container` holds none of the UI.
 - Remove the fixture in `afterEach` even when an assertion throws — module-scoped delegated listeners (`let listenersRegistered = false`) persist across tests and `cleanup()` does not remove them. If the entry writes `location.hash`/`history.replaceState` (ARIA tabs, deep links), reset the hash in `beforeEach` or one test deep-links the next.
-- `render()` supplies a root frame, so entries that only listen for `handle.frame` events mount without setup; stub `frameInit.resolveFrame` only when the test triggers `handle.frame.reload()`. Mirror the server-rendered markup exactly (`Glyph` emits only `xlink:href` — see `remix3-styling § Theme Tokens → references/remix3-theme-conformance/glyph-add.md`).
+- `render()` supplies a root frame, so entries that only listen for `handle.frame` events mount without setup; stub `frameInit.resolveFrame` only when the test triggers `handle.frame.reload()`. Mirror the server-rendered markup exactly (`Glyph` emits only `xlink:href` — see `remix3-ui § Theme Tokens → references/remix3-theme-conformance/glyph-add.md`).
 
 **Frame-event `clientEntry` tests (`references/remix3-testing/frame-event-cliententry-tests.md`)**
 
@@ -283,6 +283,6 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 - `remix3-ui § Frames` — production `Frame` navigation and `clientEntry` side effects (`handle.queueTask`, `data-*` identity)
 - `remix3-tooling § Bun Runtime` — running the app and its `remix test` suite under Bun
-- `remix3-styling § CSS & Layout` — styling/layout deltas that browser tests assert on (geometry, computed style)
+- `remix3-ui § CSS & Layout` — styling/layout deltas that browser tests assert on (geometry, computed style)
 - `remix3-ui § Rendering` — owns the `<a><button>` bug class, `buttonLink()`, and raw-HTML props this validation is additive to
 - vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) — canonical `remix test` runner and `render`/`act` API

@@ -101,7 +101,7 @@ Keyed reconciliation may `insertBefore` the clicked row's node (the focused butt
 
 ## Related
 
-- `remix3-styling` § CSS & Layout → `references/remix3-css-and-layout/hover-reveal.md` — the reveal CSS and `:focus-visible` gating this test protects.
+- `remix3-ui` § CSS & Layout → `references/remix3-css-and-layout/hover-reveal.md` — the reveal CSS and `:focus-visible` gating this test protects.
 - `remix3-ui` § Client Entries → `references/remix3-client-entries/roving-tabindex-keyboard-lists.md` — focus-by-id after a reorder.
 - `references/remix3-testing/select-change-events.md`, `keystroke-loss-hydration-race.md` — hydration-gap retries and early-input loss in e2e.
 - `references/remix3-testing/state-isolation-and-e2e-serve.md` — `t.serve` + seeded DB fixtures.

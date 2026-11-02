@@ -1,6 +1,6 @@
 # `light-dark()` Follows `color-scheme`, Not `data-theme`
 
-**Source:** `remix3-styling § Theme Tokens` — app theme toggle + vendor `light-dark()` palettes
+**Source:** `remix3-ui § Theme Tokens` — app theme toggle + vendor `light-dark()` palettes
 **Extracted:** 2026-10-31
 
 **Context:** An app sets `data-theme="dark"` / `"light"` on `<html>` for its own theme tokens, but a vendor component or copied palette uses CSS `light-dark(...)`. The app theme flips; the vendor palette does not.

@@ -118,6 +118,6 @@ Wait ~350ms after move/delete so the fast autosave hits the stub, then assert fo
 
 ## Related
 
-- `remix3-styling` § CSS & Layout → `references/remix3-css-and-layout/hover-reveal.md` — the hover/focus reveal mechanics this pattern replaces on touch.
+- `remix3-ui` § CSS & Layout → `references/remix3-css-and-layout/hover-reveal.md` — the hover/focus reveal mechanics this pattern replaces on touch.
 - `remix3-ui` § Client Entries → `references/remix3-client-entries/queuetask-over-raf.md` — why the post-close focus is queued, not scheduled with `requestAnimationFrame`.
 - `remix3-tooling` § Testing — the browser-test harness and fetch-stub patterns.
