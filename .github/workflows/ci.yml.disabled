@@ -1,3 +1,9 @@
+# Intentionally disabled: GitHub only runs workflows whose filename ends in
+# `.yml`/`.yaml`, so `ci.yml.disabled` is inert.
+#
+# To enable: review the weekly schedule below with the repository owner, then
+# rename this file to `.github/workflows/ci.yml`. Do not rename it just to run a
+# one-off check; use `workflow_dispatch` after enabling or run the steps locally.
 name: CI
 
 on:
@@ -9,18 +15,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: newapp
-
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
       - uses: actions/setup-node@v4
         with:
           node-version: 26
           cache: pnpm
-          cache-dependency-path: newapp/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
+
+      # Retained preview tarballs are pruned after ~7 days. Run this before the
+      # install so an expired pin fails with the refresh instruction instead of
+      # an opaque 404 from pnpm.
+      - run: npm run remix:pin:check
 
       - run: pnpm install --frozen-lockfile
 

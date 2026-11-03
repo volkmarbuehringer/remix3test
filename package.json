@@ -28,6 +28,7 @@
     "format": "oxfmt . --check",
     "format:fix": "oxfmt . --write",
     "knip": "knip",
+    "remix:pin:check": "node ./scripts/check-remix-pin.ts",
     "update:remix": "node ./scripts/update-remix.ts",
     "sync-skills": "node ./scripts/sync-skills.ts",
     "postinstall": "node ./scripts/postinstall.ts"

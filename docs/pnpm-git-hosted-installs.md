@@ -50,6 +50,11 @@ The update script:
 404 after retention. Refresh the pin before the tarball disappears; an expired
 build needs a newer URL and lock update.
 
+Run `npm run remix:pin:check` to verify the pin: it HEADs both tarball URLs and
+reads `t/preview.json` to warn when the build is older than five days. The check
+is dependency-free and treats network failures as warnings, so it is safe
+offline; add `-- --strict` to make the refresh warning a failure.
+
 **Stale virtual-store dirs.** A normal `pnpm install` leaves the previous
 build's `node_modules/.pnpm/*` entries in place (the 2026-11-03 migration left
 50 codeload dirs). They are unreferenced but still occupy disk; a clean
