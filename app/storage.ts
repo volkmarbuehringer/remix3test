@@ -26,7 +26,8 @@ import { envString } from './config.ts'
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const publicDirectory = path.resolve(appRoot, 'public')
 const configuredDirectory = envString('UPLOAD_FILES_DIR')
-const uploadFilesDirectory = path.resolve(appRoot, configuredDirectory ?? 'tmp/uploads')
+/** Resolved directory holding the filesystem upload bytes and metadata. */
+export const uploadFilesDirectory = path.resolve(appRoot, configuredDirectory ?? 'tmp/uploads')
 
 if (isInside(uploadFilesDirectory, publicDirectory)) {
   throw new Error(

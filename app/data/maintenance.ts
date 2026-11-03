@@ -1,6 +1,8 @@
 import type { Database } from 'remix/data-table'
 
 import { envPositiveNumber } from '../config.ts'
+import { uploadFilesDirectory } from '../storage.ts'
+import { sweepOrphanedUploadFiles } from './upload-files-sweep.ts'
 
 const MINUTE_MS = 60 * 1000
 const HOUR_MS = 60 * MINUTE_MS
@@ -104,7 +106,15 @@ export async function deleteExpiredUploads(db: Database, retentionMs: number): P
  * failing step is logged instead of propagated (the interval keeps running).
  */
 async function runDatabaseMaintenance(db: Database): Promise<void> {
-  let deleted = { chatRuns: 0, webhookRequests: 0, auditLogs: 0, uploads: 0 }
+  let deleted = {
+    chatRuns: 0,
+    webhookRequests: 0,
+    auditLogs: 0,
+    uploads: 0,
+    uploadFileRows: 0,
+    uploadFiles: 0,
+    uploadTempFiles: 0,
+  }
 
   try {
     deleted.chatRuns = await deleteExpiredChatRuns(db, chatRunsTtlMs)
@@ -126,12 +136,30 @@ async function runDatabaseMaintenance(db: Database): Promise<void> {
   } catch (error) {
     console.error('uploads retention cleanup failed:', error)
   }
+  try {
+    let swept = await sweepOrphanedUploadFiles(db, uploadFilesDirectory)
+    deleted.uploadFileRows = swept.rows
+    deleted.uploadFiles = swept.files
+    deleted.uploadTempFiles = swept.temporaryFiles
+  } catch (error) {
+    console.error('upload_files orphan sweep failed:', error)
+  }
 
-  if (deleted.chatRuns || deleted.webhookRequests || deleted.auditLogs || deleted.uploads) {
+  if (
+    deleted.chatRuns ||
+    deleted.webhookRequests ||
+    deleted.auditLogs ||
+    deleted.uploads ||
+    deleted.uploadFileRows ||
+    deleted.uploadFiles ||
+    deleted.uploadTempFiles
+  ) {
     console.log(
       `Database maintenance: deleted ${deleted.chatRuns} chat_runs, ` +
         `${deleted.webhookRequests} webhook_requests, ${deleted.auditLogs} audit_logs, ` +
-        `${deleted.uploads} uploads`,
+        `${deleted.uploads} uploads, ${deleted.uploadFileRows} orphaned upload_files rows, ` +
+        `${deleted.uploadFiles} orphaned upload files, ` +
+        `${deleted.uploadTempFiles} temporary upload files`,
     )
   }
 }

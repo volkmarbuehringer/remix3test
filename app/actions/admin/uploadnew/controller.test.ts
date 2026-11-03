@@ -330,6 +330,44 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
     }
   })
 
+  it('does not index a file when the staged write is interrupted', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Could not create an admin session')
+
+    let name = `${TEST_FILE_PREFIX}interrupted.png`
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.append('file', new File([PNG_BYTES], name, { type: 'image/png' }))
+
+    // The real backend stages the bytes and only publishes them with atomic
+    // renames; simulate the write dying mid-stream (disk full, process stop).
+    let originalSet = uploadFiles.set
+    uploadFiles.set = async () => {
+      throw new Error('simulated interrupted upload')
+    }
+    try {
+      let response = await router.fetch(ACTION_URL, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: formData,
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.'),
+        'the interrupted write should be reported on the page',
+      )
+      assert.equal(
+        await notFoundOrStored(name),
+        true,
+        'an interrupted write must not be indexed or published',
+      )
+    } finally {
+      uploadFiles.set = originalSet
+    }
+  })
+
   it('removes a file whose bytes do not match its declared type', async () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Could not create an admin session')
