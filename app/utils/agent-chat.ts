@@ -50,6 +50,12 @@ interface AgentChatConfig {
   resolveAgent: () => TestAgent
   /** The durable pending-gate store for this surface. */
   gateStore: GateStore
+  /**
+   * Per-surface cap on model steps for one turn. Defaults to 10. Tool-discovery
+   * surfaces (support) need headroom: `search_tools` plus a multi-tool lookup
+   * can consume the budget before the model writes its answer.
+   */
+  maxSteps?: number | undefined
   /** Resolves the frame a `navigate` tool result targets (support panel). */
   getTarget?: ((path: string) => string) | undefined
   /** Records a run -> owner pointer before a stream starts (customer chat). */
@@ -281,7 +287,7 @@ export function createAgentChat(config: AgentChatConfig) {
         try {
           let agent = config.resolveAgent()
           let output = await agent.stream(message, {
-            maxSteps: 10,
+            maxSteps: config.maxSteps ?? 10,
             abortSignal: run.signal,
             memory: { thread: threadId, resource: String(actorId) },
             requestContext: createActorRequestContext(actorId),

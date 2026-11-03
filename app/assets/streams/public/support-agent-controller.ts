@@ -27,6 +27,14 @@ export const PANEL_CONTAINER_ID = 'support-agent-frame-container'
 export const AGENT_FORM_ATTRIBUTE = 'data-agent-form'
 
 /**
+ * Shown when a turn settles without any assistant text — for example a
+ * tool-only loop that exhausted its step budget. Without it the stream ends
+ * with result cards and no answer at all.
+ */
+export const EMPTY_TURN_FALLBACK =
+  'Ich konnte die Anfrage nicht abschließen. Bitte formuliere sie konkreter oder versuche es erneut.'
+
+/**
  * Per-form ownership decision for a POST form submitted inside the panel
  * container: should it be left to the runtime's native `data-rmx-target`
  * interception (`true`, the submit proceeds uncanceled) or replayed by the
@@ -78,8 +86,11 @@ export interface SupportAgentUiDelegate {
   appendAgentMessage(): HTMLElement
   /** Replaces the current agent bubble's text with `text`. */
   updateLastAgentMessage(text: string): void
-  /** Renders markdown into the final text bubble once the stream settles. */
-  finalizeAgentMessage(): void
+  /**
+   * Renders markdown into the final text bubble once the stream settles.
+   * `fallbackText` turns an otherwise-empty bubble into a visible message.
+   */
+  finalizeAgentMessage(fallbackText?: string): void
   /** After this, `updateLastAgentMessage`/`finalizeAgentMessage` are no-ops until a new bubble is appended. */
   clearAgentMessageEl(): void
   appendStatusMessage(text: string, isError?: boolean): void
@@ -99,7 +110,8 @@ export interface SupportAgentUiDelegate {
     mount: HTMLElement,
     data: SupportAgentSuspensionData & { threadId?: string | undefined },
   ): void
-  renderToolResult(result: Record<string, unknown>): void
+  /** Renders a tool result; `toolName` lets the delegate suppress plumbing. */
+  renderToolResult(result: Record<string, unknown>, toolName?: string): void
   hasQuestionGate(): boolean
   hasApprovalGate(): boolean
   removeQuestionGate(): void
@@ -489,20 +501,29 @@ export function createSupportAgentStreamController(
             } else if (eventType === 'tool-error') {
               ui.appendStatusMessage('Tool-Fehler: ' + String(parsed.error ?? 'unbekannt'), true)
             } else if (eventType === 'tool-result') {
-              ui.renderToolResult((parsed.result as Record<string, unknown>) ?? {})
+              ui.renderToolResult(
+                (parsed.result as Record<string, unknown>) ?? {},
+                typeof parsed.toolName === 'string' ? parsed.toolName : undefined,
+              )
             } else if (eventType === 'stream-error') {
               ui.hideThinking()
               ui.showErrorWithRetry('Stream-Fehler: ' + String(parsed.error ?? 'unbekannt'), retry)
             } else if (eventType === 'complete') {
               if (pendingQuestion) return false
               ui.hideThinking()
-              ui.finalizeAgentMessage()
+              // No assistant text means the turn ended on tool results (step
+              // budget, aborted generation). Keep a readable answer on screen.
+              let fallback = !didNavigate && !streamingText.trim() ? EMPTY_TURN_FALLBACK : undefined
+              ui.finalizeAgentMessage(fallback)
               lastSubmission = null
               currentRunId = null
               // Keep the active thread so the next message continues it; only
               // remove it once the page itself changes (see resolveThreadId).
               ui.clearAgentMessageEl()
-              if (!didNavigate) {
+              // The panel reload replaces the live DOM with the server-rendered
+              // transcript, which only carries assistant text. A no-text turn
+              // keeps its fallback (and the cards above it) instead.
+              if (!didNavigate && !fallback) {
                 let theFrame = getActivePanelFrame()
                 if (theFrame) {
                   theFrame.reload().catch((err) => {

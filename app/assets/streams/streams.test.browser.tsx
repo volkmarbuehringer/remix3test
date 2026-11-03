@@ -2183,6 +2183,145 @@ describe('Support agent chat UX', () => {
     window.fetch = originalFetch
   })
 
+  it('renders readable tool results instead of raw plumbing JSON', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'search_tools',
+            toolCallId: 'tc-search',
+            result: { results: [{ name: 'get_offerings_for_date' }], loaded: [] },
+          }),
+        },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'get_weather',
+            toolCallId: 'tc-weather',
+            result: {
+              location: 'Frankfurt am Main, Germany',
+              temperature: 9,
+              condition: 'Partly cloudy',
+              humidity: 54,
+              windSpeed: 14,
+            },
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('und in frankfurt')
+    await new Promise((r) => setTimeout(r, 60))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(
+      !chat.textContent?.includes('get_offerings_for_date'),
+      'tool-discovery plumbing must not be rendered',
+    )
+    assert.ok(
+      chat.textContent?.includes('Frankfurt am Main'),
+      'the weather location should be readable',
+    )
+    assert.ok(chat.textContent?.includes('9 °C'), 'the temperature should be readable')
+    assert.ok(
+      !chat.textContent?.includes('"temperature"'),
+      'raw tool JSON must never reach the transcript',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('shows a fallback answer when a turn ends without assistant text', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'get_weather',
+            toolCallId: 'tc-weather',
+            result: { location: 'Frankfurt', temperature: 9 },
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('und in frankfurt')
+    await new Promise((r) => setTimeout(r, 60))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(
+      chat.textContent?.includes('Ich konnte die Anfrage nicht abschließen'),
+      'a tool-only turn must end with a readable message',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('keeps text that arrives after a tool result below the card', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'get_weather',
+            toolCallId: 'tc-weather',
+            result: { location: 'Frankfurt', temperature: 9 },
+          }),
+        },
+        { type: 'message', data: JSON.stringify({ text: 'In Frankfurt sind es 9 °C.' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('und in frankfurt')
+    await new Promise((r) => setTimeout(r, 60))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(chat.textContent?.includes('Frankfurt'), 'the weather card should stay rendered')
+    assert.ok(
+      chat.lastElementChild?.textContent?.includes('In Frankfurt sind es 9 °C.'),
+      'the answer must follow the card instead of overwriting it',
+    )
+
+    window.fetch = originalFetch
+  })
+
   it('reflects the server-created thread id into the URL and data-thread-id', async () => {
     installSseMock()
     resetCreatedEventSources()

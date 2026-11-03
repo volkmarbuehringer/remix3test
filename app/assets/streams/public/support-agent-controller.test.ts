@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import {
   createSupportAgentStreamController,
   deferPanelFormToRuntime,
+  EMPTY_TURN_FALLBACK,
   type SupportAgentUiDelegate,
   type SupportAgentFrame,
 } from './support-agent-controller.ts'
@@ -24,7 +25,8 @@ describe('SupportAgentStreamController', () => {
         return document.createElement('div')
       },
       updateLastAgentMessage: (text) => recorded.push({ op: 'updateLastAgentMessage', text }),
-      finalizeAgentMessage: () => recorded.push({ op: 'finalizeAgentMessage' }),
+      finalizeAgentMessage: (fallbackText) =>
+        recorded.push({ op: 'finalizeAgentMessage', fallbackText }),
       clearAgentMessageEl: () => recorded.push({ op: 'clearAgentMessageEl' }),
       appendStatusMessage: (text, isError) =>
         recorded.push({ op: 'appendStatusMessage', text, isError }),
@@ -35,7 +37,8 @@ describe('SupportAgentStreamController', () => {
         recorded.push({ op: 'setPreviewVisible', visible, path }),
       renderQuestionCard: (mount) => recorded.push({ op: 'renderQuestionCard', mount }),
       renderApprovalCard: (mount) => recorded.push({ op: 'renderApprovalCard', mount }),
-      renderToolResult: (result) => recorded.push({ op: 'renderToolResult', result }),
+      renderToolResult: (result, toolName) =>
+        recorded.push({ op: 'renderToolResult', result, toolName }),
       hasQuestionGate: () => false,
       hasApprovalGate: () => false,
       removeQuestionGate: () => recorded.push({ op: 'removeQuestionGate' }),
@@ -167,6 +170,100 @@ describe('SupportAgentStreamController', () => {
       calls(state, 'setFormEnabled').map((c) => c.enabled),
       [true],
     )
+  })
+
+  it('passes the tool name through to the result renderer', async () => {
+    let state = make()
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      sseResponse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-tool' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'search_tools',
+            toolCallId: 't-1',
+            result: { results: [], loaded: [] },
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])) as typeof fetch
+    try {
+      await state.controller.startStream('/admin/support-agent', { method: 'POST' })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    assert.deepEqual(calls(state, 'renderToolResult'), [
+      {
+        op: 'renderToolResult',
+        result: { results: [], loaded: [] },
+        toolName: 'search_tools',
+      },
+    ])
+  })
+
+  it('ends a tool-only turn with a readable fallback instead of reloading', async () => {
+    let reloaded = 0
+    let state = make({
+      panelFrame: {
+        reload: async () => {
+          reloaded++
+        },
+      },
+    })
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      sseResponse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-empty' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolName: 'get_weather',
+            toolCallId: 't-2',
+            result: { location: 'Frankfurt', temperature: 9 },
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])) as typeof fetch
+    try {
+      await state.controller.startStream('/admin/support-agent', { method: 'POST' })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    assert.equal(
+      calls(state, 'finalizeAgentMessage')[0]?.fallbackText,
+      EMPTY_TURN_FALLBACK,
+      'the turn needs a visible answer',
+    )
+    assert.equal(reloaded, 0, 'a fallback must survive as the live transcript')
+  })
+
+  it('reloads the panel after a text answer instead of adding a fallback', async () => {
+    let reloaded = 0
+    let state = make({
+      panelFrame: {
+        reload: async () => {
+          reloaded++
+        },
+      },
+    })
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      sseResponse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-answer' }) },
+        { type: 'message', data: JSON.stringify({ text: 'In Frankfurt sind es 9 °C.' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])) as typeof fetch
+    try {
+      await state.controller.startStream('/admin/support-agent', { method: 'POST' })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    assert.equal(calls(state, 'finalizeAgentMessage')[0]?.fallbackText, undefined)
+    assert.equal(reloaded, 1, 'a text answer is re-rendered from the server transcript')
   })
 
   /**

@@ -4,6 +4,7 @@ import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { frames, routes } from '../../../routes.ts'
 import { activeFrameName } from '../../../utils/frame-utils.ts'
 import { renderMarkdownToDom } from './markdown-dom.ts'
+import { describeSupportToolResult } from './support-tool-result-view.ts'
 import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
 import {
   AGENT_FORM_ATTRIBUTE,
@@ -21,6 +22,13 @@ export const SupportAgentStream = clientEntry(
 
     let currentAgentMessageEl: HTMLElement | null = null
     let thinkingEl: HTMLElement | null = null
+    /**
+     * Last rendered "no results" card. Consecutive empty results (the agent
+     * probing several dates/resources) collapse into one card instead of a
+     * wall of identical messages. Reset as soon as text or another result kind
+     * lands, and by connection when the panel reloads.
+     */
+    let lastEmptyResultCard: HTMLElement | null = null
 
     // ── Helpers ──────────────────────────────────────────────────
 
@@ -255,6 +263,7 @@ export const SupportAgentStream = clientEntry(
     // ── Message rendering ────────────────────────────────────────
 
     function appendUserMessage(text: string) {
+      lastEmptyResultCard = null
       let chat = getChat()
       if (!chat) return
 
@@ -276,6 +285,10 @@ export const SupportAgentStream = clientEntry(
     }
 
     function appendAgentMessage(): HTMLElement {
+      // A new text/gate segment replaces a trailing empty placeholder instead
+      // of leaving a blank bubble behind (e.g. after a tool card, or when a
+      // gate is the turn's real output).
+      removeEmptyAgentBubble()
       let chat = getChat()
       if (!chat) throw new Error('chat-messages container not found')
 
@@ -298,6 +311,8 @@ export const SupportAgentStream = clientEntry(
     }
 
     function updateLastAgentMessage(text: string) {
+      lastEmptyResultCard = null
+      if (!currentAgentMessageEl) appendAgentMessage()
       if (currentAgentMessageEl) {
         currentAgentMessageEl.textContent = text
         if (!currentAgentMessageEl.dataset.kind) currentAgentMessageEl.dataset.kind = 'text'
@@ -305,18 +320,35 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    /** Renders markdown into the final text bubble once the stream settles. */
-    function finalizeAgentMessage() {
-      if (currentAgentMessageEl && currentAgentMessageEl.dataset.kind === 'text') {
-        let text = currentAgentMessageEl.textContent || ''
-        currentAgentMessageEl.textContent = ''
-        currentAgentMessageEl.dataset.kind = 'markdown'
-        currentAgentMessageEl.appendChild(renderMarkdownToDom(text))
-        scrollToBottom()
+    /**
+     * Renders markdown into the final text bubble once the stream settles.
+     *
+     * `fallbackText` covers a turn that streamed only tool results: the empty
+     * placeholder becomes that message instead of vanishing. Without it an
+     * empty placeholder (e.g. text that a card already replaced) is removed.
+     */
+    function finalizeAgentMessage(fallbackText?: string) {
+      let el = currentAgentMessageEl
+      if (!el) {
+        if (!fallbackText) return
+        el = appendAgentMessage()
       }
+      if (el.dataset.kind === 'markdown') return
+      let existing = el.textContent || ''
+      let text = existing.trim() ? existing : (fallbackText ?? '')
+      if (!text.trim()) {
+        el.remove()
+        if (currentAgentMessageEl === el) currentAgentMessageEl = null
+        return
+      }
+      el.textContent = ''
+      el.dataset.kind = 'markdown'
+      el.appendChild(renderMarkdownToDom(text))
+      scrollToBottom()
     }
 
     function appendStatusMessage(text: string, isError?: boolean) {
+      removeEmptyAgentBubble()
       let chat = getChat()
       if (!chat) return
 
@@ -333,10 +365,19 @@ export const SupportAgentStream = clientEntry(
 
     // ── Structured tool-result rendering ─────────────────────────
 
-    function renderToolResult(result: Record<string, unknown>) {
-      let chat = getChat()
-      if (!chat) return
+    /**
+     * Finalizes the text segment above the card and removes a trailing empty
+     * placeholder, so a result never sits under a blank bubble.
+     */
+    function removeEmptyAgentBubble() {
+      let el = currentAgentMessageEl
+      if (!el || el.dataset.kind === 'markdown') return
+      if ((el.textContent ?? '').trim() !== '') return
+      el.remove()
+      if (currentAgentMessageEl === el) currentAgentMessageEl = null
+    }
 
+    function createToolCard(): HTMLElement {
       let card = document.createElement('div')
       card.style.maxWidth = '90%'
       card.style.alignSelf = 'flex-start'
@@ -349,42 +390,40 @@ export const SupportAgentStream = clientEntry(
       card.style.display = 'flex'
       card.style.flexDirection = 'column'
       card.style.gap = '0.375rem'
+      return card
+    }
 
-      // Generated PDF → downloadable artifact.
-      if (typeof result.data === 'string' && typeof result.reportType === 'string') {
+    function renderToolResult(result: Record<string, unknown>, toolName?: string) {
+      let view = describeSupportToolResult(toolName, result)
+      if (view.kind === 'skip') return
+      // Repeated empty probes from one search should read as one statement.
+      if (view.kind === 'empty' && lastEmptyResultCard?.isConnected) return
+      let chat = getChat()
+      if (!chat) return
+
+      // Any streamed text belongs above the card; the turn continues in a fresh
+      // bubble after it, so later text cannot overwrite the card.
+      finalizeAgentMessage()
+      removeEmptyAgentBubble()
+      let card = createToolCard()
+
+      if (view.kind === 'pdf') {
         let link = document.createElement('a')
-        link.href = 'data:application/pdf;base64,' + result.data
-        link.download = (result.filename as string) || 'bericht.pdf'
-        link.textContent = '📄 ' + ((result.filename as string) || 'Bericht herunterladen')
+        link.href = 'data:application/pdf;base64,' + view.data
+        link.download = view.filename
+        link.textContent = '📄 ' + view.filename
         link.style.color = theme.colors.action.primary.background
         link.style.fontWeight = '600'
         link.style.textDecoration = 'none'
         card.appendChild(link)
-        chat.appendChild(card)
-        currentAgentMessageEl = card
-        scrollToBottom(true)
-        return
-      }
-
-      // Collection result → table (or empty state).
-      let arrKey = Object.keys(result).find((k) => Array.isArray(result[k]))
-      if (typeof result.count === 'number' && arrKey && Array.isArray(result[arrKey])) {
-        let rows = (result[arrKey] as Record<string, unknown>[]) ?? []
-        if (rows.length === 0) {
-          card.textContent = '✅ Keine Ergebnisse gefunden.'
-          chat.appendChild(card)
-          currentAgentMessageEl = card
-          scrollToBottom(true)
-          return
-        }
-        let columns = Object.keys(rows[0] ?? {})
+      } else if (view.kind === 'table') {
         let table = document.createElement('table')
         table.style.borderCollapse = 'collapse'
         table.style.width = '100%'
         table.style.fontSize = '0.75rem'
         let thead = document.createElement('thead')
         let headerRow = document.createElement('tr')
-        for (let col of columns) {
+        for (let col of view.columns) {
           let th = document.createElement('th')
           th.textContent = col
           th.style.textAlign = 'left'
@@ -396,12 +435,17 @@ export const SupportAgentStream = clientEntry(
         thead.appendChild(headerRow)
         table.appendChild(thead)
         let tbody = document.createElement('tbody')
-        for (let row of rows.slice(0, 20)) {
+        for (let row of view.rows) {
           let tr = document.createElement('tr')
-          for (let col of columns) {
+          for (let col of view.columns) {
             let td = document.createElement('td')
-            let v = row[col]
-            td.textContent = v === null || v === undefined ? '' : String(v)
+            let value = row[col]
+            td.textContent =
+              value === null || value === undefined
+                ? ''
+                : typeof value === 'object'
+                  ? JSON.stringify(value)
+                  : String(value)
             td.style.padding = '4px 8px'
             td.style.borderBottom = '1px solid ' + theme.colors.border.subtle
             tr.appendChild(td)
@@ -410,48 +454,32 @@ export const SupportAgentStream = clientEntry(
         }
         table.appendChild(tbody)
         card.appendChild(table)
-        chat.appendChild(card)
-        currentAgentMessageEl = card
-        scrollToBottom(true)
-        return
-      }
-
-      // Single-entity detail → key/value card.
-      if (result.found === true) {
-        let entityKey = Object.keys(result).find(
-          (k) =>
-            k !== 'found' && k !== 'message' && typeof result[k] === 'object' && result[k] !== null,
-        )
-        if (entityKey) {
-          let entity = result[entityKey] as Record<string, unknown>
-          let dl = document.createElement('dl')
-          dl.style.margin = '0'
-          dl.style.display = 'grid'
-          dl.style.gridTemplateColumns = 'auto 1fr'
-          dl.style.gap = '4px 12px'
-          for (let [k, v] of Object.entries(entity)) {
-            let dt = document.createElement('dt')
-            dt.textContent = k
-            dt.style.color = theme.colors.text.muted
-            dt.style.fontWeight = '600'
-            let dd = document.createElement('dd')
-            dd.textContent = v === null || v === undefined ? '' : String(v)
-            dd.style.margin = '0'
-            dl.appendChild(dt)
-            dl.appendChild(dd)
-          }
-          card.appendChild(dl)
-          chat.appendChild(card)
-          currentAgentMessageEl = card
-          scrollToBottom(true)
-          return
+      } else if (view.kind === 'detail') {
+        let dl = document.createElement('dl')
+        dl.style.margin = '0'
+        dl.style.display = 'grid'
+        dl.style.gridTemplateColumns = 'auto 1fr'
+        dl.style.gap = '4px 12px'
+        for (let entry of view.entries) {
+          let dt = document.createElement('dt')
+          dt.textContent = entry.label
+          dt.style.color = theme.colors.text.muted
+          dt.style.fontWeight = '600'
+          let dd = document.createElement('dd')
+          dd.textContent = entry.value
+          dd.style.margin = '0'
+          dd.style.wordBreak = 'break-word'
+          dl.appendChild(dt)
+          dl.appendChild(dd)
         }
+        card.appendChild(dl)
+      } else {
+        card.textContent = view.text
       }
 
-      // Fallback: plain text.
-      card.textContent = JSON.stringify(result)
       chat.appendChild(card)
-      currentAgentMessageEl = card
+      lastEmptyResultCard = view.kind === 'empty' ? card : null
+      currentAgentMessageEl = appendAgentMessage()
       scrollToBottom(true)
     }
 

@@ -314,6 +314,42 @@ describe('Mastra Chat controller', () => {
     __setTestAgent(undefined)
   })
 
+  it('gives support turns a larger step budget than the shared default', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let streamMaxSteps: number | undefined
+    __setTestAgent({
+      generate: async () => ({ text: '' }),
+      stream: async (_message, opts) => {
+        streamMaxSteps = opts?.maxSteps
+        return createMockStreamOutput('ok')
+      },
+      resumeStream: async () => createMockStreamOutput(''),
+    })
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ message: 'zeige alle raeume', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    await parseSSEResponse(response)
+
+    assert.equal(
+      streamMaxSteps,
+      16,
+      'tool discovery plus multi-query turns need more than the shared default of 10',
+    )
+
+    __setTestAgent(undefined)
+  })
+
   it('POST /admin/support-agent without X-Sse-Request drains the turn and 303s with a success flash', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number

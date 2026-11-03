@@ -228,6 +228,10 @@ const engine = createAgentChat({
   resolveAgent: resolveAgent,
   gateStore: supportGateStore,
   getTarget: getPanelTarget,
+  // The support agent discovers long-tail tools with `search_tools`, then runs
+  // several data queries per question. The shared default of 10 steps can be
+  // exhausted before it writes its answer; give that turn shape more headroom.
+  maxSteps: 16,
   clearGateOn: 'complete-or-error',
   verifyRunStatus: (ownerId, runId) => _runStatusResolver(ownerId, runId),
   answerErrorMessage: 'Fehler beim Fortsetzen des Agents.',
