@@ -67,3 +67,4 @@ Parsing runs once per reply (not per token), and the block/inline tokenizer is a
 - An SSE/streaming chat updates an assistant bubble via `textContent` deltas and you want bold/lists/code/links in the final reply.
 - You need markdown formatting without an `innerHTML` XSS risk.
 - A tool-result card or approval gate can be the last element when the final text arrives, so the formatter must target the right node.
+- For the tool-result display policy itself (skip plumbing, no raw JSON, empty-card coalescing) and the no-text fallback, see `streaming-chat-tool-results.md`.
