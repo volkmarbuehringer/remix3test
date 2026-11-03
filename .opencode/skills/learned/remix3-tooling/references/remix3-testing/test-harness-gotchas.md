@@ -124,6 +124,35 @@ Verify the forward by its side effect (query the DB for the stored response stat
 
 In the source case Chromium silently tolerated the malformed diff (only a 404 console warning) while Firefox threw — reproducing in the wrong engine chases a crash that does not happen there.
 
+## `mockImplementationOnce` indexes are absolute, not "next pending"
+
+The #12097 `.mock` controls on `t.mock.fn`/`t.mock.method` (pinned tarball
+`t/c26a37eb`) number one-shot overrides by absolute call index. Consecutive
+`mockImplementationOnce(impl)` calls made before any invocation both register at
+the current call index (`calls.length`, still `0`), so the second silently
+replaces the first and the next call falls through to the default. Pass the
+zero-based index explicitly when queuing responses:
+
+Observed symptom: the first call consumes the last-queued response, the first
+response is never used, and a later call reaches the real/default implementation
+(for example, a forecast payload parsed as a geocode result, surfacing as
+`Location "…" not found`).
+
+```ts
+let fetchMock = t.mock.method(globalThis, 'fetch')
+fetchMock.mock.mockImplementation(() => Promise.reject(new Error('unexpected')))
+fetchMock.mock.mockImplementationOnce(geocode, 0)
+fetchMock.mock.mockImplementationOnce(forecast, 1)
+```
+
+`t.mock.method(globalThis, 'fetch')` also restores the original method when the
+test ends, so the manual `globalThis.fetch = original` try/finally is
+unnecessary.
+
+Vendor reference: `node_modules/remix/src/test/README.md` § "Mocks and Spies"
+(the "defaults to the next call" wording means the current call index). Pair it
+with `callCount()` to prove every queued request ran.
+
 ## When to Use
 
 - A Playwright navigation/submit hangs on a page with an SSE/EventSource channel.
@@ -132,3 +161,4 @@ In the source case Chromium silently tolerated the malformed diff (only a 404 co
 - A `waitFor` existence check passes instantly but the next content assertion fails.
 - A handler calls an external HTTP service that may already be running locally.
 - You need to choose Chromium vs Firefox from a DOMException report.
+- You queue several `t.mock` one-shot implementations and only the last one runs.

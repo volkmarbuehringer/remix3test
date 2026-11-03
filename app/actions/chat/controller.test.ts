@@ -1,4 +1,4 @@
-import { describe, it, before, afterEach, after } from 'remix/test'
+import { describe, it, before, afterEach, after, mock } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../db.ts'
@@ -163,19 +163,29 @@ type MockAgent = {
 
 function makeMockAgent(overrides?: Partial<MockAgent>): MockAgent {
   return {
-    generate: async () => ({ text: '' }),
-    stream: async () => createMockStreamOutput('Hier ist die Antwort.'),
-    resumeStream: async () => createMockStreamOutput('Fortsetzung.'),
-    approveToolCallGenerate: async () => ({
-      text: 'Bestätigt.',
-      finishReason: 'stop',
-      runId: crypto.randomUUID(),
-    }),
-    declineToolCallGenerate: async () => ({
-      text: 'Die Aktion wurde abgelehnt.',
-      finishReason: 'stop',
-      runId: crypto.randomUUID(),
-    }),
+    // Defaults are mocks so the tracker records calls; overrides stay plain
+    // implementations and replace the matching default.
+    generate: mock.fn<MockAgent['generate']>(async () => ({ text: '' })),
+    stream: mock.fn<MockAgent['stream']>(async () =>
+      createMockStreamOutput('Hier ist die Antwort.'),
+    ),
+    resumeStream: mock.fn<MockAgent['resumeStream']>(async () =>
+      createMockStreamOutput('Fortsetzung.'),
+    ),
+    approveToolCallGenerate: mock.fn<NonNullable<MockAgent['approveToolCallGenerate']>>(
+      async () => ({
+        text: 'Bestätigt.',
+        finishReason: 'stop',
+        runId: crypto.randomUUID(),
+      }),
+    ),
+    declineToolCallGenerate: mock.fn<NonNullable<MockAgent['declineToolCallGenerate']>>(
+      async () => ({
+        text: 'Die Aktion wurde abgelehnt.',
+        finishReason: 'stop',
+        runId: crypto.randomUUID(),
+      }),
+    ),
     ...overrides,
   }
 }
@@ -434,12 +444,11 @@ describe('Customer Chat controller', () => {
     chatRateLimiter.reset(adminId)
 
     let seen: AbortSignal | undefined
-    mockAgent = makeMockAgent({
-      stream: async (_message, opts) => {
-        seen = opts?.abortSignal as AbortSignal | undefined
-        return createMockStreamOutput('Ok')
-      },
+    let stream = mock.fn<MockAgent['stream']>(async (_message, opts) => {
+      seen = opts?.abortSignal as AbortSignal | undefined
+      return createMockStreamOutput('Ok')
     })
+    mockAgent = makeMockAgent({ stream })
     __setTestAgent(mockAgent)
 
     let session = await createAuthCookieWithCsrf()
@@ -454,6 +463,7 @@ describe('Customer Chat controller', () => {
 
     assert.ok(seen instanceof AbortSignal, 'the agent run must receive an abort signal')
     assert.equal(seen!.aborted, false, 'a live run must not be pre-aborted')
+    assert.equal(stream.mock.callCount(), 1, 'the agent stream should run once')
   })
 
   it('POST /chat passes threadId and continues the same thread', async () => {
