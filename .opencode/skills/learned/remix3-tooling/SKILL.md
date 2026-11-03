@@ -36,7 +36,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
 | A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently tarball build `t/c26a37eb`: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
 | Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `docs/guide-chapter-audit.md` |
-| `pnpm install` on the preview-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, or historical `ERR_PNPM_PREPARE_PACKAGE`/codeload 429 storms), or you need the current tarball-manifest update flow | `docs/pnpm-git-hosted-installs.md` |
+| `pnpm install` on the preview-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, or historical `ERR_PNPM_PREPARE_PACKAGE`/codeload 429 storms), or you need the current tarball-manifest update flow | `docs/pnpm-remix-preview-installs.md` (old `github:` recipes: `docs/history/pnpm-git-hosted-installs.md`) |
 
 ### Core Rules
 

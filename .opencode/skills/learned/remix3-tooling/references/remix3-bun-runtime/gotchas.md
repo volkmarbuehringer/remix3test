@@ -127,4 +127,4 @@ Do not widen `FileUpload`, edit vendor types, or add `"bun"` to the main program
 
 ## Validation result
 
-Under Bun the suites match Node (server/browser/e2e all green; ~8% faster in the 2026-09-24 run). Keep pnpm for installs: `bun install` cannot parse this repo's git-subdirectory lockfile entry (`remix@github:…#path:packages/remix`) and 404s.
+Under Bun the suites match Node (server/browser/e2e all green; ~8% faster in the 2026-09-24 run). Keep pnpm for installs: it is what the scripts, Dockerfile, and CI use. The old blocker — `bun install` choking on the `remix@github:…#path:packages/remix` lockfile entry and 404ing — is historical. Since the 2026-11-03 retained-tarball migration the package specs are plain `https://…/t/<sha>/*.tgz` URLs, and `bun install --dry-run --lockfile-only` resolved the pin cleanly (verified 2026-11-03, Bun 1.4.4). Re-verify before switching the install workflow; the supported path is still `pnpm install`.

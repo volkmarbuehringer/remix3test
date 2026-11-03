@@ -1,71 +1,19 @@
-# pnpm Installs With `github:…#branch&path:` Dependencies
+# Historical: pnpm Installs With `github:…#branch&path:` Dependencies
 
-> **2026-11-03: historical for the current pin.** Upstream #12126 replaced the
-> branch/path preview layout with retained tarballs plus `t/preview.json`. The app
-> now pins
-> `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/<sha>/{remix,ui}.tgz`,
-> and `npm run update:remix` rewrites those specs. See [Current tarball
-> flow](#current-tarball-flow-2026-11-03) below; the `github:` recipes are kept
-> for old pins and archaeology.
+> **Historical (pre-2026-11-03).** The app no longer uses `github:…&path:`
+> specs. Upstream #12126 replaced the committed `packages/*` preview layout
+> with retained tarballs plus `t/preview.json`; the current flow lives in
+> [`../pnpm-remix-preview-installs.md`](../pnpm-remix-preview-installs.md).
+> This page keeps the old-layout failure modes for archaeology and for anyone
+> installing an old pin.
 
 **Extracted:** 2026-10-23
-**Updated:** 2026-11-03 (tarball install format; the `github:` sections below are historical)
+**Updated:** 2026-11-03 (split out of the current install guide)
 **Context:** the app used to pin `remix` and `@remix-run/ui` to
 `github:remix-run/remix#preview/main&path:packages/…`. Every `pnpm update`/`add`
 could re-resolve and re-prepare the whole monorepo tarball; in the DSH sandbox the
 global store is also read-only. Both make the obvious command fail in
 non-obvious ways. Observed on the `db58e1d9 → 1e03013e1` bump.
-
-**Automation:** `npm run update:remix` (`scripts/update-remix.ts`) now resolves
-`preview/main`, reads `t/preview.json` from that build commit, rewrites the two
-tarball specs, runs `pnpm install`, verifies the lock has one `t/<sha>` build,
-runs a frozen-install check, repoints the vendor skill links, then
-typecheck/lint/format/tests. It still migrates old `github:` specs on the first
-run. Use `--dry-run`, `--no-tests`, or `--allow-dirty`.
-
-## Current tarball flow (2026-11-03+)
-
-`preview/main` build commits carry retained tarballs under `t/<source-sha>/` and
-a manifest at `t/preview.json`; the manifest lists each package's tarball URL
-and the source SHA. Tarball dependencies inside the manifest are rewritten to
-the same build's tarball URLs, so the lock is content-addressed and cannot mix
-builds the way the old `path:` specs could.
-
-The update script:
-
-1. `git ls-remote` the `preview/main` build commit.
-2. Fetch `https://raw.githubusercontent.com/remix-run/remix/<build>/t/preview.json`
-   (the commit URL avoids the branch file's CDN cache; validate `branch`, the
-   source SHA, and that both tarball URLs use the same `t/<8-hex>/` prefix).
-3. Rewrite the `remix` and `@remix-run/ui` dependency specs to the manifest URLs.
-4. Run `pnpm install --no-frozen-lockfile`; there is no git-hosted prepare, so
-   the nested `pnpm install` / `ERR_PNPM_PREPARE_PACKAGE` failure mode is gone.
-5. Verify every preview ref in the lock is `t/<same-prefix>/` and no
-   `codeload.github.com` refs remain.
-6. Run the frozen-install check, repoint `.agents/skills/remix` and
-   `.opencode/skills/remix`, then typecheck/lint/format/tests.
-
-**Retention matters.** `preview/main` removes builds older than about seven days
-(and keeps the latest), so a lockfile that points at an old `t/<sha>` URL can
-404 after retention. Refresh the pin before the tarball disappears; an expired
-build needs a newer URL and lock update.
-
-Run `npm run remix:pin:check` to verify the pin: it checks that every
-`@remix-run/*` ref in `pnpm-lock.yaml` uses the same `t/<sha>` prefix as
-`package.json` (mixed prefixes and leftover codeload refs fail), then HEADs both
-tarball URLs and reads `t/preview.json` to warn when the build is older than
-five days. The check is dependency-free and treats network failures as warnings,
-so it is safe offline; add `-- --strict` to make the refresh warning a failure.
-
-**Stale virtual-store dirs.** A normal `pnpm install` leaves the previous
-build's `node_modules/.pnpm/*` entries in place (the 2026-11-03 migration left
-50 codeload dirs). They are unreferenced but still occupy disk; a clean
-`rm -rf node_modules && pnpm install --frozen-lockfile` relinks only the lock's
-packages (verified: 50 tarball dirs, 0 codeload dirs).
-
-The store notes below still apply (`--store-dir`, the `npm_config_*` environment
-for any nested pnpm invocation, `ERR_PNPM_UNEXPECTED_STORE`). The
-git-hosted/codeload symptoms are old-layout only.
 
 ## `install` has no cache-bypass flag
 
@@ -113,8 +61,8 @@ npm_config_cache_dir="$PWD/.pnpm-store/cache" \
 Without them the nested install falls back to the default store and, when
 `~/.local/share/pnpm/store` or `~/.cache/pnpm` is read-only, the update dies
 with `ERR_PNPM_PREPARE_PACKAGE` (nested `pnpm install`, exit 226).
-`npm run update:remix` exports both and relinks `node_modules` when its
-`.modules.yaml` names a different store.
+`npm run update:remix` exported both and relinked `node_modules` when its
+`.modules.yaml` named a different store.
 
 Add `.pnpm-store/` to `.git/info/exclude` (local) or `.gitignore`, and keep it
 alongside `node_modules`. The lockfile's tarball refs/integrity are unaffected.
@@ -134,15 +82,17 @@ the generated tarball's own dependencies on the branch: they are still
 `remix-run/remix#preview/main&path:packages/…`. A lockless install can therefore
 resolve the top-level SHA you wrote while pulling a newer tip for the transitive
 `@remix-run/*` set — the "Branch-pin transitive race" note in
-`../.opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md`. The unified
-lockfile is the only artifact that pins all 268 refs together; do not delete it.
+`.opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md`.
+The unified lockfile was the only artifact that pinned all 268 refs together;
+do not delete it.
 
 ## A frozen install does not prune old build dirs
 
 After a bump, `node_modules/.pnpm/@remix-run+*@…<old-sha>…` dirs remain (29 in
-this app); `pnpm install --frozen-lockfile` prints "Already up to date" and
-leaves them. Only `rm -rf node_modules && pnpm install --frozen-lockfile`
-rebuilds the tree; `pnpm store prune` then reclaims unreferenced store content.
+this app at the time); `pnpm install --frozen-lockfile` prints "Already up to
+date" and leaves them. Only `rm -rf node_modules && pnpm install
+--frozen-lockfile` rebuilds the tree; `pnpm store prune` then reclaims
+unreferenced store content.
 
 ## Git-hosted work repeats per `path:` entry
 
@@ -175,7 +125,7 @@ use a frozen install instead:
 1. `curl -s https://registry.npmjs.org/<pkg>/<version>` → `dist.integrity`
    (and `engines`). `npm view` writes to `~/.npm`, which is also EROFS.
 2. Edit `package.json` plus `pnpm-lock.yaml`: importer `specifier`/`version`,
-   the `packages:` block (`resolution: {integrity: …}`, `engines`), and the
+   the `packages:` block (`resolution: { integrity: … }`, `engines`), and the
    `snapshots:` key.
 3. `pnpm install --frozen-lockfile --store-dir "$PWD/.pnpm-store" \
    --prefer-offline --network-concurrency=1`
@@ -192,9 +142,7 @@ lock or revert it.
 
 ## When to Use
 
+- You are installing an old pin whose specs still use `github:…#path:`.
 - `pnpm update`/`install` fails with `EROFS`, `UNEXPECTED_STORE`,
-  `PREPARE_PACKAGE`, or repeated `FETCH_429` on the remix tarball.
-- You need to bump a non-remix package without re-preparing the monorepo.
-- `pnpm install` says "Already up to date" but `node_modules` still points at
-  the old store/build.
-- You are about to delete `pnpm-lock.yaml` or look for a `--no-cache` flag.
+  `PREPARE_PACKAGE`, or repeated `FETCH_429` on a git-hosted remix tarball.
+- You need the history behind the current tarball-manifest flow.

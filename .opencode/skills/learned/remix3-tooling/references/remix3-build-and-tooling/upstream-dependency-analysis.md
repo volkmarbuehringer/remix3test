@@ -65,7 +65,7 @@ Key focus areas when reviewing diffs:
 
 Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at retained tarball build `t/c26a37eb` (source `c26a37ebe`, `preview/main` build `cc2a50e2a0`). The two `package.json` specs are the manifest URLs; the lock has 270 tarball refs at that prefix.
 
-Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-git-hosted-installs.md`](../../../../../../docs/pnpm-git-hosted-installs.md) (the `github:` sections are historical; the top has the current tarball flow).
+Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current tarball flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
 ## Preview tarball installs (post-#12126)
 
