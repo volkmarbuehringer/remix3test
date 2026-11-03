@@ -235,9 +235,11 @@ describe('lists sidebar row action menu', () => {
         { timeout: 5_000 },
       )
       assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
+      // A bare `data-*` boolean renders as "true" since remix #12152; the
+      // attribute is a presence marker, not an empty-string marker.
       assert.equal(
-        await page.evaluate(() => document.activeElement?.getAttribute('data-list-menu-button')),
-        '',
+        await page.evaluate(() => document.activeElement?.hasAttribute('data-list-menu-button')),
+        true,
         'Escape must return focus to the trigger',
       )
 
@@ -428,8 +430,8 @@ describe('lists sidebar row action menu', () => {
 
       await page.keyboard.press('Escape')
       assert.equal(
-        await page.evaluate(() => document.activeElement?.getAttribute('data-list-menu-button')),
-        '',
+        await page.evaluate(() => document.activeElement?.hasAttribute('data-list-menu-button')),
+        true,
         'Escape must return focus to the phone trigger',
       )
     } finally {

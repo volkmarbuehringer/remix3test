@@ -31,25 +31,31 @@ const LEARNED_SKILLS_DIR = path.join(OPENCODE_SKILLS_DIR, 'learned')
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /**
- * Locate the `@remix-run/cli` package in the pnpm store that shares its
- * git-commit prefix with the currently installed `remix` package.
+ * Locate the `@remix-run/cli` package in the pnpm store that belongs to the
+ * currently installed `remix` build.
+ *
+ * The public-hoisted link (`.npmrc` publishes `@remix-run/*`) is authoritative:
+ * pnpm truncates the build URL inside `.pnpm` directory names to different
+ * lengths per package, so directory-name matching alone is not reliable.
  */
 async function findCliPackage(): Promise<string | null> {
+  let hoisted = path.join(PROJECT_ROOT, 'node_modules/.pnpm/node_modules/@remix-run/cli')
+  try {
+    if ((await fs.stat(path.join(hoisted, 'template/.agents/skills/remix'))).isDirectory()) {
+      return hoisted
+    }
+  } catch {}
+
   let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
   try {
-    // Get the pnpm store entry name from the currently installed remix package
+    // Fallback: match the build prefix from the installed remix link, then any
+    // CLI. The directory name may keep only a truncated part of the prefix
+    // (for example `…t+c26a37e`), so compare a short prefix.
     let remixLink = await fs.readlink(path.join(PROJECT_ROOT, 'node_modules/remix'))
-    // Extract the git commit hash from the store dir name
-    // .pnpm/remix@https+++...tar.gz+<COMMIT_HASH>cb5c2d.../node_modules/remix
-    let commitMatch = remixLink.match(/tar\.gz\+([a-f0-9]{7,})/)?.[1] || ''
-    // The CLI shares the same commit hash prefix in its pnpm store entry
-    let commitPrefix = commitMatch.slice(0, 9)
+    let commitMatch = remixLink.match(/(?:tar\.gz\+|t\+)([a-f0-9]{7,40})/)?.[1] || ''
+    let commitPrefix = commitMatch.slice(0, 7)
 
     let entries = await fs.readdir(pnpmDir)
-    // Prefer the CLI from the same build, but fall back to any installed CLI:
-    // a branch pin can resolve the top-level `remix` entry to one commit while
-    // its transitive `path:` packages (and the CLI) resolve to a newer tip, so
-    // an exact commit match is not guaranteed to exist.
     let candidates = [
       ...entries.filter((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix)),
       ...entries.filter((e) => e.startsWith('@remix-run+cli@') && !e.includes(commitPrefix)),

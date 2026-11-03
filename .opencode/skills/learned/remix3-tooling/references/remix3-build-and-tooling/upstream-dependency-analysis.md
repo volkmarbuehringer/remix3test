@@ -3,12 +3,12 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-02 (method unchanged; current pin `3f182ccc` / source `26db8a3`)
-**Context:** A project pins a dependency via `github:owner/repo#branch&path:subdir` (or similar) and upstream commits land on that branch. Need to determine whether updating the dependency would break the project.
+**Re-validated:** 2026-11-03 (current pin is the retained tarball build `t/c26a37eb` / source `c26a37ebe`; the `github:…#preview/main&path:` flow below is historical)
+**Context:** A project pins a dependency to a preview build — retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
 
-When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run/remix#preview/main&path:packages/remix"`), upstream changes are opaque — `npm update` or `pnpm update` fetches whatever is at the branch tip. You need to know:
+When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run/remix#preview/main&path:packages/remix"`) or to preview tarball URLs, upstream changes are opaque — a floating `npm update`/`pnpm update` fetches the branch tip, while a tarball pin silently ages and its retained URL can be pruned. You need to know:
 
 - What commits landed upstream
 - Whether any of them change APIs your project uses
@@ -18,18 +18,24 @@ When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run
 
 Trace the chain from upstream changes to project impact:
 
-1. **Find the pinned commit** in the lockfile (e.g. `pnpm-lock.yaml` contains the resolved commit hash: `version: https://codeload.github.com/.../<commit_hash>#path:...`)
+1. **Find the pinned build** in the lockfile:
+   - current tarball pin: `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/<source-sha-8>/<pkg>.tgz`
+   - old branch pin (historical): `https://codeload.github.com/.../<build-commit>#path:...`
 
-2. **Fetch upstream changes** and compare:
+2. **Fetch upstream changes** and compare. For a tarball pin, expand the 8-hex
+   source prefix (`git ls-remote` has only branch tips; the GitHub commits API
+   accepts the short SHA) and use the source commit:
    ```bash
    git fetch upstream-branch
-   git log <pinned-commit>..origin/<branch>
+   git log <pinned-source>..origin/<branch>
    ```
 
 3. **Diff the relevant source** between pinned and latest:
    ```bash
-   git diff --stat <pinned-commit>..<latest-commit> -- packages/<dep>/
+   git diff --stat <pinned-source>..<latest-source> -- packages/<dep>/
    ```
+   For an old tarball that is no longer installed, extract it
+   (`tar -xzOf <pkg>.tgz package/src/...`) or diff from a clone.
 
 4. **Check each changed API** against your codebase:
    ```bash
@@ -57,35 +63,60 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at unified build `3f182ccc` / source `26db8a3`.
+Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at retained tarball build `t/c26a37eb` (source `c26a37ebe`, `preview/main` build `cc2a50e2a0`). The two `package.json` specs are the manifest URLs; the lock has 270 tarball refs at that prefix.
 
-Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes for the branch-pinned install are in [`docs/pnpm-git-hosted-installs.md`](../../../../../../docs/pnpm-git-hosted-installs.md).
+Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-git-hosted-installs.md`](../../../../../../docs/pnpm-git-hosted-installs.md) (the `github:` sections are historical; the top has the current tarball flow).
 
-## Branch-pin transitive race
+## Preview tarball installs (post-#12126)
 
-A `github:…#branch&path:…` specifier is not one resolution: `pnpm` resolves the top-level `path:` entries and the transitive `@remix-run/*` packages independently, and a later install can re-resolve the transitive set to the then-current branch tip. A mixed lock means the app may run a *newer* `@remix-run/component` than the top-level pin suggests. When auditing, inspect the **installed** transitive build (`.pnpm/@remix-run+component@*`), not just the importer's lock line, and prefer a full `pnpm update` to unify the set. The history file has dated examples.
+Since the 2026-11-03 migration the app pins the two tarball URLs from
+`t/preview.json`, not `github:…#branch&path:`. Each `preview/main` build commit
+carries `t/<source-sha>/<pkg>.tgz`; every tarball rewrites its `@remix-run/*`
+dependencies to the same build's tarball URL. The lock is content-addressed, so
+the old branch-pin transitive race cannot recur: there is no independent
+`path:` resolution left to drift.
 
-## Release-day `package.json` pair
+- Resolve `preview/main` with `git ls-remote`, then fetch
+  `t/preview.json` **from that build commit** (the branch file is CDN-cached),
+  and verify both package URLs share `manifest.sha.slice(0, 8)`.
+- Retained builds are pruned after ~7 days (the latest is always kept), so an
+  old lock's `t/<sha>` URL can 404 after retention. Refresh before then.
+- The `github:…#preview/main&path:` layout is no longer installable from current
+  builds because `packages/*/dist` is not committed. Its historical race: pnpm
+  resolved the top-level `path:` entries and the transitive `@remix-run/*`
+  paths independently, so a mixed lock could run a newer `component` than the
+  top-level pin. The pin history has dated examples.
 
-Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
+`npm run update:remix` automates the tarball flow: read the manifest, rewrite
+both specs, install, verify one `t/<sha>` prefix, frozen check, skill links,
+typecheck/lint/format/tests.
+
+## Preview tarball pair
+
+Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not
+declare `@remix-run/component`(-hmr) directly; they arrive transitively and
+dedupe to one copy:
 
 ```jsonc
-"remix": "^3.1.0",          // stable 3.1.0 released 2026-10-23; no -rc suffix needed
-"@remix-run/ui": "^0.13.0"  // 0.13.0 lands under this caret (patch within the minor)
+"remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/remix.tgz",
+"@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/ui.tgz"
 ```
 
-**`0.x` caret caveat.** On a `0.x` package, `^0.13.0` means `>=0.13.0 <0.14.0` — it locks the minor and allows only patches. That is the correct pin: a `0.x` minor can be breaking (0.11 -> 0.12 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus the package-root runtime and JSX exports; 0.12 -> 0.13 removed the styled wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen it to `>=0.13.0`.
+Both must come from the same manifest build. Do not hand-pin one and leave the
+other on an older `t/<sha>`.
 
-**Git-spec equivalent.** If the app keeps `github:` specs instead of npm versions there is no number to write — pin **both** `path:` entries to the same ref/SHA so only one `@remix-run/component` resolves:
-
-```jsonc
-"remix":         "github:remix-run/remix#<ref-or-sha>&path:packages/remix",
-"@remix-run/ui": "github:remix-run/remix#<ref-or-sha>&path:packages/ui"
-```
+**Released npm versions instead.** If the app leaves the preview line for
+published versions, `^3.1.0` / `^0.13.0` are the release-day pair. On a `0.x`
+package, `^0.13.0` means `>=0.13.0 <0.14.0` — it locks the minor and allows only
+patches, which is correct because a `0.x` minor can be breaking (0.11 -> 0.12
+deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus
+the package-root runtime and JSX exports; 0.12 -> 0.13 removed the styled
+wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen it to
+`>=0.13.0`.
 
 ## When to Use
 
-- A project depends on a library via `github:owner/repo#branch&path:subdir`
-- Upstream commits have landed on that branch
-- Before running `pnpm update <dep>` or `npm update <dep>`
+- A project pins Remix previews as retained tarballs (or, historically,
+  `github:owner/repo#branch&path:subdir`) and upstream has moved
+- Before running `npm run update:remix`, `pnpm update <dep>` or `npm update <dep>`
 - When debugging regressions after a dependency update

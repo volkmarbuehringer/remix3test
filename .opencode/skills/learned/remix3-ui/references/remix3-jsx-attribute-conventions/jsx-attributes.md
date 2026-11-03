@@ -2,8 +2,8 @@
 
 **Source:** consolidated from `remix3-svg-attributes`, `remix3-jsx-attribute-rename-blind-spot`
 
-**Validated:** 2026-10-22 against build `060b32a` / source `56f1fb6` (`remix` 3.0.0, `component` 1.0.0, `ui` 0.12.1).
-**Context:** Attributes in `remix/component` JSX — SVG naming and runtime-renamed `data-rmx-*` props.
+**Validated:** 2026-10-22 against build `060b32a` / source `56f1fb6` (`remix` 3.0.0, `component` 1.0.0, `ui` 0.12.1); boolean `aria-*`/`data-*` section re-validated 2026-11-03 against tarball build `t/c26a37eb` (source `c26a37ebe`, `component` 1.1.0).
+**Context:** Attributes in `remix/component` JSX — SVG naming, boolean `aria-*`/`data-*` serialization, and runtime-renamed `data-rmx-*` props.
 
 ## SVG attributes use kebab-case
 
@@ -48,3 +48,28 @@ When a runtime contract changes, verify at the runtime layer:
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
 Current reads (build `060b32a`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:631`/`:647` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-history` in `dist/runtime/navigation.js:488-516`, and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:35`.
+
+## Boolean `aria-*` / `data-*` values
+
+Since remix #12152 (tarball build `t/c26a37eb`), `true`/`false` on `aria-*`,
+`data-*`, and the MathML booleanish attributes serialize to `"true"`/`"false"`
+on **both** the server and the browser. Before that, SSR emitted an empty
+attribute for `true` and omitted `false`, while the browser runtime wrote
+strings — hydration changed the DOM, and pre-hydration ARIA state was wrong.
+`data-rmx-document`/`data-rmx-preserve-dom` remain presence-based (true =
+empty, false = omitted), as do `popover` and `value`; plain boolean host props
+(`disabled`, `hidden`, …) are still presence-only.
+
+Consequences:
+
+- A bare JSX marker (`data-foo`) now renders `data-foo="true"`. Tests that
+  assert `getAttribute('data-foo') === ''` must switch to `hasAttribute`.
+- Boolean ARIA is safe: `aria-expanded={menuOpen}` renders `"true"`/`"false"`
+  in SSR and survives hydration. Prefer it over a string ternary.
+- Presence selectors (`[data-foo]`) keep working; value selectors can use
+  `[aria-expanded="true"]`.
+
+App seams: `app/actions/lists/public/lists-view.tsx` passes boolean
+`aria-pressed`/`aria-expanded`; `app/actions/lists/lists-sidebar-menu.test.e2e.ts`
+asserts focus through the bare `data-list-menu-button` marker, now via
+`hasAttribute`.

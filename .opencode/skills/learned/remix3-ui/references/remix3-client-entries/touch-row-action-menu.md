@@ -30,7 +30,7 @@ itemEditActionsStyle: { '@media (hover: none)': { position: 'static', width: '10
 itemEditMainStyle: { '@media (hover: none)': { flexBasis: '100%' } }
 ```
 
-Kebab: `aria-expanded={menuOpen}`, `aria-label` including the item label. Menu: `role="group"` with an `aria-label`; focus the first action when it opens.
+Kebab: `aria-expanded={menuOpen}`, `aria-label` including the item label. Boolean ARIA renders `"true"`/`"false"` in SSR since #12152, so it survives hydration without a string ternary (see `remix3-jsx-attribute-conventions` → `references/jsx-attributes.md`). Menu: `role="group"` with an `aria-label`; focus the first action when it opens.
 
 Known result on the 35-item fixture at 390px: row height stays **63px**, label width goes from **22px** to **~92px** (two clamped lines), and the page has no horizontal overflow.
 

@@ -23,9 +23,16 @@ learned delta drifts. This is the workflow behind the §06 re-audit (2026-10-31)
 
 ### 1. Separate guide drift from app drift
 
-Two codeload installs coexist after a bump; diff the chapter:
+Only one build is installed at a time since the 2026-11-03 tarball migration.
+Diff the installed chapter against the previous build's tarball (or against a
+coexisting codeload install on an old pin):
 
 ```bash
+# current tarball layout
+diff -u <(tar -xzOf /tmp/old-remix.tgz package/guides/06-streaming-ui-with-frames.md) \
+        node_modules/remix/guides/06-streaming-ui-with-frames.md
+
+# old branch layout, when both installs remain
 ls -d node_modules/.pnpm/remix@*
 diff -u node_modules/.pnpm/remix@<old>/node_modules/remix/guides/06-streaming-ui-with-frames.md \
         node_modules/remix/guides/06-streaming-ui-with-frames.md

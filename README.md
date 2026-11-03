@@ -4,7 +4,7 @@ A full-featured Remix 3 web application — no React, built with Remix UI compon
 
 ## Tech Stack
 
-- **Framework:** [Remix 3](https://github.com/remix-run/remix) via `github:remix-run/remix#preview/main`
+- **Framework:** [Remix 3](https://github.com/remix-run/remix) via retained `preview/main` tarballs (`t/<sha>/<pkg>.tgz`)
 - **UI:** Remix UI (not React) — frame-based server-rendered components
 - **Database:** PostgreSQL via `pg`
 - **AI SDK:** `ai` + `@ai-sdk/openai-compatible` (chat, agent, workflow)

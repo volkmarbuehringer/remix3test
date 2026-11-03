@@ -5,7 +5,7 @@
 **Extracted:** 2026-08-18
 **Updated:** 2026-11-02 (removed the retired `db/schema.sql` bootstrap path; the app now runs the runner with a single idempotent baseline)
 **Revalidated:** 2026-11-02 against build `57ecca4cba` / source `a178e1f` (`@remix-run/data-table` 1.0.0)
-**Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (branch-pinned `remix`, installed in `node_modules/`).
+**Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (preview-tarball-pinned `remix`, installed in `node_modules/`).
 
 ## Problem
 
