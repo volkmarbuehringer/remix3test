@@ -32,12 +32,15 @@ const BRANCH = 'refs/heads/preview/main'
 const LOCK_PATH = path.join(ROOT, 'pnpm-lock.yaml')
 const PACKAGE_PATH = path.join(ROOT, 'package.json')
 const DEFAULT_STORE = path.join(ROOT, '.pnpm-store')
+// pnpm 12 removed the dedicated --fetch-retries/--fetch-retry-*-timeout CLI
+// flags (the installer rejects them as unknown arguments). The universal
+// --config.<key> form sets the same settings on pnpm 11 and 12.
 const NETWORK_FLAGS = [
   '--prefer-offline',
   '--network-concurrency=1',
-  '--fetch-retries=10',
-  '--fetch-retry-mintimeout=2000',
-  '--fetch-retry-maxtimeout=60000',
+  '--config.fetch-retries=10',
+  '--config.fetch-retry-mintimeout=2000',
+  '--config.fetch-retry-maxtimeout=60000',
 ]
 const SOURCE_SHA_RE = /^[0-9a-f]{40}$/
 const STORE_VERSION_SEGMENT = /\/v\d+$/

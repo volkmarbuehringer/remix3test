@@ -8,8 +8,9 @@ vendor-prefixed properties and `flex` shorthands.
 ## Problem (pre-#12121 builds)
 
 `css()` appended `px` to numeric values whose kebab-case key was outside its
-`NUMERIC_CSS_PROPS` allowlist (`@remix-run/component/src/style/style.ts`,
-`normalizeCssValue`). Vendor-prefixed properties were not on that list, so:
+numeric-property allowlist (the current tree has this as the `NUMERIC_CSS_PROP`
+regex at `@remix-run/component/src/style/style.ts:52`, consumed by
+`normalizeCssValue` at `:70`). Vendor-prefixed properties were not on that list, so:
 
 ```ts
 css({ WebkitLineClamp: 2 })

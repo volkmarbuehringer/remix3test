@@ -127,7 +127,7 @@ In the source case Chromium silently tolerated the malformed diff (only a 404 co
 ## `mockImplementationOnce` indexes are absolute, not "next pending"
 
 The #12097 `.mock` controls on `t.mock.fn`/`t.mock.method` (pinned tarball
-`t/c26a37eb`) number one-shot overrides by absolute call index. Consecutive
+`t/1bb19a01`) number one-shot overrides by absolute call index. Consecutive
 `mockImplementationOnce(impl)` calls made before any invocation both register at
 the current call index (`calls.length`, still `0`), so the second silently
 replaces the first and the next call falls through to the default. Pass the

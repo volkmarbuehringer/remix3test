@@ -176,25 +176,35 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 
 **Follow-up 2026-11-03 (pnpm 12).** Upgraded pnpm 11.25.0 → 12.16.1 in `package.json#packageManager`, the Dockerfile, and `.github/workflows/ci.yml.disabled`. pnpm 12 writes the lockfile as two YAML documents: the first records the new `configDependencies`/`packageManagerDependencies` (the pinned pnpm binary plus its platform executables), the second is the unchanged project graph — dependency resolution is otherwise identical, and `pnpm install --frozen-lockfile` passes. The workspace settings (`allowBuilds`, `blockExoticSubdeps`, `minimumReleaseAgeExclude`) are all recognized under v12's stricter unknown-key check. A pnpm 11 install detects the pin, downloads 12.16.1, and runs it (`pmOnFail` default). Note: `scripts/update-remix.ts` exports `npm_config_store_dir`/`npm_config_cache_dir`, which pnpm 11+ already ignores (they need the `pnpm_config_*` prefix); left unchanged here. Verification: `remix:pin:check`, `typecheck`, and `lint` clean; full `pnpm test` green (server and browser phases passed; e2e 118/118).
 
+**Bump recorded 2026-11-03 (second): retained-tarball build `t/c26a37eb`/source `c26a37ebe` → `t/1bb19a01`/source `1bb19a0129` (`preview/main` build `648eb9a0e7`; #12127 head stylesheets after a leading import map, #12128 keyed head resources during DOM diffs, #12164 sibling ordering around preserved DOM elements, #12146 dedicated document-head diff path, #12155 browser-runtime size reduction, #12159 internal module folding, #12161 lazy Frame runtime).**
+
+- **Lock:** all 270 tarball refs resolve to `t/1bb19a01`; no codeload refs. Versions unchanged (`remix` 3.1.0, `@remix-run/ui` 0.13.0, `@remix-run/component` 1.1.0, `component-hmr` 1.0.0); `release-pr/main` (refreshed 2026-11-03T16:37Z) would publish 3.2.0/1.1.1/0.13.1 and remains unmerged.
+- **Package delta:** only `packages/component` (57 files, +3,422/−3,504); `packages/ui`, the `remix` umbrella source, CLI/template/guides, and the other packages are byte-identical. The public export surface is unchanged: `index.ts`/`jsx-runtime.ts` only re-point at relocated modules (`jsx.ts`, `vnode.ts`, `typed-event-target.ts`, `error-event.ts`, `frame-markers.ts`, `frame-resolution.ts` → `component.ts`/`core/vnode.ts`/`frame.ts`), and `Frame` now re-exports from `runtime/frame.ts` with its types in the new `runtime/frame-runtime.ts`.
+- **Runtime delta:** #12127/#12128/#12164/#12146 rework `<head>`/DOM diffing so keyed head resources, stylesheets after an import map, and siblings around preserved elements stay in place across frame navigation. #12155/#12159 shrink the browser runtime and fold small internal modules into their owners (adds `runtime/svg-attributes.ts`; no API change). #12161 moves frame streaming/diff/import-map handling into `runtime/frame-runtime.ts`, loaded only when an app imports `<Frame>` or calls `run()`; `createRoot()`-only apps ship a runtime about 40% smaller.
+- **App clearance:** the app calls `run({ resolveFrame, prefetch })` and renders frames, so the frame runtime still loads and frame behavior is unchanged; the head-diff fixes cover the frame/nested-frame navigation paths already exercised by the `scroll-restoration`, `admin-grid-scroll`, and lazy-frame browser suites. No production source change. Added `app/ui/document-head-resources.test.e2e.ts`: a login → register top-level client navigation asserts the shared `/fonts/fonts.css` stylesheet and the managed import map keep their exact nodes (never removed or duplicated) while the destination title applies.
+- **Automation fix (pnpm 12):** `scripts/update-remix.ts` passed the removed `--fetch-retries`/`--fetch-retry-mintimeout`/`--fetch-retry-maxtimeout` flags, so the first run died at `pnpm install` (`unexpected argument '--fetch-retries'`). The retry policy now uses the universal `--config.fetch-retries=10`/`--config.fetch-retry-mintimeout=2000`/`--config.fetch-retry-maxtimeout=60000` form, accepted by pnpm 12.16.1 and 11.24.0.
+- **Verification (2026-11-03):** `npm run remix:pin:check` clean; `npm run typecheck`, `npm run lint`, `npm run format` clean; full `npm test` green (server and browser phases passed, e2e 118/118). The new head-resource e2e passes 2/2 (Chromium + Firefox); learned-delta line refs were revalidated against the installed `@remix-run/component` tree.
+
 **Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
 
-| Recorded       | Build        | Source      | Range highlights                                                               |
-| -------------- | ------------ | ----------- | ------------------------------------------------------------------------------ |
-| 2026-11-03     | `cc2a50e2a0` | `c26a37ebe` | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167 |
-| 2026-11-02     | `3f182ccc`   | `26db8a3`   | #12148                                                                         |
-| 2026-10-31     | `57ecca4cba` | `a178e1f`   | #12125 #12121; test #12147                                                     |
-| 2026-10-30     | `0a6895947b` | `87a80a2`   | #12059; docs #12142; bot README `87a80a2`                                      |
-| 2026-10-29 (2) | `782c7a65`   | `1b11033`   | #12107 #12119; docs #12129 (applied, not written up then)                      |
-| 2026-10-29     | `19b3c4e8`   | `6ab52963`  | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
-| 2026-10-26     | `8ae2f755`   | `0b35d81`   | #11982; docs #12075 #12076                                                     |
-| 2026-10-23 (3) | `dfb4fc808`  | `5e5a244`   | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                  |
-| 2026-10-23 (2) | `1e03013e1`  | `446179f5a` | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                  |
-| 2026-10-23     | `db58e1d9`   | `32794c0`   | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                 |
-| 2026-10-22     | `060b32a`    | `56f1fb6`   | #12004 #12061 #12067                                                           |
-| 2026-10-20 (2) | `9b5b702b1b` | `af3ea2c`   | #11993                                                                         |
-| 2026-10-20     | `3bb426e354` | `2e53e244`  | #12009 #12011 #12020                                                           |
-| 2026-10-16     | `7f900151`   | `b65325d`   | #12005–#12018 #12019                                                           |
-| 2026-10-15     | `48b54a55`   | `aa2efcd`   | #11987 #11992 #11999                                                           |
-| 2026-10-14 (2) | `2c9e033`    | `e6a63ea`   | #11988 #11989 #11990                                                           |
-| 2026-10-14     | `c93cec30`   | `e5ed055`   | #11986                                                                         |
-| 2026-10-14     | `c1787ef`    | `7d5a2f9`   | prior                                                                          |
+| Recorded       | Build        | Source       | Range highlights                                                               |
+| -------------- | ------------ | ------------ | ------------------------------------------------------------------------------ |
+| 2026-11-03 (2) | `648eb9a0e7` | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                               |
+| 2026-11-03     | `cc2a50e2a0` | `c26a37ebe`  | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167 |
+| 2026-11-02     | `3f182ccc`   | `26db8a3`    | #12148                                                                         |
+| 2026-10-31     | `57ecca4cba` | `a178e1f`    | #12125 #12121; test #12147                                                     |
+| 2026-10-30     | `0a6895947b` | `87a80a2`    | #12059; docs #12142; bot README `87a80a2`                                      |
+| 2026-10-29 (2) | `782c7a65`   | `1b11033`    | #12107 #12119; docs #12129 (applied, not written up then)                      |
+| 2026-10-29     | `19b3c4e8`   | `6ab52963`   | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
+| 2026-10-26     | `8ae2f755`   | `0b35d81`    | #11982; docs #12075 #12076                                                     |
+| 2026-10-23 (3) | `dfb4fc808`  | `5e5a244`    | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                  |
+| 2026-10-23 (2) | `1e03013e1`  | `446179f5a`  | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                  |
+| 2026-10-23     | `db58e1d9`   | `32794c0`    | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                 |
+| 2026-10-22     | `060b32a`    | `56f1fb6`    | #12004 #12061 #12067                                                           |
+| 2026-10-20 (2) | `9b5b702b1b` | `af3ea2c`    | #11993                                                                         |
+| 2026-10-20     | `3bb426e354` | `2e53e244`   | #12009 #12011 #12020                                                           |
+| 2026-10-16     | `7f900151`   | `b65325d`    | #12005–#12018 #12019                                                           |
+| 2026-10-15     | `48b54a55`   | `aa2efcd`    | #11987 #11992 #11999                                                           |
+| 2026-10-14 (2) | `2c9e033`    | `e6a63ea`    | #11988 #11989 #11990                                                           |
+| 2026-10-14     | `c93cec30`   | `e5ed055`    | #11986                                                                         |
+| 2026-10-14     | `c1787ef`    | `7d5a2f9`    | prior                                                                          |

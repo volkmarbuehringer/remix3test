@@ -40,12 +40,12 @@
     "@mastra/memory": "^1.40.0",
     "@mastra/observability": "^1.23.0",
     "@mastra/pg": "^1.34.0",
-    "@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/ui.tgz",
+    "@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/ui.tgz",
     "date-holidays": "^3.38.0",
     "nodemailer": "^10.3.0",
     "pdfmake": "^0.3.13",
     "pg": "^8.23.1",
-    "remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/remix.tgz",
+    "remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/remix.tgz",
     "zod": "^4.6.7"
   },
   "devDependencies": {

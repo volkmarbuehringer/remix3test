@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-03 (current pin is the retained tarball build `t/c26a37eb` / source `c26a37ebe`; the `github:…#preview/main&path:` flow below is historical)
+**Re-validated:** 2026-11-03 (current pin is the retained tarball build `t/1bb19a01` / source `1bb19a0129`; the `github:…#preview/main&path:` flow below is historical)
 **Context:** A project pins a dependency to a preview build — retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -63,7 +63,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at retained tarball build `t/c26a37eb` (source `c26a37ebe`, `preview/main` build `cc2a50e2a0`). The two `package.json` specs are the manifest URLs; the lock has 270 tarball refs at that prefix.
+Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at retained tarball build `t/1bb19a01` (source `1bb19a0129`, `preview/main` build `648eb9a0e7`). The two `package.json` specs are the manifest URLs; the lock has 270 tarball refs at that prefix.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current tarball flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -89,7 +89,9 @@ the old branch-pin transitive race cannot recur: there is no independent
 
 `npm run update:remix` automates the tarball flow: read the manifest, rewrite
 both specs, install, verify one `t/<sha>` prefix, frozen check, skill links,
-typecheck/lint/format/tests.
+typecheck/lint/format/tests. Its retry settings use the universal
+`--config.fetch-retries=…` / `--config.fetch-retry-*-timeout=…` form because
+pnpm 12 removed the dedicated `--fetch-retries`/`--fetch-retry-*` flags.
 
 ## Preview tarball pair
 
@@ -98,8 +100,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/remix.tgz",
-"@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/c26a37eb/ui.tgz"
+"remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/remix.tgz",
+"@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/ui.tgz"
 ```
 
 Both must come from the same manifest build. Do not hand-pin one and leave the
