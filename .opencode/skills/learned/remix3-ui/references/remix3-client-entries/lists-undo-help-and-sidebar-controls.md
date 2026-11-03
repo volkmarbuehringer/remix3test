@@ -50,6 +50,60 @@ Document the policy in the chip title and the help sheet; do not add redo.
 
 **Pin async target actions to their source list.** A move/copy request can outlive a frame switch. Capture `sourceId = loadedListId` before `flushNow()`, then check `loadedListId === sourceId` after every await and again before applying `outcome.source`; otherwise list A's response replaces list B's editor and `snapshotClean()` marks the wrong content clean. Use the captured id in the request too, and do the same for the sidebar copy-here confirm (which otherwise merges whichever list is open when the user confirms).
 
+### Undo during an in-flight autosave
+
+**The race:** `undo()` restores the pre-mutation snapshot. If the mutation's PUT is still in flight, the restored state equals the old `cleanItemsJSON`, so `isDirty()` is false. The save response's drift branch re-arms autosave, but its timer callback exits because nothing looks dirty. The editor shows the undone state while the server keeps the intermediate write.
+
+**Fix:** when a save response drifts, rebase the clean baseline onto the server echo before re-arming:
+
+```ts
+if (drifted) {
+  // The server now holds exactly what this PUT sent.
+  cleanTitle = state.title
+  cleanDescription = state.description
+  cleanItemsJSON = itemsFingerprint(state.items)
+  saveStatus = 'dirty'
+  scheduleAutosave()
+  // ... existing return/update path
+}
+```
+
+Do not call `snapshotClean()` here: that marks the live state clean, but the server has the sent state. Rebase to `state` so the next `isDirty()` comparison treats the undo as a real pending change.
+
+**Deterministic browser test:** hold the first PUT with a deferred fetch response, undo while it is pending, release it, then advance fake timers for the re-armed follow-up save:
+
+```tsx
+let timers = t.useFakeTimers()
+stubFetch({ defer: true })
+
+await result.act(() => clearButton.click())
+timers.advance(1500) // start the clear PUT, keep it pending
+await flushAsyncWork(result)
+
+await result.act(() => undoButton.click())
+await respondToNextFetch(result) // release the clear PUT
+
+timers.advance(1500) // fire the re-armed follow-up save
+await flushAsyncWork(result)
+assert.equal(calls.length, 2)
+```
+
+`Response.json()` reads through real browser tasks, so fake timers alone do not settle the save. Capture the real `setTimeout` before `t.useFakeTimers()` and run a few 0 ms tasks:
+
+```ts
+const realSetTimeout = window.setTimeout.bind(window)
+
+async function flushAsyncWork(result: ReturnType<typeof renderEditor>) {
+  for (let turn = 0; turn < 10; turn++) {
+    await result.act(() => new Promise<void>((resolve) => realSetTimeout(resolve, 0)))
+  }
+}
+```
+
+This reproduces the worst-case ordering every run and removes the 8–12 s wall-clock budgets. `remix3-tooling § Testing → frame-event-cliententry-tests.md` uses the same deferred-response trick for frame-navigation races.
+
+**When to use:** a debounced save can be reverted by undo/redo or an edit that returns to the pre-save value while its PUT is in flight; the browser test for that path currently relies on `waitFor`/long timeouts.
+
 ### Focus-managed help sheet
 
 **Guard the row-level double-click.** The edit affordance lives on the row's `click` handler (`event.detail === 2`), so any nested control that bubbles a double click also opens the editor. Return early when `event.target.closest('input, button, a, textarea, select')` matches; otherwise double-clicking the completion checkbox or kebab toggles/opens it and starts editing.
