@@ -554,6 +554,14 @@ export const ListsClient = clientEntry(
               description !== sentDesc ||
               itemsFingerprint(items) !== sentItemsJSON
             if (drifted) {
+              // The server now holds the state captured at send time. Rebase
+              // the clean baseline onto that server echo before re-arming the
+              // debounce: an edit that reverts to the pre-save snapshot (for
+              // example undo while a clear PUT is in flight) would otherwise
+              // look clean, and the follow-up save would be skipped.
+              cleanTitle = state.title
+              cleanDescription = state.description
+              cleanItemsJSON = itemsFingerprint(state.items)
               saveStatus = 'dirty'
               scheduleAutosave()
               ok = true

@@ -10,7 +10,9 @@ import type { ListInitialState } from './lists-state.ts'
 // flush stay in the e2e suite. The pure transitions are in lists-state.test.ts.
 
 const originalFetch = window.fetch
+const realSetTimeout = window.setTimeout.bind(window)
 let calls: Array<{ url: string; init: RequestInit }> = []
+let deferredResponses: Array<() => void> = []
 let cleanup: (() => void) | null = null
 let removeCsrf: (() => void) | null = null
 
@@ -23,22 +25,54 @@ function installCsrf(token: string) {
   removeCsrf = () => meta.remove()
 }
 
-function stubFetch() {
+function responseFor(init?: RequestInit): Response {
+  let body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
+  let state = {
+    id: 7,
+    title: typeof body.title === 'string' ? body.title : 'Alt',
+    description: typeof body.description === 'string' ? body.description : 'D',
+    items: Array.isArray(body.items) ? body.items : [],
+    updated_at: 222,
+  }
+  return new Response(JSON.stringify(state), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/**
+ * `defer: true` leaves each response pending until `respondToNextFetch()`, so
+ * the undo test can put the second mutation in flight deterministically instead
+ * of racing a real 1.5s timer against suite load.
+ */
+function stubFetch(options: { defer?: boolean } = {}) {
+  let defer = options.defer ?? false
+  deferredResponses = []
   window.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), init: init ?? {} })
-    let body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {}
-    let state = {
-      id: 7,
-      title: typeof body.title === 'string' ? body.title : 'Alt',
-      description: typeof body.description === 'string' ? body.description : 'D',
-      items: Array.isArray(body.items) ? body.items : [],
-      updated_at: 222,
-    }
-    return new Response(JSON.stringify(state), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    if (!defer) return responseFor(init)
+    return await new Promise<Response>((resolve) => {
+      deferredResponses.push(() => resolve(responseFor(init)))
     })
   }) as typeof window.fetch
+}
+
+/**
+ * Flush the fetch → response.json() → save continuation. `Response.json()`
+ * reads the body through real browser tasks, so fake timers are not enough;
+ * run a fixed number of real 0 ms tasks instead of waiting on a debounce clock.
+ */
+async function flushAsyncWork(result: ReturnType<typeof renderEditor>): Promise<void> {
+  for (let turn = 0; turn < 10; turn++) {
+    await result.act(() => new Promise<void>((resolve) => realSetTimeout(resolve, 0)))
+  }
+}
+
+async function respondToNextFetch(result: ReturnType<typeof renderEditor>): Promise<void> {
+  let respond = deferredResponses.shift()
+  assert.ok(respond, 'expected a deferred fetch response')
+  respond()
+  await flushAsyncWork(result)
 }
 
 function renderEditor(state: ListInitialState) {
@@ -251,7 +285,10 @@ describe('ListsClient undo', () => {
     assert.equal(buttonByText(result.container, 'Rückgängig'), null, 'the chip dismisses')
   })
 
-  it('autosaves the cleared selection and then the undone order', async () => {
+  it('autosaves the cleared selection and then the undone order', async (t) => {
+    let timers = t.useFakeTimers()
+    stubFetch({ defer: true })
+
     let result = renderEditor({
       id: 7,
       title: 'L',
@@ -265,9 +302,10 @@ describe('ListsClient undo', () => {
 
     await result.act(() => buttonByText(result.container, 'Nur Erledigte löschen')!.click())
 
-    // 1.5s debounce; the 3s default budget flakes under suite load on a cold
-    // browser pool.
-    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the clear should autosave')
+    // Fire the 1.5s autosave but leave its PUT pending.
+    timers.advance(1500)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 1, 'the clear should autosave')
     assert.equal(
       JSON.parse(String(calls[0]!.init.body))
         .items.map((item: { id: string }) => item.id)
@@ -275,21 +313,26 @@ describe('ListsClient undo', () => {
       'open',
     )
 
+    // Undo while the clear PUT is still in flight: the slowest legitimate
+    // path, where saveNow serializes the second save and the save's drift
+    // branch re-arms the debounce. Nothing here waits on a wall clock.
     await result.act(() => buttonByText(result.container, 'Rückgängig')!.click())
+    await respondToNextFetch(result)
 
-    // Worst legit path is not the 300ms fast debounce: an undo landing while
-    // the clear PUT is still in flight is serialized by saveNow, and the
-    // save's drift/dirty branch then re-arms the slow 1.5s debounce — ~2s of
-    // timer chaining plus polling slack. That 2s best case can stretch well
-    // past 8s on a cold browser pool or momentary host load (this flaked at
-    // 8s twice under `npm test` while being green on four identical reruns),
-    // so poll to 12s before declaring the second save missing.
-    assert.ok(await waitFor(() => calls.length === 2, 12000), 'undo is itself a mutation')
+    timers.advance(1500)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 2, 'undo is itself a mutation')
     assert.equal(
       JSON.parse(String(calls[1]!.init.body))
         .items.map((item: { id: string }) => item.id)
         .join(','),
       'done,open',
     )
+
+    // Settle the second PUT and prove no third autosave was armed.
+    await respondToNextFetch(result)
+    timers.advance(5000)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 2)
   })
 })
