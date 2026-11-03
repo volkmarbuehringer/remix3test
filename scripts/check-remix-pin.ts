@@ -11,8 +11,10 @@ import * as path from 'node:path'
 //
 // This check:
 //   1. reads the two tarball URLs from package.json,
-//   2. HEADs both URLs (404/410 means the pin expired),
-//   3. reads t/preview.json from preview/main, finds the pinned 8-hex build,
+//   2. verifies pnpm-lock.yaml resolves every remix ref to that same
+//      t/<8-hex> build (a half-applied update fails before any network call),
+//   3. HEADs both URLs (404/410 means the pin expired),
+//   4. reads t/preview.json from preview/main, finds the pinned 8-hex build,
 //      and warns when it is older than the five-day refresh window.
 //
 // It is dependency-free and offline-safe: network/HTTP failures that are not
@@ -22,6 +24,7 @@ import * as path from 'node:path'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PACKAGE_PATH = path.join(ROOT, 'package.json')
+const LOCK_PATH = path.join(ROOT, 'pnpm-lock.yaml')
 const MANIFEST_URL = 'https://raw.githubusercontent.com/remix-run/remix/preview/main/t/preview.json'
 const PINNED_PACKAGES = ['remix', '@remix-run/ui'] as const
 const TARBALL_FILES: Record<(typeof PINNED_PACKAGES)[number], string> = {
@@ -30,6 +33,10 @@ const TARBALL_FILES: Record<(typeof PINNED_PACKAGES)[number], string> = {
 }
 const TARBALL_SPEC_RE =
   /^(https:\/\/raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\/([^/]+)\.tgz)$/
+const LOCK_TARBALL_REF_RE =
+  /raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\//g
+const LOCK_CODELOAD_REF_RE = /codeload\.github\.com\/remix-run\/remix\/tar\.gz\/([0-9a-f]{40})/g
+const LOCK_PACKAGE_KEY_RE = /^ {2}'(@remix-run\/[^@'\s]+)@([^']+)':$/gm
 const REFRESH_AFTER_DAYS = 5
 const RETENTION_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -63,12 +70,26 @@ type PreviewManifest = {
   builds?: ManifestBuild[]
 }
 
+type LockPackageRef = {
+  name: string
+  version: string
+}
+
+type LockState = {
+  tarballRefs: number
+  prefixes: string[]
+  codeloadRefs: number
+  codeloadBuilds: string[]
+  packageRefs: LockPackageRef[]
+}
+
 function usage(): void {
   console.log(`Usage: npm run remix:pin:check -- [options]
 
 Verify the remix preview tarballs pinned in package.json still exist and are
-inside the five-day refresh window. Exits nonzero when the pin has expired
-(HTTP 404/410) so CI catches it before an install fails.
+inside the five-day refresh window. Also verifies pnpm-lock.yaml resolves every
+remix ref to the same build. Exits nonzero on lock drift or when the pin has
+expired (HTTP 404/410) so CI catches it before an install fails.
 
 Options:
   --strict   Fail on refresh-window warnings (build older than 5 days or no
@@ -131,6 +152,98 @@ function readPins(): TarballPin[] {
   }
 
   return pins
+}
+
+function short(value: string): string {
+  return value.slice(0, 10)
+}
+
+function readLockState(lock: string): LockState {
+  let tarballPrefixes = [...lock.matchAll(LOCK_TARBALL_REF_RE)]
+    .map((match) => match[1])
+    .filter((prefix): prefix is string => Boolean(prefix))
+  let codeloadBuilds = [...lock.matchAll(LOCK_CODELOAD_REF_RE)]
+    .map((match) => match[1])
+    .filter((build): build is string => Boolean(build))
+  let packageRefs = [...lock.matchAll(LOCK_PACKAGE_KEY_RE)]
+    .map((match) => ({ name: match[1] ?? '', version: match[2] ?? '' }))
+    .filter((ref) => ref.name.length > 0 && ref.version.length > 0)
+
+  return {
+    tarballRefs: tarballPrefixes.length,
+    prefixes: [...new Set(tarballPrefixes)],
+    codeloadRefs: codeloadBuilds.length,
+    codeloadBuilds: [...new Set(codeloadBuilds)],
+    packageRefs,
+  }
+}
+
+/**
+ * A half-applied update can leave package.json on one build while the lock
+ * still carries the old build (or a mix of tarball and codeload refs). Catch
+ * that locally and before `pnpm install`, so the fix is always the same
+ * `update:remix` run instead of an opaque resolution failure.
+ */
+function checkLock(prefix: string, pins: TarballPin[]): boolean {
+  let lock: string
+  try {
+    lock = fs.readFileSync(LOCK_PATH, 'utf8')
+  } catch (error) {
+    let detail = error instanceof Error ? error.message : String(error)
+    console.error(`fail    cannot read pnpm-lock.yaml (${detail}); run npm install`)
+    return false
+  }
+
+  let state = readLockState(lock)
+  let problems: string[] = []
+
+  if (state.codeloadRefs > 0) {
+    problems.push(
+      `pnpm-lock.yaml still has ${state.codeloadRefs} git-hosted remix refs ` +
+        `(${state.codeloadBuilds.map(short).join(', ')}); run npm run update:remix`,
+    )
+  }
+  if (state.tarballRefs === 0) {
+    problems.push('pnpm-lock.yaml has no retained preview tarball refs; run npm run update:remix')
+  } else if (state.prefixes.length !== 1 || state.prefixes[0] !== prefix) {
+    problems.push(
+      `pnpm-lock.yaml tarball refs span ` +
+        `${state.prefixes.map((value) => `t/${value}`).join(', ')} ` +
+        `(${state.tarballRefs} refs); expected t/${prefix}. Run npm run update:remix`,
+    )
+  }
+
+  let expectedPrefix = `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/${prefix}/`
+  let packageRefsOutsidePin = state.packageRefs.filter(
+    (ref) => !ref.version.startsWith(expectedPrefix),
+  )
+  if (state.packageRefs.length === 0) {
+    problems.push('pnpm-lock.yaml has no @remix-run/* package entries; run npm run update:remix')
+  } else if (packageRefsOutsidePin.length > 0) {
+    let examples = packageRefsOutsidePin
+      .slice(0, 3)
+      .map((ref) => `${ref.name}@${short(ref.version)}`)
+      .join(', ')
+    problems.push(
+      `pnpm-lock.yaml has ${packageRefsOutsidePin.length} @remix-run/* package entries ` +
+        `outside t/${prefix} (${examples}${packageRefsOutsidePin.length > 3 ? ', …' : ''}); ` +
+        'run npm run update:remix',
+    )
+  }
+
+  for (let pin of pins) {
+    if (!lock.includes(pin.url)) {
+      problems.push(`pnpm-lock.yaml is missing the pinned ${pin.name} URL: ${pin.url}`)
+    }
+  }
+
+  if (problems.length > 0) {
+    for (let problem of problems) console.error(`fail    ${problem}`)
+    return false
+  }
+
+  console.log(`ok      lock: ${state.tarballRefs} tarball refs at t/${prefix}, no codeload refs`)
+  return true
 }
 
 function networkMessage(error: unknown): string {
@@ -269,6 +382,14 @@ async function main(): Promise<void> {
   let prefix = pins[0]!.prefix
 
   console.log(`Checking remix pin t/${prefix} (${pins.map((pin) => pin.name).join(', ')})`)
+
+  if (!checkLock(prefix, pins)) {
+    console.error('')
+    console.error('Remix pin check failed: package.json and pnpm-lock.yaml disagree.')
+    console.error('Run: npm run update:remix')
+    process.exitCode = 1
+    return
+  }
 
   let results = await Promise.all(pins.map((pin) => headPin(pin)))
   for (let result of results) printHeadResult(result)
