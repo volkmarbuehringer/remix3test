@@ -59,7 +59,7 @@ function segmentGroup() {
           <a
             href="#"
             data-segment
-            aria-current={active ? 'true' : undefined}
+            aria-current={active || undefined}
             mix={[
               buttonLink({ tone: active ? 'primary' : 'secondary' }),
               segmentedButton({ isFirst, isLast }),

@@ -222,7 +222,7 @@ export const MessageCompose = clientEntry(
           <div id="messages-content-meta" mix={composeMetaStyle}>
             <span
               data-compose-counter
-              data-over-limit={value.length >= maxLength ? 'true' : 'false'}
+              data-over-limit={value.length >= maxLength}
               mix={composeCounterStyle}
             >
               {value.length + '/' + maxLength}

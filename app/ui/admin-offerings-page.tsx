@@ -356,7 +356,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   <a
                     href={href}
                     data-rmx-target={getSelfFrameTarget()}
-                    aria-current={active ? 'true' : undefined}
+                    aria-current={active || undefined}
                     mix={[
                       buttonLink({ tone: active ? 'primary' : 'secondary' }),
                       segmentedButton({ isFirst, isLast, paddingX: theme.space.sm }),
@@ -399,7 +399,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 <a
                   href={href}
                   data-rmx-target={getSelfFrameTarget()}
-                  aria-current={active ? 'true' : undefined}
+                  aria-current={active || undefined}
                   mix={[
                     buttonLink({ tone: active ? 'primary' : 'secondary' }),
                     segmentedButton({ isFirst, isLast }),

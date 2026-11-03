@@ -244,7 +244,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   <a
                     href={href}
                     data-rmx-target={getSelfFrameTarget()}
-                    aria-current={active ? 'true' : undefined}
+                    aria-current={active || undefined}
                     mix={[
                       buttonLink({ tone: active ? 'primary' : 'secondary' }),
                       segmentedButton({ isFirst, isLast }),
@@ -285,7 +285,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <a
                   href={href}
                   data-rmx-target={getSelfFrameTarget()}
-                  aria-current={active ? 'true' : undefined}
+                  aria-current={active || undefined}
                   mix={[
                     buttonLink({ tone: active ? 'primary' : 'secondary' }),
                     segmentedButton({ isFirst, isLast }),

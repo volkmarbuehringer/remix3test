@@ -718,7 +718,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       key={tab.label}
                       href={uploadsKindHref(tab.value, sortColumn, sortDirection, filter)}
                       data-rmx-target={getSelfFrameTarget()}
-                      aria-current={active ? 'true' : undefined}
+                      aria-current={active || undefined}
                       aria-label={`${tab.label}: ${count} ${count === 1 ? 'Datei' : 'Dateien'}`}
                       mix={[
                         table.filterTab,

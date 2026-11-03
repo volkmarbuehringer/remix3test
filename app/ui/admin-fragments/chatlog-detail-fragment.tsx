@@ -206,7 +206,7 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
       <div
         mix={detailStyle}
         data-chatlog-detail="true"
-        data-chatlog-missing={hasError || showEmpty ? 'true' : 'false'}
+        data-chatlog-missing={hasError || showEmpty}
       >
         <a
           href={closeHref ?? routes.admin.chatlog.index.href()}

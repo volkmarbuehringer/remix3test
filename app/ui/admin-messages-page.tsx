@@ -727,7 +727,7 @@ function MessagesToolbar(handle: Handle<MessagesToolbarProps>) {
                   href={sortHref(option.field, sortColumn, sortDirection, filter)}
                   data-rmx-target={getSelfFrameTarget()}
                   aria-label={`Nach ${option.label} sortieren`}
-                  aria-current={active ? 'true' : undefined}
+                  aria-current={active || undefined}
                   mix={[table.filterTab, active ? table.filterTabActive : undefined]}
                 >
                   {option.label}

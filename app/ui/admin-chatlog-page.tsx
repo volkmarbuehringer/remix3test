@@ -225,7 +225,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
         <div
           mix={masterDetailWrapStyle}
           data-chatlog-master-detail="true"
-          data-chatlog-detail-open={detailOpen ? 'true' : 'false'}
+          data-chatlog-detail-open={detailOpen}
         >
           <div mix={[table.wrap, table.mobileCards]} data-chatlog-table="true">
             {conversations.length === 0 ? (
@@ -387,7 +387,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           <div
             mix={detailPanelStyle}
             data-chatlog-detail-panel="true"
-            data-chatlog-detail-open={detailOpen ? 'true' : 'false'}
+            data-chatlog-detail-open={detailOpen}
             tabindex={-1}
           >
             <Frame

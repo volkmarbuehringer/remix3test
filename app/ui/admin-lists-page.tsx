@@ -694,7 +694,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
-              aria-current={!activeItemFilter ? 'true' : undefined}
+              aria-current={!activeItemFilter || undefined}
               mix={[table.filterTab, !activeItemFilter ? table.filterTabActive : undefined]}
             >
               Alle
@@ -707,7 +707,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
-              aria-current={activeItemFilter === 'items' ? 'true' : undefined}
+              aria-current={activeItemFilter === 'items' || undefined}
               mix={[
                 table.filterTab,
                 activeItemFilter === 'items' ? table.filterTabActive : undefined,
@@ -723,7 +723,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               }
               data-rmx-target={getSelfFrameTarget()}
               data-rmx-prefetch="intent"
-              aria-current={activeItemFilter === 'empty' ? 'true' : undefined}
+              aria-current={activeItemFilter === 'empty' || undefined}
               mix={[
                 table.filterTab,
                 activeItemFilter === 'empty' ? table.filterTabActive : undefined,
@@ -774,7 +774,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   aria-label={'Nach ' + option.label + ' sortieren'}
-                  aria-current={active ? 'true' : undefined}
+                  aria-current={active || undefined}
                   mix={[table.filterTab, active ? table.filterTabActive : undefined]}
                 >
                   {option.label}

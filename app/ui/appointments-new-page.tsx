@@ -235,7 +235,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     <a
                       href={href}
                       data-rmx-target={frames.appointmentsNewContent}
-                      aria-current={active ? 'true' : undefined}
+                      aria-current={active || undefined}
                       mix={[
                         buttonLink({ tone: active ? 'primary' : 'secondary' }),
                         segmentedButton({ isFirst, isLast }),
@@ -275,7 +275,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   <a
                     href={href}
                     data-rmx-target={frames.appointmentsNewContent}
-                    aria-current={active ? 'true' : undefined}
+                    aria-current={active || undefined}
                     mix={[
                       buttonLink({ tone: active ? 'primary' : 'secondary' }),
                       segmentedButton({ isFirst, isLast }),
