@@ -87,3 +87,15 @@ export async function findLatestChatRun(userId: number): Promise<ChatRunRow | nu
 export async function clearChatRun(runId: string): Promise<void> {
   await db.exec('DELETE FROM chat_runs WHERE run_id = $1', [runId])
 }
+
+/**
+ * Whether any run pointer still references the thread.
+ *
+ * A suspended run keeps its `chat_runs` row until the terminal hook clears it,
+ * so a hit means the conversation is live (mid-stream or waiting on a gate).
+ * Adopting its thread would split ownership under the running agent.
+ */
+export async function hasActiveChatRunForThread(threadId: string): Promise<boolean> {
+  let result = await db.exec('SELECT 1 FROM chat_runs WHERE thread_id = $1 LIMIT 1', [threadId])
+  return (result.rows?.length ?? 0) > 0
+}

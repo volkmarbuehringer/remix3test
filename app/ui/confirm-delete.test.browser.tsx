@@ -221,4 +221,24 @@ describe('ConfirmDelete', () => {
     await result!.act(() => cancel.click())
     assert.equal(ran, 0, 'the callback must not run when cancelled')
   })
+
+  it('lets a form override the dialog title and confirm label', async () => {
+    let { btn } = mountForm(
+      'data-confirm="Konversation übernehmen?" ' +
+        'data-confirm-title="Konversation übernehmen" ' +
+        'data-confirm-label="Übernehmen" ' +
+        'data-confirm-tone="primary"',
+    )
+    mountEntry()
+
+    await result!.act(() => btn.click())
+
+    assert.ok(
+      dialog()!.textContent?.includes('Konversation übernehmen'),
+      'the form-specific title replaces the delete default',
+    )
+    let accept = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    assert.equal(accept.textContent?.trim(), 'Übernehmen', 'the confirm label is form-specific')
+    assert.deepEqual(submitted, [], 'nothing submits while the dialog is open')
+  })
 })

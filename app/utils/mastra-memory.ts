@@ -43,6 +43,7 @@ interface MemoryHandle {
     title?: string
     metadata?: Record<string, unknown>
   }) => Promise<unknown>
+  updateThreadResourceId?: (args: { threadId: string; resourceId: string }) => Promise<unknown>
 }
 
 // Accept any agent that has a getMemory() method returning something with the right shape
@@ -189,6 +190,26 @@ export async function deleteChatThread(agent: AgentHandle, threadId: string): Pr
   if (memory) {
     await (memory as MemoryHandle).deleteThread(threadId)
   }
+}
+
+/**
+ * Reassigns a stored thread and every one of its messages to another resource.
+ *
+ * Used by the chatlog's "Übernehmen & fortsetzen" action: adoption moves the
+ * conversation into the admin's support scope so the support agent's ownership
+ * check (and its recent-conversation list) sees it. Mastra performs no
+ * authorization here — callers must resolve and check the current owner first.
+ */
+export async function reassignChatThread(
+  agent: AgentHandle,
+  threadId: string,
+  resourceId: string,
+): Promise<void> {
+  let memory = await getMemory(agent)
+  if (typeof memory.updateThreadResourceId !== 'function') {
+    throw new Error('Memory does not support reassigning thread resources.')
+  }
+  await memory.updateThreadResourceId({ threadId, resourceId })
 }
 
 // ── Single-thread lookup and bounded sweep (chatlog source derivation) ──

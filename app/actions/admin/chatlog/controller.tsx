@@ -1,7 +1,9 @@
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
+import type { Database } from 'remix/data-table'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
+import { users } from '../../../data/schema.ts'
 import {
   classifyThreadSourceFor,
   countThreadsBySource,
@@ -16,6 +18,8 @@ import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import { getSafeReturnTo } from '../../../utils/redirect.ts'
+import { hasActiveChatRunForThread } from '../../chat/run-store.ts'
 import { ChatLogPage } from '../../../ui/admin-chatlog-page.tsx'
 import { ChatlogDetailFragment } from '../../../ui/admin-fragments/chatlog-detail-fragment.tsx'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -25,6 +29,7 @@ import {
   listAllChatThreads,
   getChatThread,
   deleteChatThread,
+  reassignChatThread,
   fetchChatThreadPreviews,
   toAgentHandle,
   type ChatThreadPreview,
@@ -63,6 +68,31 @@ function supportAgentThreadHref(threadId: string): string {
   return routes.admin.supportAgent.index.href() + '?threadId=' + encodeURIComponent(threadId)
 }
 
+/** Numeric owner id from a thread's resource, or undefined for a legacy placeholder. */
+function resourceUserId(resourceId: string): number | undefined {
+  return /^\d+$/.test(resourceId) ? Number(resourceId) : undefined
+}
+
+/**
+ * Whether a thread belongs to a different admin account.
+ *
+ * Source classification alone cannot tell another admin's support thread from a
+ * customer thread — both are numeric ids. Adoption resolves the `users` row: a
+ * customer (or a deleted owner with no row) is claimable, another admin's
+ * support conversation is not. Legacy non-numeric placeholders have no owner and
+ * are claimable.
+ */
+async function isOtherAdminsThread(
+  db: Database,
+  resourceId: string,
+  currentUserId: number,
+): Promise<boolean> {
+  let ownerId = resourceUserId(resourceId)
+  if (ownerId === undefined || ownerId === currentUserId) return false
+  let owner = await db.findOne(users, { where: { id: ownerId } })
+  return owner?.role === 'admin'
+}
+
 // ── Test seams ──────────────────────────────────────────────────
 //
 // The real chatlog reads Mastra memory. Tests inject a bounded set of thread
@@ -75,6 +105,7 @@ interface ChatlogTestFixtures {
   threadLookup?: (
     threadId: string,
   ) => Promise<{ resourceId: string; messages: ChatMessage[] } | null>
+  reassign?: (threadId: string, resourceId: string) => Promise<void>
 }
 
 let _testFixtures: ChatlogTestFixtures | undefined
@@ -92,6 +123,25 @@ async function loadPreviews(threadIds: string[]): Promise<Map<string, ChatThread
   if (process.env.NODE_ENV === 'test' && _testFixtures?.previews) return _testFixtures.previews
   let agent = toAgentHandle(mastra.getAgent('supportAgent'))
   return fetchChatThreadPreviews(agent, threadIds)
+}
+
+async function loadThreadSummary(threadId: string): Promise<ChatThreadSummary | null> {
+  if (process.env.NODE_ENV === 'test' && _testFixtures?.threadLookup) {
+    let lookup = await _testFixtures.threadLookup(threadId)
+    if (!lookup) return null
+    return { id: threadId, resourceId: lookup.resourceId, createdAt: 0, updatedAt: 0 }
+  }
+  let agent = toAgentHandle(mastra.getAgent('supportAgent'))
+  return getChatThread(agent, threadId)
+}
+
+async function reassignThread(threadId: string, resourceId: string): Promise<void> {
+  if (process.env.NODE_ENV === 'test' && _testFixtures?.reassign) {
+    await _testFixtures.reassign(threadId, resourceId)
+    return
+  }
+  let agent = toAgentHandle(mastra.getAgent('supportAgent'))
+  await reassignChatThread(agent, threadId, resourceId)
 }
 
 async function loadThreadForFragment(
@@ -252,6 +302,82 @@ export const adminChatlog = createController(routes.admin.chatlog, {
 
       return redirect(routes.admin.chatlog.index.href() + query)
     },
+
+    /**
+     * Adopts a customer/legacy conversation into the current admin's support
+     * scope, then opens it in the support agent.
+     *
+     * The transcript is read-only for threads owned by a customer, so continuing
+     * one needs an explicit ownership transfer: Mastra's
+     * `updateThreadResourceId` moves the thread and all of its messages to the
+     * admin's resource. Another admin's support thread is refused, and an
+     * already-owned thread just redirects (idempotent double submit).
+     *
+     * POST only, and the caller navigates as a full document, so the redirect
+     * leaves the admin frame behind for the support-agent page.
+     */
+    async claim(context) {
+      let id = context.params.id
+      let returnTo =
+        getSafeReturnTo(context.formData.get('_return') as string | null) ??
+        routes.admin.chatlog.index.href()
+
+      if (!id || !validateThreadId(id)) {
+        context.session.flash('error', 'Ungültige Konversation.')
+        return redirect(returnTo, 303)
+      }
+
+      let userId = getCurrentUser().id
+      try {
+        let thread = await loadThreadSummary(id)
+        if (!thread) {
+          context.session.flash('error', 'Konversation nicht gefunden.')
+          return redirect(returnTo, 303)
+        }
+
+        if (classifyThreadSourceFor(thread.resourceId, userId) !== 'support') {
+          if (await isOtherAdminsThread(context.db, thread.resourceId, userId)) {
+            context.session.flash(
+              'error',
+              'Diese Konversation gehört zu einem anderen Admin und kann nicht übernommen werden.',
+            )
+            return redirect(returnTo, 303)
+          }
+          if (await hasActiveChatRunForThread(id)) {
+            context.session.flash(
+              'error',
+              'Diese Konversation wird gerade verwendet und kann erst nach dem Abschluss übernommen werden.',
+            )
+            return redirect(returnTo, 303)
+          }
+
+          await reassignThread(id, String(userId))
+
+          let authIdentity = getAdminIdentity(context.auth)
+          if (authIdentity) {
+            await logAdminAction(context.db, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'claim',
+              target_type: 'mastra_thread',
+              target_id: id,
+              details: {
+                from_resource_id: thread.resourceId,
+                to_resource_id: String(userId),
+              },
+            })
+          }
+        }
+
+        return redirect(supportAgentThreadHref(id), 303)
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('[Admin Chatlog] claim failed for ' + id + ': ' + String(error))
+        }
+        context.session.flash('error', 'Konversation konnte nicht übernommen werden.')
+        return redirect(returnTo, 303)
+      }
+    },
   },
 })
 
@@ -297,10 +423,16 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
           )
         }
 
-        // Ownership is resolved server-side from the thread's own resource id;
-        // only the admin's own support conversations can be continued.
-        let canContinue =
-          classifyThreadSourceFor(lookup.resourceId, getCurrentUser().id) === 'support'
+        // Ownership is resolved server-side from the thread's own resource id.
+        // The admin's own support conversations continue directly; customer and
+        // legacy threads offer an explicit adoption step instead. Another
+        // admin's support thread is read-only here.
+        let userId = getCurrentUser().id
+        let canContinue = classifyThreadSourceFor(lookup.resourceId, userId) === 'support'
+        let canClaim =
+          !canContinue &&
+          !(await isOtherAdminsThread(context.db, lookup.resourceId, userId)) &&
+          !(await hasActiveChatRunForThread(conversationId))
 
         return context.render(
           <ChatlogDetailFragment
@@ -309,6 +441,10 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
             closeHref={closeHref}
             returnId={conversationId}
             continueHref={canContinue ? supportAgentThreadHref(conversationId) : undefined}
+            claimAction={
+              canClaim ? routes.admin.chatlog.claim.href({ id: conversationId }) : undefined
+            }
+            claimReturnTo={closeHref}
           />,
           fragmentResponseInit(),
         )

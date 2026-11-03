@@ -20,6 +20,7 @@ function message(role: 'user' | 'assistant', content: string, timestamp: number)
 describe('Admin Chatlog source classification and filter', () => {
   let adminUserId: number
   let adminCookie: string
+  let adminCsrfToken: string
 
   before(async () => {
     await initializeAppDatabase()
@@ -27,6 +28,7 @@ describe('Admin Chatlog source classification and filter', () => {
     adminUserId = row.rows[0]?.id as number
     let session = await createAuthCookieWithCsrf()
     adminCookie = session?.cookie ?? ''
+    adminCsrfToken = session?.csrfToken ?? ''
   })
 
   let threads: ChatThreadSummary[]
@@ -179,7 +181,7 @@ describe('Admin Chatlog source classification and filter', () => {
     assert.ok(html.includes('data-rmx-document'), 'should cross frames as a document navigation')
   })
 
-  it('does not offer continue for a customer or legacy conversation', async () => {
+  it('offers adoption instead of continue for a customer or legacy conversation', async () => {
     __setTestChatlogFixtures({
       threads,
       previews,
@@ -192,12 +194,29 @@ describe('Admin Chatlog source classification and filter', () => {
     let customer = await (
       await router.fetch(`${DETAIL_URL}/customer-thread-1`, { headers: { Cookie: adminCookie } })
     ).text()
-    assert.ok(!customer.includes('data-chatlog-continue'), 'customer thread must stay read-only')
+    assert.ok(
+      !customer.includes('data-chatlog-continue'),
+      'customer thread must not resume directly',
+    )
+    assert.ok(customer.includes('data-chatlog-claim'), 'customer thread should be adoptable')
+    assert.ok(
+      customer.includes('Übernehmen &amp; fortsetzen'),
+      'adoption control should be labelled',
+    )
+    assert.ok(
+      customer.includes('action="/admin/chatlog/customer-thread-1/claim"'),
+      'adoption posts to the claim route',
+    )
+    assert.ok(
+      customer.includes('name="_csrf"'),
+      'the adoption form needs a CSRF token for the POST',
+    )
 
     let legacy = await (
       await router.fetch(`${DETAIL_URL}/legacy-thread-1`, { headers: { Cookie: adminCookie } })
     ).text()
-    assert.ok(!legacy.includes('data-chatlog-continue'), 'legacy thread must stay read-only')
+    assert.ok(!legacy.includes('data-chatlog-continue'), 'legacy thread must not resume directly')
+    assert.ok(legacy.includes('data-chatlog-claim'), 'legacy thread should be adoptable')
   })
 
   it('keeps the source filter on the transcript dismiss link', async () => {
@@ -215,5 +234,194 @@ describe('Admin Chatlog source classification and filter', () => {
       })
     ).text()
     assert.ok(html.includes('href="/admin/chatlog?source=support"'), 'dismiss keeps the filter')
+  })
+
+  // ── Adoption (Übernehmen & fortsetzen) ─────────────────────────
+
+  function claim(threadId: string, body: Record<string, string> = {}) {
+    return router.fetch(`${BASE}/admin/chatlog/${threadId}/claim`, {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+      body: new URLSearchParams({ _csrf: adminCsrfToken, ...body }),
+      redirect: 'manual',
+    })
+  }
+
+  it('adopts a customer conversation into the admin support scope', async () => {
+    let reassignments: Array<{ threadId: string; resourceId: string }> = []
+    __setTestChatlogFixtures({
+      threads,
+      previews,
+      threadLookup: async (threadId) =>
+        threadId === 'customer-thread-1'
+          ? { resourceId: '987654', messages: [message('user', 'Kundenfrage', 1)] }
+          : null,
+      reassign: async (threadId, resourceId) => {
+        reassignments.push({ threadId, resourceId })
+      },
+    })
+
+    let response = await claim('customer-thread-1', { _return: '/admin/chatlog?source=customer' })
+
+    assert.equal(response.status, 303)
+    assert.equal(
+      response.headers.get('Location'),
+      '/admin/support-agent?threadId=customer-thread-1',
+      'should open the adopted conversation in the support agent',
+    )
+    assert.deepEqual(reassignments, [
+      { threadId: 'customer-thread-1', resourceId: String(adminUserId) },
+    ])
+  })
+
+  it('adopts a legacy conversation too', async () => {
+    let reassignments: Array<{ threadId: string; resourceId: string }> = []
+    __setTestChatlogFixtures({
+      threads,
+      previews,
+      threadLookup: async () => ({ resourceId: 'route-user', messages: [] }),
+      reassign: async (threadId, resourceId) => {
+        reassignments.push({ threadId, resourceId })
+      },
+    })
+
+    let response = await claim('legacy-thread-1')
+
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/admin/support-agent?threadId=legacy-thread-1')
+    assert.equal(reassignments.length, 1, 'legacy thread should be reassigned')
+  })
+
+  it('does not reassign a conversation already owned by the admin', async () => {
+    let reassignments: string[] = []
+    __setTestChatlogFixtures({
+      threads,
+      previews,
+      threadLookup: async () => ({
+        resourceId: String(adminUserId),
+        messages: [message('user', 'Support-Frage', 1)],
+      }),
+      reassign: async (threadId) => {
+        reassignments.push(threadId)
+      },
+    })
+
+    let response = await claim('support-thread-1')
+
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/admin/support-agent?threadId=support-thread-1')
+    assert.equal(reassignments.length, 0, 'an owned thread must not be reassigned again')
+  })
+
+  it('refuses to adopt another admin support thread', async () => {
+    let otherAdminEmail = `test-chatlog-other-admin-${Date.now()}@example.com`
+    let otherAdminId: number | null = null
+    let reassignments: string[] = []
+    try {
+      let inserted = await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+         VALUES ($1, 'x', 'Other Admin', 'admin', 1, 1, $2) RETURNING id`,
+        [otherAdminEmail, Date.now()],
+      )
+      otherAdminId = inserted.rows[0].id as number
+
+      __setTestChatlogFixtures({
+        threads,
+        previews,
+        threadLookup: async () => ({ resourceId: String(otherAdminId), messages: [] }),
+        reassign: async (threadId) => {
+          reassignments.push(threadId)
+        },
+      })
+
+      let response = await claim('other-admin-thread', { _return: '/admin/chatlog?offset=10' })
+
+      assert.equal(response.status, 303)
+      assert.equal(
+        response.headers.get('Location'),
+        '/admin/chatlog?offset=10',
+        'a refused adoption returns to the list it came from',
+      )
+      assert.equal(reassignments.length, 0, 'another admin thread must never be reassigned')
+
+      let follow = await router.fetch(`${BASE}/admin/chatlog?offset=10`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.ok(
+        (await follow.text()).includes('gehört zu einem anderen Admin'),
+        'the refusal should be surfaced as a flash',
+      )
+    } finally {
+      if (otherAdminId !== null) await pool.query('DELETE FROM users WHERE id = $1', [otherAdminId])
+    }
+  })
+
+  it('does not adopt a conversation that still has a live run', async () => {
+    let runId = `test-chatlog-run-${Date.now()}`
+    let reassignments: string[] = []
+    await pool.query(
+      `INSERT INTO chat_runs (run_id, user_id, thread_id, created_at) VALUES ($1, $2, $3, $4)`,
+      [runId, adminUserId, 'customer-thread-1', Date.now()],
+    )
+    try {
+      __setTestChatlogFixtures({
+        threads,
+        previews,
+        threadLookup: async () => ({ resourceId: '987654', messages: [] }),
+        reassign: async (threadId) => {
+          reassignments.push(threadId)
+        },
+      })
+
+      let html = await (
+        await router.fetch(`${DETAIL_URL}/customer-thread-1`, { headers: { Cookie: adminCookie } })
+      ).text()
+      assert.ok(!html.includes('data-chatlog-claim'), 'a live conversation must not be adoptable')
+      assert.ok(!html.includes('data-chatlog-continue'), 'a live customer thread cannot continue')
+
+      let response = await claim('customer-thread-1')
+      assert.equal(response.status, 303)
+      assert.equal(response.headers.get('Location'), '/admin/chatlog')
+      assert.equal(reassignments.length, 0, 'a live run must keep its thread owner')
+
+      let follow = await router.fetch(`${BASE}/admin/chatlog`, { headers: { Cookie: adminCookie } })
+      assert.ok(
+        (await follow.text()).includes('wird gerade verwendet'),
+        'the refusal should be surfaced as a flash',
+      )
+    } finally {
+      await pool.query('DELETE FROM chat_runs WHERE run_id = $1', [runId])
+    }
+  })
+
+  it('redirects safely when the thread does not exist', async () => {
+    let reassignments: string[] = []
+    __setTestChatlogFixtures({
+      threads,
+      previews,
+      threadLookup: async () => null,
+      reassign: async (threadId) => {
+        reassignments.push(threadId)
+      },
+    })
+
+    let response = await claim('missing-thread', { _return: '/admin/chatlog?source=legacy' })
+
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/admin/chatlog?source=legacy')
+    assert.equal(reassignments.length, 0, 'a missing thread must not be reassigned')
+  })
+
+  it('ignores an off-site return URL', async () => {
+    __setTestChatlogFixtures({
+      threads,
+      previews,
+      threadLookup: async () => null,
+    })
+
+    let response = await claim('missing-thread', { _return: '//evil.example.com/steal' })
+
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/admin/chatlog')
   })
 })

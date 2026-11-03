@@ -162,9 +162,9 @@ export const ConfirmDelete = clientEntry(
           pending?.onCancel?.()
           pending = {
             message: form.getAttribute('data-confirm') || 'Wirklich löschen?',
-            title: 'Löschen bestätigen',
-            confirmLabel: 'Löschen',
-            tone: 'danger',
+            title: form.getAttribute('data-confirm-title') || 'Löschen bestätigen',
+            confirmLabel: form.getAttribute('data-confirm-label') || 'Löschen',
+            tone: form.getAttribute('data-confirm-tone') === 'primary' ? 'primary' : 'danger',
             // requestSubmit (not submit) dispatches a submit event, so the frame
             // runtime still performs the DELETE navigation.
             onConfirm: () => form.requestSubmit(btn),

@@ -122,6 +122,9 @@ export const routes = route({
       // action as its src after submission, so that path must also resolve as
       // a GET to avoid a 404 on reload.
       destroyResolve: get('/:id/delete'),
+      // Adopt a customer/legacy conversation into the current admin's support
+      // scope (POST only: it mutates thread ownership and navigates away).
+      claim: post('/:id/claim'),
 
       fragments: route('fragments', {
         detail: get('/detail/:id'),

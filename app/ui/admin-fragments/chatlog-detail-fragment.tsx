@@ -5,6 +5,7 @@ import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { decodeHtml } from '../../utils/decode-html-entities.ts'
 import { routes } from '../../routes.ts'
+import { RestfulForm } from '../restful-form.tsx'
 
 interface ChatlogDetailFragmentProps {
   conversationId: string
@@ -17,9 +18,16 @@ interface ChatlogDetailFragmentProps {
   /**
    * Entry URL that resumes this conversation in the support-agent chat. Only
    * present for conversations owned by the current admin; customer and legacy
-   * conversations stay read-only.
+   * conversations offer {@link claimAction} instead.
    */
   continueHref?: string | undefined
+  /**
+   * POST target that reassigns a customer/legacy conversation to the current
+   * admin, after which it opens in the support-agent chat.
+   */
+  claimAction?: string | undefined
+  /** List URL to return to when an adoption is refused or fails. */
+  claimReturnTo?: string | undefined
 }
 
 const detailStyle = css({
@@ -64,6 +72,24 @@ const continueLinkStyle = css({
   fontSize: theme.fontSize.xs,
   fontWeight: theme.fontWeight.semibold,
   textDecoration: 'none',
+  '&:hover': { opacity: 0.9 },
+})
+
+const claimFormStyle = css({ margin: 0, display: 'inline-flex' })
+
+const claimButtonStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: `3px ${theme.space.sm}`,
+  borderRadius: theme.radius.md,
+  border: 'none',
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  font: 'inherit',
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  cursor: 'pointer',
   '&:hover': { opacity: 0.9 },
 })
 
@@ -194,7 +220,8 @@ function isSameDay(a: number, b: number): boolean {
 
 export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>) {
   return () => {
-    let { messages, error, closeHref, returnId, continueHref } = handle.props
+    let { messages, error, closeHref, returnId, continueHref, claimAction, claimReturnTo } =
+      handle.props
     let displayTitle = conversationTitle(messages)
     let hasError = Boolean(error)
     // The pane renders the transcript oldest-first, so a conversation reads the
@@ -231,6 +258,27 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
               >
                 <Glyph name="chat" width={13} height={13} /> Im Chat fortsetzen
               </a>
+            ) : claimAction ? (
+              <RestfulForm
+                method="POST"
+                action={claimAction}
+                data-rmx-document
+                data-confirm="Die Konversation wird dir zugewiesen und im Support-Chat geöffnet. Der bisherige Besitzer sieht sie danach nicht mehr."
+                data-confirm-title="Konversation übernehmen"
+                data-confirm-label="Übernehmen"
+                data-confirm-tone="primary"
+                mix={claimFormStyle}
+              >
+                <input type="hidden" name="_return" value={claimReturnTo ?? ''} />
+                <button
+                  type="submit"
+                  data-chatlog-claim="true"
+                  mix={claimButtonStyle}
+                  title="Konversation übernehmen und im Support-Chat fortsetzen"
+                >
+                  <Glyph name="chat" width={13} height={13} /> Übernehmen & fortsetzen
+                </button>
+              </RestfulForm>
             ) : null}
           </div>
         </div>
