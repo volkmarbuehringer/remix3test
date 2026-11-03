@@ -20,6 +20,13 @@ Schema changes are SQL-file migrations consumed by `remix/data-table` and the
   ```sql
   -- data-table/transaction: none
   ```
+- With `none`, the whole file is sent as one query string. A multi-statement
+  string still executes as an implicit transaction block, so PostgreSQL rejects
+  `CONCURRENTLY` regardless of the directive. **Put exactly one statement in
+  such a file** — e.g. `CREATE INDEX CONCURRENTLY` in one migration and the
+  matching `DROP INDEX CONCURRENTLY` in the next. A failed build is not rolled
+  back: it can leave an INVALID index behind, and `IF NOT EXISTS` will then skip
+  every retry, so check `pg_index.indisvalid` before re-running.
 
 ## Commands
 
