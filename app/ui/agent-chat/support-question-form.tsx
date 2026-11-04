@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { css } from 'remix/component'
 
 import { routes } from '../../routes.ts'
 import { theme } from '../theme/theme.ts'
@@ -13,7 +14,7 @@ export interface SupportQuestionFormProps {
   selectionMode: string
 }
 
-const formStyle = {
+const formStyle = css({
   padding: '0.75rem',
   border: `2px solid ${theme.colors.warning.border}`,
   borderRadius: '12px',
@@ -21,19 +22,19 @@ const formStyle = {
   alignSelf: 'flex-start',
   width: '100%',
   marginTop: '0.5rem',
-} as const
+})
 
-const titleStyle = {
+const titleStyle = css({
   fontWeight: 600,
   fontSize: '0.875rem',
   marginBottom: '0.75rem',
   color: theme.colors.warning.foreground,
-} as const
+})
 
-const optionStyle = { display: 'block', margin: '4px 0', cursor: 'pointer' } as const
-const optionDescriptionStyle = { opacity: 0.6, fontSize: '0.85em' } as const
+const optionStyle = css({ display: 'block', margin: '4px 0', cursor: 'pointer' })
+const optionDescriptionStyle = css({ opacity: 0.6, fontSize: '0.85em' })
 
-const freeTextStyle = {
+const freeTextStyle = css({
   width: '100%',
   padding: '6px 10px',
   border: `1px solid ${theme.colors.border.default}`,
@@ -42,11 +43,11 @@ const freeTextStyle = {
   boxSizing: 'border-box',
   background: theme.surface.lvl0,
   color: theme.colors.text.primary,
-} as const
+})
 
-const actionsStyle = { marginTop: '0.75rem' } as const
+const actionsStyle = css({ marginTop: '0.75rem' })
 
-const answerStyle = {
+const answerStyle = css({
   padding: '4px 14px',
   background: theme.colors.action.primary.background,
   color: theme.colors.action.primary.foreground,
@@ -54,7 +55,7 @@ const answerStyle = {
   borderRadius: '4px',
   fontSize: '0.8125rem',
   cursor: 'pointer',
-} as const
+})
 
 /**
  * The no-JS answer control for a suspended support-agent ask_user question.
@@ -80,18 +81,18 @@ export function SupportQuestionForm(handle: Handle<SupportQuestionFormProps>) {
         method="post"
         action={routes.admin.supportAgent.answer.href()}
         data-run-id={runId}
-        style={formStyle}
+        mix={formStyle}
       >
         {token ? <input type="hidden" name="_csrf" value={token} /> : null}
         <input type="hidden" name="runId" value={runId} />
         {toolCallId ? <input type="hidden" name="toolCallId" value={toolCallId} /> : null}
         {threadId ? <input type="hidden" name="threadId" value={threadId} /> : null}
         <input type="hidden" name="selectionMode" value={selectionMode} />
-        <div style={titleStyle}>{question}</div>
+        <div mix={titleStyle}>{question}</div>
         {options && options.length > 0 ? (
           <div id="q-options">
             {options.map((option, index) => (
-              <label style={optionStyle}>
+              <label mix={optionStyle}>
                 <input
                   type={multi ? 'checkbox' : 'radio'}
                   class="q-option"
@@ -101,7 +102,7 @@ export function SupportQuestionForm(handle: Handle<SupportQuestionFormProps>) {
                 />{' '}
                 {option.label}
                 {option.description ? (
-                  <span style={optionDescriptionStyle}> — {option.description}</span>
+                  <span mix={optionDescriptionStyle}> — {option.description}</span>
                 ) : null}
               </label>
             ))}
@@ -112,11 +113,11 @@ export function SupportQuestionForm(handle: Handle<SupportQuestionFormProps>) {
             name="answer"
             type="text"
             placeholder="Antwort eingeben..."
-            style={freeTextStyle}
+            mix={freeTextStyle}
           />
         )}
-        <div style={actionsStyle}>
-          <button type="submit" class="q-answer-btn" style={answerStyle}>
+        <div mix={actionsStyle}>
+          <button type="submit" class="q-answer-btn" mix={answerStyle}>
             Antworten
           </button>
         </div>

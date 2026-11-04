@@ -8,7 +8,6 @@ type NavLinkProps = {
   active?: boolean
   document?: boolean
   mix?: MixValue<HTMLAnchorElement>
-  style?: Record<string, string>
   title?: string
   'aria-label'?: string | undefined
   children?: RemixNode
@@ -24,7 +23,6 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       active,
       document: isDocument,
       mix,
-      style,
       title,
       'aria-label': ariaLabel,
       children,
@@ -42,13 +40,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
     if (ariaLabel) extra['aria-label'] = ariaLabel
 
     return (
-      <a
-        href={resolvedHref}
-        aria-current={active ? 'page' : undefined}
-        mix={mix}
-        style={style}
-        {...extra}
-      >
+      <a href={resolvedHref} aria-current={active ? 'page' : undefined} mix={mix} {...extra}>
         {children}
       </a>
     )

@@ -67,27 +67,14 @@ export function kindColor(kind: RowKind): string {
 }
 
 export function pipelineRowHtml(row: PipelineRow): SafeHtml {
-  let badgeColor = kindColor(row.kind)
-  let textColor =
-    row.kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
-  return html`<div
-    style="display:flex;align-items:baseline;gap:.5rem;padding:.25rem 0;font-size:.8125rem;line-height:1.4"
-  >
-    <span style="flex:0 0 1rem;text-align:center;font-weight:600;color:${badgeColor}"
-      >${kindGlyph(row.kind)}</span
-    ><span
-      style="flex:0 0 4.5rem;font-family:${theme.fontFamily.mono};font-size:.75rem;color:${theme.colors.text.muted}"
-      >${row.time}</span
-    ><span style="color:${textColor};word-break:break-word">${row.text}</span>
+  let textClass = row.kind === 'error' ? 'ae-text ae-text-error' : 'ae-text'
+  return html`<div class="ae-row">
+    <span class="ae-badge ae-badge-${row.kind}">${kindGlyph(row.kind)}</span
+    ><span class="ae-time">${row.time}</span><span class="${textClass}">${row.text}</span>
   </div>`
 }
 
 export function pipelineLogHtml(rows: PipelineRow[]): SafeHtml {
   let body = rows.map(pipelineRowHtml)
-  return html`<div
-    id="ae-pipeline-log"
-    style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:1rem 1.25rem;box-sizing:border-box"
-  >
-    ${body}
-  </div>`
+  return html`<div id="ae-pipeline-log" class="ae-log">${body}</div>`
 }

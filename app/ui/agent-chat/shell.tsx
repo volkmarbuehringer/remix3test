@@ -71,9 +71,10 @@ type MessageBubbleRole = 'user' | 'assistant' | 'error'
 type MessageBubbleVariant = 'customer' | 'support'
 
 /**
- * Inline bubble style. Returned as an object (not a `css()` class) so the
- * server-rendered transcript and any streamed-in bubble can share one source
- * without fighting the cascade-layer ordering of generated classes.
+ * Bubble style. Returned as a plain object so the message component can wrap it
+ * in `css()` (no inline `style` attribute, which `style-src-attr 'none'` blocks).
+ * The streamed-in bubbles in `customer-chat-render.ts` set the same shape through
+ * CSSOM instead.
  */
 function bubbleStyle(
   role: MessageBubbleRole,
@@ -136,7 +137,7 @@ export function MessageBubble(handle: Handle<MessageBubbleProps>) {
   return () => {
     let { role, variant = 'support', children } = handle.props
     return (
-      <div style={bubbleStyle(role, variant)} role={role === 'error' ? 'alert' : undefined}>
+      <div mix={css(bubbleStyle(role, variant))} role={role === 'error' ? 'alert' : undefined}>
         {children}
       </div>
     )

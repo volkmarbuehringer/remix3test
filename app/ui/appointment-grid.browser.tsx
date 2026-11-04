@@ -1,4 +1,4 @@
-import { clientEntry, on, ref, type Handle } from 'remix/component'
+import { clientEntry, css, on, ref, type Handle } from 'remix/component'
 import { spring } from '@remix-run/ui/animation'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
@@ -274,7 +274,7 @@ export const AppointmentGrid = clientEntry(
           data-resizing={isResizing ? 'true' : undefined}
           mix={gridWrapperStyle}
         >
-          <div mix={headerRowStyle} style={`grid-template-columns: ${gridTemplateCols};`}>
+          <div mix={[headerRowStyle, css({ gridTemplateColumns: gridTemplateCols })]}>
             <div mix={cornerCellStyle}>
               {/* Trashcan — visible during drag */}
               <div
@@ -305,11 +305,11 @@ export const AppointmentGrid = clientEntry(
           <div
             mix={[
               gridBodyStyle,
+              css({ gridTemplateColumns: gridTemplateCols }),
               ref((el) => {
                 if (el) gridBodyElement = el
               }),
             ]}
-            style={`grid-template-columns: ${gridTemplateCols};`}
           >
             <div mix={timeColumnStyle}>
               {allBookableMinutes.map((minute: number) => {
@@ -332,8 +332,12 @@ export const AppointmentGrid = clientEntry(
               return (
                 <div
                   key={`day${date}`}
-                  mix={dayColumnStyle}
-                  style={`min-height: ${((offeringRange.endMin - offeringRange.startMin) / 60) * SLOT_HEIGHT}px;`}
+                  mix={[
+                    dayColumnStyle,
+                    css({
+                      minHeight: `${((offeringRange.endMin - offeringRange.startMin) / 60) * SLOT_HEIGHT}px`,
+                    }),
+                  ]}
                 >
                   {allBookableMinutes.map((minute: number) => {
                     let isHour = minute % 60 === 0
@@ -391,8 +395,17 @@ export const AppointmentGrid = clientEntry(
                             hoveredBlockId = null
                             void handle.update()
                           }),
+                          css({ top: `${topPx}px`, height: `${heightPx}px` }),
+                          // Transform changes on every pointer move; CSSOM keeps
+                          // it off the style-property/class path (CSP-safe, no
+                          // per-pixel generated classes).
+                          ref((el) => {
+                            if (!(el instanceof HTMLElement)) return
+                            el.style.transform = isBlockDragging
+                              ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)`
+                              : ''
+                          }),
                         ]}
-                        style={`top: ${topPx}px; height: ${heightPx}px; transform: ${isBlockDragging ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)` : 'none'};`}
                         title={undefined}
                       >
                         {!isEditing ? (
@@ -519,11 +532,14 @@ export const AppointmentGrid = clientEntry(
                         .map((ghost) => (
                           <div
                             key="ghost"
-                            mix={ghostBlockStyle}
-                            style={{
-                              top: `${((ghost.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
-                              height: `${Math.max(20, ((ghost.end_min - ghost.start_min) / 60) * SLOT_HEIGHT)}px`,
-                            }}
+                            mix={[
+                              ghostBlockStyle,
+                              ref((el) => {
+                                if (!(el instanceof HTMLElement)) return
+                                el.style.top = `${((ghost.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`
+                                el.style.height = `${Math.max(20, ((ghost.end_min - ghost.start_min) / 60) * SLOT_HEIGHT)}px`
+                              }),
+                            ]}
                           />
                         ))
                     : null}
@@ -535,19 +551,28 @@ export const AppointmentGrid = clientEntry(
                   !isResizing ? (
                     <div
                       key="type-ghost"
-                      mix={typeDragGhostStyle}
-                      style={{
-                        top: `${((typeDragPreview.startMinute - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
-                        height: `${Math.max(20, (15 / 60) * SLOT_HEIGHT)}px`,
-                      }}
+                      mix={[
+                        typeDragGhostStyle,
+                        ref((el) => {
+                          if (!(el instanceof HTMLElement) || !typeDragPreview) return
+                          el.style.top = `${((typeDragPreview.startMinute - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`
+                          el.style.height = `${Math.max(20, (15 / 60) * SLOT_HEIGHT)}px`
+                        }),
+                      ]}
                     />
                   ) : null}
 
                   {draftState.active && draftState.dayIdx === dayIdx ? (
                     <div
                       key="draft"
-                      mix={draftBlockStyle}
-                      style={`top: ${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px; height: ${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px;`}
+                      mix={[
+                        draftBlockStyle,
+                        ref((el) => {
+                          if (!(el instanceof HTMLElement)) return
+                          el.style.top = `${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`
+                          el.style.height = `${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px`
+                        }),
+                      ]}
                     >
                       <textarea
                         aria-label="Neuer Termintitel"

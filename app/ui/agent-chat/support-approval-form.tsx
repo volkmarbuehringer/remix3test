@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { css } from 'remix/component'
 
 import { routes } from '../../routes.ts'
 import { theme } from '../theme/theme.ts'
@@ -11,25 +12,25 @@ export interface SupportApprovalFormProps {
   toolName?: string | null | undefined
 }
 
-const formStyle = {
+const formStyle = css({
   padding: '0.75rem',
   border: `2px solid ${theme.colors.action.danger.border}`,
   borderRadius: '12px',
   background: theme.surface.lvl0,
   alignSelf: 'flex-start',
   width: '100%',
-} as const
+})
 
-const titleStyle = {
+const titleStyle = css({
   fontWeight: 600,
   fontSize: '0.875rem',
   marginBottom: '0.75rem',
   color: theme.colors.action.danger.background,
-} as const
+})
 
-const actionsStyle = { display: 'flex', gap: '0.5rem' } as const
+const actionsStyle = css({ display: 'flex', gap: '0.5rem' })
 
-const approveStyle = {
+const approveStyle = css({
   padding: '4px 14px',
   background: theme.colors.action.primary.background,
   color: theme.colors.action.primary.foreground,
@@ -37,9 +38,9 @@ const approveStyle = {
   borderRadius: '4px',
   fontSize: '0.8125rem',
   cursor: 'pointer',
-} as const
+})
 
-const declineStyle = {
+const declineStyle = css({
   padding: '4px 14px',
   background: theme.surface.lvl1,
   color: theme.colors.text.primary,
@@ -47,7 +48,7 @@ const declineStyle = {
   borderRadius: '4px',
   fontSize: '0.8125rem',
   cursor: 'pointer',
-} as const
+})
 
 /**
  * The no-JS approval control for a suspended support-agent tool call.
@@ -71,20 +72,20 @@ export function SupportApprovalForm(handle: Handle<SupportApprovalFormProps>) {
         method="post"
         action={routes.admin.supportAgent.toolDecision.href()}
         data-run-id={runId}
-        style={formStyle}
+        mix={formStyle}
       >
         {token ? <input type="hidden" name="_csrf" value={token} /> : null}
         <input type="hidden" name="runId" value={runId} />
         {toolCallId ? <input type="hidden" name="toolCallId" value={toolCallId} /> : null}
         {threadId ? <input type="hidden" name="threadId" value={threadId} /> : null}
-        <div style={titleStyle}>Tool erfordert Bestätigung: {toolName || 'unbekannt'}</div>
-        <div style={actionsStyle}>
+        <div mix={titleStyle}>Tool erfordert Bestätigung: {toolName || 'unbekannt'}</div>
+        <div mix={actionsStyle}>
           <button
             type="submit"
             name="decision"
             value="approve"
             class="approve-btn"
-            style={approveStyle}
+            mix={approveStyle}
           >
             ✔ Zulassen
           </button>
@@ -93,7 +94,7 @@ export function SupportApprovalForm(handle: Handle<SupportApprovalFormProps>) {
             name="decision"
             value="decline"
             class="decline-btn"
-            style={declineStyle}
+            mix={declineStyle}
           >
             ✖ Ablehnen
           </button>

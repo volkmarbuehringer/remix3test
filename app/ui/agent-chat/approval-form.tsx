@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { css } from 'remix/component'
 
 import { routes } from '../../routes.ts'
 import { theme } from '../theme/theme.ts'
@@ -15,32 +16,32 @@ export interface ChatApprovalFormProps {
   description?: string | undefined
 }
 
-const formStyle = {
+const formStyle = css({
   padding: '1rem',
   border: `2px solid ${theme.colors.action.danger.border}`,
   borderRadius: '12px',
   background: theme.surface.lvl0,
   alignSelf: 'flex-start',
   width: '100%',
-} as const
+})
 
-const titleStyle = {
+const titleStyle = css({
   fontWeight: 600,
   fontSize: '1rem',
   marginBottom: '0.75rem',
   color: theme.colors.action.danger.background,
-} as const
+})
 
-const descriptionStyle = {
+const descriptionStyle = css({
   fontSize: '0.875rem',
   color: theme.colors.text.secondary,
   marginBottom: '0.75rem',
   whiteSpace: 'pre-wrap',
-} as const
+})
 
-const actionsStyle = { display: 'flex', gap: '0.75rem' } as const
+const actionsStyle = css({ display: 'flex', gap: '0.75rem' })
 
-const approveStyle = {
+const approveStyle = css({
   padding: '0.5rem 1.25rem',
   background: theme.colors.action.danger.background,
   color: theme.colors.action.danger.foreground,
@@ -48,9 +49,9 @@ const approveStyle = {
   borderRadius: '6px',
   fontSize: '0.9rem',
   cursor: 'pointer',
-} as const
+})
 
-const declineStyle = {
+const declineStyle = css({
   padding: '0.5rem 1.25rem',
   background: theme.surface.lvl1,
   color: 'inherit',
@@ -58,7 +59,7 @@ const declineStyle = {
   borderRadius: '6px',
   fontSize: '0.9rem',
   cursor: 'pointer',
-} as const
+})
 
 /**
  * The no-JS approval control for a suspended customer tool call.
@@ -84,22 +85,22 @@ export function ChatApprovalForm(handle: Handle<ChatApprovalFormProps>) {
         method="post"
         action={routes.chat.approve.href()}
         data-run-id={runId}
-        style={formStyle}
+        mix={formStyle}
       >
         {token ? <input type="hidden" name="_csrf" value={token} /> : null}
         <input type="hidden" name="runId" value={runId} />
         {toolCallId ? <input type="hidden" name="toolCallId" value={toolCallId} /> : null}
         {threadId ? <input type="hidden" name="threadId" value={threadId} /> : null}
-        <div style={titleStyle}>{title}</div>
-        {description ? <div style={descriptionStyle}>{description}</div> : null}
-        <div style={actionsStyle}>
+        <div mix={titleStyle}>{title}</div>
+        {description ? <div mix={descriptionStyle}>{description}</div> : null}
+        <div mix={actionsStyle}>
           <button
             type="submit"
             name="decision"
             value="approve"
             class="approve-btn"
             formaction={routes.chat.approve.href()}
-            style={approveStyle}
+            mix={approveStyle}
           >
             [X] Bestätigen
           </button>
@@ -109,7 +110,7 @@ export function ChatApprovalForm(handle: Handle<ChatApprovalFormProps>) {
             value="decline"
             class="decline-btn"
             formaction={routes.chat.decline.href()}
-            style={declineStyle}
+            mix={declineStyle}
           >
             [/] Ablehnen
           </button>

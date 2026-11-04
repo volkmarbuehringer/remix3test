@@ -101,6 +101,11 @@ describe('CSP enforcement', () => {
       [routes.admin.uploads.index.href(), '[data-kind-tabs]'],
       [routes.appointmentsNew.index.href(), 'a[data-rmx-target="appointments-new-content"]'],
       [routes.admin.supportAgent.index.href(), '#chat-messages'],
+      // Agent surfaces whose cards are built from HTML strings (classes, not
+      // inline styles), plus the scroll-restoration client entries.
+      [routes.chat.index.href(), '#chat-messages'],
+      [routes.admin.agentEvents.index.href(), '#agent-events-frame-container'],
+      [routes.scrollRestoration.index.href(), '#store-scroll-reproduction'],
     ]
 
     for (let [path, ready] of adminRoutes) {
@@ -110,6 +115,41 @@ describe('CSP enforcement', () => {
       await page.waitForTimeout(1_000)
       await csp.assertNone(path)
     }
+  })
+
+  it('delivers violations to the report endpoint', async (t) => {
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page.goto(routes.home.href())
+
+    let reportResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/csp-reports') && response.request().method() === 'POST',
+      { timeout: 15_000 },
+    )
+
+    // Inline script injection is blocked by script-src-elem (no nonce). The
+    // Reporting API batches it to /csp-reports; the endpoint must accept it.
+    await page.evaluate(() => {
+      let script = document.createElement('script')
+      script.textContent = 'window.__csp_report_probe = 1'
+      document.body.appendChild(script)
+    })
+
+    let response = await reportResponse
+    assert.equal(response.status(), 204)
+    let contentType = response.request().headers()['content-type']?.split(';', 1)[0]?.trim()
+    assert.ok(
+      contentType === 'application/csp-report' || contentType === 'application/reports+json',
+      `unexpected report content type: ${contentType}`,
+    )
+    assert.equal(
+      await page.evaluate(
+        () => (window as unknown as { __csp_report_probe?: number }).__csp_report_probe,
+      ),
+      undefined,
+      'the injected inline script must not execute',
+    )
   })
 
   it('follows a lists copy PRG in-frame without CSP violations', async (t) => {

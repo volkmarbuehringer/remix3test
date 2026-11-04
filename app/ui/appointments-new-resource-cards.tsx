@@ -182,7 +182,7 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
             )
           })}
         </ul>
-        <div data-resource-search-empty="" mix={noMatchStyle} style={{ display: 'none' }}>
+        <div data-resource-search-empty="" mix={noMatchStyle} hidden>
           Keine Ressource gefunden. Bitte passen Sie den Suchbegriff an.
         </div>
       </div>

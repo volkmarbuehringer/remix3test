@@ -111,7 +111,7 @@ describe('ResourceSearchLive', () => {
     typeSearch('nix')
 
     assert.equal(visibleCards().length, 0)
-    assert.equal(emptyNotice().style.display, '', 'the empty notice becomes visible')
+    assert.equal(emptyNotice().hidden, false, 'the empty notice becomes visible')
     assert.equal(countLine().textContent, '0 von 3 Ressourcen')
   })
 
@@ -125,7 +125,7 @@ describe('ResourceSearchLive', () => {
     typeSearch('')
     assert.equal(visibleCards().length, 3, 'an empty query never hides cards')
     assert.equal(countLine().textContent, '3 Ressourcen')
-    assert.equal(emptyNotice().style.display, 'none')
+    assert.equal(emptyNotice().hidden, true)
   })
 
   it('uses the singular label for a single-card list', async () => {

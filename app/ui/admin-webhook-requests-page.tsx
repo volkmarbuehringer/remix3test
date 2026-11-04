@@ -183,8 +183,10 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                 ).map(([field, label, w]) => (
                   <th
                     key={field || label}
-                    style={w !== 'auto' ? { width: w } : undefined}
-                    mix={field ? table.thSortable : table.th}
+                    mix={[
+                      field ? table.thSortable : table.th,
+                      ...(w !== 'auto' ? [css({ width: w })] : []),
+                    ]}
                   >
                     {field ? (
                       <a

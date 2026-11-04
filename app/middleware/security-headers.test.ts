@@ -51,16 +51,18 @@ describe('Security headers middleware', () => {
     assert.ok(csp.includes("script-src 'self'"), 'CSP should restrict scripts to self')
   })
 
-  it('CSP splits style-src so nonce-gated style elements keep inline style attributes', async () => {
+  it('gates style elements with the nonce and denies inline style attributes', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
     let directives = cspDirectives(csp)
 
-    assert.deepEqual(
-      directives.get('style-src'),
-      ["'self'", "'unsafe-inline'"],
-      'style-src should stay the unsafe-inline fallback for older browsers',
+    let styleSrc = directives.get('style-src')
+    assert.ok(styleSrc?.includes("'self'"), 'style-src should keep self')
+    assert.ok(
+      styleSrc?.some((value) => value.startsWith("'nonce-")),
+      'style-src should keep the nonce fallback for browsers without the split directives',
     )
+    assert.ok(!styleSrc?.includes("'unsafe-inline'"), 'style-src must not allow unsafe-inline')
 
     let styleSrcElem = directives.get('style-src-elem')
     assert.ok(styleSrcElem, 'style-src-elem should be present')
@@ -76,9 +78,39 @@ describe('Security headers middleware', () => {
 
     assert.deepEqual(
       directives.get('style-src-attr'),
-      ["'unsafe-inline'"],
-      'style-src-attr should keep inline style attributes working',
+      ["'none'"],
+      'inline style attributes are denied; authored styles use css() classes',
     )
+  })
+
+  it('renders no inline style attributes', async () => {
+    let anonymous = [routes.home.href(), routes.auth.login.index.href()]
+    for (let path of anonymous) {
+      let response = await router.fetch(`${BASE}${path}`)
+      let html = await response.text()
+      assert.ok(
+        !/\sstyle="/.test(html),
+        `${path}: a style attribute would be blocked by style-src-attr 'none'`,
+      )
+    }
+
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+    for (let path of [
+      routes.admin.messages.index.href(),
+      routes.admin.uploads.index.href(),
+      routes.admin.agentEvents.index.href(),
+      routes.appointmentsNew.index.href(),
+    ]) {
+      let response = await router.fetch(`${BASE}${path}`, {
+        headers: { Cookie: auth!.cookie },
+      })
+      let html = await response.text()
+      assert.ok(
+        !/\sstyle="/.test(html),
+        `${path}: a style attribute would be blocked by style-src-attr 'none'`,
+      )
+    }
   })
 
   it('CSP connect-src omits the server-only AI provider origin', async () => {
@@ -131,6 +163,36 @@ describe('Security headers middleware', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
     assert.ok(csp.includes("frame-ancestors 'none'"), 'CSP should block framing')
+  })
+
+  it('reports violations to /csp-reports', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+
+    assert.ok(
+      csp.includes('report-uri /csp-reports'),
+      'violations should point at the report endpoint',
+    )
+    assert.ok(
+      !csp.includes('report-to'),
+      'report-to batches in Chromium; report-uri is the prompt path',
+    )
+  })
+
+  it('ships a report-only Trusted Types rollout policy', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let reportOnly = response.headers.get('Content-Security-Policy-Report-Only')
+
+    assert.ok(reportOnly, 'report-only policy should be present')
+    assert.ok(
+      reportOnly.includes("require-trusted-types-for 'script'"),
+      'Trusted Types should be monitored before enforcement',
+    )
+    assert.ok(
+      reportOnly.includes('trusted-types remix/multiple-import-maps-polyfill'),
+      'the polyfill policy must be named so it is not reported',
+    )
+    assert.ok(!reportOnly.includes('script-src'), 'report-only only covers Trusted Types')
   })
 
   it('CSP includes form-action self', async () => {
@@ -245,7 +307,7 @@ describe('Security headers middleware', () => {
     )
   })
 
-  it('CSP script-src allows no eval and keeps the polyfill blob path', async () => {
+  it('CSP script-src allows no eval and no blob scripts', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
     let scriptSrc = csp.split(';').find((p) => p.trim().startsWith('script-src'))!
@@ -254,7 +316,28 @@ describe('Security headers middleware', () => {
       !scriptSrc.includes("'wasm-unsafe-eval'"),
       'script-src should not allow wasm-unsafe-eval',
     )
-    assert.ok(scriptSrc.includes('blob:'), 'script-src must keep blob: for polyfilled modules')
+    assert.ok(
+      !scriptSrc.includes('blob:'),
+      'polyfilled module scripts inherit the nonce, so blob: stays out of script-src',
+    )
+  })
+
+  it('nonces authored modulepreload links so polyfilled scripts inherit it', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+    let headerNonce = /'nonce-([^']+)'/.exec(csp)?.[1]
+    assert.ok(headerNonce, 'CSP should include a script nonce')
+
+    let html = await response.text()
+    let preloads = [...html.matchAll(/<link\b[^>]*rel="modulepreload"[^>]*>/g)]
+    assert.ok(preloads.length > 0, 'the document should render modulepreload links')
+    for (let [tag] of preloads) {
+      assert.equal(
+        /\snonce="([^"]+)"/.exec(tag!)?.[1],
+        headerNonce,
+        'every authored modulepreload must carry the header nonce',
+      )
+    }
   })
 
   it('uses the CSP header nonce on every rendered nonce attribute', async () => {
@@ -342,7 +425,11 @@ describe('Security headers middleware', () => {
         1,
         'the followed fragment should carry one policy, not a duplicate',
       )
-      assert.equal((csp.match(/'nonce-/g) ?? []).length, 2, 'script-src and style-src-elem keep it')
+      assert.equal(
+        (csp.match(/'nonce-/g) ?? []).length,
+        3,
+        'script-src, style-src and style-src-elem keep the nonce',
+      )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
       await pool.query('DELETE FROM lists WHERE title = $1', [`${title} (Kopie)`])

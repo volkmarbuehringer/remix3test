@@ -1,11 +1,11 @@
-import { createElement } from 'remix/component'
+import { createElement, css } from 'remix/component'
 import type { Handle, Props, RemixElement } from 'remix/component'
 
 import { glyphContract, glyphNames, type GlyphName, type GlyphValues } from '../glyph-contract.ts'
 
 export type { GlyphName } from '../glyph-contract.ts'
 
-type GlyphSheetProps = Omit<Props<'svg'>, 'children'>
+type GlyphSheetProps = Omit<Props<'svg'>, 'children' | 'style'>
 
 type GlyphSheetRenderer = (handle: Handle<GlyphSheetProps>) => () => RemixElement
 
@@ -13,6 +13,14 @@ export type GlyphSheetComponent = GlyphSheetRenderer & {
   ids: Readonly<Record<GlyphName, string>>
   values: GlyphValues
 }
+
+const hiddenGlyphSheetStyle = css({
+  position: 'absolute',
+  width: '0',
+  height: '0',
+  overflow: 'hidden',
+  pointerEvents: 'none',
+})
 
 type GlyphProps = Omit<Props<'svg'>, 'children'> & {
   name: GlyphName
@@ -28,16 +36,7 @@ export function createGlyphSheet(values: GlyphValues): GlyphSheetComponent {
 
   function GlyphSheet(handle: Handle<GlyphSheetProps>): () => RemixElement {
     return () => {
-      let { style, ...svgProps } = handle.props
-      let hiddenStyle = {
-        position: 'absolute',
-        width: '0',
-        height: '0',
-        overflow: 'hidden',
-        pointerEvents: 'none',
-      }
-      let nextStyle =
-        typeof style === 'object' && style !== null ? { ...hiddenStyle, ...style } : hiddenStyle
+      let { mix, ...svgProps } = handle.props
 
       return createElement(
         'svg',
@@ -46,7 +45,9 @@ export function createGlyphSheet(values: GlyphValues): GlyphSheetComponent {
           'aria-hidden': handle.props['aria-hidden'] ?? true,
           focusable: handle.props.focusable ?? 'false',
           height: handle.props.height ?? '0',
-          style: nextStyle,
+          // The sprite is hidden with a css() class, not a `style` attribute:
+          // inline style attributes are denied by `style-src-attr 'none'`.
+          mix: [hiddenGlyphSheetStyle, ...(mix ? [mix] : [])],
           width: handle.props.width ?? '0',
           xmlns: 'http://www.w3.org/2000/svg',
         },

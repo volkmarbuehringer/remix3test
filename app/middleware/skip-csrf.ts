@@ -60,6 +60,9 @@ function isExternalPath(pathname: string): boolean {
     pathname === '/webhook' ||
     pathname === '/app-webhook' ||
     pathname === '/callback' ||
+    // Browser-generated CSP reports carry no CSRF token (and their origin is
+    // the page's origin); they are size-capped and rate-limited at the edge.
+    pathname === '/csp-reports' ||
     pathname.startsWith('/api/')
   )
 }

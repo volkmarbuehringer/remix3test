@@ -113,7 +113,7 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
       `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
       `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
       `background:${theme.surface.lvl1};`
-    header.innerHTML = `<span style="opacity:0.6;font-size:1em">&#9881;</span><span>${esc(toolName)}</span><span style="margin-left:auto;font-size:0.75rem;transition:transform 0.15s">&#9662;</span>`
+    header.innerHTML = `<span class="chat-tool-icon">&#9881;</span><span>${esc(toolName)}</span><span class="chat-tool-caret">&#9662;</span>`
     header.onclick = () => {
       let body = card.querySelector('.tl-card-body') as HTMLElement | null
       let toggle = header.querySelector('span:last-child') as HTMLElement | null
@@ -206,7 +206,7 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
       if (result && typeof result === 'object') {
         let r = result as Record<string, unknown>
         if (r.slots && Array.isArray(r.slots)) {
-          div.innerHTML = `<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>`
+          div.innerHTML = `<div class="chat-slots-hint">Verfügbare Termine werden unten angezeigt.</div>`
           appendSlotPicker(r)
         } else {
           div.textContent =
@@ -239,12 +239,11 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
       pages.push(slots.slice(i, i + SLOTS_PER_PAGE))
     }
 
-    let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.5rem">Termin buchen — ${resourceName}</div>`
+    let html = `<div class="chat-slot-title">Termin buchen — ${resourceName}</div>`
 
     for (let pi = 0; pi < pages.length; pi++) {
       let pageSlots = pages[pi]!
-      let display = pi === 0 ? '' : 'none'
-      html += `<div id="slot-page-${pi}" style="display:${display}">`
+      html += `<div id="slot-page-${pi}"${pi === 0 ? '' : ' hidden'}>`
       let groups = new Map<string, typeof slots>()
       for (let s of pageSlots) {
         let day = String(s.date_display ?? '')
@@ -252,7 +251,7 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
         groups.get(day)!.push(s)
       }
       for (let [day, daySlots] of groups) {
-        html += `<div style="font-size:0.85rem;font-weight:600;margin:0.5rem 0 0.25rem">${esc(day)}</div>`
+        html += `<div class="chat-slot-day">${esc(day)}</div>`
         for (let s of daySlots) {
           let startMin = Number(s.start_min ?? 0)
           let endMin = Number(s.end_min ?? 60)
@@ -264,23 +263,23 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
             label,
             resourceName: result.resource_name,
           })
-          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.5rem 1rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:500">${esc(label)}</button>`
+          html += `<button type="button" class="slot-btn chat-slot-btn" data-slot='${esc(data)}'>${esc(label)}</button>`
         }
       }
       html += `</div>`
     }
 
     if (pages.length > 1) {
-      html += `<div id="slot-pagination" style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin-top:0.75rem;font-size:0.85rem">`
-      html += `<button type="button" class="page-prev-btn" style="padding:0.3rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:4px;cursor:pointer;font-size:0.85rem;opacity:0.5" disabled>← Zurück</button>`
+      html += `<div id="slot-pagination" class="chat-slot-pagination">`
+      html += `<button type="button" class="page-prev-btn chat-page-btn" disabled>← Zurück</button>`
       html += `<span id="slot-page-indicator">Seite 1 von ${pages.length}</span>`
-      html += `<button type="button" class="page-next-btn" style="padding:0.3rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:4px;cursor:pointer;font-size:0.85rem">Weiter →</button>`
+      html += `<button type="button" class="page-next-btn chat-page-btn">Weiter →</button>`
       html += `</div>`
     }
 
-    html += `<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid ${theme.colors.border.default}">`
-    html += `<button type="button" class="slot-other-resource-btn" style="padding:0.4rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">Andere Ressource</button>`
-    html += `<button type="button" class="slot-close-btn" style="padding:0.4rem 0.75rem;background:transparent;color:${theme.colors.text.secondary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">Schließen</button>`
+    html += `<div class="chat-slot-actions">`
+    html += `<button type="button" class="slot-other-resource-btn chat-slot-other">Andere Ressource</button>`
+    html += `<button type="button" class="slot-close-btn chat-slot-close">Schließen</button>`
     html += `</div>`
 
     let picker = document.createElement('div')
@@ -301,7 +300,7 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
     function showPage(n: number) {
       for (let pi = 0; pi < pages.length; pi++) {
         let pageEl = document.getElementById(`slot-page-${pi}`)
-        if (pageEl) pageEl.style.display = pi === n ? '' : 'none'
+        if (pageEl) pageEl.hidden = pi !== n
       }
       if (prevBtn) {
         prevBtn.disabled = n === 0
@@ -423,7 +422,7 @@ export function createCustomerChatRenderer(): CustomerChatUiDelegate {
           `background:${theme.surface.lvl1};font-size:0.875rem;color:${theme.colors.text.secondary};`
         el.innerHTML =
           `<span aria-live="polite">Agent antwortet…</span>` +
-          `<button type="button" id="chat-cancel" style="padding:0.25rem 0.75rem;background:transparent;color:${theme.colors.text.secondary};border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.8125rem;cursor:pointer">Abbrechen</button>`
+          `<button type="button" id="chat-cancel" class="chat-cancel">Abbrechen</button>`
         container.appendChild(el)
       }
       el.style.display = 'flex'

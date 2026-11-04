@@ -21,7 +21,11 @@ import { jsonBody } from './json-body.ts'
 import { render } from 'remix/middleware/render'
 import { csp } from 'remix/middleware/csp'
 import { loadAssetEntry } from './asset-entry.ts'
-import { contentSecurityPolicy, securityHeaders } from './security-headers.ts'
+import {
+  contentSecurityPolicy,
+  reportOnlyContentSecurityPolicy,
+  securityHeaders,
+} from './security-headers.ts'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
@@ -62,7 +66,13 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     // mixin styles, and internal frame requests inherit it before child
     // handlers run. `filter: () => true` preserves the previous behavior of
     // stamping the CSP on non-HTML responses too.
-    csp({ policy: contentSecurityPolicy, filter: () => true }),
+    csp({
+      policy: contentSecurityPolicy,
+      // Trusted Types rollout: report-only until the vendor runtime can emit
+      // TrustedHTML. Violations land on /csp-reports.
+      reportOnlyPolicy: reportOnlyContentSecurityPolicy,
+      filter: () => true,
+    }),
     compression(),
     // Root-served static files (self-hosted fonts under `public/`). Runs after
     // `securityHeaders()`/`csp()` so static responses still get the headers, and

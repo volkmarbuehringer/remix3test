@@ -24,11 +24,17 @@ export function getCspNonce(): string | undefined {
 /**
  * Policy for `remix/middleware/csp`.
  *
- * `script-src` stays nonce-based. Styles are split so modern browsers gate
- * `<style>` elements with the request nonce while inline `style="…"` attributes
- * keep working: `style-src-elem` carries `'self'` + the nonce, and
- * `style-src-attr` keeps `'unsafe-inline'`. `style-src` remains the
- * `'unsafe-inline'` fallback for browsers without the split directives.
+ * `script-src` stays nonce-based. `blob:` is not needed: the Firefox
+ * multiple-import-maps polyfill evaluates its module graph from blob URLs that
+ * inherit the nonce of the nonced entry script and modulepreload links
+ * (`app/ui/document.tsx`).
+ *
+ * Styles are split so modern browsers gate `<style>` elements with the request
+ * nonce while inline `style="…"` attributes are denied: `style-src-elem`
+ * carries `'self'` + the nonce, `style-src-attr` is `'none'`, and `style-src`
+ * is the same nonce fallback for browsers without the split directives.
+ * Authored markup therefore uses `css()` classes (or CSSOM for per-frame
+ * geometry); a string-built `style="…"` is blocked by design.
  *
  * The HMR websocket is only needed inside the node-HMR child, which sets
  * `REMIX_NODE_HMR=1`. Plain `npm run dev` has no HMR websocket, so the source
@@ -51,10 +57,10 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
 
   return {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", `'nonce-${nonce}'`, 'blob:'],
-    styleSrc: ["'self'", "'unsafe-inline'"],
+    scriptSrc: ["'self'", `'nonce-${nonce}'`],
+    styleSrc: ["'self'", `'nonce-${nonce}'`],
     styleSrcElem: ["'self'", `'nonce-${nonce}'`],
-    styleSrcAttr: ["'unsafe-inline'"],
+    styleSrcAttr: ["'none'"],
     fontSrc: ["'self'"],
     imgSrc: ["'self'"],
     connectSrc,
@@ -66,7 +72,29 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
     frameAncestors: ["'none'"],
     formAction: ["'self'"],
     baseUri: ["'none'"],
+    // Enforced violations report to /csp-reports. Deliberately `report-uri`
+    // (CSP1, universal) rather than `report-to`: Chromium's Reporting API
+    // batches, delaying a violation by tens of seconds, while `report-uri`
+    // delivers immediately in Chromium and Firefox. Revisit when reports feed
+    // an aggregator that tolerates batch delivery.
+    reportUri: ['/csp-reports'],
   }
+}
+
+/**
+ * Report-only rollout for Trusted Types.
+ *
+ * Enforcement is blocked by the vendor component runtime, which assigns
+ * string HTML to `innerHTML` (and by a few app-owned string sinks); requiring
+ * Trusted Types would break them without a sanitizing policy. Monitor first:
+ * the report-only policy sends every would-be violation to `/csp-reports`
+ * without blocking, and names the polyfill's policy (the only one the app
+ * creates).
+ */
+export const reportOnlyContentSecurityPolicy: ContentSecurityPolicyInit = {
+  requireTrustedTypesFor: ["'script'"],
+  trustedTypes: ['remix/multiple-import-maps-polyfill'],
+  reportUri: ['/csp-reports'],
 }
 
 /**

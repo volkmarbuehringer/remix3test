@@ -342,6 +342,8 @@ export const legal = route({
 
 export const system = {
   webhook: post('/webhook'),
+  // Browser-generated CSP reports (Reporting API / legacy report-uri).
+  cspReports: post('/csp-reports'),
   appWebhook: post('/app-webhook'),
   callback: post('/callback'),
   // Legacy viewer paths. The webhook-requests viewer moved under /admin (it is an

@@ -1225,8 +1225,11 @@ function quotaBar(stats: QuotaStats) {
       data-quota-near={stats.near ? 'true' : undefined}
     >
       <span
-        mix={[quotaFillCss, ...(stats.near ? [quotaFillNearCss] : [])]}
-        style={{ width: `${stats.ratio * 100}%` }}
+        mix={[
+          quotaFillCss,
+          ...(stats.near ? [quotaFillNearCss] : []),
+          css({ width: `${stats.ratio * 100}%` }),
+        ]}
       />
     </span>
   )

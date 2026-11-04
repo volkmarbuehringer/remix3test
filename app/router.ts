@@ -22,6 +22,7 @@ import scrollRestorationController from './actions/scroll-restoration/controller
 import uiController from './actions/ui/controller.tsx'
 import legalController from './actions/legal/controller.tsx'
 import webhookReceive from './actions/webhook/controller.tsx'
+import cspReportsReceive from './actions/csp-reports/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
   webhookRequestsLegacy,
@@ -94,6 +95,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.post(system.webhook, webhookReceive)
   router.post(system.appWebhook, appWebhookReceive)
   router.post(system.callback, callbackReceive)
+  router.post(system.cspReports, cspReportsReceive)
   // Legacy top-level viewer URLs. The viewer now lives under /admin; redirect
   // the old paths (bookmarks, stale SSE tabs) instead of 404ing.
   router.get(system.webhookRequestsLegacyRoot, webhookRequestsLegacyRoot)

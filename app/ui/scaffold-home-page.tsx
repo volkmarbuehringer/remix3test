@@ -106,13 +106,10 @@ function StatBar(
         <span mix={statBarLabelCss}>{label}</span>
         <div mix={statBarTrackCss}>
           <div
-            mix={statBarFillCss}
-            style={{ width: `${Number(value) * 10}%`, background: color }}
+            mix={[statBarFillCss, css({ width: `${Number(value) * 10}%`, background: color })]}
           />
         </div>
-        <span mix={statBarValueCss} style={{ color: textColor }}>
-          {value}
-        </span>
+        <span mix={[statBarValueCss, css({ color: textColor })]}>{value}</span>
       </div>
     )
   }
@@ -158,7 +155,7 @@ function AiSection() {
         <div mix={aiGridCss}>
           {features.map((f) => (
             <article key={f.title} mix={aiCardCss}>
-              <div mix={aiIconCss} style={{ background: `${f.accent}1a`, color: f.text }}>
+              <div mix={[aiIconCss, css({ background: `${f.accent}1a`, color: f.text })]}>
                 <Glyph name={f.glyph} width={20} height={20} />
               </div>
               <h3 mix={aiCardTitleCss}>{f.title}</h3>
@@ -206,7 +203,7 @@ function ValueStrip() {
       <div mix={valueStripCss}>
         {items.map((it) => (
           <div key={it.title} mix={valueStripItemCss}>
-            <div mix={valueStripIconCss} style={{ background: `${it.accent}1a`, color: it.text }}>
+            <div mix={[valueStripIconCss, css({ background: `${it.accent}1a`, color: it.text })]}>
               <Glyph name={it.glyph} width={18} height={18} />
             </div>
             <div mix={valueStripTextCss}>

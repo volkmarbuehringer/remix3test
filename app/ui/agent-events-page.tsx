@@ -6,6 +6,7 @@ import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 import { examplePlaceholder } from './agent-events-log.ts'
 import { AgentEventsStream } from '../assets/streams/public/agent-events-stream.tsx'
 import { AgentChatShell, ChatComposer } from './agent-chat/shell.tsx'
+import { agentEventsStreamStyles } from './agent-chat/stream-styles.ts'
 import { tryGetCsrfToken } from './csrf-token-input.tsx'
 import { FrameFallback } from './frame-fallback.browser.tsx'
 
@@ -101,7 +102,7 @@ export function AgentEventsPage(_handle: Handle) {
       <div
         id="agent-events-frame-container"
         data-active-frame={frames.agentEventsPanel}
-        mix={frameContainerStyle}
+        mix={[frameContainerStyle, agentEventsStreamStyles]}
       >
         <Frame
           name={frames.agentEventsPanel}

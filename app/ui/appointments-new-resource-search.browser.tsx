@@ -17,7 +17,7 @@ function applyFilter(root: HTMLElement, input: HTMLInputElement): void {
   }
 
   let empty = root.querySelector<HTMLElement>('[data-resource-search-empty]')
-  if (empty) empty.style.display = visible === 0 ? '' : 'none'
+  if (empty) empty.hidden = visible !== 0
 
   let count = root.querySelector<HTMLElement>('[data-resource-search-count]')
   if (count) {

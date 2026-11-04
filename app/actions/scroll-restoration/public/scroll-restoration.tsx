@@ -14,10 +14,10 @@ export const ScrollRestorationList = clientEntry(
     return () => (
       <ul
         id="scroll-restoration-list"
-        style={{ display: 'grid', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}
+        mix={css({ display: 'grid', gap: 10, margin: 0, padding: 0, listStyle: 'none' })}
       >
         {listItems.map((item) => (
-          <li key={item} style={rowStyle}>
+          <li key={item} mix={rowStyle}>
             List row {item}
           </li>
         ))}
@@ -38,9 +38,9 @@ export const StoreScrollReproduction = clientEntry(
 
     return () => (
       <section id="store-scroll-reproduction">
-        <div style={panelStyle}>
+        <div mix={panelStyle}>
           <strong>Top-level client entry</strong>
-          <span style={{ marginLeft: 8, opacity: 0.75 }}>
+          <span mix={css({ marginLeft: 8, opacity: 0.75 })}>
             rendering {handle.props.variant === 'list' ? 'the collection frame' : 'a short detail'}
           </span>
           <button
@@ -66,7 +66,7 @@ export const StoreScrollReproduction = clientEntry(
         ) : (
           <article
             id="scroll-restoration-detail"
-            style={{ minHeight: 1000, padding: 20, background: 'rgba(0,0,0,0.03)' }}
+            mix={css({ minHeight: 1000, padding: 20, background: 'rgba(0,0,0,0.03)' })}
           >
             <h2>Short detail view</h2>
             <p>
@@ -76,17 +76,19 @@ export const StoreScrollReproduction = clientEntry(
             <button
               type="button"
               id="scroll-restoration-replace-button"
-              style={{ marginTop: 16, cursor: 'pointer' }}
-              mix={on('click', () => {
-                void navigate(
-                  routes.scrollRestoration.detail.href(undefined, {
-                    searchParams: { replaced: '1' },
-                  }),
-                  { history: 'replace', resetScroll: false },
-                ).catch(() => {
-                  // Superseded by another navigation; the runtime owns the abort.
-                })
-              })}
+              mix={[
+                css({ marginTop: 16, cursor: 'pointer' }),
+                on('click', () => {
+                  void navigate(
+                    routes.scrollRestoration.detail.href(undefined, {
+                      searchParams: { replaced: '1' },
+                    }),
+                    { history: 'replace', resetScroll: false },
+                  ).catch(() => {
+                    // Superseded by another navigation; the runtime owns the abort.
+                  })
+                }),
+              ]}
             >
               Replace the URL without resetting scroll
             </button>

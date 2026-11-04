@@ -553,14 +553,16 @@ function ListsLayout(
                       {entry.doneCount != null && (
                         <span
                           aria-hidden="true"
-                          mix={countRingStyle}
-                          style={{
-                            background: `conic-gradient(${theme.colors.success.background} ${
-                              entry.count > 0
-                                ? Math.round((entry.doneCount / entry.count) * 100)
-                                : 0
-                            }%, ${theme.colors.border.default} 0)`,
-                          }}
+                          mix={[
+                            countRingStyle,
+                            css({
+                              background: `conic-gradient(${theme.colors.success.background} ${
+                                entry.count > 0
+                                  ? Math.round((entry.doneCount / entry.count) * 100)
+                                  : 0
+                              }%, ${theme.colors.border.default} 0)`,
+                            }),
+                          ]}
                         />
                       )}
                       {entry.doneCount != null ? `${entry.doneCount}/${entry.count}` : entry.count}

@@ -6,6 +6,7 @@ import { CustomerChatStream } from '../assets/streams/public/customer-chat-strea
 import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 import type { ChatMessage } from '../types/chatlog.ts'
 import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.tsx'
+import { customerChatStreamStyles } from './agent-chat/stream-styles.ts'
 import { ChatApprovalForm } from './agent-chat/approval-form.tsx'
 import { ChatQuestionForm } from './agent-chat/question-form.tsx'
 import { tryGetCsrfToken } from './csrf-token-input.tsx'
@@ -136,7 +137,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           role="log"
           aria-live="polite"
           {...(threadId ? { 'data-thread-id': threadId } : {})}
-          mix={chatAreaStyle}
+          mix={[chatAreaStyle, customerChatStreamStyles]}
         >
           {messages.map((m, i) => (
             <MessageBubble key={i} role={m.role} variant="customer">

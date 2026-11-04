@@ -9,6 +9,8 @@ export interface CspViolation {
   blockedURI: string
   /** The offending snippet, when the browser provides one. */
   sample: string
+  /** `enforce` for the blocking policy, `report` for a report-only policy. */
+  disposition: string
 }
 
 export interface CspViolationCollector {
@@ -38,6 +40,7 @@ export async function installCspViolationCollector(page: Page): Promise<CspViola
         directive: event.effectiveDirective,
         blockedURI: event.blockedURI,
         sample: event.sample,
+        disposition: event.disposition,
       })
     })
   })
@@ -58,10 +61,13 @@ export async function installCspViolationCollector(page: Page): Promise<CspViola
 
   async function assertNone(label: string): Promise<void> {
     let violations = await collect()
+    // Report-only policies (the Trusted Types rollout) are expected to fire on
+    // the vendor runtime's string sinks; only blocking violations fail a guard.
+    let enforced = violations.filter((violation) => violation.disposition !== 'report')
     assert.equal(
-      violations.length,
+      enforced.length,
       0,
-      `${label}: expected no CSP violations, got ${JSON.stringify(violations)}`,
+      `${label}: expected no CSP violations, got ${JSON.stringify(enforced)}`,
     )
   }
 

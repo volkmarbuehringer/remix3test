@@ -97,6 +97,10 @@ export function Document(handle: Handle<DocumentProps>) {
               content: '';
               animation: support-agent-dots 1.2s infinite;
             }
+            /* The hidden attribute must win over an authored display rule (the
+               resource search toggles it while the cards keep their flex
+               display). */
+            [hidden] { display: none !important; }
             /* The explicit theme must also drive color-scheme: vendor
                light-dark(...) styles (menus, buttons) resolve from the used
                color scheme, not from the data-theme attribute directly. */
@@ -128,7 +132,11 @@ export function Document(handle: Handle<DocumentProps>) {
                 {/* The renderer inherits the csp() nonce for the generated import map. */}
                 <ImportMap value={entry.importMap} />
                 {entry.preloads.map((href) => (
-                  <link key={href} rel="modulepreload" href={href} />
+                  // The Firefox multiple-import-maps polyfill evaluates the
+                  // polyfilled graph from blob URLs; those module scripts inherit
+                  // this document's nonce, so `script-src` needs no `blob:` source
+                  // only while the entry and preloads are nonced (vendor README).
+                  <link key={href} rel="modulepreload" href={href} nonce={nonce} />
                 ))}
               </>
             )
