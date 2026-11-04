@@ -69,10 +69,15 @@ describe('Security headers middleware', () => {
     )
   })
 
-  it('CSP connect-src includes opencode.ai', async () => {
+  it('CSP connect-src omits the server-only AI provider origin', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
-    assert.ok(csp.includes('https://opencode.ai'), 'CSP connect-src should include AI provider')
+    let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
+    assert.ok(connectSrc.includes("'self'"), 'connect-src should keep self')
+    assert.ok(
+      !csp.includes('https://opencode.ai'),
+      'the AI provider is server-side only and must not be a browser connect source',
+    )
   })
 
   it('CSP connect-src omits the HMR websocket outside the node-HMR child', async () => {
@@ -83,10 +88,6 @@ describe('Security headers middleware', () => {
       let csp = response.headers.get('Content-Security-Policy')!
       let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
       assert.ok(connectSrc.includes("'self'"), 'connect-src should keep self')
-      assert.ok(
-        connectSrc.includes('https://opencode.ai'),
-        'connect-src should keep the AI provider',
-      )
       assert.ok(
         !connectSrc.includes('ws://localhost:44100'),
         'plain dev/test must not allow the HMR websocket',

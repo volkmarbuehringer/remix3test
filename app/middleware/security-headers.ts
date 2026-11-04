@@ -33,11 +33,15 @@ export function getCspNonce(): string | undefined {
  * The HMR websocket is only needed inside the node-HMR child, which sets
  * `REMIX_NODE_HMR=1`. Plain `npm run dev` has no HMR websocket, so the source
  * must not be allowed merely because `NODE_ENV=development`.
+ *
+ * `connect-src` stays first-party: all AI traffic is server-side
+ * (`app/utils/ai-provider.ts` and `app/actions/mastra/*`), so the browser never
+ * talks to the AI provider origin and it must not appear in the policy.
  */
 export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecurityPolicyInit {
-  let connectSrc = ["'self'", 'https://opencode.ai']
+  let connectSrc = ["'self'"]
   if (process.env.REMIX_NODE_HMR === '1') {
-    connectSrc.splice(1, 0, 'ws://localhost:44100')
+    connectSrc.push('ws://localhost:44100')
   }
 
   return {
