@@ -690,16 +690,19 @@ export const ListsClient = clientEntry(
     }
 
     // Move focus back to the row that owned the menu after it closes, or to a
-    // neighbouring row after a delete. The kebab is the intended target on
-    // touch, but it is display:none on pointer devices, so fall back to the
-    // row itself (tabindex -1 still accepts programmatic focus).
+    // neighbouring row after a delete. On touch the kebab is the control the
+    // menu was opened from and the row itself is a poor focus target; on a
+    // pointer device the row is better (it keeps the arrow-key flow working).
+    // The kebab is also visible at <=900px on pointer devices, so "visible"
+    // is no longer a proxy for touch — test the pointer capability instead.
     let focusItemTrigger = (id: string | null) => {
       handle.queueTask(() => {
         if (id) {
           let trigger = document.querySelector<HTMLElement>(
             `[data-item-menu-button="${CSS.escape(id)}"]`,
           )
-          if (trigger && trigger.offsetParent !== null) {
+          let touchPointer = window.matchMedia('(hover: none)').matches
+          if (touchPointer && trigger && trigger.offsetParent !== null) {
             trigger.focus()
             return
           }

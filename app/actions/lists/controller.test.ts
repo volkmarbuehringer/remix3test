@@ -114,6 +114,66 @@ describe('Lists controller', () => {
     await db.delete(lists, { id })
   })
 
+  it('GET /lists?filter= offers a clear-search control that keeps the open list', async () => {
+    let marker = 'clearsearch-' + Date.now()
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: marker, items: [{ label: 'Eintrag' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+    try {
+      let filtered = await router.fetch(LISTS_URL + '?filter=' + marker + '&load=' + id, {
+        headers: { Cookie: userCookie },
+      })
+      let filteredText = await filtered.text()
+      // The magnifier submit button is replaced by a clear link while a filter
+      // is active. It must keep the currently open list and drop the filter.
+      assert.ok(
+        filteredText.includes('data-lists-search-clear'),
+        'a filtered sidebar must offer a clear-search control',
+      )
+      assert.ok(
+        new RegExp('href="/lists\\?load=' + id + '"[^>]*data-lists-search-clear').test(
+          filteredText,
+        ),
+        'the clear-search link must keep the open list id',
+      )
+
+      // A zero-result search must offer the same reset as a visible CTA.
+      let empty = await router.fetch(LISTS_URL + '?filter=' + marker + '-nope', {
+        headers: { Cookie: userCookie },
+      })
+      let emptyText = await empty.text()
+      assert.ok(
+        emptyText.includes('data-lists-empty-state') &&
+          emptyText.includes('data-lists-search-reset') &&
+          emptyText.includes('Suche zurücksetzen'),
+        'an empty search must offer a search-reset CTA',
+      )
+
+      // Without a filter the submit button (and no clear link) renders.
+      let plain = await router.fetch(LISTS_URL, { headers: { Cookie: userCookie } })
+      let plainText = await plain.text()
+      assert.ok(
+        !plainText.includes('data-lists-search-clear'),
+        'an unfiltered sidebar must not render the clear link',
+      )
+      assert.ok(
+        plainText.includes('aria-label="Listen und Einträge suchen"') &&
+          plainText.includes('type="submit"'),
+        'an unfiltered sidebar keeps the submit search button',
+      )
+    } finally {
+      await db.delete(lists, { id })
+    }
+  })
+
   it('GET /lists?sort=name orders lists alphabetically and size=all shows the page', async () => {
     let marker = 'sortname-' + Date.now()
     let ids: number[] = []

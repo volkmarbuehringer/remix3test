@@ -521,6 +521,11 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               mix={[
                 button({ tone: 'secondary' }),
                 css({
+                  // When the action row wraps on a phone, the status belongs
+                  // at the right edge of its own line instead of starting a
+                  // left-aligned third row.
+                  marginLeft: 'auto',
+                  flexShrink: 0,
                   fontSize: theme.fontSize.xs,
                   fontWeight: theme.fontWeight.semibold,
                   color: statusColor(),
@@ -540,6 +545,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               aria-live="polite"
               title="Speicherstatus dieser Liste"
               mix={css({
+                // See the save-error pill above: keep the status at the
+                // right edge when the action row wraps.
+                marginLeft: 'auto',
+                flexShrink: 0,
                 fontSize: theme.fontSize.xs,
                 fontWeight: theme.fontWeight.semibold,
                 color: statusColor(),
@@ -808,6 +817,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
         <div
           mix={css({
             display: 'flex',
+            flexWrap: 'wrap',
             gap: theme.space.sm,
             marginBottom: theme.space.md,
             alignItems: 'center',
@@ -819,7 +829,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 padding: `${theme.space.xs} ${theme.space.sm}`,
                 borderRadius: theme.radius.md,
                 border: `1px solid ${theme.colors.border.strong}`,
-                flex: 1,
+                // `1 1 220px` keeps the field on the same line as the button
+                // wherever there is room and wraps it to a full row on a
+                // phone. With `flex: 1` the field shrank to 129px at 390px
+                // while the fixed-width button took the other half.
+                flex: '1 1 220px',
+                minWidth: 0,
                 fontSize: theme.fontSize.md,
                 outline: 'none',
                 fontFamily: theme.fontFamily.sans,
@@ -848,7 +863,23 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             wrap="soft"
             defaultValue={newItemLabel}
           />
-          <button mix={[button({ tone: 'primary' }), on('click', addItem)]}>
+          {/*
+            Full-width below 560px: as a 148px pill next to the field it left
+            the field ~130px on a phone. It keeps its label so the primary
+            action stays obvious.
+          */}
+          <button
+            mix={[
+              button({ tone: 'primary' }),
+              css({
+                flexShrink: 0,
+                '@media (max-width: 560px)': {
+                  width: '100%',
+                },
+              }),
+              on('click', addItem),
+            ]}
+          >
             + Element hinzufügen
           </button>
         </div>
@@ -1592,7 +1623,12 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         // On touch the hover cluster is replaced by the
                         // kebab + inline menu, so the right gutter is no longer
                         // needed and the menu can wrap below the row.
-                        '@media (hover: none)': {
+                        //
+                        // The same release applies below 900px: a mouse user on
+                        // a narrow window now gets the kebab too (see
+                        // itemActionsStyle), and keeping the 10rem gutter would
+                        // leave the label with 2px at 390px (measured).
+                        '@media (hover: none), (max-width: 900px)': {
                           paddingRight: theme.space.md,
                           rowGap: theme.space.xs,
                         },

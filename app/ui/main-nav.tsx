@@ -83,31 +83,39 @@ export function MainNav() {
             </span>
           </a>
 
-          <nav mix={[navLinksCss, desktopOnlyCss]}>
-            {visibleSections.map((section, i) => {
-              let items = section.items
-              if (items.length === 0) return null
-              return (
-                <div key={i} mix={sectionGroupCss}>
-                  {section.label ? <span mix={sectionLabelCss}>{section.label}</span> : null}
-                  {items.map((item) => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      {...(item.href && isCrossSection(item.href)
-                        ? { 'data-rmx-document': '' }
-                        : {})}
-                      mix={[
-                        navLinkCss,
-                        item.href && isActive(item.href) ? navActiveCss : null,
-                      ].filter(Boolean)}
-                    >
-                      {item.label}
-                    </a>
-                  ))}
-                </div>
-              )
-            })}
+          <nav mix={navLinksCss}>
+            {/*
+              Section links collapse into the drawer below 900px, but the
+              notification bell stays in the header at every width: it is the
+              only unread-count indicator, and hiding it with the links made
+              unread notifications invisible between 769px and 900px.
+            */}
+            <div mix={navCollapseCss}>
+              {visibleSections.map((section, i) => {
+                let items = section.items
+                if (items.length === 0) return null
+                return (
+                  <div key={i} mix={sectionGroupCss}>
+                    {section.label ? <span mix={sectionLabelCss}>{section.label}</span> : null}
+                    {items.map((item) => (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        {...(item.href && isCrossSection(item.href)
+                          ? { 'data-rmx-document': '' }
+                          : {})}
+                        mix={[
+                          navLinkCss,
+                          item.href && isActive(item.href) ? navActiveCss : null,
+                        ].filter(Boolean)}
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
             {user ? (
               <>
                 <NotificationBell
@@ -115,36 +123,41 @@ export function MainNav() {
                   unreadCountUrl={routes.notifications.unreadCount.href()}
                   inboxUrl={routes.notifications.index.href()}
                 />
-                <a
-                  href={routes.settings.index.href()}
-                  {...(isCrossSection(routes.settings.index.href())
-                    ? { 'data-rmx-document': '' }
-                    : {})}
-                  mix={iconLinkCss}
-                  aria-label="Settings"
-                  title="Einstellungen"
-                >
-                  <Glyph name="cog" width={18} height={18} />
-                </a>
-                <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
-                  {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
-                  <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
-                    <Glyph name="close" width={18} height={18} />
-                  </button>
-                </form>
+                {/* Settings and logout move into the drawer with the links. */}
+                <div mix={navCollapseCss}>
+                  <a
+                    href={routes.settings.index.href()}
+                    {...(isCrossSection(routes.settings.index.href())
+                      ? { 'data-rmx-document': '' }
+                      : {})}
+                    mix={iconLinkCss}
+                    aria-label="Settings"
+                    title="Einstellungen"
+                  >
+                    <Glyph name="cog" width={18} height={18} />
+                  </a>
+                  <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
+                    {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
+                    <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
+                      <Glyph name="close" width={18} height={18} />
+                    </button>
+                  </form>
+                </div>
               </>
             ) : (
               <>
-                <a
-                  href={routes.auth.login.index.href()}
-                  {...(isCrossSection(routes.auth.login.index.href())
-                    ? { 'data-rmx-document': '' }
-                    : {})}
-                  mix={navBtnCss}
-                >
-                  <Glyph name="open" width={14} height={14} />
-                  Anmelden
-                </a>
+                <div mix={navCollapseCss}>
+                  <a
+                    href={routes.auth.login.index.href()}
+                    {...(isCrossSection(routes.auth.login.index.href())
+                      ? { 'data-rmx-document': '' }
+                      : {})}
+                    mix={navBtnCss}
+                  >
+                    <Glyph name="open" width={14} height={14} />
+                    Anmelden
+                  </a>
+                </div>
               </>
             )}
           </nav>
@@ -290,6 +303,30 @@ const navLinksCss = css({
   display: 'flex',
   gap: '0.25rem',
   alignItems: 'center',
+  // At the drawer breakpoint the section links and the settings/logout icons
+  // are hidden, but the bell stays. Pushing the nav group right keeps the
+  // bell next to the hamburger instead of stranding it beside the logo.
+  '@media (max-width: 900px)': {
+    marginLeft: 'auto',
+  },
+})
+
+// The section links and the settings/logout pair are separate groups so the
+// bell between them can stay visible when everything else collapses into the
+// drawer. Both wrappers reproduce the nav's own 0.25rem gap, so the desktop
+// header is unchanged.
+//
+// The hide rule lives on this single class instead of composing a separate
+// desktop-only class: each css() mixin gets its own CSS layer, and a
+// cross-class display override inside a media query wins or loses by layer
+// insertion order (a later base rule can keep the element visible).
+const navCollapseCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.25rem',
+  '@media (max-width: 900px)': {
+    display: 'none',
+  },
 })
 
 const sectionGroupCss = css({
@@ -379,15 +416,14 @@ const iconLinkCss = css({
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl3 },
 })
 
-const desktopOnlyCss = css({
-  '@media (max-width: 768px)': {
-    display: 'none',
-  },
-})
-
+// The top-level nav switches to the drawer at 900px rather than at the
+// 768px phone step: the full link row plus its icon controls needs ~860px,
+// so at 820px the theme toggle sat 41px past the viewport and forced a
+// page-wide horizontal scrollbar. The /lists shell keeps its own 768px
+// breakpoint — this only affects the global header.
 const mobileOnlyCss = css({
   display: 'none',
-  '@media (max-width: 768px)': {
+  '@media (max-width: 900px)': {
     display: 'flex',
   },
 })
@@ -396,6 +432,8 @@ const headerActionsCss = css({
   display: 'flex',
   alignItems: 'center',
   gap: '0.25rem',
+  // The nav group carries the auto margin at the drawer breakpoint (the bell
+  // sits there); the hamburger follows it on the right.
 })
 
 const hamburgerBtnCss = css({
@@ -422,7 +460,7 @@ const navDrawerCss = css({
   '&.is-open': {
     display: 'flex',
   },
-  '@media (min-width: 769px)': {
+  '@media (min-width: 901px)': {
     display: 'none !important',
   },
 })

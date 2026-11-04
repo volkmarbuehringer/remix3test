@@ -36,6 +36,12 @@ export const gripStyle = css({
   '&:hover': {
     color: theme.colors.text.primary,
   },
+  // HTML5 drag-and-drop does not start from touch input, so the grip is a
+  // false affordance on a phone — and it is one of five controls competing
+  // with the label for a 250px row. Keep reordering on the row menu instead.
+  '@media (hover: none)': {
+    display: 'none',
+  },
 })
 
 // Per-item metadata layout. The label + metadata line live in a flex column
@@ -53,7 +59,7 @@ export const itemMainStyle = css({
  * textarea and the metadata fields unusably narrow.
  */
 export const itemEditMainStyle = css({
-  '@media (hover: none)': {
+  '@media (hover: none), (max-width: 900px)': {
     flexBasis: '100%',
     marginTop: theme.space.xs,
   },
@@ -214,7 +220,11 @@ export const cardHeaderStyle = css({
   // title for the single header line. The title wrap then collapsed to a few
   // pixels (the new-list title input measured 8px at 390px). Stack the two
   // groups so the title always gets the full width and the actions wrap below.
-  '@media (max-width: 768px)': {
+  //
+  // The 900px step (not only the 768px phone step) matters because the card
+  // keeps a ~220px sidebar column until 768px: at 820px the title input was
+  // only ~157px wide and every save status wrapped to a third line.
+  '@media (max-width: 900px)': {
     alignItems: 'stretch',
     flexDirection: 'column',
     gap: theme.space.sm,
@@ -282,9 +292,13 @@ export const cardHeaderActionsStyle = css({
   flexShrink: 0,
   // Below the title on phones; let the secondary actions wrap instead of
   // pushing the save-status pill off-screen.
-  '@media (max-width: 768px)': {
+  '@media (max-width: 900px)': {
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
+    // A 4px gutter instead of 8px lets "Duplizieren / Speichern /
+    // Gespeichert" share one line at 390px; at 360px the status pill wraps
+    // and its marginLeft:auto keeps it right-aligned.
+    gap: theme.space.xs,
   },
 })
 
@@ -499,6 +513,12 @@ export const countTextStyle = css({
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.secondary,
   whiteSpace: 'nowrap',
+  // On a phone the status tabs already carry "Erledigt 1" and "Alle 28", and
+  // the complete text/summary is what pushed the "…" toolbar menu onto a
+  // third row. The progress bar (same information) is already hidden there.
+  '@media (max-width: 600px)': {
+    display: 'none',
+  },
 })
 
 // "Alle löschen" is quiet (danger-coloured text on a neutral button) until
@@ -778,6 +798,16 @@ export const statusTabsStyle = css({
   flexWrap: 'wrap',
   alignItems: 'center',
   gap: '2px',
+  // At 360px the four tabs total ~275px against a 268px strip: wrapping the
+  // lone "Überfällig" tab onto a second row grew the bar from 89px to 139px.
+  // Below 420px the tabs become a single swipeable row; they still fit
+  // without scrolling at 390px, and every tab keeps its 44px target.
+  '@media (max-width: 420px)': {
+    flexWrap: 'nowrap',
+    overflowX: 'auto',
+    maxWidth: '100%',
+    scrollbarWidth: 'thin',
+  },
 })
 
 export const statusTabStyle = css({
@@ -810,6 +840,13 @@ export const statusTabStyle = css({
     padding: '0 2px',
     gap: '2px',
   },
+  // Trim the tab padding so the four filters stay as close to one row as
+  // possible on a 360px phone; the remaining overflow is handled by the
+  // swipeable strip above (the old wrap grew the bar to 139px).
+  '@media (max-width: 420px)': {
+    padding: '0 1px',
+    gap: '1px',
+  },
 })
 
 export const statusCountStyle = css({
@@ -831,12 +868,18 @@ export const hideDoneLabelStyle = css({
   alignItems: 'center',
   gap: theme.space.xs,
   minHeight: '44px',
+  // Right-aligned when it shares the row with the status tabs on desktop.
   marginLeft: 'auto',
   color: theme.colors.text.secondary,
   fontFamily: theme.fontFamily.sans,
   fontSize: theme.fontSize.xs,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+  // On a phone the label always takes its own line; right-aligning it there
+  // left a large blank gap under the left-aligned tabs.
+  '@media (max-width: 768px)': {
+    marginLeft: 0,
+  },
 })
 
 export const resetFiltersStyle = css({
@@ -886,8 +929,10 @@ export const collapseBtnStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '20px',
-  height: '20px',
+  // 20px was below the WCAG 2.2 minimum target (24x24) and a tiny mouse
+  // target for the description's only collapse control.
+  width: '28px',
+  height: '28px',
   padding: 0,
   border: 'none',
   background: 'transparent',
@@ -985,8 +1030,11 @@ export const itemActionsStyle = css({
   pointerEvents: 'none',
   // Touch devices get the row menu (the kebab below) instead of this
   // hover-reveal cluster. Removing it from layout keeps the row dense and
-  // lets the label use the full width.
-  '@media (hover: none)': {
+  // lets the label use the full width. The same applies to a narrow
+  // window: the card keeps its ~220px sidebar column until 768px, and at
+  // 820px the five overlay buttons forced a 10rem right gutter that left
+  // the label just 192px wide.
+  '@media (hover: none), (max-width: 900px)': {
     display: 'none',
   },
 })
@@ -1004,7 +1052,7 @@ export const itemEditActionsStyle = css({
   opacity: 1,
   pointerEvents: 'auto',
   transition: 'opacity 0.12s ease',
-  '@media (hover: none)': {
+  '@media (hover: none), (max-width: 900px)': {
     position: 'static',
     transform: 'none',
     justifyContent: 'flex-end',
@@ -1022,8 +1070,10 @@ export const itemMenuButtonStyle = css({
   display: 'none',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '44px',
-  height: '44px',
+  // Compact mode (see the media query below) is pointer-driven, so 36px is a
+  // comfortable mouse target while leaving 8px more for the label.
+  width: '36px',
+  height: '36px',
   padding: 0,
   flexShrink: 0,
   border: `1px solid ${theme.colors.border.default}`,
@@ -1041,8 +1091,14 @@ export const itemMenuButtonStyle = css({
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,
   },
-  '@media (hover: none)': {
+  // Must pair with the itemActionsStyle breakpoint: wherever the hover
+  // cluster is hidden, the kebab is the only way to reach edit/move/delete.
+  '@media (hover: none), (max-width: 900px)': {
     display: 'inline-flex',
+  },
+  '@media (hover: none)': {
+    width: '44px',
+    height: '44px',
   },
 })
 

@@ -123,7 +123,11 @@ const sidebarControlsRowStyle = css({
 })
 
 const sidebarSelectStyle = css({
-  flex: '1 1 84px',
+  // A 140px basis makes the two selects wrap onto their own rows instead of
+  // squeezing to ~100px (which truncated "Zuletzt geändert" / "15 pro Seite")
+  // when the sidebar sits at its 220px minimum width. They still share one
+  // row on a wide desktop sidebar.
+  flex: '1 1 140px',
   minWidth: 0,
   padding: `${theme.space.xs} ${theme.space.sm}`,
   borderRadius: theme.radius.sm,
@@ -189,6 +193,12 @@ const searchInputStyle = css({
   '&::placeholder': {
     color: theme.colors.text.muted,
   },
+  // The sidebar renders its own clear-search link while a filter is active
+  // (works in Firefox too). Hide the Chromium/WebKit-native clear button so
+  // there is exactly one, consistently styled reset control.
+  '&::-webkit-search-cancel-button': {
+    display: 'none',
+  },
 })
 
 const searchButtonStyle = css({
@@ -199,6 +209,10 @@ const searchButtonStyle = css({
   width: '28px',
   height: '28px',
   padding: 0,
+  // Shared by the submit button and the clear-search link (the link replaces
+  // the button while a filter is active).
+  boxSizing: 'border-box',
+  textDecoration: 'none',
   border: `1px solid ${theme.colors.border.default}`,
   borderRadius: theme.radius.sm,
   background: theme.surface.lvl0,
@@ -207,6 +221,10 @@ const searchButtonStyle = css({
   '&:hover': {
     background: theme.surface.lvl2,
     color: theme.colors.text.primary,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '1px',
   },
 })
 
@@ -331,6 +349,22 @@ function buildListHref(listId: number, pagination?: PaginationState): string {
   return routes.lists.index.href() + '?' + params.toString()
 }
 
+/**
+ * Link target for the sidebar's clear-search control. It keeps the open list
+ * and the sort/page-size choices but drops the filter and the page offset (a
+ * filtered result set has different pages than the unfiltered one).
+ */
+function buildClearSearchHref(activeId: number | null): string {
+  let params = new URLSearchParams()
+  if (activeId != null) params.set('load', String(activeId))
+  let sort = currentSort()
+  if (sort !== 'recent') params.set('sort', sort)
+  let size = currentSize()
+  if (size) params.set('size', size)
+  let query = params.toString()
+  return routes.lists.index.href() + (query ? '?' + query : '')
+}
+
 function buildPageHref(
   offset: number,
   _pagination: PaginationState,
@@ -424,6 +458,26 @@ function ListsLayout(
                   <input type="hidden" name="load" value={activeListId} />
                 ) : null}
                 <ListsSearch />
+                {filterValue ? (
+                  /*
+                    The field clears itself on Escape in the enhanced browser
+                    runtime, but Firefox has no native clear button for
+                    <input type="search">. Add an explicit reset link while a
+                    filter is active (works without JS). The submit button
+                    stays: without it a no-JS user could not apply the
+                    sort/page-size selects either.
+                  */
+                  <a
+                    href={buildClearSearchHref(activeListId)}
+                    data-rmx-target={frameTarget}
+                    aria-label="Suche zurücksetzen"
+                    title="Suche zurücksetzen"
+                    data-lists-search-clear
+                    mix={searchButtonStyle}
+                  >
+                    <Glyph name="close" width={14} height={14} />
+                  </a>
+                ) : null}
                 <button
                   type="submit"
                   aria-label="Listen und Einträge suchen"
@@ -662,16 +716,24 @@ function ListsLayout(
             <ListsSidebarKeyboard />
             <ListsRowActions />
             {sidebarEntries.length === 0 && (
-              <div mix={emptyStateStyle}>
+              <div mix={emptyStateStyle} data-lists-empty-state>
                 <p mix={emptyHintStyle}>
                   {filterValue ? 'Keine Treffer' : 'Keine gespeicherten Listen'}
                 </p>
-                {!filterValue && (
+                {filterValue ? (
+                  <a
+                    href={buildClearSearchHref(activeListId)}
+                    data-rmx-target={frameTarget}
+                    mix={emptyCtaStyle}
+                    data-lists-search-reset
+                  >
+                    Suche zurücksetzen
+                  </a>
+                ) : (
                   <NavLink
                     href={routes.lists.index.href() + '?new=1'}
                     target={frameTarget}
                     mix={emptyCtaStyle}
-                    data-lists-empty-cta
                   >
                     + Erste Liste erstellen
                   </NavLink>
@@ -839,7 +901,15 @@ const listMenuStyle = css({
   display: 'none',
   gridTemplateColumns: '1fr',
   gap: '2px',
-  paddingBottom: theme.space.xs,
+  // A bordered, inset panel makes the open actions read as a menu belonging
+  // to the row above instead of four more sidebar entries pushing the list
+  // down. The inline placement still keeps it inside the scroller (no clip).
+  margin: `0 ${theme.space.xs} ${theme.space.xs}`,
+  padding: '2px',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  backgroundColor: theme.surface.lvl0,
+  boxShadow: theme.shadow.xs,
   '&[data-list-menu-open]': {
     display: 'grid',
   },
@@ -959,13 +1029,19 @@ const paginationStyle = css({
   marginTop: 'auto',
 })
 
+// 32x32 keeps the paging arrows above the WCAG 2.2 minimum target (24x24)
+// and makes the only two pagination controls in the sidebar comfortable to
+// hit; the old padded text link measured 23x25.
 const paginationBtnStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
+  justifyContent: 'center',
   flexShrink: 0,
+  width: '32px',
+  height: '32px',
+  padding: 0,
   whiteSpace: 'nowrap',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.xs,
+  fontSize: theme.fontSize.md,
   borderRadius: theme.radius.sm,
   color: theme.colors.text.secondary,
   textDecoration: 'none',
@@ -973,15 +1049,22 @@ const paginationBtnStyle = css({
     background: theme.surface.lvl2,
     color: theme.colors.text.primary,
   },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '1px',
+  },
 })
 
 const paginationBtnDisabledStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
+  justifyContent: 'center',
   flexShrink: 0,
+  width: '32px',
+  height: '32px',
+  padding: 0,
   whiteSpace: 'nowrap',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.xs,
+  fontSize: theme.fontSize.md,
   color: theme.colors.text.muted,
   opacity: 0.5,
 })

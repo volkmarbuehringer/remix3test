@@ -61,6 +61,22 @@ export const ListsSearch = clientEntry(
         { signal: ac.signal },
       )
 
+      // The server renders a clear-search link next to the submit button while
+      // a filter is active. It navigates to the filter-free URL; the frame
+      // re-renders the input with an empty defaultValue, but the browser keeps
+      // the field's dirty value across the DOM update, so clear it first.
+      form.querySelector('[data-lists-search-clear]')?.addEventListener(
+        'click',
+        () => {
+          if (timer) {
+            clearTimeout(timer)
+            timer = null
+          }
+          input.value = ''
+        },
+        { signal: ac.signal },
+      )
+
       // Sort/page-size selects live in the same GET form; a change is an
       // explicit navigation, so submit immediately (no debounce).
       for (let select of Array.from(
