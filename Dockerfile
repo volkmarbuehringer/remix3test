@@ -16,4 +16,6 @@ RUN mkdir -p tmp/sessions && chown -R node:node tmp
 USER node
 EXPOSE 44100
 ENV NODE_ENV=production
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e 'const https=require("https");const port=Number(process.env.PORT||44100);const req=https.request({host:"127.0.0.1",port,path:"/health",rejectUnauthorized:false,timeout:3000},res=>{res.resume();process.exit(res.statusCode===200?0:1)});req.on("timeout",()=>{req.destroy();process.exit(1)});req.on("error",()=>process.exit(1));req.end()'
 CMD ["node", "--import", "remix/node-tsx", "server.ts"]

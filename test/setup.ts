@@ -92,7 +92,12 @@ async function initializeMastraStorage() {
 }
 
 export async function globalSetup() {
-  process.loadEnvFile('./.env')
+  try {
+    process.loadEnvFile('./.env')
+  } catch (error) {
+    // CI provides the environment directly; only a missing local file is fine.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
   process.env.NODE_ENV = 'test'
 
   originalDatabaseUrl = process.env.DATABASE_URL!

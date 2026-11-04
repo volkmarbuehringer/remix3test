@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { legal, routes } from '../../routes.ts'
-import { initializeAppDatabase } from '../../db.ts'
+import { db, initializeAppDatabase } from '../../db.ts'
 
 const BASE = 'https://remix.run'
 
@@ -149,5 +149,25 @@ describe('Home page — landing surface', () => {
     let response = await router.fetch(`${BASE}${routes.home.href()}`)
     let html = await response.text()
     assert.ok(html.includes('aria-hidden="true"'), 'decorative hero visual should be aria-hidden')
+  })
+})
+
+describe('Health endpoint', () => {
+  it('reports ready with a no-store cache policy', async () => {
+    let response = await router.fetch(`${BASE}${routes.health.href()}`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    assert.deepEqual(await response.json(), { status: 'ok' })
+  })
+
+  it('reports unavailable when the database check fails', async (t) => {
+    t.mock.method(db, 'exec', async () => {
+      throw new Error('database offline')
+    })
+
+    let response = await router.fetch(`${BASE}${routes.health.href()}`)
+    assert.equal(response.status, 503)
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    assert.deepEqual(await response.json(), { status: 'unavailable' })
   })
 })

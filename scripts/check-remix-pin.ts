@@ -327,6 +327,16 @@ function warnOrFail(strict: boolean, message: string): void {
   else console.warn(`warning ${message}`)
 }
 
+function githubHeaders(): Record<string, string> {
+  let headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': USER_AGENT,
+  }
+  let token = process.env.GITHUB_TOKEN?.trim()
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
 function previewTagTime(tag: string): number {
   let match = /^v0\.(\d{8})\.(\d{1,6})-/.exec(tag)
   return match ? Number(match[1]) * 1_000_000 + Number(match[2]) : 0
@@ -334,7 +344,7 @@ function previewTagTime(tag: string): number {
 
 async function fetchJson(url: string): Promise<unknown> {
   let response = await fetch(url, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': USER_AGENT },
+    headers: githubHeaders(),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   if (!response.ok) {

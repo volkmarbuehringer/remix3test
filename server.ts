@@ -89,20 +89,45 @@ server.listen(port, host, () => {
   }
 })
 
+const SHUTDOWN_TIMEOUT_MS = 10_000
+
 let shuttingDown = false
 
-function shutdown() {
+async function shutdown(reason: string) {
   if (shuttingDown) return
   shuttingDown = true
+  console.log(`[shutdown] ${reason}: draining connections`)
   stopSessionMaintenance()
-  void closeAppDatabase()
-  server.close(() => assetServer.close().finally(() => process.exit(0)))
-  server.closeAllConnections()
+
+  await new Promise<void>((resolve) => {
+    let timer = setTimeout(() => {
+      console.warn('[shutdown] drain timed out; closing remaining connections')
+      server.closeAllConnections()
+      resolve()
+    }, SHUTDOWN_TIMEOUT_MS)
+    timer.unref()
+
+    server.close(() => {
+      clearTimeout(timer)
+      resolve()
+    })
+    // Keep-alive clients can otherwise hold the server open until their idle
+    // timeout even though no request is in flight.
+    server.closeIdleConnections()
+  })
+
+  let results = await Promise.allSettled([assetServer.close(), closeAppDatabase()])
+  let failed = results.find((result) => result.status === 'rejected')
+  if (failed) {
+    console.error('[shutdown] cleanup failed:', failed.reason)
+    process.exit(1)
+  }
+  process.exit(0)
 }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+process.on('SIGINT', () => void shutdown('SIGINT'))
+process.on('SIGTERM', () => void shutdown('SIGTERM'))
 
 if (isHmr) {
-  process.on('disconnect', () => process.exit(0))
+  process.on('disconnect', () => void shutdown('disconnect'))
 }

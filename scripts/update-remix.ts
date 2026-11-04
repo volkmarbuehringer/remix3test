@@ -353,13 +353,20 @@ function installedVersions(): string {
     .join(', ')
 }
 
+function githubHeaders(): Record<string, string> {
+  let headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'remix3test-update-remix',
+  }
+  let token = process.env.GITHUB_TOKEN?.trim()
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
 async function githubCommit(sha: string): Promise<CommitInfo | undefined> {
   try {
     let response = await fetch(`https://api.github.com/repos/remix-run/remix/commits/${sha}`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'remix3test-update-remix',
-      },
+      headers: githubHeaders(),
       signal: AbortSignal.timeout(10_000),
     })
     if (!response.ok) return undefined
@@ -383,10 +390,7 @@ async function compareCommits(base: string, head: string): Promise<string[] | un
     let response = await fetch(
       `https://api.github.com/repos/remix-run/remix/compare/${base}...${head}`,
       {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'remix3test-update-remix',
-        },
+        headers: githubHeaders(),
         signal: AbortSignal.timeout(10_000),
       },
     )
@@ -413,10 +417,7 @@ function previewTagTime(tag: string): number {
 
 async function fetchJson(url: string): Promise<unknown> {
   let response = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'remix3test-update-remix',
-    },
+    headers: githubHeaders(),
     signal: AbortSignal.timeout(20_000),
   })
   if (!response.ok) {
