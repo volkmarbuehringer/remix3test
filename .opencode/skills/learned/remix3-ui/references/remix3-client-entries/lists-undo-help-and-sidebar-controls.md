@@ -1,7 +1,7 @@
 # Undo, keyboard help, and sidebar sort/page-size controls
 
 **Extracted:** 2026-10-18
-**Context:** Final /lists polish (`remix` 3.0.0 / `@remix-run/component` 1.0.0, build `7f900151`). The undo chip expired after 6s, `?` only announced text, the mobile toolbar stayed ~3 rows at 390px, editing required the pencil, and the sidebar had no sort/page-size/result-count or empty-state CTA.
+**Context:** Final /lists polish (remix 3.0.0 / `@remix-run/component` 1.0.0 era; re-checked on the current pin). The undo chip expired after 6s, `?` only announced text, the mobile toolbar stayed ~3 rows at 390px, editing required the pencil, and the sidebar had no sort/page-size/result-count or empty-state CTA.
 
 ## Problem
 
@@ -100,7 +100,7 @@ async function flushAsyncWork(result: ReturnType<typeof renderEditor>) {
 }
 ```
 
-This reproduces the worst-case ordering every run and removes the 8–12 s wall-clock budgets. `remix3-tooling § Testing → frame-event-cliententry-tests.md` uses the same deferred-response trick for frame-navigation races.
+This reproduces the worst-case ordering every run and removes the 8–12 s wall-clock budgets. `remix3-tooling § Testing → references/remix3-testing/cliententry-browser-tests.md` uses the same deferred-response trick for frame-navigation races.
 
 **When to use:** a debounced save can be reverted by undo/redo or an edit that returns to the pre-save value while its PUT is in flight; the browser test for that path currently relies on `waitFor`/long timeouts.
 

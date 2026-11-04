@@ -3,7 +3,7 @@
 **Source:** `remix3-assets-config-inspection`
 
 **Extracted:** 2026-08-27
-**Context:** Upstream commit `207dcd2` ("Add shared asset config and remix assets inspector") added an `assets` section to `remix.json` plus a `remix assets` / `remix assets inspect` CLI. **Later inverted on `preview/main` by `9696913` ("Replace assets `fileMap` with `mounts`"):** `fileMap` was removed and replaced with directory-based `mounts`. Applies when wiring the asset server in this app (or adopting the shared-config split) on a build at/after `9696913`.
+**Context:** Upstream commit `207dcd2` ("Add shared asset config and remix assets inspector") added an `assets` section to `remix.json` plus a `remix assets` / `remix assets inspect` CLI. **Current build:** `9696913` ("Replace assets `fileMap` with `mounts`") removed `fileMap` in favour of directory-based `mounts`; `parseAssetsConfig` now rejects the old key. Applies when wiring the asset server in this app or adopting the shared-config split.
 
 ## Problem
 
@@ -60,4 +60,4 @@ files (the self-hosted fonts) stay on `staticFiles()`, not the asset server.
 - `node_modules/remix/schema/remix.json` — `assets` JSON schema (`additionalProperties: false`, `mounts`).
 - `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/inspection.ts` — `AssetStatus`, `AssetKind`, `getAssets()`, `getAssetDetails()`.
 - `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/asset-server.ts` — `AssetServerOptions` (accepts `rootDir`, `basePath`, `mounts`, `allowFiles`, `allowPackages`, `denyFiles`, `files`).
-- App wiring: `app/assets.ts`, `remix.json → assets` (`app/assets.test.ts` no longer exists; app re-checked 2026-10-14).
+- App wiring: `app/assets.ts`, `remix.json → assets`, covered by `app/assets.test.ts` (re-checked 2026-11-04).

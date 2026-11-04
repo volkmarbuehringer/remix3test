@@ -3,27 +3,16 @@
 **Source:** `remix3-hmr-dev-server`
 
 **Extracted:** 2026-08-10
-**Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr` (remix `preview/main` build `e52c10054`, includes "Add HMR support" #11515). `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the version-pinned pitfalls hit while wiring and smoke-testing it. Validate any claim here against the installed `@remix-run/*` packages (`node_modules/.pnpm/@remix-run+node-hmr*`, `@remix-run+assets*`) before relying on it — this feature is pre-release churn (follow-up fixes around Windows timeouts and Bun e2e skips, #11676–#11678).
+**Revalidated:** 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
+**Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
-**Validated:** 2026-08-18 against installed build `5e6e9862` (remix 0.7.0 / beta.10). API claims below confirmed in `@remix-run/node-hmr/dist`: `run(entry, { env, nodeArgs, browserHmrChannel })` (`index.d.ts`), `createHmrReadyFetch(runner, fetch, { shouldRetry })` with default retry of GET/HEAD on `502/503/504` (`index.js:17,81`), `createBrowserHmrChannel`/`emitServerReady` from `remix/node-hmr/runtime` (`runtime.d.ts`), `REMIX_NODE_HMR` injected by the runner itself (`lib/runner.js:16,878`), and the `fingerprint cannot be used with watch mode` guard in `@remix-run/assets/dist/lib/asset-server.js:695`.
+## Current API anchors (release `v0.20261103.224609-main-98229b78`)
 
-**Re-validated:** 2026-08-29 against installed build `f597ce701` (installable dist of `fc87ca9`, includes #11607/#11751/#11665; version string still `3.0.0-beta.10`). All five claims hold: `run(entry, { env, nodeArgs, browserHmrChannel })` still at `index.d.ts:126` (`RunOptions` gained `cwd`/`entryArgs`/`watch` — superset, no break); `createHmrReadyFetch(runner, fetch, { shouldRetry })` at `index.js:16` with default `shouldRetrySafeUnavailableRequest` at `index.js:81-87` retrying GET/HEAD on `502/503/504` **and now also on thrown errors** (`response === undefined`); `createBrowserHmrChannel`/`emitServerReady` unchanged in `runtime.d.ts`; `REMIX_NODE_HMR` injection unchanged (`lib/runner.js:16,878`); the `fingerprint cannot be used with watch mode` guard moved to `@remix-run/assets/dist/lib/asset-server.js:715` (was 695).
-
-**Post-bump (2026-09-08):** After upgrading the pinned `remix` to the build installed as `63aa4cc02af8c4194c` (asset server now imports `./virtual-store.js`), the `fingerprint cannot be used with watch mode` guard shifted again to `@remix-run/assets/dist/lib/asset-server.js:717` (was 715). Dist line refs in this skill are build-specific — re-grep the installed `node_modules/.pnpm/@remix-run+node-hmr*` / `@remix-run+assets*` after any bump rather than trusting these line numbers.
-
-**Re-validated (2026-09-18):** against the now-installed build `3e94ca8a6` (source `03cd3404`; the `remix` version string is now `3.0.0-rc.2`, no longer `3.0.0-beta.10`). All five claims hold: `run(entry, { env, nodeArgs, browserHmrChannel })` still at `index.d.ts:126` (`RunOptions` at `:4`, `browserHmrChannel` at `:9`, with `cwd`/`entryArgs`/`watch` present); `createHmrReadyFetch(runner, fetch, { shouldRetry })` at `index.js:16`, with `shouldRetrySafeUnavailableRequest` at `index.js:81` retrying GET/HEAD on `502/503/504` **and on thrown errors** (`response === undefined`); `createBrowserHmrChannel`/`emitServerReady` unchanged (`runtime.d.ts:17,25`); `REMIX_NODE_HMR` still injected by the runner itself (`lib/runner.js:16` names it, `buildChildProcessEnv` injects it at `:877`); the `fingerprint cannot be used with watch mode` guard shifted again to `@remix-run/assets/dist/lib/asset-server.js:775` (was 717).
-
-**Re-validated (2026-09-22):** build installed as `525ce2f6f` (installable dist of source `a1057f6`). Upstream landed **#11897 "Preserve auth flows through the HMR development proxy"** and **#11902 "Normalize HTTP/2 request authority and proxy headers"**; the app adopted both — see the "Auth flows through the proxy" section below and the `trustProxy: isHmr` change in `server.ts`. The old "Redirect-following false 500" workaround (bottom section) is now **obsolete** — kept only as history.
-
-**Re-validated (2026-09-23):** build installed as `27393da759` (installable dist of source `6aad078`; `remix` version string now `3.0.0-rc.3`), bumped from `a4d62e19` (dist of `9f27468`). The range held exactly three upstream commits: **#11913 "Preserve hoisted client entry functions during HMR"** — the only app-affecting one, see section 6 — plus two `.github/workflows`-only bot commits (#11864 context delivery, GPT-6 Astra review model) that this app does not consume (its only workflow is `ci.yml.disabled`). All five node-hmr claims hold unchanged (`index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,877`); the `fingerprint cannot be used with watch mode` guard moved once more to `@remix-run/assets/dist/lib/asset-server.js:779` (was 775).
-
-**Re-validated (2026-09-24):** lock refreshed from build `1128ab5c` (dist of source `ae51cfa`) to the now-installed build `3e516fcc2` (installable dist of source `9ed3a5c`; `remix` version string `3.0.0-rc.3`). That range carries four real upstream commits — **#11920** (~47 `packages/remix/src/*/README.md` rewrites + guide renumbering; docs only), **#11931** (`remix test` partial-filename expansion in `packages/cli/src/lib/commands/test.ts`), a `.github/workflows`-only commit, and a new `demos/i18n` app — and `packages/*/src/**` runtime source is byte-identical apart from the CLI test command. All five node-hmr claims therefore hold unchanged: `run(entry, { env, nodeArgs, browserHmrChannel })` at `index.d.ts:126` (`RunOptions` `:4`, `browserHmrChannel` `:9`); `createHmrReadyFetch` at `index.js:16` with `shouldRetrySafeUnavailableRequest` at `index.js:81` (GET/HEAD on `502/503/504` **or** `response === undefined`); `createBrowserHmrChannel`/`emitServerReady` at `runtime.d.ts:17,25`; `REMIX_NODE_HMR` named at `lib/runner.js:16` and injected at `:877`; and the `fingerprint cannot be used with watch mode` guard is **unchanged** at `@remix-run/assets/dist/lib/asset-server.js:779`. (The line above pinned `27393da759`/`6aad078`, which this lock refresh skips over; section 6's #11913 fix is still present in the installed `@remix-run/component-hmr` `src/lib/transform.ts` `getSetupStatements()`.)
-
-**Re-validated (2026-10-12):** lock bumped (via `github:remix-run/remix#preview/main` refresh) to build `c1787ef` (installable dist of source `7d5a2f9`; `remix` 3.0.0 / `@remix-run/ui` 0.12.1 / `@remix-run/component` 1.0.0). Skipped intermediate installs (`a36d36caa`, `044d837` = dist of `abe67bc` incl. #11938/#11942/#11975); the range this bump adds over the previous pin is **#11958** (scoped API-doc path normalization — generated docs only, installed `node_modules/remix/guides/` count unchanged at 15) and **#11980 "Fix client entry loading of existing modules after HMR updates"** (app-affecting only under `npm run hmr`): `assetServer.getScriptEntry`/`getHref`/`getPreloads` now **retain HMR timestamps** in returned URLs (`@remix-run/assets/dist/lib/scripts/compiler.js:509-516` `addTimestampQuery` on the HMR branch; barrel-optimised rewritten imports are stamped there too, and updated-module imports use the timestamped URL directly instead of relying on the live import map — `emit.js:191-212` `getHmrUpdatesForChange`), and `@remix-run/component` treats client-entry URLs differing **only** by a single exactly-13-digit `t=` segment as the same identity (`dist/runtime/client-entry-boundary.js:1` `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN`, two `t` segments → not ignored), so an existing client entry keeps its state instead of remounting when a frame response carries a newer timestamped href. All five node-hmr claims hold again: `run` at `index.d.ts:126` (`RunOptions` `:4`, `browserHmrChannel` `:9`); `createHmrReadyFetch` at `index.js:16`, `shouldRetrySafeUnavailableRequest` at `:81`; `createBrowserHmrChannel`/`emitServerReady` at `runtime.d.ts:17,25`; `REMIX_NODE_HMR` named at `lib/runner.js:16` with `buildChildProcessEnv` at `:874`; fingerprint×watch guard **unchanged** at `asset-server.js:779`. `app/middleware/asset-entry.ts` needs no change — it passes the `ScriptEntry` through opaquely and never compares hrefs.
-
-**Re-validated (2026-10-14):** lock bumped to build `c93cec30` (installable dist of source `e5ed055` = PR **#11986 "Clean up UI APIs after styled component removal"**; `remix` 3.0.0 / `@remix-run/ui` 0.12.1 / `@remix-run/component` 1.0.0). The range this bump adds over the previous pin (`c1787ef`/`7d5a2f9`) is exactly #11986, which touches **only `packages/ui`** — `@remix-run/component`, `@remix-run/component-hmr`, `@remix-run/assets`, `remix` CLI, and the guides are byte-identical to the prior pin. All five node-hmr claims hold unchanged (same files/lines as the 2026-10-12 re-validation: `index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,874`; `asset-server.js:779`). App-side impact verified as zero: the app imports only `@remix-run/ui/animation` (untouched) and `@remix-run/ui/menu` (whose only change is deleting an *unexported* internal namespace object), and uses none of the removed APIs (`toggle.control`, `AccordionProps`*, `SelectProps`*, `ComboboxProps`*, accordion `headingLevel`); `npm run typecheck` clean and the full browser suite green (mod a known unrelated timing flake in the lists autosave undo test, documented in `lists-autosave.test.browser.tsx`). See `docs/remix-pin-history.md` for the #11986 API detail.
-
-**Re-validated (2026-10-29):** build `19b3c4e8` (source `6ab52963`; versions unchanged at `remix` 3.1.0 / `ui` 0.13.0 / `component` 1.1.0 / `component-hmr` 1.0.0). All five node-hmr claims still hold: `index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,874`; the `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:802` in both `8ae2f755` and `19b3c4e8`, so the earlier `779` pin was stale; the guard text and behavior are unchanged. The authored §11 chapter now documents the object `hmr` form with `moduleImporter` (see the 2026-10-29 alignment note below). App-side clearance: full server suite 1,896 tests (1,895 pass, 0 fail, 1 todo), targeted uploads e2e 10/10.
+- `run(entry, options)` at `@remix-run/node-hmr/dist/index.d.ts:126`; `RunOptions` at `:4` with `browserHmrChannel` at `:9`, plus `cwd`/`entryArgs`/`env`/`nodeArgs`/`watch`.
+- `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:114`; `dist/index.js:16` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.
+- `createBrowserHmrChannel`/`emitServerReady` at `dist/runtime.d.ts:17`/`:25`.
+- `REMIX_NODE_HMR` is injected by the runner itself (`dist/lib/runner.js:16`, `buildChildProcessEnv` at `:874`) — never set it yourself.
+- The `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:802`.
 
 ## Problem
 
@@ -31,7 +20,7 @@ Hooking the upstream HMR template into this app produced four non-obvious failur
 
 1. **`fingerprint` × `watch` conflict** — `@remix-run/assets` throws `TypeError: fingerprint cannot be used with watch mode` at `createAssetServer` when both are set. The app enables content fingerprinting outside development, so enabling `watch: isDevelopment` (required for HMR) crashes the dev server at boot unless fingerprinting is gated to non-dev.
 2. **IPv6/IPv4 loopback mismatch** — the child inherits the app's `HOST = 'localhost'` default and binds `[::1]:<appPort>`, while `createFetchProxy('http://127.0.0.1:<appPort>')` dials IPv4. Result: `ECONNREFUSED 127.0.0.1:<appPort>`, proxy answers 500, and curl to the child returns `000`.
-3. **Ready-gate wedge** — `createHmrReadyFetch` blocks on `await runner.ready()`. If the child crashes at boot (DB init at `server.ts` top-level, or a `REQUIRED_ENV` throw, both happen *before* `listen()` → before `emitServerReady()`), `ready()` never resolves and **every** proxy request hangs indefinitely — the browser just spins.
+3. **Ready-gate wedge** — `runner.ready()` blocks until the child calls `emitServerReady()`. If the child crashes at boot (DB init at `server.ts` top-level, or a `REQUIRED_ENV` throw, both happen *before* `listen()` → before `emitServerReady()`), `ready()` never resolves and **every** proxy request hangs indefinitely — the browser just spins.
 4. **SIGKILL-orphaned child** — `kill -9` of the hmr proxy leaves the child holding the app port; the next `npm run hmr` child then `EADDRINUSE`s and drops into the wait-for-file-change state (the port is effectively bricked until manually cleaned).
 
 ## Solution
@@ -66,9 +55,7 @@ export const assetServer = createAssetServer({
 })
 ```
 
-`REMIX_NODE_HMR` is injected by the node-hmr runner itself (you never set it). `isHmr` must be AND-ed with `isDevelopment` so a leaked env var can't affect prod/test.
-
-**2026-10-29 — authored-§11 alignment.** The installed guide (build `19b3c4e8`) and docs site now carry the authored §11 chapter, which specifies the object `hmr` form (`{ channel, moduleImporter }`) rather than the older bare-function form; `app/assets.ts` uses it with `remix/multiple-import-maps-polyfill`, matching the app entry's `processClientEntryPreloads` polyfill. The loader import is `componentHmr` (the app no longer uses the pre-split `uiHmr` name), and fingerprinting is the boolean `fingerprint: true` outside development.
+The object `hmr` form (`{ channel, moduleImporter }`) is what the authored §11 chapter documents; `app/assets.ts` uses it with `remix/multiple-import-maps-polyfill`, matching the app entry's `processClientEntryPreloads` polyfill. The loader import is `componentHmr` (the pre-split `uiHmr` name is gone), and fingerprinting is the boolean `fingerprint: true` outside development.
 
 ### 2. Pin the child to IPv4 loopback, `hmr.ts`
 
@@ -84,18 +71,7 @@ const hmrRunner = run('server.ts', {
 
 ### 3. Readiness timeout → 503 instead of hanging, `hmr.ts`
 
-`createHmrReadyFetch` has no not-ready response path, so wrap it with a race against a timer (30s covers the app's slow first boot with DB seed):
-
-```ts
-function waitForReady(runner: NodeHmrRunner): Promise<boolean> {
-  return Promise.race([
-    runner.ready().then(() => true),
-    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 30_000)),
-  ])
-}
-```
-
-On `false`, return `503 "HMR server is starting or failed to start. Check the \`npm run hmr\` terminal output"`. Keep the retry-on-new-generation behavior for GET/HEAD `502/503/504` (the library's `shouldRetrySafeUnavailableRequest`).
+`runner.ready()` has no not-ready response path, so `hmr.ts`'s `createReadyFetch` races it against a 30s timer (covers the app's slow first boot with DB seed) and returns `503 "HMR server is starting or failed to start…"` on timeout. It then keeps the retry-on-new-generation behavior for GET/HEAD `502/503/504` and thrown errors (see `shouldRetrySafeUnavailableRequest`).
 
 ### 4. Orphan guard in the child, `server.ts`
 
@@ -146,25 +122,11 @@ const handler = createRequestListener(
 
 `REMIX_NODE_HMR` is injected by the node-hmr runner itself. Production (`npm run start`) never sets it, so `trustProxy` stays `false` there — the app's no-trusted-reverse-proxy stance (`X-Client-Ip` from the TCP socket, `app/utils/server-handler.ts`) is preserved. Also reuse `isHmr` for the `emitServerReady`/`disconnect` guards.
 
-The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR proxy, so it needs no equivalent. `#11902` also changed `fetch-proxy` to strip hop-by-hop/`Connection`-listed headers and `Content-Length`, and `request-listener` to reject conflicting HTTP/2 `Host`/`:authority` with a 400 — no app change required.
-
-### 6. Hoisted function declarations after a component's `return` — upstream #11913, fixed in build `27393da759`
-
-Before that build, `getSetupStatements()` sliced the component body at the first `return` (`statements.slice(0, returnIndex)`), so **every `function` declared after `return <renderFn>` was dropped from the transformed module** while its call sites in the render body survived unrewritten — `ReferenceError: <name> is not defined` the moment the handler ran. This bites from the *first page load* under `npm run hmr` (the browser loader transforms every served module, not only edited ones); `npm run dev`, `npm start`, `npm test` and the Bun entries never run the transform, because `app/assets.ts` installs `componentHmr()` only when `isDevelopment && REMIX_NODE_HMR`.
-
-Measured on this app pre-fix: **32 handlers in 9 modules** — `app/ui/appointtype-panel.browser.tsx` (8), `app/ui/appointment-grid.browser.tsx` (7), `admin-{appointments,offering-configs,offerings,resources,uploads,users}-context-menu.tsx` and `clients-context-menu.tsx` (2–3 each, all `clientEntry` menus that declare `handleXAction()` after the `return`). To check any build, run the transform the loader runs and look for a binding per render-referenced handler:
-
-```js
-let { code } = transformComponentsForBrowser(source, { importSource: 'remix', moduleUrl: '/app/…' })
-// per handler name: bound in the emitted module?
-new RegExp(`function\\s+${name}\\b`).test(code) || new RegExp(`__s__\\.${name}\\s*=`).test(code)
-```
-
-Post-fix the declaration is kept, `__s__.handleX = handleX;` is hoisted ahead of the render registration, and every render reference is rewritten to `__s__.handleX` (verified: 32/32 handlers bound, 0 dangling). #11913 also folds the post-`return` declaration bodies into `getSetupHash`, so editing such a helper now invalidates the component's setup state instead of silently reusing it. On a pre-fix build the options are to bump the pin or move the declarations above the `return` (declarations *before* the `return` were always instrumented correctly). Related `var` traps covered by the same fix + tests: a `var` initializer before the `return` must still run after the hoisted assignment, and an uninitialized `var x` must not reset `__s__.x` to `undefined`.
+The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR proxy, so it needs no equivalent. #11902 also changed `fetch-proxy` to strip hop-by-hop/`Connection`-listed headers and `Content-Length`, and `request-listener` to reject conflicting HTTP/2 `Host`/`:authority` with a 400 — no app change required.
 
 ## Smoke-Testing the HMR Loop
 
-- **Restart vs update markers** — a server-module content edit logs `restart <file>` (child re-emits ready); a `.browser.*` edit logs `hmr update <file>` (no restart, event goes to the browser channel). Assert on these to prove which path fired. Verdicts in the upstream CSS/SVG skills must be re-checked line-by-line against the installed `@remix-run/*` packages since pre-release churn is ongoing.
+- **Restart vs update markers** — a server-module content edit logs `restart <file>` (child re-emits ready); a `.browser.*` edit logs `hmr update <file>` (no restart, event goes to the browser channel). Assert on these to prove which path fired.
 - **Chokidar ignores mtime-only `touch` on Linux** (`IN_ATTRIB`, no `IN_MODIFY`) — a real content change is required to trigger a restart. If your smoke test "doesn't restart", that's why.
 - **Dev-only IP collapse** — `X-Client-Ip` is the socket address (`client?.address`); under the loopback proxy every dev client is `127.0.0.1`, so `connectionIp()`/`isLocalhost()`-gated logic (rate limiting, the `/callback` localhost guard) cannot distinguish client IPs in HMR mode. Dev-only, expected, no production leak: prod runs `npm run start`, not `hmr.ts`, and the proxy binds loopback only.
 - **grep/ss cleanup gotcha** — when killing hmr processes from an agent shell, `pkill -f '<pattern>'` can match and kill your own shell if the literal pattern text is in your command line; use the bracket trick (`pkill -f 'hm[r].ts'`) or kill by PID from `ss -ltnp | grep -oP 'pid=\K\d+'`.
@@ -173,5 +135,4 @@ Post-fix the declaration is kept, `__s__.handleX = handleX;` is hoisted ahead of
 
 - Adding or changing the HMR / asset-server / dev-server config in this app
 - Debugging `npm run hmr` symptoms: requests hang (ready-gate), proxy returns 500 (`ECONNREFUSED` path), `EADDRINUSE` on the app port (orphan/`HOST` leak), or "Failed running server.ts. Waiting for file changes before restarting..." stalls
-- A handler/button in a `npm run hmr` session throwing `ReferenceError: <name> is not defined` — hoisted declarations after the component `return` were dropped on pre-`27393da759` builds (section 6)
 - Writing dev-server smoke tests and wondering why a `touch`-only change doesn't restart the server

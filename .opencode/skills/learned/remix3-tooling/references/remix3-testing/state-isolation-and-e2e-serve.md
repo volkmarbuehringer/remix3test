@@ -23,11 +23,11 @@ Use the guide for the pattern; use these app-owned modules for the implementatio
 **Database state (the guide's SQLite `:memory:` recipe does not apply here)**
 
 - This app is Postgres. `remix.json` wires `test.setup` to `test/setup.ts`: `globalSetup` creates a fresh `newapp_test_<timestamp>_<pid>` database, rewrites `DATABASE_URL`, resets the schema, and runs `initializeAppDatabase()`; `globalTeardown` closes the pool and drops the database.
-- Tests reach the DB through the pool in `app/data/test-pool.ts`; per-suite `setupTestEnvironment()` / `teardownTestEnvironment()` helpers live in `app/actions/verwaltung/controller.test-utils.ts`. Rows a test creates still need its own cleanup — the ephemeral DB only bounds it per run, not per test (see `parallel-test-interference.md`).
+- Tests reach the DB through the pool in `test/pool.ts`; per-suite `setupTestEnvironment()` / `teardownTestEnvironment()` helpers live in `app/actions/verwaltung/controller.test-utils.ts`. Rows a test creates still need its own cleanup — the ephemeral DB only bounds it per run, not per test (see `parallel-test-interference.md`).
 
 **Cookie round-trip (the guide's `getResponseCookie`)**
 
-`app/test-utils.ts` already provides what the guide builds by hand:
+`test/utils.ts` already provides what the guide builds by hand:
 
 - `extractCookie(response)` — parses `Set-Cookie` with `SetCookie.from` (`remix/headers`) and returns `name=value`; not hard-coded to the `session=` prefix the guide's helper searches for.
 - `createCsrfSession(url)` — GET, then extract the session cookie and the `_csrf` token from the rendered form.
@@ -39,7 +39,7 @@ Send them the same way as the guide: `router.fetch(url, { headers: { Cookie: adm
 
 - The app form uses an arrow adapter, not the guide's direct reference: `let page = await t.serve(await createTestServer((request) => router.fetch(request)))`. Every existing `*.test.e2e.ts` (e.g. `app/actions/lists/lists-client-ops.test.e2e.ts`, `app/actions/agent-events/agent-events-frame-redirect.test.e2e.ts`) uses this.
 - `t.serve(...)` closes the server and page after the test; database or file fixtures created outside it still need their own cleanup.
-- Both configured projects (chromium + firefox) run every e2e file. Scope an assertion that Firefox cannot satisfy with `isFirefox(page)` from `app/test-utils.ts` rather than skipping the project, so the page-load smoke coverage survives.
+- Both configured projects (chromium + firefox) run every e2e file. Scope an assertion that Firefox cannot satisfy with `isFirefox(page)` from `test/utils.ts` rather than skipping the project, so the page-load smoke coverage survives.
 
 ## When to Use
 

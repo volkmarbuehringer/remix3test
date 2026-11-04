@@ -51,4 +51,4 @@ Server test: fetch a full document and assert `<html ... data-rmx-preserve-attrs
 
 ## Vendor Reference
 
-`node_modules/remix/src/component/README.md` (`data-rmx-preserve-attrs`) — since preview build a4d62e19 (#11895/#11809); documented on `remix` 3.0.0 (build `2c9e033`)
+`node_modules/remix/src/component/README.md` (`data-rmx-preserve-attrs`) — since #11895/#11809; still documented on the current `remix` 3.1.0 pin

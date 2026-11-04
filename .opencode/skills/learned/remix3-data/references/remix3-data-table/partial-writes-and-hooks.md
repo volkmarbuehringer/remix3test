@@ -5,7 +5,7 @@
 
 ## Problem
 
-`validate` does not receive the caller's payload. The driver runs `beforeWrite`, re-normalizes its returned `{ value }`, and only then calls `validate` with that normalized payload (`@remix-run/data-table` build `57ecca4cba`, `src/lib/database/write-lifecycle.ts:271-318`; vendor README: `Write order is beforeWrite -> validate ...` and `Write payloads are partial objects`). Hooks are synchronous and cannot read the stored row, so a partial payload is all `validate` sees.
+`validate` does not receive the caller's payload. The driver runs `beforeWrite`, re-normalizes its returned `{ value }`, and only then calls `validate` with that normalized payload (`@remix-run/data-table` at preview release `v0.20261103.224609-main-98229b78`, `src/lib/database/write-lifecycle.ts:278-318`; vendor README: `Write order is beforeWrite -> validate ...` and `Write payloads are partial objects`). Hooks are synchronous and cannot read the stored row, so a partial payload is all `validate` sees.
 
 Three failure modes:
 

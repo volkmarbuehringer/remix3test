@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-26
 
-**Context:** Adding or registering a route or controller in this app: picking resource-helper options, wiring a nested route map, or reading the built-in action context (`context.has`, `context.router`, `context.headers`).
+**Context:** Adding or registering a route or controller in this app: picking resource-helper options, wiring a nested route map, reading the built-in action context (`context.has`, `context.router`, `context.headers`), or inspecting an opaque `RoutePattern` without reaching into its internals.
 
 ## Problem
 
@@ -39,8 +39,24 @@ The guide introduces the route map, route builders, and controller ownership, bu
 ### Built-in action context: `has`, `router`, and the request-only `headers`
 
 - `context.has(key)` returns whether a value was stored for a context key; it checks the context map only, so a key with a `defaultValue` reads `false` from `has` while `get` returns the default. Use it to detect whether an earlier middleware actually ran. There is no current app caller (grep `context.has(` under `app/` is empty); the context-key work is in `references/context-keys-and-dependency-flow.md`.
-- `context.router` (guide §"Controllers and actions") is the router handling the request; the getter throws `No router found in request context.` when unset. It is the seam for re-entering the pipeline from middleware: `app/middleware/frame-redirect.ts:66` calls `context.router.fetch(new Request(destination, { ..., signal: context.request.signal }))` to follow an in-frame redirect. That internal fetch bypasses `createRequestListener` (no client address, no `onError`), so anything the server boundary injects (such as `X-Client-Ip`) must be forwarded explicitly — as that call does for the `Cookie` header.
+- `context.router` (guide §"Controllers and actions") is the router handling the request; the getter throws `No router found in request context.` when unset. It is the seam for re-entering the pipeline from middleware: `app/middleware/frame-redirect.ts:94-107` calls `context.router.fetch(followRequest)` (signal at `:97`) to follow an in-frame redirect. That internal fetch bypasses `createRequestListener` (no client address, no `onError`), so anything the server boundary injects (such as `X-Client-Ip`) must be forwarded explicitly — as that call does for the `Cookie` header.
 - `context.headers` is a mutable copy of the request headers (guide §"Controllers and actions"); guide §"Responses, redirects, headers, and errors" states that it is not the response headers and that controllers have no response-header API — return a `Response` and set its headers. App seam: `app/middleware/frame-redirect.ts` reads request headers from `context.request.headers`, builds request headers into a `Request`, and writes response headers with `frameResponse.headers.set(...)` on the returned `Response`. Do not look for a `context.response` or a context header setter.
+
+### `RoutePattern` is opaque — use the public API
+
+Do not read pattern internals (`route.pattern._parts`, `route.pattern.pathname.tokens`, `route.pattern.hostname.tokens`). Use the public surface documented in `node_modules/remix/src/route-pattern/README.md`:
+
+- `route.pattern.source` / `toString()` — normalized pattern string
+- `route.pattern.toJSON()` — serialized `protocol`/`hostname`/`port`/`pathname`/`search` parts
+- `getRoutePatternCaptures(route.pattern)` — `{ part, type, name, optional }[]` for variables/wildcards, in source order
+
+The app's `routeParentPath()` (`app/route-labels.ts`) derives a parent path without token walking:
+
+```ts
+function routeParentPath(route: { pattern: { source: string } }): string {
+  return route.pattern.source.replace(/\/[:*][^/]*$/, '/')
+}
+```
 
 ## When to Use
 
@@ -48,6 +64,7 @@ The guide introduces the route map, route builders, and controller ownership, bu
 - Registering a controller for a route map whose branches are handled by their own controllers, or triaging a `Missing action` / `nested route map key` / `Unknown action` throw at startup.
 - Adding a `patch`/`head`/`options` leaf or an any-method (bare-string) route whose handler must check `context.method`.
 - Reading `context.has`, `context.router`, or `context.headers` inside middleware/actions and expecting response-side behavior from `context.headers`.
+- A `RoutePattern` property stops typechecking, or you need a route's variables/wildcards (`getRoutePatternCaptures()` replaces token walking; `routeParentPath()` shows the string-based parent-path rewrite).
 
 ## Reference
 

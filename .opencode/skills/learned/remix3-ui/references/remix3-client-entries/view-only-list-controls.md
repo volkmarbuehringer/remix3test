@@ -2,7 +2,7 @@
 
 **Extracted:** 2026-10-18
 **Revalidated:** 2026-10-26 — hide-done keeps ↑/↓ via visible-step reorder (two locks now).
-**Context:** The /lists editor (`remix` 3.0.0 / `@remix-run/component` 1.0.0, build `7f900151`). The old A–Z/due/updated control mutated `items`, autosaved, and relied on a 6s undo; reverse/shuffle did the same. A view-only state removes the irreversible reorder entirely.
+**Context:** The /lists editor (remix 3.0.0 / `@remix-run/component` 1.0.0 era; re-checked on the current pin). The old A–Z/due/updated control mutated `items`, autosaved, and relied on a 6s undo; reverse/shuffle did the same. A view-only state removes the irreversible reorder entirely.
 
 ## Problem
 

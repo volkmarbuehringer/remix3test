@@ -1,7 +1,7 @@
 # Touch row action menus: kebab + inline menu
 
 **Extracted:** 2026-10-18
-**Context:** Dense `/lists` element rows in this app (`remix` 3.0.0 / `@remix-run/component` 1.0.0, build `7f900151`). The hover-reveal action cluster was made always visible on touch; that kept actions reachable but collapsed the label. The replacement is one 44px kebab plus an inline second-line menu.
+**Context:** Dense `/lists` element rows in this app (remix 3.0.0 / `@remix-run/component` 1.0.0 era; re-checked on the current pin). The hover-reveal action cluster was made always visible on touch; that kept actions reachable but collapsed the label. The replacement is one 44px kebab plus an inline second-line menu.
 
 ## Problem
 

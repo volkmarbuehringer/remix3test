@@ -10,7 +10,7 @@ Session-backed synchronizer token validation. For the basic setup (`csrf()` midd
 
 ### Token Sources: No Query-Param Fallback
 
-The pinned build (`a4d62e199`, upstream #11907) **removed** the `_csrf` query-param fallback. By default `csrf()` checks the `X-Csrf-Token` / `X-Xsrf-Token` / `Csrf-Token` header, then the parsed `_csrf` form field (which requires `formData()` middleware). A request whose token is only in the URL is rejected with 403.
+Upstream #11907 **removed** the `_csrf` query-param fallback (re-checked 2026-11-04 against the pinned `@remix-run/csrf-middleware`: token sources are headers then the parsed form field). By default `csrf()` checks the `X-Csrf-Token` / `X-Xsrf-Token` / `Csrf-Token` header, then the parsed `_csrf` form field (which requires `formData()` middleware). A request whose token is only in the URL is rejected with 403.
 
 This repo never relied on it — `grep -rn "_csrf=" app/` is empty; every submission here is a hidden `_csrf` input (`<CsrfTokenInput />`, `app/ui/restful-form.tsx`), an `X-Csrf-Token` header, or a path skipped in `app/middleware/skip-csrf.ts`. A client that can only put the token in a URL must opt in explicitly, and the resolver **replaces** the default header+form lookup rather than adding a fallback to it:
 

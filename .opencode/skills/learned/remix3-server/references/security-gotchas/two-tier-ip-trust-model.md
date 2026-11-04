@@ -3,7 +3,7 @@
 **Source:** `remix3-two-tier-ip-trust-model`
 
 **Extracted:** 2026-06-26
-**Revalidated:** 2026-10-14 against `remix` 3.0.0 (build 2c9e033, source e6a63ea; `@remix-run/node-fetch-server` 1.0.0, `src/lib/request-listener.ts:458-471`).
+**Revalidated:** 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (`@remix-run/node-fetch-server` `src/lib/request-listener.ts:458-471` — `createClientAddress` derives `client.address` from forwarded headers only when `trustProxy` is true).
 **Context:** Remix 3 apps where client IP is used for both security-critical checks (localhost guards, rate limiting) and audit logging.
 
 ## Problem
@@ -14,7 +14,7 @@ Using a single `sourceIp()` function with a fallback chain (`X-Forwarded-For` �
 
 Use **two tiers** of IP resolution. The working implementation is `app/utils/request-ip.ts`:
 
-- `connectionIp(request)` — Tier 1 (trusted): reads `X-Client-Ip`, the header stamped by `app/utils/server-handler.ts:79` from the TCP-socket address that `server.ts` passes in.
+- `connectionIp(request)` — Tier 1 (trusted): reads `X-Client-Ip`, the header stamped by `app/utils/server-handler.ts` (`createServerHandler`, around `:98`) from the TCP-socket address that `server.ts` passes in (`createRequestListener`'s `(request, client)` argument, `server.ts:33-42`).
 - `isLocalhost(ip)` — matches `127.0.0.1`, `::1`, `::ffff:127.0.0.1`.
 - `sourceIp(request)` — Tier 2 (untrusted): fallback chain `X-Client-Ip` → `Cf-Connecting-Ip` → `X-Forwarded-For` → `X-Real-Ip`, for audit logging only.
 
@@ -59,7 +59,7 @@ const handler = createRequestListener(handler, { trustProxy: true })
 
 ### Correct server.ts / server handler
 
-See `server.ts` + `app/utils/server-handler.ts:79` — `server.ts` receives the
+See `server.ts:33-42` + `app/utils/server-handler.ts:92-100` — `server.ts` receives the
 TCP-socket address as `client.address` and hands it to `createServerHandler`,
 which stamps `X-Client-Ip` from that value
 (`request.headers.set('X-Client-Ip', clientIp)`, always `set()` so a

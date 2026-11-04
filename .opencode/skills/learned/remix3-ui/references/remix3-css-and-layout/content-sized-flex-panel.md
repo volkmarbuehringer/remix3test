@@ -58,7 +58,7 @@ let labelStyle = css({ flex: 1, display: '-webkit-box', WebkitLineClamp: '3', We
 let labelStyle = css({ display: '-webkit-box', WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' })
 ```
 
-`WebkitLineClamp` must be a **string** (`'3'`, not `3`): `css()` appends `px` to numeric values outside its unitless allowlist, and the resulting `3px` is invalid CSS that browsers drop. See `unitless-numeric-css-properties.md`.
+`WebkitLineClamp` accepts a number on the current pin (`css()` treats vendor-prefixed properties as unitless since #12121, so `WebkitLineClamp: 3` emits `-webkit-line-clamp: 3`); a string `'3'` also works. Do not add a `px` workaround.
 
 **Detecting it:** `getBoundingClientRect().height` reads `1`, yet the element is technically *visible*, so Playwright `isVisible()` / `toHaveCount` won't catch the regression — assert the bounding-**box height** (e.g. `height > 10`) instead of visibility/count.
 

@@ -1,7 +1,7 @@
 # Bulk list actions and an API-backed target picker
 
 **Extracted:** 2026-10-18
-**Context:** The /lists editor (`remix` 3.0.0 / `@remix-run/component` 1.0.0, build `7f900151`). Bulk copy read candidate targets from the rendered sidebar (`[data-list-id]`), so a target on another sidebar page was unreachable; bulk move did not exist; the list merge still used `window.confirm`. This is the replacement: server-searched targets, atomic bulk move, single-row non-drag alternatives, and the shared styled confirm dialog.
+**Context:** The /lists editor (remix 3.0.0 / `@remix-run/component` 1.0.0 era; re-checked on the current pin). Bulk copy read candidate targets from the rendered sidebar (`[data-list-id]`), so a target on another sidebar page was unreachable; bulk move did not exist; the list merge still used `window.confirm`. This is the replacement: server-searched targets, atomic bulk move, single-row non-drag alternatives, and the shared styled confirm dialog.
 
 ## Problem
 

@@ -3,13 +3,14 @@
 **Source:** `remix3-firefox-single-import-map`
 
 **Extracted:** 2026-09-09
+**Revalidated:** 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (same runtime behavior; the CSP fix below now relies on the entry/preload nonces added by #12098).
 **Context:** After the remix rc.2 / import-map upgrade (#11706), the /lists page broke in Firefox only: adding items did nothing, the row-action hover overlay stayed hidden, drag to the sidebar failed, and a hydrated textarea (Beschreibung) rendered empty. Chromium was fine.
 
 ## Problem
 
 Firefox allows **one** `<script type="importmap">` per document; any additional import maps are ignored (console warning: "Multiple import maps are not allowed."). Chromium merges multiple import maps.
 
-The component runtime (observed on the pre-split `@remix-run/ui@0.10.0`, remix 3.0.0-rc.3) renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (import-map-manager's `appendImportMapScript`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
+The component runtime renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (import-map-manager's `appendImportMapScript`: `@remix-run/component/src/runtime/import-map-manager.ts:114` calls it, defined at `:238`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
 
 In Firefox the second map is ignored, so the affected client entries cannot resolve their bare-specifier imports. Symptoms:
 
@@ -48,15 +49,9 @@ Browsers with native multiple-map support (Chromium) keep native `import()`; Fir
 
 ### CSP requirements
 
-`importShim` evaluates modules from `blob:` URLs. Since remix #12059 (build `57ecca4cba`) the polyfill imports `es-module-lexer/minimal/js`, a pure asm.js build with no `eval`/Wasm, so the app's `script-src` needs only:
+The polyfill's module graphs are evaluated from `blob:` URLs, but they inherit the request nonce from the native module graph that loaded the polyfill (vendor `multiple-import-maps-polyfill` README). The app therefore needs **no `blob:`** in `script-src`: keep the entry script and every `<link rel="modulepreload">` nonced. `app/ui/document.tsx` does this; `render()` inherits the nonce for generated import maps, module preloads, and CSS mixin styles. The polyfill imports `es-module-lexer/minimal/js`, a pure asm.js build, so `'unsafe-eval'`/`'wasm-unsafe-eval'` are not needed either.
 
-```ts
-`script-src 'self' 'nonce-${nonce}' blob:`,
-```
-
-- `blob:` — polyfilled module graphs are evaluated from blob URLs
-- `'unsafe-eval'` / `'wasm-unsafe-eval'` were required before #12059 (the default `es-module-lexer` path used Wasm and an eval fallback); do not re-add them without checking that the installed polyfill still imports `es-module-lexer/minimal/js`
-- Guards: `app/middleware/security-headers.test.ts` asserts both tokens are absent, and `app/middleware/security-headers.test.e2e.ts` fails on any `securitypolicyviolation` while `/admin/messages` hydrates in Chromium and Firefox (Firefox exercises the polyfill)
+Guards: `app/middleware/security-headers.test.ts` asserts `script-src` has no `blob:`/`'unsafe-eval'`/`'wasm-unsafe-eval'`, and that every authored modulepreload plus the generated import map carries the header nonce; `app/middleware/security-headers.test.e2e.ts` fails on any enforced `securitypolicyviolation` while the admin matrix hydrates in Chromium and Firefox (Firefox exercises the polyfill).
 
 ## How to verify
 

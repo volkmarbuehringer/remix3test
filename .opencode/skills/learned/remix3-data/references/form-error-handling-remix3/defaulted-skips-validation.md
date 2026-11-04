@@ -4,10 +4,10 @@
 
 ## Vendor fact (version-pinned)
 
-`@remix-run/data-schema` build `7f900151117c4_ac90b94f348a9875243225812076b8a0` (the current install):
+`@remix-run/data-schema` at preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (the current install):
 
 - `src/lib/schema.ts:515` — `export function defaulted<input, output>(...)`
-- `src/lib/schema.ts:519-525` — when the input is `undefined`, `defaulted` resolves the
+- `src/lib/schema.ts:519-528` — when the input is `undefined`, `defaulted` resolves the
   default and returns `{ value: resolved }` **immediately, without invoking the wrapped
   schema's `~run`**. Validations (`.refine`, `.check`, `.transform` chains, etc.) built
   into the wrapped schema never execute for the default path.
@@ -66,5 +66,5 @@ reproduction of the vendor behavior:
 let chain = s.string().refine((v) => v.length > 0, 'required')
 s.parseSafe(chain, '')                 // fails: required
 s.parseSafe(s.defaulted(chain, ''), undefined) // succeeds: ''
-// Ran directly on the 2026-10-17 install — see skill delta for line refs.
+// Ran directly against the current install — see the line refs above.
 ```

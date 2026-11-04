@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`
 
 **Extracted:** 2026-06-23 … 2026-09-24
-**Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md`, `cliententry-browser-test-stubs.md`, and `document-scoped-cliententry-browser-tests.md`.
+**Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
 

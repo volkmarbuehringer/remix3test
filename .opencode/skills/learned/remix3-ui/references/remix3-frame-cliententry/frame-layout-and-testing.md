@@ -108,14 +108,14 @@ Use when embedding a nested `<Frame>` (panel) inside a page that already renders
 />
 ```
 
-Then drive that frame directly from the entry — `frame.reload({ src: href })` on click (since build `044d8372`; equivalent to the pre-#11938 `frame.src = href; frame.reload()`) — rather than through `data-rmx-target` on the row links, and keep the `href` on the link for the no-JS fallback.
+Then drive that frame directly from the entry — `frame.reload({ src: href })` on click — rather than through `data-rmx-target` on the row links, and keep the `href` on the link for the no-JS fallback.
 
 **Two follow-on traps this exposes:**
 
 1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
 2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
 
-**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-09-24 against installable build `3e516fcc2` (source `9ed3a5c`).
+**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f`.
 
 Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
 
@@ -163,7 +163,7 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 
 ### Why the input keeps its value
 
-`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (verified on build `3e516fcc2`): `diffVNodes` reuses a host node whenever `kind` and `type` match and **ignores `key`**, and `patchHostProps` only sets the `defaultValue` *property* when the prop changes. **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
+`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (re-checked 2026-11-04 on the current pin: `diffVNodes` at `reconcile.ts:798` reuses a host node whenever `kind` and `type` match and **ignores `key`**; `patchHostProps` at `core/props.ts:56` skips unchanged props and only sets the `defaultValue` *property* when it changes). **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
 
 **Simplest reliable fix — full-page navigation for clear/reset.** Instead of a client-side restore, make "clear"/"reset" a plain `<a href>` with **no `data-rmx-target`** (as `/admin/clients` already does). The browser does a full document load, so every input mounts fresh with the server's new `defaultValue`:
 
@@ -179,7 +179,7 @@ The `restoreFilterValue` client-side approach still applies when a value must *p
 
 **Related gotcha — filtering must reset pagination.** A GET filter form should **not** carry a hidden `offset` input set to the current page (`value={String(offset)}`) — that keeps the user on page N when they filter. Omit it (or hard-code `value="0"`) so filtering returns to page 1, while keeping hidden `sort`/`order` if you want the active sort preserved.
 
-**Validated:** 2026-08-31 empirically; vendor mechanism revalidated 2026-09-24 against `remix` 3.0.0-rc.3 (installable build `3e516fcc2`, source `9ed3a5c`) — `@remix-run/component` `src/runtime/diff-dom.ts`, `src/runtime/reconcile.ts`, and `src/runtime/core/props.ts` in `/home/lucky/remix3test`.
+**Validated:** 2026-08-31 empirically; mechanism re-checked on the current pin against `@remix-run/component` `src/runtime/diff-dom.ts`, `src/runtime/reconcile.ts`, and `src/runtime/core/props.ts`.
 
 Use when server-rendered form inputs with `defaultValue` inside a Frame don't show the expected value after navigation, filter/search inputs are empty after a Frame reload even though the URL has the correct query parameter, or the frame content updates but `<input>` elements keep their old values.
 
@@ -196,7 +196,7 @@ Fetch the frame-rendered fragment with an authenticated admin session and assert
 
 ```ts
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 
 let { cookie } = await createAuthCookieWithCsrfForUser('admin@newapp.com')
 let res = await router.fetch(`${BASE}${routes.admin.agentEvents.index.href()}`, {
@@ -223,13 +223,13 @@ Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed w
 
 **Context:** Writing an e2e test for a frame-targeted control on a page whose body is a *blocking* frame. Server tests can assert the `data-rmx-target` attributes and the fragment/shell split, but they cannot prove the click is intercepted — that needs a browser. The test must not click before the named frame is registered, or the click falls back to a full document navigation and the test flakes.
 
-**Verified fact (2026-10-04):** in the pinned `@remix-run/component` **1.0.0** (with `remix` 3.0.0, `remix/component` re-exports `@remix-run/component`), `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
+**Verified fact (re-checked 2026-11-04, `@remix-run/component` 1.1.0):** `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
 
 ```ts
-// @remix-run/component/src/runtime/frame.ts (installed 1.0.0), hydrateContainer
-let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1279
+// @remix-run/component/src/runtime/frame.ts (installed 1.1.0), hydrateContainer
+let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1438
 for (let { marker, entry, complete } of hydrations) {
-  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1281
+  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1439
 }
 ```
 
@@ -253,10 +253,4 @@ Then prove it was a same-document frame swap, not a reload: count `page.on('load
 
 **Caveat:** this signal only covers frames present in the **server-rendered** HTML. A nested pane that is mounted conditionally or arrives in a later fragment hydrate is not guaranteed by this ordering — wait for its own content instead. This is vendor code; re-check `hydrateContainer` in the installed `frame.ts` before relying on the line numbers.
 
-**Validated:** 2026-10-04 in `/home/lucky/remix3test` against `remix` 3.0.0 / `@remix-run/component` 1.0.0 (installed `frame.ts` `hydrateContainer`); `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
-
-**Re-validated (2026-10-14):** against the now-installed build `2c9e033` (installable dist of source `e6a63ea`; `remix` `3.0.0`, `@remix-run/component` `1.0.0`). The ordering claim holds at the current lines: `hydrateContainer` is defined at `@remix-run/component` `src/runtime/frame.ts:1245`, calls `createSubFrames(container.childNodes, context, options)` at `:1279`, and only then schedules each hydration marker via `scheduleHydrationMarker(...)` at `:1281`.
-
-**Re-validated (2026-10-22):** against build `060b32a`/source `56f1fb6`. The prefetch/fragment changes shift the anchors by +8: `hydrateContainer` at `src/runtime/frame.ts:1253`, the `createSubFrames(container.childNodes, context, options)` call at `:1287`, and `scheduleHydrationMarker(...)` at `:1289`. The ordering claim is unchanged.
-
-**Re-validated (2026-11-04):** against preview release `v0.20261103.224609-main-98229b78`/source `98229b788f`. The nonce/frame changes shift the anchors again: `hydrateContainer` is at `src/runtime/frame.ts:1404`, the `createSubFrames(container.childNodes, context, options)` call at `:1438`, and `scheduleHydrationMarker(...)` at `:1440`. The ordering claim is unchanged.
+**Validated:** 2026-10-04 and re-checked 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f`: `hydrateContainer` is at `src/runtime/frame.ts:1404`, the `createSubFrames(container.childNodes, context, options)` call at `:1438`, and `scheduleHydrationMarker(...)` at `:1439-1440`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

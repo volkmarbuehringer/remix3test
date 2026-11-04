@@ -30,6 +30,22 @@ Keep the header (and search, if desired) outside `nav` so it stays fixed while t
 ## Scrollbar styling
 Use standard properties — `scrollbarWidth: 'thin'`, `scrollbarColor: '<thumb> <track>'` (with theme tokens) — because the remix-ui `css()` runtime emits nested `&::-webkit-scrollbar` rules that **Firefox ignores**, leaving the list without a scrollbar. Note: scoping with `@supports not selector(::-webkit-scrollbar)` does **not** work, since Firefox reports `CSS.supports('selector(::-webkit-scrollbar)')` as `true`.
 
+## `flex: 1` is basis `0%` since remix #12121
+
+`css({ flex: 1 })` emits the real `flex: 1 1 0%` shorthand (`flexGrow: 1; flexShrink: 1; flexBasis: 0%`); before #12121 it emitted `flex: 1px` (basis `1px`), which masked the collapse. In an ancestor whose height is auto (`min-height: 100vh`, not `height`), a percentage basis resolves to **content**, so a `shell > main > page` fill chain grows with its content instead of staying viewport-bounded — the page scroller reports `scrollHeight - clientHeight === 0`, inner grids stop scrolling, and mobile "the page should scroll" e2e guards fail.
+
+Use a **definite** zero basis for viewport-fill chains:
+
+```ts
+flex: '1 1 0' // basis 0 (length), not flex: 1 (basis 0%)
+```
+
+Keep `flex: '1 1 auto'` for content-sized columns (`dataGridFill`, content-sized panels) where the basis must follow content. The admin shell (`app/ui/layout.tsx` `shellCss`/`mainStyle`/`pageStyle`) uses `1 1 0` for this reason; see `content-sized-flex-panel.md` and `full-height-sidebar-shell.md`.
+
+The same basis-0 reading collapses a leaf text `<span>` when it moves from a row child (where `flex: 1` means width) into a column wrapper (where it means height): drop `flex: 1` or use `flex: '1 1 auto'`. Detect it by asserting `getBoundingClientRect().height > 10`, not Playwright `isVisible()` / count.
+
+Vendor `css()` numeric conventions are documented in `node_modules/remix/src/component/README.md` ("Styling"): numbers become `px` except for zero, unitless properties, and custom properties; vendor-prefixed and shorthand properties follow their grammar (so `WebkitLineClamp: 3` and `animation: 2` are unitless). Use strings for times/angles (`'200ms'`, `'45deg'`).
+
 ## When to Use
 - A viewport-bounded full-height Remix 3 page's inner list/sidebar won't scroll despite `overflow-y: auto`.
 - A `flex: 1` child is clipped by an `overflow: hidden` wrapper that is `display: block`.

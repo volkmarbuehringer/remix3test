@@ -3,7 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
-**Re-validated:** 2026-10-31 (build `57ecca4cba`; `Document` head slot, explicit light theme, `panelEntrance`)
+**Revalidated:** 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (`Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
 
 **Context:** Editing the shared document shell, adding head tags/preloads/styles, wiring the browser entry script or import map, or returning a rendered page with a status/headers.
 
@@ -17,10 +17,10 @@ Use the guide for the head/shell rules; wire them to these app seams.
 
 - **Shell component:** `app/ui/document.tsx` exports `Document` (the shared shell; AGENTS.md notes `app/ui/` owns it). Page modules render their content inside it rather than each building `<html>`/`<head>`.
 - **Entry data:** `getAssetEntry()` from `app/middleware/asset-entry.ts` returns `{ href, importMap, preloads }`. The `loadAssetEntry` middleware computes it once per request with `assetServer.getScriptEntry(defaultScriptEntry)` (`app/assets.ts`'s `assetServer`), then stores it on a context key. There is no `scriptEntry` export on `app/assets.ts` as the guide shows.
-- **Head wiring:** render `<ImportMap value={entry.importMap} nonce={getCspNonce()} />` and a `modulepreload` link per `entry.preloads` href. For the body script, use `entry.href` with the fallback `routes.assets.href({ path: 'app/assets/entry.tsx' })` (see `app/ui/document.tsx`).
+- **Head wiring:** render `<ImportMap value={entry.importMap} />` and a nonced `modulepreload` link per `entry.preloads` href. `render()` inherits the request nonce for the generated import map — do not pass it manually. For the body script, use `entry.href` **with** `nonce={getCspNonce()}` and the fallback `routes.assets.href({ path: 'app/assets/entry.tsx' })` (see `app/ui/document.tsx`).
 - **Frames skip the entry:** `loadAssetEntry` only loads when `context.request.headers.get('X-Remix-Frame') !== 'true'`. Do not assume `getAssetEntry()` is populated in a fragment/frame render — keep global head, import-map, and preload work on document responses.
 - **Entry failures:** an HTML document whose entry cannot be loaded fails loudly (the middleware throws, so the server answers 500) instead of shipping without an import map; non-document responses are reported through the request logger and still served.
-- **CSP nonce:** inline `<script>` and `<ImportMap>` carry `getCspNonce()` (`app/middleware/security-headers.ts`). See `security-gotchas` (CSP inline scripts) before adding another inline script.
+- **CSP nonce:** authored inline `<script>`/`<style>` and modulepreloads carry `getCspNonce()` (`app/middleware/security-headers.ts`); the generated import map gets the nonce from `render()`. See `security-gotchas/security-checks.md` before adding another inline script or style.
 - **Per-page head:** `Document` accepts `head?: RemixNode` and renders it inside `<head>`. Pass page-specific `<style>`/`<link>`/`<meta>` there (home: `head={<HomeStyles />}`); do not put `<style>` in page body.
 - **Explicit theme:** the shell emits `data-theme="dark"|"light"` for a cookie choice and the standalone bootstrap in `app/ui/theme-bootstrap.ts` does the same for localStorage, then maps it to `color-scheme` (`html[data-theme="dark"] { color-scheme: dark }`). Auto mode leaves the attribute off and uses the `light dark` meta. This keeps vendor `light-dark(...)` palettes (menus/buttons) aligned with `data-theme`. The bootstrap is a string so `app/ui/theme-bootstrap.test.browser.tsx` executes exactly what `Document` renders.
 - **Server panel entrance:** `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes. `animateEntrance` from `@remix-run/ui/animation` is `ssr: false` and only runs inside a `clientEntry`; do not apply it to plain server page components.

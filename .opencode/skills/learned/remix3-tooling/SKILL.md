@@ -1,6 +1,6 @@
 ---
 name: remix3-tooling
-description: "Use when configuring how a Remix 3 app is served, built, or tested — asset-server config in remix.json (loadConfig + config.assets, mounts/denyFiles, colocated public/ and the allowFiles graph), the remix CLI / node-tsx loader, the node-hmr dev server, self-hosting webfonts, analyzing preview-tarball-pinned upstream dependency changes, running or testing under Bun (TypeError: Type error from handle.frame listeners, Dateityp-nicht-erlaubt upload MIME, @types/bun breaking typecheck, pnpm bin shims, SSR signal EventTarget), and the test suite (clientEntry DOM side effects, parallel-test interference despite ephemeral DBs, waitFor on statically present elements, mocking external services on dynamic ports, html-validate assertions, this app's state-isolation + t.serve e2e wiring, and Playwright/networkidle hangs), and re-auditing the app against an installed guide chapter (diff the chapter across pinned builds, probe stream order, re-pin learned-delta anchors, update the coverage registry)."
+description: "Use when configuring how a Remix 3 app is served, built, or tested — asset-server config in remix.json (loadConfig + config.assets, mounts/denyFiles, colocated public/ and the allowFiles graph), the remix CLI / node-tsx loader, the node-hmr dev server, self-hosting webfonts, analyzing preview-release-pinned upstream dependency changes, running or testing under Bun (TypeError: Type error from handle.frame listeners, Dateityp-nicht-erlaubt upload MIME, @types/bun breaking typecheck, pnpm bin shims, SSR signal EventTarget), and the test suite (clientEntry DOM side effects, parallel-test interference despite ephemeral DBs, waitFor on statically present elements, mocking external services on dynamic ports, html-validate assertions, this app's state-isolation + t.serve e2e wiring, and Playwright/networkidle hangs), and re-auditing the app against an installed guide chapter (diff the chapter across pinned builds, probe stream order, re-pin learned-delta anchors, update the coverage registry)."
 user-invocable: false
 origin: consolidated
 ---
@@ -32,7 +32,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Making `remix.json` the asset-server source of truth (`loadConfig` + spread `config.assets`), `mounts` vs the removed `fileMap`, `denyFiles` precedence, or debugging with `remix assets` / `remix assets inspect` and `AssetStatus` | `references/remix3-build-and-tooling/assets-config-inspection.md` |
 | Relocating `.browser.*` source into `<route>/public/`; `git mv` breaking sibling `./`/`../` imports (`TS2307`, silently un-bundled graph); a `ui/` module importing a non-public `app/actions/**` module that resolves `not-allowed`; tuning `allowFiles` | `references/remix3-build-and-tooling/browser-source-public-colocation.md` |
 | Running `remix new` / `test` / `doctor` / `routes` / `version` / `completion`, programmatic `runRemix`, wiring `node --import remix/node-tsx` or `loadModule`, the `node-tsx` tsconfig, `remix test` filters, `NODE_ENV=test`, or mocking frozen ES-module exports | `references/remix3-build-and-tooling/cli-devops.md` |
-| Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
+| Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, or `trustProxy` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
 | A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently preview release `v0.20261103.224609-main-98229b78`: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
 | Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `docs/guide-chapter-audit.md` |
@@ -57,11 +57,11 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 **HMR dev server (`references/remix3-build-and-tooling/hmr-dev-server.md`)**
 
-- `npm run hmr` runs `hmr.ts`, which spawns `server.ts` behind a readiness-gated loopback proxy. Gate `fingerprint`/`minify` to non-dev, use the object `hmr` form (`channel` + `moduleImporter: 'remix/multiple-import-maps-polyfill'`) with `componentHmr()` in `scripts.loaders`, pin the child `HOST: '127.0.0.1'`, wrap `runner.ready()` in a timeout so a boot crash returns 503 instead of hanging, and exit the child on IPC `disconnect`. Set `trustProxy: isHmr` so the proxy's forwarded headers restore the browser origin (upstream #11897). Pre-`27393da759` builds dropped function declarations after a component `return` (`ReferenceError` in the browser); bump the pin or move them above the `return`.
+- `npm run hmr` runs `hmr.ts`, which spawns `server.ts` behind a readiness-gated loopback proxy. Gate `fingerprint`/`minify` to non-dev, use the object `hmr` form (`channel` + `moduleImporter: 'remix/multiple-import-maps-polyfill'`) with `componentHmr()` in `scripts.loaders`, pin the child `HOST: '127.0.0.1'`, wrap `runner.ready()` in a timeout so a boot crash returns 503 instead of hanging, and exit the child on IPC `disconnect`. Set `trustProxy: isHmr` so the proxy's forwarded headers restore the browser origin (upstream #11897).
 
 **Self-hosted webfonts (`references/remix3-build-and-tooling/self-hosted-fonts.md`)**
 
-- Dedupe Google's variable families to one woff2 per family (every weight resolves to the same URL) and declare `font-weight: 100 900`; serve `public/` with `staticFiles('./public', …)` after `securityHeaders()` and before `session`/`loadDatabase`; link `/fonts/fonts.css` from `Document`'s `<head>`; set CSP `style-src 'self' 'unsafe-inline'` and `font-src 'self'`. Commit the fetch script and guard with a test that home HTML contains no `fonts.googleapis.com`/`fonts.gstatic.com`.
+- Dedupe Google's variable families to one woff2 per family (every weight resolves to the same URL) and declare `font-weight: 100 900`; serve `public/` with `staticFiles('./public', …)` after `securityHeaders()`/`csp()` and before `session`/`loadDatabase`; link `/fonts/fonts.css` from `Document`'s `<head>`; keep the app's nonce-gated `style-src` (`'self'` + request nonce) and `font-src 'self'` — no font-CDN sources. Commit the fetch script and guard with a test that home HTML contains no `fonts.googleapis.com`/`fonts.gstatic.com`.
 
 **Upstream dependency analysis (`references/remix3-build-and-tooling/upstream-dependency-analysis.md`)**
 
@@ -76,7 +76,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 - You are wiring or diagnosing the asset server: moving static mapping/access config into `remix.json → assets`, adopting `loadConfig` + `config.assets`, migrating `fileMap` to `mounts`, reasoning about `denyFiles` precedence, or asking what is actually reachable with `remix assets` / `remix assets inspect`.
 - You are relocating or adding browser (`.browser.*`) source and need to know where it belongs (`<route>/public/` vs shared `app/ui/`), how `git mv` changes relative-import depth, or whether an import is servable under `allowFiles`.
 - You are running the `remix` CLI (scaffold, tests, doctor, routes), setting up `node-tsx` to execute TypeScript/JSX directly, filtering `remix test` by type, `NODE_ENV` handling in `remix test`, or working around frozen ES-module exports in tests.
-- You are wiring or debugging `npm run hmr` (asset-server/HMR config, proxy hangs, `EADDRINUSE`, the pre-#11913 hoisted-declaration `ReferenceError`).
+- You are wiring or debugging `npm run hmr` (asset-server/HMR config, proxy hangs, `EADDRINUSE`, orphaned children).
 - You are self-hosting a webfont, auditing for a third-party font CDN, or serving `public/` through the static middleware.
 - A preview-pinned dependency may have moved and you need to judge whether updating breaks the app.
 - You are auditing the app against an installed guide chapter, or a pin bump changed `node_modules/remix/guides`.
@@ -98,7 +98,7 @@ _(formerly `remix3-bun-runtime` — references live under `references/remix3-bun
 
 **Consolidated from:** the seven former `remix3-bun-runtime` notes (entrypoint, MIME, pnpm shim, runner, SSR signal, TypeScript scoping, validation)
 
-**Extracted:** 2026-09-19; last vendor re-check 2026-10-14 (build `2c9e033`/source `e6a63ea`, Bun 1.4.3)
+**Extracted:** 2026-09-19; last vendor re-check 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (Bun 1.4.4)
 **Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (currently `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0; Bun 1.4.3). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
 
 This skill is the **index** for running this Remix 3 + pnpm app under Bun. For the runtime APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
@@ -151,9 +151,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 | Task involves... | Start with |
 | --- | --- |
-| A `*.test.browser.tsx` must assert a `clientEntry` side effect driven by `getBoundingClientRect`, `matchMedia`, or `scrollTo` that `render`/`act` alone cannot drive | `references/remix3-testing/cliententry-browser-test-stubs.md` |
-| A `*.test.browser.tsx` for a **full-page** `clientEntry` that queries `document`/`window` and registers delegated listeners, or that writes the URL hash; browser tests pass alone but fail together | `references/remix3-testing/document-scoped-cliententry-browser-tests.md` |
-| A `*.test.browser.tsx` must drive a `clientEntry`'s `reloadStart`/`reloadComplete` behavior (loading/pending state, pre-swap flush), and the mounted runtime frame cannot be dispatched on | `references/remix3-testing/frame-event-cliententry-tests.md` |
+| A `*.test.browser.tsx` needs geometry/media stubs for a `clientEntry` side effect, targets a full-page `document`/`window` entry that passes alone but fails with others, or must drive `reloadStart`/`reloadComplete` through a synthetic frame handle | `references/remix3-testing/cliententry-browser-tests.md` |
 | Parallel tests interfere despite ephemeral per-run DBs; a test passes in isolation but fails in the full suite; a shared-DB test fails even alone (`LIMIT 1` without `ORDER BY`, seed rows relative to today); another suite's unscoped `afterEach` `DELETE` removed your live fixture; a background retention/cleanup timer swept the old row your test just inserted | `references/remix3-testing/parallel-test-interference.md` |
 | A Playwright/browser-test harness failure: `networkidle` on SSE, unforgeable `window.location`, native `<select>` change, existence-only `waitFor`, external HTTP mock port, consecutive `mockImplementationOnce` indexes, reproduction engine | `references/remix3-testing/test-harness-gotchas.md` |
 | Rendered-HTML `&amp;` assertion failures, a crash card hiding the stack, or ad-hoc verification against a destructive dev-server control | `references/remix3-testing/testing-hygiene.md` |
@@ -164,24 +162,12 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 ### Core Rules
 
-**clientEntry browser-test stubs (`references/remix3-testing/cliententry-browser-test-stubs.md`)**
+**clientEntry browser tests (`references/remix3-testing/cliententry-browser-tests.md`)**
 
-- `render(...)` + `result.act(...)` flushes `handle.queueTask` and is enough for event-driven entries, but **not** when the side effect depends on geometry or media state (`getBoundingClientRect().top < 0`, `window.matchMedia(...)`, `scrollTo`/`scrollIntoView` in a container with no real layout).
-- Build a controlled DOM fixture the entry queries, then stub the platform APIs with `Object.defineProperty(el, 'scrollTo'|'scrollHeight'|'clientHeight', { configurable: true })` (preferred over assignment: the properties are inherited/read-only and `scrollTo` is overloaded, so a plain assignment needs an `as unknown as` cast); stub `matchMedia` per test and restore it in `afterEach`.
-- Pair every "not called" case with a positive case that proves the entry ran — a stub that is never called makes an "assert zero calls" test pass vacuously. Module-scoped delegated listeners outlive a test, so scope queries to `result.container` and remove fixtures in `afterEach` even when an assertion throws.
-- Run explicitly with `NODE_ENV=test npx remix test app/ui/<name>.test.browser.tsx` to execute every configured project (here `chromium` + `firefox`); for the production counterpart (once per frame navigation, keyed on a server-rendered `data-*` attribute + `handle.queueTask`) see `remix3-ui § Frames`.
-
-**Document-scoped `clientEntry` browser tests (`references/remix3-testing/document-scoped-cliententry-browser-tests.md`)**
-
-- The guide's example mounts a self-contained component, but most full-page entries here render only a hidden marker and work through `document`/`window` in a `ref` callback. Append the fixture to `document.body` (not `result.container`) and assert against the fixture; `result.container` holds none of the UI.
-- Remove the fixture in `afterEach` even when an assertion throws — module-scoped delegated listeners (`let listenersRegistered = false`) persist across tests and `cleanup()` does not remove them. If the entry writes `location.hash`/`history.replaceState` (ARIA tabs, deep links), reset the hash in `beforeEach` or one test deep-links the next.
-- `render()` supplies a root frame, so entries that only listen for `handle.frame` events mount without setup; stub `frameInit.resolveFrame` only when the test triggers `handle.frame.reload()`. Mirror the server-rendered markup exactly (`Glyph` emits only `xlink:href` — see `remix3-ui § Theme Tokens → references/remix3-theme-conformance/glyph-add.md`).
-
-**Frame-event `clientEntry` tests (`references/remix3-testing/frame-event-cliententry-tests.md`)**
-
-- `RenderResult` exposes `container`/`root`/`$`/`$$`/`act`/`cleanup` — **not** the entry's `frame`, so `render(<Entry/>)` gives you no way to dispatch `reloadStart`/`reloadComplete`. Call the entry factory directly with a synthetic `Handle` whose `frame` is a plain `EventTarget` and whose `update` re-renders into the test root (the `pending-submit.test.browser.tsx` pattern).
-- The synthetic handle needs `frame`, `props`, a real `signal` (native `addEventListener`; Bun rejects the SSR stub), and `update`; abort the signal + `cleanup()` in `afterEach` so the factory's document/window listeners do not leak. Add `queueTask` (drain it) when the exercised path opens a picker/dialog, and hold a manually resolved `fetch` promise to test a response resolving after a frame switch.
-- This bypasses hydration — assert the entry's own render output, and keep an e2e for the real navigation wiring.
+- `render(...)` + `result.act(...)` flushes `handle.queueTask` and is enough for event-driven entries, but **not** when the side effect depends on geometry or media state (`getBoundingClientRect().top < 0`, `window.matchMedia(...)`, `scrollTo`/`scrollIntoView` in a container with no real layout). Build a controlled fixture and stub with `Object.defineProperty(el, 'scrollTo'|'scrollHeight'|'clientHeight', { configurable: true })` (not plain assignment), and stub `matchMedia` per test; pair every "not called" case with a positive case.
+- Full-page entries here render only a hidden marker and work through `document`/`window` in a `ref` callback: append the fixture to `document.body` (not `result.container`), assert against the fixture, and remove it in `afterEach` even when an assertion throws (module-scoped delegated listeners persist and `cleanup()` does not remove them). Reset `location.hash`/`history.replaceState` in `beforeEach`; mirror the server markup exactly (`Glyph` emits only `xlink:href`).
+- `RenderResult` does **not** expose the entry's `frame`, so `reloadStart`/`reloadComplete` tests call the factory directly with a synthetic `Handle` (`frame: new EventTarget()`, real `signal`, `update` re-rendering into the test root, and `queueTask` when a picker/dialog opens). Abort the signal + `cleanup()` in `afterEach`; hold a deferred `fetch` promise for frame-switch races; keep an e2e for the real navigation because this bypasses hydration.
+- Run explicitly with `NODE_ENV=test npx remix test app/ui/<name>.test.browser.tsx` to execute every configured project (here `chromium` + `firefox`).
 
 **Parallel test interference (`references/remix3-testing/parallel-test-interference.md`)**
 
@@ -212,7 +198,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 **State isolation and `t.serve` e2e (`references/remix3-testing/state-isolation-and-e2e-serve.md`)**
 
-- The guide's generic seams are app-specific here: the factory is `createNewappRouter(options)` in `app/router.ts` (not `createAppRouter`), shared tests import `router` from `app/test-router.ts`, DB state is an ephemeral Postgres database created by `test/setup.ts` via `remix.json` `test.setup` (not SQLite `:memory:`), and session/cookie helpers already exist in `app/test-utils.ts` (`extractCookie`, `createCsrfSession`, `createAuthCookieWithCsrf*`) instead of a hand-rolled `getResponseCookie`.
+- The guide's generic seams are app-specific here: the factory is `createNewappRouter(options)` in `app/router.ts` (not `createAppRouter`), shared tests import `router` from `app/test-router.ts`, DB state is an ephemeral Postgres database created by `test/setup.ts` via `remix.json` `test.setup` (not SQLite `:memory:`), and session/cookie helpers already exist in `test/utils.ts` (`extractCookie`, `createCsrfSession`, `createAuthCookieWithCsrf*`) instead of a hand-rolled `getResponseCookie`.
 - E2E uses `t.serve(await createTestServer((request) => router.fetch(request)))` (arrow adapter, not `createTestServer(router.fetch)`); `t.serve` closes the server/page, but DB/file fixtures created outside it need their own cleanup, and Firefox-broken assertions are scoped with `isFirefox(page)` rather than skipped.
 - The ephemeral DB is per-run, not per-test: parallel workers accumulate rows, so a test that paginates still owns its cleanup (see `parallel-test-interference.md`).
 

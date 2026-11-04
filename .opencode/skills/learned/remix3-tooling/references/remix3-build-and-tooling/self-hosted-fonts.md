@@ -54,7 +54,8 @@ Google-Fonts CDN embedding has been ruled unlawful in Germany.
 
    return createMiddleware(
      skipAssetsLogger(),
-     securityHeaders(),                       // first: static responses still get CSP
+     securityHeaders(),                       // first: static responses still get hardening headers
+     csp({ policy: contentSecurityPolicy, … }), // vendor nonce/policy owner
      compression(),                           // wrap static responses, not the other way round
      staticFiles('./public', {
        index: false,                          // `/` reaches the home route
@@ -64,9 +65,9 @@ Google-Fonts CDN embedding has been ruled unlawful in Germany.
      /* …session, loadDatabase, … */
    )
    ```
-   Placement matters: after `securityHeaders()` and `compression()` (headers applied, static
-   text compressed) and before `session`/`loadDatabase` (a font request must not touch the
-   DB). The asset pipeline
+   Placement matters: after `securityHeaders()`/`csp()` and `compression()` (headers and nonce
+   applied, static text compressed) and before `session`/`loadDatabase` (a font request must
+   not touch the DB). The asset pipeline
    (`remix.json assets.files.extensions: ['.woff2']`) is the alternative, but those URLs are
    fingerprinted in production; the static middleware gives stable `/fonts/...` paths.
 
@@ -76,8 +77,10 @@ Google-Fonts CDN embedding has been ruled unlawful in Germany.
    <link rel="stylesheet" href="/fonts/fonts.css" />
    ```
 
-6. **Tighten the CSP** to match: `style-src 'self' 'unsafe-inline'` and
-   `font-src 'self'`.
+6. **Tighten the CSP** to match: the app's nonce-gated `style-src` (`'self'` + the request
+   nonce) covers the same-origin stylesheet, and `font-src 'self'` allows the woff2 files.
+   Do **not** re-add a font-CDN origin; `style-src 'unsafe-inline'` belongs only to the
+   script-less runtime 500 page (`serverErrorContentSecurityPolicy`).
 
 7. **Keep the regeneration script committed** (e.g. `scripts/fetch-fonts.mjs`). A `tmp/`
    script is gitignored, so the committed `fonts.css` would reference a file missing from
