@@ -44,6 +44,7 @@ const itemActionsStyle = css({
 - **Restore focus explicitly after a reorder.** Re-inserting the focused row detaches it and blurs the button (focus falls to `<body>`), so re-focus the same ↑/↓ button by item id after the update (`handle.queueTask`); when the move reaches a boundary that button is disabled, fall back to focusing the row. Pointer-restored focus is not `:focus-visible`, so it does not re-open the cluster.
 - No frame-reload re-init is needed — the CSS class survives DOM replacement.
 - Keep `pointer-events: none` at rest so clicks reach the row; reveal sets it back to `auto`.
+- **Gate destructive actions separately** (e.g. the `data-confirm` prompt the row actions already carry), never by trapping clicks on the cluster with `pointer-events`: the reveal already uses `pointer-events` for hit-testing, so overloading it breaks the reveal and leaves the destructive action without its confirmation gate.
 
 ## App state (2026-10-26)
 

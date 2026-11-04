@@ -477,6 +477,10 @@ await bulkGroup.waitFor({ state: 'visible', timeout: 5_000 })    // revealed on 
 
 This applies whenever a hide-after-hydration change touches an element that carries (or contains) a readiness marker: relax only the marker waits to `attached`, and use `hidden`/`visible` only for the toggle assertion itself (`uploads-bulk-delete.test.e2e.ts`, `uploads-bulk-download.test.e2e.ts`).
 
+## HMR Entry Identity (timestamped hrefs)
+
+**Dev-only.** Under HMR a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` retain the HMR timestamp, remix #11980). The runtime compares client-entry identity with exactly **one** 13-digit `t=` query segment ignored — `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN = /^t=\d{13}$/` at `@remix-run/component` `src/runtime/client-entry-boundary.ts:8` (compiled to `dist/runtime/client-entry-boundary.js`), applied by skipping that one segment at `:18` — so the existing entry keeps its state instead of remounting. Two `t` segments means nothing is ignored and the entries are treated as different. Production hrefs are fingerprinted, not timestamped, so this never fires in a build.
+
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 
 **Context:** Distinct failures when authoring a new remix/component `clientEntry`: `ReferenceError: document is not defined` during server render, TS/JSX parse errors from misplaced mixins, `AssetServerCompilationError: IMPORT_NOT_ALLOWED`, and a hydrated entry that replaces the whole document with the error card.
