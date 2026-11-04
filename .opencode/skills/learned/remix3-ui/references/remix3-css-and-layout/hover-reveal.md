@@ -56,7 +56,7 @@ The delegated `mouseover`/`mouseleave`/`focusin`/`focusout` block has been remov
 
 ## Touch and dense rows
 
-- Hover-only reveals are unreachable on touch. Prefer a kebab + inline menu (see `remix3-ui` § Client Entries → `references/remix3-client-entries/touch-row-action-menu.md`) or an always-visible cluster under `@media (hover: none)`.
+- Hover-only reveals are unreachable on touch. Prefer a kebab + inline menu (see `remix3-ui` § Client Entries → `references/remix3-client-entries/lists-editor.md`) or an always-visible cluster under `@media (hover: none)`.
 - Force-reveal an actively-editing row with a conditional style/class (`opacity: 1; pointerEvents: auto`).
 
 ## How to verify
