@@ -1,5 +1,6 @@
 import type { Middleware } from 'remix/router'
 import { Accept, Cookie, SuperHeaders, type SetCookie } from 'remix/headers'
+import { getCspNonce, inheritCspNonce } from 'remix/middleware/csp'
 import { frames } from '../routes.ts'
 
 const MAX_FRAME_REDIRECTS = 10
@@ -90,14 +91,20 @@ export function frameRedirects(): Middleware {
     let clientIp = context.request.headers.get('X-Client-Ip')
     if (clientIp) headers.set('X-Client-Ip', clientIp)
 
+    let followRequest = new Request(destination, {
+      method: 'GET',
+      headers,
+      signal: context.request.signal,
+    })
+    // The follow re-enters this app's full middleware stack, so csp() would
+    // otherwise stamp a second policy with a fresh nonce. Matching the
+    // enclosing document's nonce keeps the response's style/script nonces
+    // translatable by the frame runtime.
+    let nonce = getCspNonce(context)
+    if (nonce) inheritCspNonce(followRequest, nonce)
+
     let frameResponse = withRedirectSetCookies(
-      await context.router.fetch(
-        new Request(destination, {
-          method: 'GET',
-          headers,
-          signal: context.request.signal,
-        }),
-      ),
+      await context.router.fetch(followRequest),
       redirectCookies,
     )
 

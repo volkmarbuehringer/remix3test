@@ -1,4 +1,5 @@
 import { indigo } from './home-colors.ts'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 /**
  * Head-only landing-page declarations. Rendered through Document's `head` prop
@@ -6,7 +7,7 @@ import { indigo } from './home-colors.ts'
  */
 export function HomeStyles() {
   return () => (
-    <style>{`
+    <style nonce={getCspNonce()}>{`
       :root {
         --home-accent-indigo: ${indigo[600]};
         --home-accent-indigo-soft: ${indigo[400]};

@@ -8,15 +8,19 @@ import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { initializeAppDatabase } from '../db.ts'
 
 // ---------------------------------------------------------------------------
-// CSP without 'unsafe-eval' / 'wasm-unsafe-eval'.
+// CSP enforcement in real browsers.
 //
-// The Firefox multiple-import-maps polyfill used to need both tokens: its
-// es-module-lexer path compiled Wasm and fell back to eval. Since remix #12059
-// (build 57ecca4cba) the polyfill imports `es-module-lexer/minimal/js`, a pure
-// asm.js build with no eval/WebAssembly. This guard loads a client-entry page
-// (the admin messages grid) and fails on any securitypolicyviolation, so a
-// future dependency reintroducing eval is visible in both browsers — Firefox
-// is the one that exercises the polyfill.
+// Style guard: the policy gates <style> elements with the request nonce while
+// keeping inline style attributes, so every authored/theme style element must
+// carry the header nonce. These loads fail on any securitypolicyviolation.
+//
+// No-eval guard: the Firefox multiple-import-maps polyfill used to need
+// 'unsafe-eval' / 'wasm-unsafe-eval': its es-module-lexer path compiled Wasm
+// and fell back to eval. Since remix #12059 (build 57ecca4cba) the polyfill
+// imports `es-module-lexer/minimal/js`, a pure asm.js build with no
+// eval/WebAssembly. The client-entry page (the admin messages grid) fails on
+// any securitypolicyviolation, so a future dependency reintroducing eval is
+// visible in both browsers — Firefox is the one that exercises the polyfill.
 // ---------------------------------------------------------------------------
 
 type CspViolation = {
@@ -25,9 +29,44 @@ type CspViolation = {
   sample: string
 }
 
-describe('CSP without eval', () => {
+describe('CSP enforcement', () => {
   before(async () => {
     await initializeAppDatabase()
+  })
+
+  it('loads authored and theme styles without CSP violations', async (t) => {
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+
+    await page.addInitScript(() => {
+      let target = window as unknown as { __cspViolations: CspViolation[] }
+      target.__cspViolations = []
+      document.addEventListener('securitypolicyviolation', (event) => {
+        target.__cspViolations.push({
+          directive: event.effectiveDirective,
+          blockedURI: event.blockedURI,
+          sample: event.sample,
+        })
+      })
+    })
+
+    // The landing page adds HomeStyles; the login page renders the document
+    // shell plus both theme style elements.
+    for (let path of [routes.home.href(), routes.auth.login.index.href()]) {
+      await page.goto(path)
+      await page.waitForTimeout(1_000)
+
+      let violations = await page.evaluate(() => {
+        let target = window as unknown as { __cspViolations: CspViolation[] }
+        return target.__cspViolations
+      })
+
+      assert.equal(
+        violations.length,
+        0,
+        `${path}: expected no CSP violations, got ${JSON.stringify(violations)}`,
+      )
+    }
   })
 
   it('hydrates a client-entry page without CSP violations', async (t) => {

@@ -34,10 +34,39 @@ describe('Security headers middleware', () => {
     assert.ok(csp.includes("script-src 'self'"), 'CSP should restrict scripts to self')
   })
 
-  it('CSP includes style-src with unsafe-inline', async () => {
+  it('CSP splits style-src so nonce-gated style elements keep inline style attributes', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
-    assert.ok(csp.includes("style-src 'self' 'unsafe-inline'"), 'CSP should allow inline styles')
+    let directives = new Map(
+      csp.split(';').map((part) => {
+        let [name, ...values] = part.trim().split(/\s+/)
+        return [name, values] as const
+      }),
+    )
+
+    assert.deepEqual(
+      directives.get('style-src'),
+      ["'self'", "'unsafe-inline'"],
+      'style-src should stay the unsafe-inline fallback for older browsers',
+    )
+
+    let styleSrcElem = directives.get('style-src-elem')
+    assert.ok(styleSrcElem, 'style-src-elem should be present')
+    assert.ok(styleSrcElem.includes("'self'"), 'style-src-elem should keep self')
+    assert.ok(
+      styleSrcElem.some((value) => value.startsWith("'nonce-")),
+      'style-src-elem should require the request nonce',
+    )
+    assert.ok(
+      !styleSrcElem.includes("'unsafe-inline'"),
+      'style-src-elem must not allow unsafe-inline',
+    )
+
+    assert.deepEqual(
+      directives.get('style-src-attr'),
+      ["'unsafe-inline'"],
+      'style-src-attr should keep inline style attributes working',
+    )
   })
 
   it('CSP connect-src includes opencode.ai', async () => {
@@ -135,22 +164,36 @@ describe('Security headers middleware', () => {
   })
 
   it('uses the CSP header nonce on every rendered nonce attribute', async () => {
-    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
-    let csp = response.headers.get('Content-Security-Policy')!
-    let headerNonce = /'nonce-([^']+)'/.exec(csp)?.[1]
-    assert.ok(headerNonce, 'CSP should include a script nonce')
+    for (let path of [routes.auth.login.index.href(), routes.home.href()]) {
+      let response = await router.fetch(`${BASE}${path}`)
+      let csp = response.headers.get('Content-Security-Policy')!
+      let headerNonce = /'nonce-([^']+)'/.exec(csp)?.[1]
+      assert.ok(headerNonce, 'CSP should include a script nonce')
 
-    let html = await response.text()
-    let documentNonces = [...html.matchAll(/\snonce="([^"]+)"/g)].map((match) => match[1]!)
-    assert.ok(documentNonces.length >= 2, 'document should render authored and generated nonces')
-    assert.deepEqual(
-      [...new Set(documentNonces)],
-      [headerNonce],
-      'every document nonce should come from the CSP middleware',
-    )
+      let html = await response.text()
+      let documentNonces = [...html.matchAll(/\snonce="([^"]+)"/g)].map((match) => match[1]!)
+      assert.ok(documentNonces.length >= 2, 'document should render authored and generated nonces')
+      assert.deepEqual(
+        [...new Set(documentNonces)],
+        [headerNonce],
+        'every document nonce should come from the CSP middleware',
+      )
 
-    let importMap = html.match(/<script data-rmx-import-map type="importmap"[^>]*\snonce="([^"]+)"/)
-    assert.equal(importMap?.[1], headerNonce, 'the generated import map should inherit the nonce')
+      let importMap = html.match(
+        /<script data-rmx-import-map type="importmap"[^>]*\snonce="([^"]+)"/,
+      )
+      assert.equal(importMap?.[1], headerNonce, 'the generated import map should inherit the nonce')
+
+      let styleTags = [...html.matchAll(/<style\b([^>]*)>/g)]
+      assert.ok(
+        styleTags.length >= 3,
+        'document should render authored theme and shell style elements',
+      )
+      for (let [, attributes] of styleTags) {
+        let nonce = /\snonce="([^"]+)"/.exec(attributes!)?.[1]
+        assert.equal(nonce, headerNonce, 'every <style> element must carry the header nonce')
+      }
+    }
   })
 
   it('keeps the CSP on static responses', async () => {

@@ -24,10 +24,11 @@ export function getCspNonce(): string | undefined {
 /**
  * Policy for `remix/middleware/csp`.
  *
- * `script-src` stays nonce-based. `style-src` keeps `'unsafe-inline'` because
- * the document and theme render authored `<style>` elements and the app emits
- * inline `style` attributes; a nonce source would disable `'unsafe-inline'`
- * for those and require every style element to carry the nonce.
+ * `script-src` stays nonce-based. Styles are split so modern browsers gate
+ * `<style>` elements with the request nonce while inline `style="…"` attributes
+ * keep working: `style-src-elem` carries `'self'` + the nonce, and
+ * `style-src-attr` keeps `'unsafe-inline'`. `style-src` remains the
+ * `'unsafe-inline'` fallback for browsers without the split directives.
  *
  * The HMR websocket is only needed inside the node-HMR child, which sets
  * `REMIX_NODE_HMR=1`. Plain `npm run dev` has no HMR websocket, so the source
@@ -43,6 +44,8 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'", `'nonce-${nonce}'`, 'blob:'],
     styleSrc: ["'self'", "'unsafe-inline'"],
+    styleSrcElem: ["'self'", `'nonce-${nonce}'`],
+    styleSrcAttr: ["'unsafe-inline'"],
     fontSrc: ["'self'"],
     connectSrc,
     frameAncestors: ["'none'"],

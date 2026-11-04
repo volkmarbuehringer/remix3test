@@ -48,6 +48,7 @@ export function Document(handle: Handle<DocumentProps>) {
     // Preserve the explicit choice; no attribute means "follow the OS", which
     // <meta name="color-scheme" content="light dark"> already handles.
     let dataTheme = theme === 'dark' || theme === 'light' ? theme : undefined
+    let nonce = getCspNonce()
 
     return (
       <html
@@ -74,16 +75,29 @@ export function Document(handle: Handle<DocumentProps>) {
           />
           {/* Self-hosted (see public/fonts) — never load webfonts from a third-party CDN. */}
           <link rel="stylesheet" href="/fonts/fonts.css" />
-          <Theme />
-          <DarkTheme.Style />
+          <Theme nonce={nonce} />
+          <DarkTheme.Style nonce={nonce} />
           {head}
-          <style>{`
+          <style nonce={nonce}>{`
             /* Used by app/ui/connection-indicator.browser.tsx. It lives in the
                shell so the component does not render a <style> inside its <div>
                (invalid content model). */
             @keyframes sse-pulse {
               0%, 100% { opacity: 1; }
               50% { opacity: 0.4; }
+            }
+            /* Used by app/assets/streams/public/support-agent-stream.tsx. A
+               client-created <style> cannot carry the request nonce, so its
+               thinking-dots animation lives in the nonced shell. */
+            @keyframes support-agent-dots {
+              0%, 20% { content: ''; }
+              40% { content: '.'; }
+              60% { content: '..'; }
+              80%, 100% { content: '...'; }
+            }
+            .support-agent-dots::after {
+              content: '';
+              animation: support-agent-dots 1.2s infinite;
             }
             /* The explicit theme must also drive color-scheme: vendor
                light-dark(...) styles (menus, buttons) resolve from the used
@@ -107,7 +121,7 @@ export function Document(handle: Handle<DocumentProps>) {
               }
             }
           `}</style>
-          <script nonce={getCspNonce()}>{themeBootstrapScript}</script>
+          <script nonce={nonce}>{themeBootstrapScript}</script>
           {(() => {
             let entry = getAssetEntry()
             if (!entry) return null
@@ -139,7 +153,7 @@ export function Document(handle: Handle<DocumentProps>) {
           {(() => {
             let entry = getAssetEntry()
             let src = entry?.href ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
-            return <script type="module" src={src} nonce={getCspNonce()} />
+            return <script type="module" src={src} nonce={nonce} />
           })()}
         </body>
       </html>

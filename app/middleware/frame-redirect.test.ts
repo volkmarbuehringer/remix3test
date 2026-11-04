@@ -1,6 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import type { RequestContext } from 'remix/router'
+import { CspNonce, getCspNonce } from 'remix/middleware/csp'
 import { SuperHeaders } from 'remix/headers'
 
 import { frameRedirects } from './frame-redirect.ts'
@@ -21,11 +22,13 @@ function createContext(
   headers: Record<string, string>,
   routerFetch: (request: Request) => Response | Promise<Response>,
   url: string = BASE,
+  nonce?: string,
 ): RequestContext {
   return {
     url: new URL(url),
     request: new Request(url, { method: 'POST', headers }),
     router: { fetch: routerFetch },
+    get: (key: unknown) => (key === CspNonce ? nonce : undefined),
   } as unknown as RequestContext
 }
 
@@ -76,6 +79,33 @@ describe('frameRedirects middleware', () => {
       response.headers.get('X-Remix-Redirect-To'),
       destination.href,
       'should tell the client where the frame landed',
+    )
+  })
+
+  it('inherits the enclosing CSP nonce on the in-frame follow', async () => {
+    let received: Request | undefined
+    let response = await frameRedirects()(
+      createContext(
+        { 'X-Remix-Frame': 'true', 'X-Remix-Target': 'admin-content' },
+        (request) => {
+          received = request
+          return fragment()
+        },
+        BASE,
+        'outer-nonce',
+      ),
+      async () => redirectTo('/admin/nutzer?editing=5'),
+    )
+
+    assert.ok(received, 'should re-fetch the redirect destination')
+    assert.equal(
+      getCspNonce({ request: received!, get: () => undefined } as unknown as RequestContext),
+      'outer-nonce',
+      'the follow must reuse the enclosing document nonce so csp() cannot append a different one',
+    )
+    assert.equal(
+      response.headers.get('X-Remix-Redirect-To'),
+      new URL('/admin/nutzer?editing=5', BASE).href,
     )
   })
 

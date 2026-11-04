@@ -66,17 +66,6 @@ export const SupportAgentStream = clientEntry(
 
     let THINKING_ID = 'support-agent-thinking'
 
-    function ensureSupportStyles() {
-      if (document.getElementById('support-agent-styles')) return
-      let style = document.createElement('style')
-      style.id = 'support-agent-styles'
-      style.textContent =
-        `@keyframes support-agent-dots { 0%,20% {content:''} 40% {content:'.'} ` +
-        `60% {content:'..'} 80%,100% {content:'...'} } ` +
-        `.support-agent-dots::after { content:''; animation: support-agent-dots 1.2s infinite; }`
-      document.head.appendChild(style)
-    }
-
     function showThinking() {
       let chat = getChat()
       if (!chat || thinkingEl) return
@@ -574,8 +563,6 @@ export const SupportAgentStream = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((_el) => {
-            ensureSupportStyles()
-
             let form = document.getElementById('support-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, {

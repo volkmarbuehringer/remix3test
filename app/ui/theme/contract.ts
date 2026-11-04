@@ -183,7 +183,7 @@ export type CreateThemeOptions = {
   reset?: boolean
 }
 export type ThemeStyleProps = {
-  nonce?: string
+  nonce?: string | undefined
 }
 
 type ThemeRenderer = (handle: Handle<ThemeStyleProps>) => () => RemixElement
