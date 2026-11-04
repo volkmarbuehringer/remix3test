@@ -5,6 +5,7 @@ import { router } from '../test-router.ts'
 import { frames, routes } from '../routes.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { initializeAppDatabase } from '../db.ts'
+import { pool } from '../../test/pool.ts'
 import { permissionsPolicy } from './security-headers.ts'
 
 const BASE = 'https://remix.run'
@@ -293,6 +294,59 @@ describe('Security headers middleware', () => {
     let response = await router.fetch(`${BASE}/fonts/fonts.css`)
     assert.equal(response.status, 200)
     assert.ok(response.headers.get('Content-Security-Policy'), 'static CSS should keep the CSP')
+  })
+
+  it('emits one policy for an in-frame PRG follow, not the inner and outer duplicate', async () => {
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+
+    let admin = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows as { id: number }[]
+    assert.ok(admin.length > 0, 'admin user must exist')
+
+    let title = `csp dupe ${crypto.randomUUID()}`
+    let inserted = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [
+        admin[0]!.id,
+        title,
+        'seeded for the duplicate-policy regression',
+        JSON.stringify([{ id: crypto.randomUUID(), label: 'Eintrag' }]),
+        Date.now(),
+      ],
+    )
+    let listId = Number(inserted.rows[0]!.id as number)
+
+    try {
+      let body = new FormData()
+      body.set('_csrf', auth!.csrfToken)
+      let response = await router.fetch(`${BASE}/lists/${listId}/copy`, {
+        method: 'POST',
+        headers: {
+          Cookie: auth!.cookie,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': frames.listsContent,
+        },
+        body,
+      })
+
+      assert.equal(response.status, 200, 'the copy redirect should be followed in-frame')
+      assert.ok(response.headers.get('X-Remix-Redirect-To'), 'the follow should report its target')
+
+      // frameRedirects re-enters the stack, so the follow's csp() and the
+      // enclosing csp() both append the same policy. Mid-layer dedupe keeps a
+      // single policy in the final response.
+      let csp = response.headers.get('Content-Security-Policy')!
+      assert.equal(
+        (csp.match(/default-src/g) ?? []).length,
+        1,
+        'the followed fragment should carry one policy, not a duplicate',
+      )
+      assert.equal((csp.match(/'nonce-/g) ?? []).length, 2, 'script-src and style-src-elem keep it')
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [listId])
+      await pool.query('DELETE FROM lists WHERE title = $1', [`${title} (Kopie)`])
+    }
   })
 
   it('hardens an unmatched router 404 through the middleware chain', async () => {

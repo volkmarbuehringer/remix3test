@@ -162,6 +162,13 @@ export function securityHeaders(): Middleware {
 
     applyHardeningHeaders(headers)
 
+    // `frameRedirects()` re-enters the middleware stack to follow an in-frame
+    // PRG, so its fragment passes through `csp()` twice (inner + enclosing) and
+    // both append this document's policy with the same inherited nonce. The two
+    // policies are identical, and browsers enforce each one separately, so
+    // collapse the repetition into one.
+    collapseDuplicatePolicies(headers, 'Content-Security-Policy')
+
     // Every cache policy is per-request: HTML carries the CSP nonce, and error
     // responses are request-specific (the router's default 404, thrown-route
     // 500s). Never let a shared cache reuse either. Routes that knowingly
@@ -189,4 +196,24 @@ export function securityHeaders(): Middleware {
 /** Matches `text/html` regardless of charset/parameter casing. */
 function isHtmlContentType(headers: Headers): boolean {
   return headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase() === 'text/html'
+}
+
+/**
+ * Collapses a header whose serialized value repeats one identical entry.
+ *
+ * CSP serializes as a comma-separated list of independent policies, and this
+ * app's policy contains no comma at all, so a value that splits into the same
+ * string more than once is the inner/outer `csp()` duplicate from an in-frame
+ * PRG follow. Anything else is left untouched.
+ */
+function collapseDuplicatePolicies(headers: Headers, name: string): void {
+  let value = headers.get(name)
+  if (!value) return
+
+  let policies = value.split(', ')
+  if (policies.length < 2) return
+  let [first] = policies
+  if (policies.every((policy) => policy === first)) {
+    headers.set(name, first!)
+  }
 }
