@@ -134,8 +134,8 @@ export function applyHardeningHeaders(headers: Headers): void {
   if (!headers.has('X-Permitted-Cross-Domain-Policies')) {
     headers.set('X-Permitted-Cross-Domain-Policies', 'none')
   }
-  if (!headers.has('X-DNS-Prefetch-Control')) {
-    headers.set('X-DNS-Prefetch-Control', 'off')
+  if (!headers.has('X-Dns-Prefetch-Control')) {
+    headers.set('X-Dns-Prefetch-Control', 'off')
   }
 
   if (isProduction && !headers.has('Strict-Transport-Security')) {

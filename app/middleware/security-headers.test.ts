@@ -375,7 +375,7 @@ describe('Security headers middleware', () => {
       ['Cross-Origin-Resource-Policy', 'same-origin'],
       ['Origin-Agent-Cluster', '?1'],
       ['X-Permitted-Cross-Domain-Policies', 'none'],
-      ['X-DNS-Prefetch-Control', 'off'],
+      ['X-Dns-Prefetch-Control', 'off'],
       ['Cache-Control', 'private, no-store'],
     ]
 

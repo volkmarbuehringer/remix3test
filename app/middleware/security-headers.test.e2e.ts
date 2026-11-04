@@ -99,10 +99,7 @@ describe('CSP enforcement', () => {
       [routes.admin.messages.index.href(), '[data-messages-table]'],
       [routes.admin.lists.index.href(), '[data-lists-table]'],
       [routes.admin.uploads.index.href(), '[data-kind-tabs]'],
-      [
-        routes.appointmentsNew.index.href(),
-        'a[data-rmx-target="appointments-new-content"]',
-      ],
+      [routes.appointmentsNew.index.href(), 'a[data-rmx-target="appointments-new-content"]'],
       [routes.admin.supportAgent.index.href(), '#chat-messages'],
     ]
 
@@ -162,8 +159,7 @@ describe('CSP enforcement', () => {
       await page.evaluate(() => {
         let form = document.querySelector('form[action$="/copy"]')
         if (!(form instanceof HTMLFormElement)) throw new Error('lists copy form is missing')
-        let token =
-          document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+        let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
         let csrf = form.querySelector('input[name="_csrf"]')
         if (csrf instanceof HTMLInputElement) csrf.value = token
         form.requestSubmit()
@@ -171,7 +167,7 @@ describe('CSP enforcement', () => {
 
       // The followed PRG renders the new list into the sidebar fragment.
       await page.waitForFunction(
-        (before) => document.querySelectorAll('[data-list-id]').length > before,
+        (rows) => document.querySelectorAll('[data-list-id]').length > rows,
         rowsBefore,
         { timeout: 15_000 },
       )

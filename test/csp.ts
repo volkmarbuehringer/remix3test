@@ -11,8 +11,6 @@ export interface CspViolation {
   sample: string
 }
 
-type CspProbeWindow = Window & { __cspViolations?: CspViolation[] }
-
 export interface CspViolationCollector {
   /** Violations recorded in the current document since its load (or last `clear`). */
   collect(): Promise<CspViolation[]>

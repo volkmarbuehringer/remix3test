@@ -79,7 +79,7 @@ describe('renderServerError', () => {
     assert.equal(response.headers.get('Cross-Origin-Resource-Policy'), 'same-origin')
     assert.equal(response.headers.get('Origin-Agent-Cluster'), '?1')
     assert.equal(response.headers.get('X-Permitted-Cross-Domain-Policies'), 'none')
-    assert.equal(response.headers.get('X-DNS-Prefetch-Control'), 'off')
+    assert.equal(response.headers.get('X-Dns-Prefetch-Control'), 'off')
     assert.equal(response.headers.get('Cache-Control'), 'no-store')
     assert.equal(
       response.headers.get('Strict-Transport-Security'),
