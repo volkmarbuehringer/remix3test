@@ -259,4 +259,4 @@ Then prove it was a same-document frame swap, not a reload: count `page.on('load
 
 **Re-validated (2026-10-22):** against build `060b32a`/source `56f1fb6`. The prefetch/fragment changes shift the anchors by +8: `hydrateContainer` at `src/runtime/frame.ts:1253`, the `createSubFrames(container.childNodes, context, options)` call at `:1287`, and `scheduleHydrationMarker(...)` at `:1289`. The ordering claim is unchanged.
 
-**Re-validated (2026-11-03):** against build `t/1bb19a01`/source `1bb19a0129`. #12161 moved the frame runtime, so the anchors are `hydrateContainer` at `src/runtime/frame.ts:1367`, the `createSubFrames(container.childNodes, context, options)` call at `:1401`, and `scheduleHydrationMarker(...)` at `:1403`. The ordering claim is unchanged.
+**Re-validated (2026-11-04):** against preview release `v0.20261103.224609-main-98229b78`/source `98229b788f`. The nonce/frame changes shift the anchors again: `hydrateContainer` is at `src/runtime/frame.ts:1404`, the `createSubFrames(container.childNodes, context, options)` call at `:1438`, and `scheduleHydrationMarker(...)` at `:1440`. The ordering claim is unchanged.

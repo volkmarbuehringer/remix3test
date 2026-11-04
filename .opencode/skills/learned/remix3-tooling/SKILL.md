@@ -34,9 +34,9 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Running `remix new` / `test` / `doctor` / `routes` / `version` / `completion`, programmatic `runRemix`, wiring `node --import remix/node-tsx` or `loadModule`, the `node-tsx` tsconfig, `remix test` filters, `NODE_ENV=test`, or mocking frozen ES-module exports | `references/remix3-build-and-tooling/cli-devops.md` |
 | Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
-| A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently tarball build `t/1bb19a01`: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
+| A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently preview release `v0.20261103.224609-main-98229b78`: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
 | Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `docs/guide-chapter-audit.md` |
-| `pnpm install` on the preview-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, or historical `ERR_PNPM_PREPARE_PACKAGE`/codeload 429 storms), or you need the current tarball-manifest update flow | `docs/pnpm-remix-preview-installs.md` (old `github:` recipes: `docs/history/pnpm-git-hosted-installs.md`) |
+| `pnpm install` on the preview-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, or historical `ERR_PNPM_PREPARE_PACKAGE`/codeload 429 storms), or you need the current preview-release update flow | `docs/pnpm-remix-preview-installs.md` (old `github:` recipes: `docs/history/pnpm-git-hosted-installs.md`) |
 
 ### Core Rules
 
@@ -65,7 +65,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 
 **Upstream dependency analysis (`references/remix3-build-and-tooling/upstream-dependency-analysis.md`)**
 
-- For a preview pin (retained `t/<sha>/<pkg>.tgz` tarballs, or the historical `github:owner/repo#branch&path:subdir` layout), read the resolved build from `pnpm-lock.yaml`, `git log <pinned-source>..origin/<branch>` and `git diff --stat` the package, grep the codebase for each changed API, then run `typecheck` + tests. Focus on new opaque types, changed defaults, and new runtime validation that can turn an unchecked `as` cast into a 500 (`dev-gotchas § TypeScript` → `references/typescript-gotchas/vendor-validator-cast-audit.md`). Per-bump records: `docs/remix-pin-history.md`.
+- For a preview pin (release asset tarballs from `remix-run/previews`, or the historical retained `t/<sha>/<pkg>.tgz` / `github:owner/repo#branch&path:subdir` layouts), read the resolved build from `pnpm-lock.yaml`, `git log <pinned-source>..origin/<branch>` and `git diff --stat` the package, grep the codebase for each changed API, then run `typecheck` + tests. Focus on new opaque types, changed defaults, and new runtime validation that can turn an unchecked `as` cast into a 500 (`dev-gotchas § TypeScript` → `references/typescript-gotchas/vendor-validator-cast-audit.md`). Per-bump records: `docs/remix-pin-history.md`.
 
 **Guide chapter audits (`docs/guide-chapter-audit.md`)**
 

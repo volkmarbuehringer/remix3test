@@ -3,12 +3,12 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-03 (current pin is the retained tarball build `t/1bb19a01` / source `1bb19a0129`; the `github:…#preview/main&path:` flow below is historical)
-**Context:** A project pins a dependency to a preview build — retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
+**Re-validated:** 2026-11-04 (current pin is preview release `v0.20261103.224609-main-98229b78` / source `98229b788f`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
 
-When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run/remix#preview/main&path:packages/remix"`) or to preview tarball URLs, upstream changes are opaque — a floating `npm update`/`pnpm update` fetches the branch tip, while a tarball pin silently ages and its retained URL can be pruned. You need to know:
+When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run/remix#preview/main&path:packages/remix"`) or to preview release/tarball URLs, upstream changes are opaque — a floating `npm update`/`pnpm update` fetches the branch tip, while a release pin silently ages and its assets can be pruned. You need to know:
 
 - What commits landed upstream
 - Whether any of them change APIs your project uses
@@ -19,12 +19,14 @@ When a dependency is pinned to a GitHub branch (e.g. `"remix": "github:remix-run
 Trace the chain from upstream changes to project impact:
 
 1. **Find the pinned build** in the lockfile:
-   - current tarball pin: `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/<source-sha-8>/<pkg>.tgz`
+   - current release pin: `https://github.com/remix-run/previews/releases/download/<tag>/<pkg>.tgz`
+   - historical retained-tarball pin: `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/<source-sha-8>/<pkg>.tgz`
    - old branch pin (historical): `https://codeload.github.com/.../<build-commit>#path:...`
 
-2. **Fetch upstream changes** and compare. For a tarball pin, expand the 8-hex
-   source prefix (`git ls-remote` has only branch tips; the GitHub commits API
-   accepts the short SHA) and use the source commit:
+2. **Fetch upstream changes** and compare. For a release pin, extract the
+   8-hex source suffix from the tag (the release body also links the full
+   commit) and use the source commit; the GitHub commits API accepts the short
+   SHA:
    ```bash
    git fetch upstream-branch
    git log <pinned-source>..origin/<branch>
@@ -63,49 +65,54 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at retained tarball build `t/1bb19a01` (source `1bb19a0129`, `preview/main` build `648eb9a0e7`). The two `package.json` specs are the manifest URLs; the lock has 270 tarball refs at that prefix.
+Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at preview release `v0.20261103.224609-main-98229b78` (source `98229b788f`). The two `package.json` specs are the release asset URLs; the lock has 277 release tarball refs at that tag.
 
-Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current tarball flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
+Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
-## Preview tarball installs (post-#12126)
+## Preview release assets (2026-11-04+)
 
-Since the 2026-11-03 migration the app pins the two tarball URLs from
-`t/preview.json`, not `github:…#branch&path:`. Each `preview/main` build commit
-carries `t/<source-sha>/<pkg>.tgz`; every tarball rewrites its `@remix-run/*`
-dependencies to the same build's tarball URL. The lock is content-addressed, so
-the old branch-pin transitive race cannot recur: there is no independent
-`path:` resolution left to drift.
+Since #12174 the app pins the two tarball assets from the latest
+`remix-run/previews` main release, not `t/preview.json` or
+`github:…#branch&path:`. Each `main` commit gets a release tagged
+`v0.<date>.<time>-main-<source-sha-8>`; every package tarball rewrites its
+`@remix-run/*` dependencies to the same release's asset URLs, so the lock stays
+content-addressed and one build cannot drift from another.
 
-- Resolve `preview/main` with `git ls-remote`, then fetch
-  `t/preview.json` **from that build commit** (the branch file is CDN-cached),
-  and verify both package URLs share `manifest.sha.slice(0, 8)`.
-- Retained builds are pruned after ~7 days (the latest is always kept), so an
-  old lock's `t/<sha>` URL can 404 after retention. Refresh before then.
-- The `github:…#preview/main&path:` layout is no longer installable from current
-  builds because `packages/*/dist` is not committed. Its historical race: pnpm
-  resolved the top-level `path:` entries and the transitive `@remix-run/*`
-  paths independently, so a mixed lock could run a newer `component` than the
-  top-level pin. The pin history has dated examples.
+- Resolve the latest main release with
+  `GET https://api.github.com/repos/remix-run/previews/releases/latest` (PR
+  previews are prereleases and are skipped); validate the tag's 8-hex suffix and
+  both asset URLs.
+- Main preview releases are pruned after ~7 days (the newest is kept), so an
+  old lock's release URL can 404 after retention. Refresh before then.
+- The older retained-tarball flow (`preview/main` + `t/preview.json`) is frozen
+  at `t/1bb19a01`; the `github:…#preview/main&path:` flow is older still and no
+  longer installable because `packages/*/dist` is not committed. Both are
+  historical; `scripts/update-remix.ts` migrates them in place. Its historical
+  race: pnpm resolved the top-level `path:` entries and the transitive
+  `@remix-run/*` paths independently, so a mixed lock could run a newer
+  `component` than the top-level pin. The pin history has dated examples.
 
-`npm run update:remix` automates the tarball flow: read the manifest, rewrite
-both specs, install, verify one `t/<sha>` prefix, frozen check, skill links,
-typecheck/lint/format/tests. Its retry settings use the universal
+`npm run update:remix` automates the release flow: read `releases/latest`,
+rewrite both specs, install, verify one release tag, frozen check, skill links,
+typecheck/lint/format/tests. `npm run remix:pin:check` verifies lock/tag
+unification, HEADs the assets, and warns when the pin is not the newest main
+release or is older than five days. Install retries use the universal
 `--config.fetch-retries=…` / `--config.fetch-retry-*-timeout=…` form because
 pnpm 12 removed the dedicated `--fetch-retries`/`--fetch-retry-*` flags.
 
-## Preview tarball pair
+## Preview release pair
 
 Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not
 declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/remix.tgz",
-"@remix-run/ui": "https://raw.githubusercontent.com/remix-run/remix/preview/main/t/1bb19a01/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261103.224609-main-98229b78/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261103.224609-main-98229b78/ui.tgz"
 ```
 
-Both must come from the same manifest build. Do not hand-pin one and leave the
-other on an older `t/<sha>`.
+Both must come from the same release. Do not hand-pin one and leave the other
+on an older release tag.
 
 **Released npm versions instead.** If the app leaves the preview line for
 published versions, `^3.1.0` / `^0.13.0` are the release-day pair. On a `0.x`
@@ -118,7 +125,8 @@ wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen it to
 
 ## When to Use
 
-- A project pins Remix previews as retained tarballs (or, historically,
-  `github:owner/repo#branch&path:subdir`) and upstream has moved
+- A project pins Remix previews as release asset tarballs (or, historically,
+  retained `t/<sha>` tarballs / `github:owner/repo#branch&path:subdir`) and
+  upstream has moved
 - Before running `npm run update:remix`, `pnpm update <dep>` or `npm update <dep>`
 - When debugging regressions after a dependency update

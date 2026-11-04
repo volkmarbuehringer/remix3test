@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at build `1bb19a01`: `completeReload` is defined at `:801` and dispatches at `:806`; the inherited-reload variant dispatches at `:836`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261103.224609-main-98229b78`: `completeReload` is defined at `:821` and dispatches at `:826`; the inherited-reload variant dispatches at `:856`). At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -250,7 +250,7 @@ First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/upl
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at build `1bb19a01`, inside `startReload` at `:708`, which calls `dispatchReloadStart` at `:742`; ancestor/inherited reloads reuse the same dispatcher). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261103.224609-main-98229b78`, inside `startReload` at `:727`, which calls `dispatchReloadStart` at `:730`; the ancestor path dispatches at `:744`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
@@ -353,7 +353,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1529-1561` at build `57ecca4cba`). The factory closure
+   (`runtime/reconcile.ts:1442-1479` at preview release `98229b78`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -397,8 +397,8 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
 - `ref()` is driven by the mixin `insert` event (`packages/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/component/src/runtime/reconcile.ts:930`, `:1092`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1259`, `:2078`) for mixin-persisted nodes — not for plain hydration.
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/component/src/runtime/reconcile.ts:938`, `:1100`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1267`, `:2091`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 

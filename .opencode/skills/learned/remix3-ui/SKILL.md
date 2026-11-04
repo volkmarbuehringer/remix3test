@@ -546,4 +546,4 @@ Remix 3 uses its own JSX runtime (`remix/component`, `jsxImportSource: "remix/co
 - Upstream `remix`/`@remix-run/component` renames, removes, or adds a runtime attribute
 - A `data-rmx-*` / `rmx-*` / `ln-*` attribute appears dead (frame targeting, document escape, or history semantics not working)
 - Diagnosing "tests pass but feature silently broken" in a Remix 3 frame app
-- Before trusting `npm run typecheck` after bumping the pinned `remix` build (retained preview tarball `t/<sha>/remix.tgz`; see `docs/remix-pin-history.md`)
+- Before trusting `npm run typecheck` after bumping the pinned `remix` build (preview release asset `https://github.com/remix-run/previews/releases/download/<tag>/remix.tgz`; see `docs/remix-pin-history.md`)

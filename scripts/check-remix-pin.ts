@@ -4,36 +4,40 @@ import * as path from 'node:path'
 // ---------------------------------------------------------------------------
 // Check that the remix preview pin is still installable.
 //
-// Since #12126, preview/main carries retained tarballs under
-// `t/<source-sha>/` plus a `t/preview.json` manifest listing the builds it
-// still serves. Retained builds are pruned after roughly seven days, so a
-// lockfile pointed at an old `t/<sha>` URL installs until it suddenly 404s.
+// Since #12174, upstream publishes each `main` preview build as a GitHub
+// release in `remix-run/previews`, tagged
+// `v0.<date>.<time>-main-<source-sha-8>`, with one tarball asset per package.
+// Main releases are pruned after roughly seven days (the newest is kept), so a
+// lockfile pointed at an old release URL installs until it suddenly 404s.
 //
 // This check:
-//   1. reads the two tarball URLs from package.json,
-//   2. verifies pnpm-lock.yaml resolves every remix ref to that same
-//      t/<8-hex> build (a half-applied update fails before any network call),
+//   1. reads the two release asset URLs from package.json,
+//   2. verifies pnpm-lock.yaml resolves every remix ref to that same release
+//      tag (a half-applied update fails before any network call),
 //   3. HEADs both URLs (404/410 means the pin expired),
-//   4. reads t/preview.json from preview/main, finds the pinned 8-hex build,
-//      and warns when it is older than the five-day refresh window.
+//   4. reads the latest main preview release and warns when the pin is not the
+//      newest release or is older than the five-day refresh window.
 //
 // It is dependency-free and offline-safe: network/HTTP failures that are not
 // the tarball's own 404 are warnings, not failures. `--strict` upgrades the
-// refresh-window warnings (age, missing manifest entry) to failures.
+// refresh-window warnings (age, missing release) to failures.
 // ---------------------------------------------------------------------------
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PACKAGE_PATH = path.join(ROOT, 'package.json')
 const LOCK_PATH = path.join(ROOT, 'pnpm-lock.yaml')
-const MANIFEST_URL = 'https://raw.githubusercontent.com/remix-run/remix/preview/main/t/preview.json'
+const PREVIEW_REPOSITORY = 'remix-run/previews'
+const PREVIEW_API = `https://api.github.com/repos/${PREVIEW_REPOSITORY}`
 const PINNED_PACKAGES = ['remix', '@remix-run/ui'] as const
 const TARBALL_FILES: Record<(typeof PINNED_PACKAGES)[number], string> = {
   remix: 'remix',
   '@remix-run/ui': 'ui',
 }
-const TARBALL_SPEC_RE =
-  /^(https:\/\/raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\/([^/]+)\.tgz)$/
-const LOCK_TARBALL_REF_RE =
+const RELEASE_SPEC_RE =
+  /^https:\/\/github\.com\/remix-run\/previews\/releases\/download\/(v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8}))\/(remix|ui)\.tgz$/
+const RELEASE_TAG_RE = /^v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8})$/
+const LOCK_RELEASE_REF_RE = /github\.com\/remix-run\/previews\/releases\/download\/([^/]+)\//g
+const LOCK_LEGACY_TARBALL_REF_RE =
   /raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\//g
 const LOCK_CODELOAD_REF_RE = /codeload\.github\.com\/remix-run\/remix\/tar\.gz\/([0-9a-f]{40})/g
 const LOCK_PACKAGE_KEY_RE = /^ {2}'(@remix-run\/[^@'\s]+)@([^']+)':$/gm
@@ -47,10 +51,11 @@ type Options = {
   strict: boolean
 }
 
-type TarballPin = {
+type ReleasePin = {
   name: (typeof PINNED_PACKAGES)[number]
   url: string
-  prefix: string
+  tag: string
+  sha: string
 }
 
 type HeadResult = {
@@ -60,14 +65,18 @@ type HeadResult = {
   detail: string
 }
 
-type ManifestBuild = {
-  sha?: string
-  createdAt?: string
+type ReleaseAsset = {
+  name: string
+  browser_download_url: string
 }
 
-type PreviewManifest = {
-  branch?: string
-  builds?: ManifestBuild[]
+type PreviewRelease = {
+  tag_name: string
+  name: string
+  draft: boolean
+  created_at: string
+  published_at: string | null
+  assets: ReleaseAsset[]
 }
 
 type LockPackageRef = {
@@ -76,8 +85,10 @@ type LockPackageRef = {
 }
 
 type LockState = {
-  tarballRefs: number
-  prefixes: string[]
+  releaseRefs: number
+  releaseTags: string[]
+  legacyTarballRefs: number
+  legacyTarballPrefixes: string[]
   codeloadRefs: number
   codeloadBuilds: string[]
   packageRefs: LockPackageRef[]
@@ -86,14 +97,14 @@ type LockState = {
 function usage(): void {
   console.log(`Usage: npm run remix:pin:check -- [options]
 
-Verify the remix preview tarballs pinned in package.json still exist and are
-inside the five-day refresh window. Also verifies pnpm-lock.yaml resolves every
-remix ref to the same build. Exits nonzero on lock drift or when the pin has
-expired (HTTP 404/410) so CI catches it before an install fails.
+Verify the remix preview release assets pinned in package.json still exist and
+are inside the five-day refresh window. Also verifies pnpm-lock.yaml resolves
+every remix ref to the same release. Exits nonzero on lock drift or when the pin
+has expired (HTTP 404/410) so CI catches it before an install fails.
 
 Options:
-  --strict   Fail on refresh-window warnings (build older than 5 days or no
-             longer listed in preview/main's builds[]), not just on 404s
+  --strict   Fail on refresh-window warnings (pin is not the newest main
+             preview or is older than 5 days), not just on 404s
   -h, --help Show this help
 
 Network failures are warnings: the check is safe to run offline.
@@ -116,37 +127,38 @@ function parseOptions(argv: string[]): Options {
   return options
 }
 
-function readPins(): TarballPin[] {
+function readPins(): ReleasePin[] {
   let packageJson = JSON.parse(fs.readFileSync(PACKAGE_PATH, 'utf8')) as {
     dependencies?: Record<string, string>
   }
-  let pins: TarballPin[] = []
+  let pins: ReleasePin[] = []
 
   for (let name of PINNED_PACKAGES) {
     let spec = packageJson.dependencies?.[name]
     if (!spec) throw new Error(`${name} is missing from package.json dependencies`)
 
-    let match = TARBALL_SPEC_RE.exec(spec)
+    let match = RELEASE_SPEC_RE.exec(spec)
     if (!match) {
       throw new Error(
-        `${name} is not pinned to a retained preview tarball (got ${spec}). ` +
-          'Expected https://raw.githubusercontent.com/…/t/<8-hex>/<pkg>.tgz; ' +
+        `${name} is not pinned to a remix preview release (got ${spec}). ` +
+          'Expected https://github.com/remix-run/previews/releases/download/<tag>/<pkg>.tgz; ' +
           'run npm run update:remix.',
       )
     }
 
-    let prefix = match[2]
-    let file = match[3]
-    if (!prefix || file !== TARBALL_FILES[name]) {
+    let tag = match[1]!
+    let sha = match[2]!
+    let file = match[3]!
+    if (file !== TARBALL_FILES[name]) {
       throw new Error(`${name} points at an unexpected tarball: ${spec}`)
     }
-    pins.push({ name, url: spec, prefix })
+    pins.push({ name, url: spec, tag, sha })
   }
 
-  let prefixes = [...new Set(pins.map((pin) => pin.prefix))]
-  if (prefixes.length !== 1) {
+  let tags = [...new Set(pins.map((pin) => pin.tag))]
+  if (tags.length !== 1) {
     throw new Error(
-      `remix and @remix-run/ui point at different builds (${prefixes.join(', ')}); ` +
+      `remix and @remix-run/ui point at different releases (${tags.join(', ')}); ` +
         'update them together.',
     )
   }
@@ -159,7 +171,10 @@ function short(value: string): string {
 }
 
 function readLockState(lock: string): LockState {
-  let tarballPrefixes = [...lock.matchAll(LOCK_TARBALL_REF_RE)]
+  let releaseTags = [...lock.matchAll(LOCK_RELEASE_REF_RE)]
+    .map((match) => match[1])
+    .filter((tag): tag is string => Boolean(tag))
+  let legacyTarballPrefixes = [...lock.matchAll(LOCK_LEGACY_TARBALL_REF_RE)]
     .map((match) => match[1])
     .filter((prefix): prefix is string => Boolean(prefix))
   let codeloadBuilds = [...lock.matchAll(LOCK_CODELOAD_REF_RE)]
@@ -170,8 +185,10 @@ function readLockState(lock: string): LockState {
     .filter((ref) => ref.name.length > 0 && ref.version.length > 0)
 
   return {
-    tarballRefs: tarballPrefixes.length,
-    prefixes: [...new Set(tarballPrefixes)],
+    releaseRefs: releaseTags.length,
+    releaseTags: [...new Set(releaseTags)],
+    legacyTarballRefs: legacyTarballPrefixes.length,
+    legacyTarballPrefixes: [...new Set(legacyTarballPrefixes)],
     codeloadRefs: codeloadBuilds.length,
     codeloadBuilds: [...new Set(codeloadBuilds)],
     packageRefs,
@@ -179,12 +196,12 @@ function readLockState(lock: string): LockState {
 }
 
 /**
- * A half-applied update can leave package.json on one build while the lock
- * still carries the old build (or a mix of tarball and codeload refs). Catch
- * that locally and before `pnpm install`, so the fix is always the same
- * `update:remix` run instead of an opaque resolution failure.
+ * A half-applied update can leave package.json on one release while the lock
+ * still carries the old one (or a mix of release, retained-tarball, and
+ * codeload refs). Catch that locally and before `pnpm install`, so the fix is
+ * always the same `update:remix` run instead of an opaque resolution failure.
  */
-function checkLock(prefix: string, pins: TarballPin[]): boolean {
+function checkLock(tag: string, pins: ReleasePin[]): boolean {
   let lock: string
   try {
     lock = fs.readFileSync(LOCK_PATH, 'utf8')
@@ -203,17 +220,24 @@ function checkLock(prefix: string, pins: TarballPin[]): boolean {
         `(${state.codeloadBuilds.map(short).join(', ')}); run npm run update:remix`,
     )
   }
-  if (state.tarballRefs === 0) {
-    problems.push('pnpm-lock.yaml has no retained preview tarball refs; run npm run update:remix')
-  } else if (state.prefixes.length !== 1 || state.prefixes[0] !== prefix) {
+  if (state.legacyTarballRefs > 0) {
+    problems.push(
+      `pnpm-lock.yaml still has ${state.legacyTarballRefs} retained-preview-tarball refs ` +
+        `(${state.legacyTarballPrefixes.map((prefix) => `t/${prefix}`).join(', ')}); ` +
+        'run npm run update:remix',
+    )
+  }
+  if (state.releaseRefs === 0) {
+    problems.push('pnpm-lock.yaml has no preview release tarball refs; run npm run update:remix')
+  } else if (state.releaseTags.length !== 1 || state.releaseTags[0] !== tag) {
     problems.push(
       `pnpm-lock.yaml tarball refs span ` +
-        `${state.prefixes.map((value) => `t/${value}`).join(', ')} ` +
-        `(${state.tarballRefs} refs); expected t/${prefix}. Run npm run update:remix`,
+        `${state.releaseTags.join(', ') || 'none'} ` +
+        `(${state.releaseRefs} refs); expected ${tag}. Run npm run update:remix`,
     )
   }
 
-  let expectedPrefix = `https://raw.githubusercontent.com/remix-run/remix/preview/main/t/${prefix}/`
+  let expectedPrefix = `https://github.com/remix-run/previews/releases/download/${tag}/`
   let packageRefsOutsidePin = state.packageRefs.filter(
     (ref) => !ref.version.startsWith(expectedPrefix),
   )
@@ -226,7 +250,7 @@ function checkLock(prefix: string, pins: TarballPin[]): boolean {
       .join(', ')
     problems.push(
       `pnpm-lock.yaml has ${packageRefsOutsidePin.length} @remix-run/* package entries ` +
-        `outside t/${prefix} (${examples}${packageRefsOutsidePin.length > 3 ? ', …' : ''}); ` +
+        `outside ${tag} (${examples}${packageRefsOutsidePin.length > 3 ? ', …' : ''}); ` +
         'run npm run update:remix',
     )
   }
@@ -242,7 +266,7 @@ function checkLock(prefix: string, pins: TarballPin[]): boolean {
     return false
   }
 
-  console.log(`ok      lock: ${state.tarballRefs} tarball refs at t/${prefix}, no codeload refs`)
+  console.log(`ok      lock: ${state.releaseRefs} release tarball refs at ${tag}, no legacy refs`)
   return true
 }
 
@@ -254,7 +278,7 @@ function networkMessage(error: unknown): string {
   return String(error)
 }
 
-async function headPin(pin: TarballPin): Promise<HeadResult> {
+async function headPin(pin: ReleasePin): Promise<HeadResult> {
   try {
     let response = await fetch(pin.url, {
       method: 'HEAD',
@@ -303,87 +327,132 @@ function warnOrFail(strict: boolean, message: string): void {
   else console.warn(`warning ${message}`)
 }
 
-async function checkManifest(prefix: string, strict: boolean): Promise<boolean> {
-  let manifest: PreviewManifest
+function previewTagTime(tag: string): number {
+  let match = /^v0\.(\d{8})\.(\d{1,6})-/.exec(tag)
+  return match ? Number(match[1]) * 1_000_000 + Number(match[2]) : 0
+}
 
+async function fetchJson(url: string): Promise<unknown> {
+  let response = await fetch(url, {
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': USER_AGENT },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${url}`)
+  }
+  return response.json()
+}
+
+async function fetchRelease(tag: string): Promise<PreviewRelease> {
+  let value = (await fetchJson(
+    `${PREVIEW_API}/releases/tags/${encodeURIComponent(tag)}`,
+  )) as Partial<PreviewRelease>
+  if (typeof value.tag_name !== 'string' || !Array.isArray(value.assets)) {
+    throw new Error(`invalid release response for ${tag}`)
+  }
+  return value as PreviewRelease
+}
+
+async function fetchLatestMainRelease(): Promise<PreviewRelease | undefined> {
+  let latest = (await fetchJson(`${PREVIEW_API}/releases/latest`)) as Partial<PreviewRelease>
+  if (typeof latest.tag_name === 'string' && RELEASE_TAG_RE.test(latest.tag_name)) {
+    return latest as PreviewRelease
+  }
+
+  let list = await fetchJson(`${PREVIEW_API}/releases?per_page=100`)
+  if (!Array.isArray(list)) throw new Error('preview releases response is not an array')
+  let releases = list.filter(
+    (release): release is PreviewRelease =>
+      typeof release === 'object' &&
+      release !== null &&
+      typeof (release as PreviewRelease).tag_name === 'string' &&
+      RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
+  )
+  return releases.toSorted((a, b) => previewTagTime(b.tag_name) - previewTagTime(a.tag_name))[0]
+}
+
+async function checkReleaseWindow(tag: string, strict: boolean): Promise<boolean> {
+  let latest: PreviewRelease | undefined
   try {
-    let response = await fetch(MANIFEST_URL, {
-      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    })
-    if (!response.ok) {
-      console.warn(
-        `warning preview manifest returned HTTP ${response.status}; skipping the age check`,
-      )
-      return false
-    }
-    manifest = (await response.json()) as PreviewManifest
+    latest = await fetchLatestMainRelease()
   } catch (error) {
     console.warn(
-      `warning could not read the preview manifest (${networkMessage(error)}); ` +
-        'skipping the age check',
+      `warning could not read the latest preview release (${networkMessage(error)}); ` +
+        'skipping the freshness check',
     )
     return false
   }
 
-  if (manifest.branch !== 'preview/main') {
-    console.warn(
-      `warning preview manifest reports branch ${manifest.branch ?? 'missing'}; ` +
-        'skipping the age check',
-    )
-    return false
-  }
-
-  let builds = Array.isArray(manifest.builds) ? manifest.builds : []
-  let build = builds.find((entry) => typeof entry.sha === 'string' && entry.sha.startsWith(prefix))
-  if (!build) {
+  if (!latest) {
     warnOrFail(
       strict,
-      `t/${prefix} is not listed in preview/main builds[]; it may be pruned soon. ` +
+      'no main preview releases found in remix-run/previews; run npm run update:remix',
+    )
+    return strict
+  }
+
+  if (latest.tag_name !== tag) {
+    warnOrFail(
+      strict,
+      `a newer main preview is available: ${latest.tag_name} (pinned ${tag}). ` +
+        'Run: npm run update:remix',
+    )
+  }
+
+  let release: PreviewRelease
+  try {
+    release = latest.tag_name === tag ? latest : await fetchRelease(tag)
+  } catch (error) {
+    warnOrFail(
+      strict,
+      `could not read release ${tag} (${networkMessage(error)}); it may be pruned. ` +
         'Run: npm run update:remix',
     )
     return strict
   }
 
-  let createdAt = typeof build.createdAt === 'string' ? Date.parse(build.createdAt) : Number.NaN
-  if (!Number.isFinite(createdAt)) {
+  let publishedAt =
+    typeof release.published_at === 'string'
+      ? Date.parse(release.published_at)
+      : Date.parse(release.created_at)
+  if (!Number.isFinite(publishedAt)) {
     warnOrFail(
       strict,
-      `t/${prefix} has no usable createdAt in the preview manifest; ` +
-        'cannot check the refresh window. Run: npm run update:remix',
+      `${tag} has no usable publish date; cannot check the refresh window. ` +
+        'Run: npm run update:remix',
     )
     return strict
   }
 
-  let ageMs = Math.max(0, Date.now() - createdAt)
+  let ageMs = Math.max(0, Date.now() - publishedAt)
   let ageDays = ageMs / DAY_MS
-  let created = new Date(createdAt).toISOString()
+  let published = new Date(publishedAt).toISOString()
 
   if (ageMs > REFRESH_AFTER_DAYS * DAY_MS) {
     warnOrFail(
       strict,
-      `t/${prefix} was created ${created} (${ageDays.toFixed(1)} days ago); ` +
-        `retained builds are pruned after ~${RETENTION_DAYS} days. ` +
+      `${tag} was published ${published} (${ageDays.toFixed(1)} days ago); ` +
+        `main previews are pruned after ~${RETENTION_DAYS} days. ` +
         'Run: npm run update:remix',
     )
     return strict
   }
 
   console.log(
-    `ok      manifest: t/${prefix} created ${created} ` +
+    `ok      release: ${tag} published ${published} ` +
       `(${ageDays.toFixed(1)} days ago; refresh after ${REFRESH_AFTER_DAYS} days)`,
   )
-  return false
+  return latest.tag_name !== tag && strict
 }
 
 async function main(): Promise<void> {
   let options = parseOptions(process.argv.slice(2))
   let pins = readPins()
-  let prefix = pins[0]!.prefix
+  let tag = pins[0]!.tag
 
-  console.log(`Checking remix pin t/${prefix} (${pins.map((pin) => pin.name).join(', ')})`)
+  console.log(`Checking remix pin ${tag} (${pins.map((pin) => pin.name).join(', ')})`)
 
-  if (!checkLock(prefix, pins)) {
+  if (!checkLock(tag, pins)) {
     console.error('')
     console.error('Remix pin check failed: package.json and pnpm-lock.yaml disagree.')
     console.error('Run: npm run update:remix')
@@ -396,14 +465,14 @@ async function main(): Promise<void> {
 
   if (results.some((result) => result.status === 'expired')) {
     console.error('')
-    console.error(`Remix pin expired: t/${prefix} is no longer served for one or more packages.`)
-    console.error(`Retained preview builds are pruned after ~${RETENTION_DAYS} days.`)
+    console.error(`Remix pin expired: ${tag} is no longer served for one or more packages.`)
+    console.error(`Main preview releases are pruned after ~${RETENTION_DAYS} days.`)
     console.error('Run: npm run update:remix')
     process.exitCode = 1
     return
   }
 
-  let needsRefresh = await checkManifest(prefix, options.strict)
+  let needsRefresh = await checkReleaseWindow(tag, options.strict)
   if (needsRefresh) {
     console.error('')
     console.error('Remix pin check failed under --strict; run: npm run update:remix')
@@ -414,7 +483,7 @@ async function main(): Promise<void> {
   if (results.some((result) => result.status === 'skipped')) {
     console.log('Remix pin check passed with skipped network checks.')
   } else {
-    console.log(`Remix pin t/${prefix} OK.`)
+    console.log(`Remix pin ${tag} OK.`)
   }
 }
 

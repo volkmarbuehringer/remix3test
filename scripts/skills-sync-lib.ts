@@ -35,7 +35,7 @@ const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
  * currently installed `remix` build.
  *
  * The public-hoisted link (`.npmrc` publishes `@remix-run/*`) is authoritative:
- * pnpm truncates the build URL inside `.pnpm` directory names to different
+ * pnpm truncates the tarball URL inside `.pnpm` directory names to different
  * lengths per package, so directory-name matching alone is not reliable.
  */
 async function findCliPackage(): Promise<string | null> {
@@ -48,17 +48,19 @@ async function findCliPackage(): Promise<string | null> {
 
   let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
   try {
-    // Fallback: match the build prefix from the installed remix link, then any
-    // CLI. The directory name may keep only a truncated part of the prefix
-    // (for example `…t+c26a37e`), so compare a short prefix.
+    // Fallback: match the release tag (or the historical build prefix) from the
+    // installed remix link, then any CLI. The directory name may keep only a
+    // truncated part of the tag (for example `…download+v0.20261103.224609`), so
+    // compare a short prefix.
     let remixLink = await fs.readlink(path.join(PROJECT_ROOT, 'node_modules/remix'))
+    let tagMatch = remixLink.match(/releases\+download\+([^+/]+)/)?.[1] || ''
     let commitMatch = remixLink.match(/(?:tar\.gz\+|t\+)([a-f0-9]{7,40})/)?.[1] || ''
-    let commitPrefix = commitMatch.slice(0, 7)
+    let key = (tagMatch || commitMatch).slice(0, 24)
 
     let entries = await fs.readdir(pnpmDir)
     let candidates = [
-      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix)),
-      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && !e.includes(commitPrefix)),
+      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && e.includes(key)),
+      ...entries.filter((e) => e.startsWith('@remix-run+cli@') && !e.includes(key)),
     ]
     for (let cliDir of candidates) {
       let p = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli')

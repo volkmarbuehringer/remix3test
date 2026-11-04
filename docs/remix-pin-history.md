@@ -185,26 +185,42 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - **Automation fix (pnpm 12):** `scripts/update-remix.ts` passed the removed `--fetch-retries`/`--fetch-retry-mintimeout`/`--fetch-retry-maxtimeout` flags, so the first run died at `pnpm install` (`unexpected argument '--fetch-retries'`). The retry policy now uses the universal `--config.fetch-retries=10`/`--config.fetch-retry-mintimeout=2000`/`--config.fetch-retry-maxtimeout=60000` form, accepted by pnpm 12.16.1 and 11.24.0.
 - **Verification (2026-11-03):** `npm run remix:pin:check` clean; `npm run typecheck`, `npm run lint`, `npm run format` clean; full `npm test` green (server and browser phases passed, e2e 118/118). The new head-resource e2e passes 2/2 (Chromium + Firefox); learned-delta line refs were revalidated against the installed `@remix-run/component` tree.
 
-**Pin history (newest first).** Build commits are the `preview/main` tips that pnpm resolves; the source commit is what the generated installable build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
+**Bump recorded 2026-11-04: install-format migration #2 — retained-tarball build `t/1bb19a01`/source `1bb19a0129` → preview release `v0.20261103.224609-main-98229b78`/source `98229b788f` (8 commits; runtime #12151, #12098, #12176, #12162; release tooling/docs #12174, #12177, #12178, #12181).**
 
-| Recorded       | Build        | Source       | Range highlights                                                               |
-| -------------- | ------------ | ------------ | ------------------------------------------------------------------------------ |
-| 2026-11-03 (2) | `648eb9a0e7` | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                               |
-| 2026-11-03     | `cc2a50e2a0` | `c26a37ebe`  | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167 |
-| 2026-11-02     | `3f182ccc`   | `26db8a3`    | #12148                                                                         |
-| 2026-10-31     | `57ecca4cba` | `a178e1f`    | #12125 #12121; test #12147                                                     |
-| 2026-10-30     | `0a6895947b` | `87a80a2`    | #12059; docs #12142; bot README `87a80a2`                                      |
-| 2026-10-29 (2) | `782c7a65`   | `1b11033`    | #12107 #12119; docs #12129 (applied, not written up then)                      |
-| 2026-10-29     | `19b3c4e8`   | `6ab52963`   | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
-| 2026-10-26     | `8ae2f755`   | `0b35d81`    | #11982; docs #12075 #12076                                                     |
-| 2026-10-23 (3) | `dfb4fc808`  | `5e5a244`    | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                  |
-| 2026-10-23 (2) | `1e03013e1`  | `446179f5a`  | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                  |
-| 2026-10-23     | `db58e1d9`   | `32794c0`    | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                 |
-| 2026-10-22     | `060b32a`    | `56f1fb6`    | #12004 #12061 #12067                                                           |
-| 2026-10-20 (2) | `9b5b702b1b` | `af3ea2c`    | #11993                                                                         |
-| 2026-10-20     | `3bb426e354` | `2e53e244`   | #12009 #12011 #12020                                                           |
-| 2026-10-16     | `7f900151`   | `b65325d`    | #12005–#12018 #12019                                                           |
-| 2026-10-15     | `48b54a55`   | `aa2efcd`    | #11987 #11992 #11999                                                           |
-| 2026-10-14 (2) | `2c9e033`    | `e6a63ea`    | #11988 #11989 #11990                                                           |
-| 2026-10-14     | `c93cec30`   | `e5ed055`    | #11986                                                                         |
-| 2026-10-14     | `c1787ef`    | `7d5a2f9`    | prior                                                                          |
+- **Install format changed again.** #12174 stopped publishing generated builds to the `preview/main` branch and now attaches per-package tarballs to a `remix-run/previews` GitHub release per `main` commit (tag `v0.<date>.<time>-main-<source-sha-8>`). `package.json` pins `https://github.com/remix-run/previews/releases/download/v0.20261103.224609-main-98229b78/{remix,ui}.tgz`; the lock has 277 release refs and no codeload or `t/<sha>/` refs. The release tarballs rewrite transitive `@remix-run/*` dependencies to the same tag, so the unified-lock property is preserved.
+- **Versions unchanged:** `remix` 3.1.0, `@remix-run/ui` 0.13.0, `@remix-run/component` 1.1.0, `component-hmr` 1.0.0. The unmerged `release-pr/main` commit `e5a2b6f5` ("Release") would publish 3.2.0/1.2.0/0.13.1.
+- **Package delta:** `packages/component` (props serialization, nonce/parse-document, style/mixin, frame/stream, navigation), `packages/assets` (HMR import-map nonce), new `packages/csp-middleware`, `packages/headers` (CSP), `packages/render-middleware` (nonce), and `packages/test` (WebKit timers), plus guide/README and preview-tooling changes.
+- #12151 (`cliententry` props): plain data whose keys collide with Remix's serialization markers (`$rmx`, `$rmxMixin`) now reaches the client entry unchanged at any nesting level; hand-built element-shaped objects and parsed JSON no longer render as elements, and own `__proto__` data stays data. Element spread copies still render. The app passes only strings through `LazyFrame` `children`/`fallback` and has no `$rmx`-shaped data, so no source change.
+- #12098 (CSP/nonce): adds `@remix-run/csp-middleware` (initial major) with `ContentSecurityPolicy`/nonce utilities, an SSR nonce island + document parsing path in `@remix-run/component`, nonce support in `render-middleware`, and HMR import-map nonces in `assets`. The app keeps its own `app/middleware/security-headers.ts` nonce context and `script-src 'nonce-…'`; adopting the vendor middleware is a dedupe follow-up, not part of this bump.
+- #12176 (`css()` performance): generated classes now include style-key order and use locale-independent ordering, so `{ marginTop, margin }` vs `{ margin, marginTop }` no longer share a class and a non-default browser locale cannot generate a different class than the server. Rerenders are ~50% faster, first renders ~20%, SSR ~27%; generated `rmxc-*` names change. The app has no hard-coded `rmxc-*` selectors and its `css()`-driven layout tests pass unchanged.
+- #12162 (Safari traversal scroll): before restoring a traversal scroll position, the navigation listener reads `document.documentElement.scrollHeight` so WebKit lays out the restored page first; the rest is WebKit browser-test infrastructure. The app's `scroll-restoration` e2e covers the traversal-shrink case.
+- #12174/#12177/#12178/#12181 are preview-release tooling/docs: release-asset publishing in `remix-run/previews`, release display titles, release-PR identification, and the one-line latest-main install.
+- **Automation migrated:** `scripts/update-remix.ts` now resolves `remix-run/previews` `releases/latest`, validates the main tag/source/asset URLs, rewrites both specs, and verifies the lock at one release tag. `scripts/check-remix-pin.ts` verifies release-tag unification, HEADs the release assets, and warns when the pin is not the newest main release or is older than five days. `scripts/skills-sync-lib.ts` recognizes the release tag in `.pnpm` directory names. `docs/pnpm-remix-preview-installs.md` documents the new flow; the retained-tarball and `github:…&path:` recipes remain historical.
+- **App-side clearance:** no production source change. `app/` has no `$rmx`/`$rmxMixin` data, no `rmxc-*` selectors, and no vendor CSP/nonce wiring; all three suites pass with the new runtime.
+- **Verification (2026-11-04):** `npm run remix:pin:check` clean; `npm run typecheck`, `npm run lint`, `npm run format` clean; full `npm test` green — server 2,006 tests (2,005 pass, 1 todo, 0 fail), browser 940 (938 pass, 2 skipped, 0 fail), e2e 120/120.
+- **Retention:** main preview releases are pruned after ~7 days (the newest is kept), so refresh the pin before the release assets disappear. `AGENTS.md`, `docs/guide-skill-coverage.md`, and the learned tooling pin strings now name release `v0.20261103.224609-main-98229b78` / source `98229b788f`.
+
+**Pin history (newest first).** Builds are the `preview/main` tips (through 2026-11-03) or `remix-run/previews` release tags (2026-11-04+); the source commit is what the build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
+
+| Recorded       | Build                              | Source       | Range highlights                                                               |
+| -------------- | ---------------------------------- | ------------ | ------------------------------------------------------------------------------ |
+| 2026-11-04     | `v0.20261103.224609-main-98229b78` | `98229b788f` | #12151 #12098 #12176 #12162; tooling #12174 #12177 #12178 #12181               |
+| 2026-11-03 (2) | `648eb9a0e7`                       | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                               |
+| 2026-11-03     | `cc2a50e2a0`                       | `c26a37ebe`  | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167 |
+| 2026-11-02     | `3f182ccc`                         | `26db8a3`    | #12148                                                                         |
+| 2026-10-31     | `57ecca4cba`                       | `a178e1f`    | #12125 #12121; test #12147                                                     |
+| 2026-10-30     | `0a6895947b`                       | `87a80a2`    | #12059; docs #12142; bot README `87a80a2`                                      |
+| 2026-10-29 (2) | `782c7a65`                         | `1b11033`    | #12107 #12119; docs #12129 (applied, not written up then)                      |
+| 2026-10-29     | `19b3c4e8`                         | `6ab52963`   | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
+| 2026-10-26     | `8ae2f755`                         | `0b35d81`    | #11982; docs #12075 #12076                                                     |
+| 2026-10-23 (3) | `dfb4fc808`                        | `5e5a244`    | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                  |
+| 2026-10-23 (2) | `1e03013e1`                        | `446179f5a`  | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                  |
+| 2026-10-23     | `db58e1d9`                         | `32794c0`    | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                 |
+| 2026-10-22     | `060b32a`                          | `56f1fb6`    | #12004 #12061 #12067                                                           |
+| 2026-10-20 (2) | `9b5b702b1b`                       | `af3ea2c`    | #11993                                                                         |
+| 2026-10-20     | `3bb426e354`                       | `2e53e244`   | #12009 #12011 #12020                                                           |
+| 2026-10-16     | `7f900151`                         | `b65325d`    | #12005–#12018 #12019                                                           |
+| 2026-10-15     | `48b54a55`                         | `aa2efcd`    | #11987 #11992 #11999                                                           |
+| 2026-10-14 (2) | `2c9e033`                          | `e6a63ea`    | #11988 #11989 #11990                                                           |
+| 2026-10-14     | `c93cec30`                         | `e5ed055`    | #11986                                                                         |
+| 2026-10-14     | `c1787ef`                          | `7d5a2f9`    | prior                                                                          |
