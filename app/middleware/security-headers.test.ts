@@ -95,6 +95,31 @@ describe('Security headers middleware', () => {
     assert.ok(scriptSrc.includes('blob:'), 'script-src must keep blob: for polyfilled modules')
   })
 
+  it('uses the CSP header nonce on every rendered nonce attribute', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+    let headerNonce = /'nonce-([^']+)'/.exec(csp)?.[1]
+    assert.ok(headerNonce, 'CSP should include a script nonce')
+
+    let html = await response.text()
+    let documentNonces = [...html.matchAll(/\snonce="([^"]+)"/g)].map((match) => match[1]!)
+    assert.ok(documentNonces.length >= 2, 'document should render authored and generated nonces')
+    assert.deepEqual(
+      [...new Set(documentNonces)],
+      [headerNonce],
+      'every document nonce should come from the CSP middleware',
+    )
+
+    let importMap = html.match(/<script data-rmx-import-map type="importmap"[^>]*\snonce="([^"]+)"/)
+    assert.equal(importMap?.[1], headerNonce, 'the generated import map should inherit the nonce')
+  })
+
+  it('keeps the CSP on static responses', async () => {
+    let response = await router.fetch(`${BASE}/fonts/fonts.css`)
+    assert.equal(response.status, 200)
+    assert.ok(response.headers.get('Content-Security-Policy'), 'static CSS should keep the CSP')
+  })
+
   it('all 6 headers present on a non-auth route too', async () => {
     let response = await router.fetch(`${BASE}/`)
     let headers = [

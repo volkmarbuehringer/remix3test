@@ -19,8 +19,9 @@ import { skipCsrf } from './skip-csrf.ts'
 import { json } from './json-render.ts'
 import { jsonBody } from './json-body.ts'
 import { render } from 'remix/middleware/render'
+import { csp } from 'remix/middleware/csp'
 import { loadAssetEntry } from './asset-entry.ts'
-import { securityHeaders } from './security-headers.ts'
+import { contentSecurityPolicy, securityHeaders } from './security-headers.ts'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
@@ -56,10 +57,16 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
   return createMiddleware(
     skipAssetsLogger(),
     securityHeaders(),
+    // Vendor CSP middleware owns the request nonce and policy. `render()`
+    // inherits the nonce for generated import maps, module preloads, and CSS
+    // mixin styles, and internal frame requests inherit it before child
+    // handlers run. `filter: () => true` preserves the previous behavior of
+    // stamping the CSP on non-HTML responses too.
+    csp({ policy: contentSecurityPolicy, filter: () => true }),
     compression(),
     // Root-served static files (self-hosted fonts under `public/`). Runs after
-    // `securityHeaders()` so static responses still get the CSP, and before the
-    // session/database stack so a font request never touches them.
+    // `securityHeaders()`/`csp()` so static responses still get the headers, and
+    // before the session/database stack so a font request never touches them.
     // compression() above wraps static responses per the request-handling guide
     // (put a response wrapper before an early response it should transform);
     // its own guards skip the .woff2 files (already-compressed MIME filter),

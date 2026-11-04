@@ -1,38 +1,57 @@
-import { createContextKey, type Middleware } from 'remix/router'
+import type { Middleware } from 'remix/router'
 import { getContext } from 'remix/middleware/async-context'
-import { SuperHeaders } from 'remix/headers'
+import { getCspNonce as getRequestCspNonce } from 'remix/middleware/csp'
+import { SuperHeaders, type ContentSecurityPolicyInit } from 'remix/headers'
 
 import { isProduction } from '../config.ts'
 
-const cspNonceKey = createContextKey<string>()
-
+/**
+ * Reads the nonce established by the vendor `csp()` middleware.
+ *
+ * Components render inside the request's async context, so the wrapper keeps
+ * authored inline scripts from having to thread the request context through
+ * every call site. Outside a request it returns undefined, matching the old
+ * local helper.
+ */
 export function getCspNonce(): string | undefined {
   try {
-    return getContext().get(cspNonceKey)
+    return getRequestCspNonce(getContext())
   } catch {
     return undefined
   }
 }
 
-export function securityHeaders(): Middleware {
-  return async (context, next) => {
-    let nonce = crypto.randomUUID()
-    context.set(cspNonceKey, nonce)
+/**
+ * Policy for `remix/middleware/csp`.
+ *
+ * `script-src` stays nonce-based. `style-src` keeps `'unsafe-inline'` because
+ * the document and theme render authored `<style>` elements and the app emits
+ * inline `style` attributes; a nonce source would disable `'unsafe-inline'`
+ * for those and require every style element to carry the nonce.
+ */
+export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecurityPolicyInit {
+  return {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", `'nonce-${nonce}'`, 'blob:'],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    fontSrc: ["'self'"],
+    connectSrc: ["'self'", 'ws://localhost:44100', 'https://opencode.ai'],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+    imgSrc: ["'self'", 'data:'],
+    baseUri: ["'self'"],
+  }
+}
 
+/**
+ * Non-CSP hardening headers. CSP and the request nonce come from `csp()` in
+ * `app/middleware/root.ts`; keeping them out of this middleware avoids a
+ * second policy/nonce source.
+ */
+export function securityHeaders(): Middleware {
+  return async (_context, next) => {
     let response = await next()
     let headers = new SuperHeaders(response.headers)
-
-    let csp = [
-      `default-src 'self'`,
-      `script-src 'self' 'nonce-${nonce}' blob:`,
-      `style-src 'self' 'unsafe-inline'`,
-      `font-src 'self'`,
-      `connect-src 'self' ws://localhost:44100 https://opencode.ai`,
-      `frame-ancestors 'none'`,
-      `form-action 'self'`,
-      `img-src 'self' data:`,
-      `base-uri 'self'`,
-    ].join('; ')
 
     if (!headers.has('X-Content-Type-Options')) {
       headers.xContentTypeOptions = 'nosniff'
@@ -42,9 +61,6 @@ export function securityHeaders(): Middleware {
     }
     if (!headers.has('Referrer-Policy')) {
       headers.referrerPolicy = 'strict-origin-when-cross-origin'
-    }
-    if (!headers.has('Content-Security-Policy')) {
-      headers.contentSecurityPolicy = csp
     }
     if (!headers.has('Permissions-Policy')) {
       headers.permissionsPolicy =

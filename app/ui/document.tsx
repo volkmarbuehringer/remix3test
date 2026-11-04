@@ -113,7 +113,8 @@ export function Document(handle: Handle<DocumentProps>) {
             if (!entry) return null
             return (
               <>
-                <ImportMap value={entry.importMap} nonce={getCspNonce()} />
+                {/* The renderer inherits the csp() nonce for the generated import map. */}
+                <ImportMap value={entry.importMap} />
                 {entry.preloads.map((href) => (
                   <link key={href} rel="modulepreload" href={href} />
                 ))}
