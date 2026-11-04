@@ -97,6 +97,47 @@ async function openSidebar(page: {
   throw new Error('the phone sidebar drawer did not open')
 }
 
+function isMenuOpen(id: number) {
+  return (
+    document
+      .querySelector(`[data-list-id="${id}"] [data-list-menu]`)
+      ?.hasAttribute('data-list-menu-open') === true
+  )
+}
+
+// The trigger is server-rendered, but its click handler attaches with the
+// deferred ListsRowActions entry: a click in the hydration gap (or right after
+// a frame swap) is a silent no-op, exactly like the drawer toggle above. Wait
+// for the entry's readiness marker, then retry until the menu really opens
+// instead of failing the run on one lost click.
+async function openListMenu(
+  page: { locator: Function; waitForFunction: Function; waitForTimeout: Function },
+  id: number,
+) {
+  await page
+    .locator('[data-lists-row-actions-ready="true"]')
+    .waitFor({ state: 'attached', timeout: 15_000 })
+  let trigger = page.locator(`[data-list-id="${id}"] [data-list-menu-button]`)
+  let deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    try {
+      await page.waitForFunction(isMenuOpen, id, { timeout: 250 })
+      return trigger
+    } catch {
+      // still closed (or the row was re-rendered) — click again below
+    }
+    await trigger.click()
+    try {
+      await page.waitForFunction(isMenuOpen, id, { timeout: 500 })
+      return trigger
+    } catch {
+      // hydration gap or a frame render still pending
+    }
+    await page.waitForTimeout(100)
+  }
+  throw new Error(`the row action menu for list ${id} did not open`)
+}
+
 function assertSidebarGeometry(metrics: PageMetrics) {
   assert.ok(
     metrics.scrollWidth <= metrics.innerWidth + 1,
@@ -199,16 +240,7 @@ describe('lists sidebar row action menu', () => {
 
       assertSidebarGeometry(await readMetrics(page))
 
-      let trigger = page.locator(`[data-list-id="${openId}"] [data-list-menu-button]`)
-      await trigger.click()
-      await page.waitForFunction(
-        (id) =>
-          document
-            .querySelector(`[data-list-id="${id}"] [data-list-menu]`)
-            ?.hasAttribute('data-list-menu-open') === true,
-        openId,
-        { timeout: 5_000 },
-      )
+      let trigger = await openListMenu(page, openId)
 
       assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
       assert.equal(
@@ -244,7 +276,7 @@ describe('lists sidebar row action menu', () => {
       )
 
       // Re-open, then dismiss with an outside pointer down.
-      await trigger.click()
+      await openListMenu(page, openId)
       await page.locator('#lists-title').click()
       await page.waitForFunction(
         (id) =>
@@ -257,7 +289,7 @@ describe('lists sidebar row action menu', () => {
 
       // Rename starts the inline name editor (outside the menu), and closing the
       // menu must not steal focus from the freshly inserted input.
-      await trigger.click()
+      await openListMenu(page, openId)
       await page
         .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
         .filter({ hasText: 'Umbenennen' })
@@ -279,8 +311,7 @@ describe('lists sidebar row action menu', () => {
 
       // Non-drag alternative to the list-to-list drag: copy the open list's
       // items into the clicked sidebar list through the shared confirm dialog.
-      let otherTrigger = page.locator(`[data-list-id="${otherId}"] [data-list-menu-button]`)
-      await otherTrigger.click()
+      await openListMenu(page, otherId)
       await page
         .locator(`[data-list-id="${otherId}"] [data-list-menu] button`)
         .filter({ hasText: 'Elemente hierher kopieren' })
@@ -310,7 +341,7 @@ describe('lists sidebar row action menu', () => {
       // Delete must open the shared styled confirm dialog. The menu closes in
       // capture phase before ConfirmDelete's handler, so this proves hiding the
       // menu does not swallow the form's submit interception.
-      await trigger.click()
+      await openListMenu(page, openId)
       await page
         .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
         .filter({ hasText: 'Löschen' })
@@ -326,7 +357,7 @@ describe('lists sidebar row action menu', () => {
       // Duplicate submits the menu's form; the frame navigates to the copy and
       // the sidebar grows by one row.
       let beforeRows = await page.locator('[data-list-id]').count()
-      await trigger.click()
+      await openListMenu(page, openId)
       await page
         .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
         .filter({ hasText: 'Duplizieren' })
@@ -412,16 +443,7 @@ describe('lists sidebar row action menu', () => {
 
       assertSidebarGeometry(await readMetrics(page))
 
-      let trigger = page.locator(`[data-list-id="${openId}"] [data-list-menu-button]`)
-      await trigger.click()
-      await page.waitForFunction(
-        (id) =>
-          document
-            .querySelector(`[data-list-id="${id}"] [data-list-menu]`)
-            ?.hasAttribute('data-list-menu-open') === true,
-        openId,
-        { timeout: 5_000 },
-      )
+      await openListMenu(page, openId)
       assert.equal(
         await page.evaluate(() => document.activeElement?.textContent?.trim()),
         'Umbenennen',

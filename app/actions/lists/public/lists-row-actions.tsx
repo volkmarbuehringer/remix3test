@@ -2,6 +2,8 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 const TRIGGER_SELECTOR = '[data-list-menu-button]'
 const MENU_SELECTOR = '[data-list-menu]'
+/** Presence marker set once the deferred entry has wired its listeners. */
+const ROW_ACTIONS_READY_ATTRIBUTE = 'data-lists-row-actions-ready'
 
 type OpenMenu = {
   trigger: HTMLButtonElement
@@ -140,9 +142,14 @@ export const ListsRowActions = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref(() => {
+          ref((element) => {
             if (typeof document === 'undefined') return
             init()
+            // Hydration signal for e2e: the trigger listeners attach with this
+            // deferred client entry, so a click in the hydration gap (or right
+            // after a frame swap) is a silent no-op. Tests wait for the marker
+            // before touching a trigger instead of racing the entry.
+            element.setAttribute(ROW_ACTIONS_READY_ATTRIBUTE, 'true')
             handle.frame.addEventListener('reloadComplete', init, {
               signal: handle.signal,
             })
