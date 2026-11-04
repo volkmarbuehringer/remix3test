@@ -3,7 +3,8 @@ import * as assert from 'remix/assert'
 import { router } from '../test-router.ts'
 import { system } from '../routes.ts'
 import { initializeAppDatabase } from '../db.ts'
-import { createServerHandler } from './server-handler.ts'
+import { createServerHandler, renderServerError } from './server-handler.ts'
+import { serverErrorContentSecurityPolicy } from '../middleware/security-headers.ts'
 
 /**
  * Regression tests for the two-tier IP trust model: the server boundary
@@ -53,5 +54,52 @@ describe('server handler X-Client-Ip boundary', () => {
       '127.0.0.1',
     )
     assert.equal(response.status, 400)
+  })
+})
+
+/**
+ * The 500 page is returned directly from `onError` in both server entrypoints,
+ * so it bypasses `securityHeaders()` / `csp()` entirely. These tests pin the
+ * hardening it must apply itself.
+ */
+describe('renderServerError', () => {
+  it('returns a non-cacheable 500 HTML response with the hardening headers', () => {
+    let response = renderServerError()
+
+    assert.equal(response.status, 500)
+    assert.equal(response.headers.get('Content-Type'), 'text/html; charset=utf-8')
+    assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff')
+    assert.equal(response.headers.get('X-Frame-Options'), 'DENY')
+    assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
+    assert.ok(
+      response.headers.get('Permissions-Policy')?.includes('camera=()'),
+      'the error page must carry the same Permissions-Policy as routed responses',
+    )
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    assert.equal(
+      response.headers.get('Strict-Transport-Security'),
+      null,
+      'HSTS stays production-only',
+    )
+  })
+
+  it('applies the static, script-less CSP that allows only the inline style', async () => {
+    let response = renderServerError()
+    let csp = response.headers.get('Content-Security-Policy')
+
+    assert.equal(csp, serverErrorContentSecurityPolicy)
+    assert.ok(csp?.includes("default-src 'none'"), 'the policy must default-deny')
+    assert.ok(
+      csp?.includes("style-src 'unsafe-inline'"),
+      'the inline <style> needs the static style exception',
+    )
+    assert.ok(csp?.includes("base-uri 'none'"), 'the error page needs no base URL')
+    assert.ok(csp?.includes("frame-ancestors 'none'"), 'the error page must not be framed')
+    assert.ok(csp?.includes("form-action 'none'"), 'the error page has no forms')
+
+    let body = await response.text()
+    assert.ok(body.includes('<style>'), 'the error page keeps its inline style')
+    assert.ok(!body.includes('<script'), 'the error page stays script-less')
+    assert.ok(!body.includes('nonce='), 'a nonce is meaningless without request context')
   })
 })

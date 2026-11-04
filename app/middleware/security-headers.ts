@@ -60,31 +60,57 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
 }
 
 /**
- * Non-CSP hardening headers. CSP and the request nonce come from `csp()` in
- * `app/middleware/root.ts`; keeping them out of this middleware avoids a
- * second policy/nonce source.
+ * Non-CSP hardening headers applied to every response: middleware responses and
+ * responses built outside the middleware chain (the 500 page) share this.
+ *
+ * CSP and the request nonce come from `csp()` in `app/middleware/root.ts`;
+ * keeping them out of this helper avoids a second policy/nonce source.
  */
+export function applyHardeningHeaders(headers: Headers): void {
+  if (!headers.has('X-Content-Type-Options')) {
+    headers.set('X-Content-Type-Options', 'nosniff')
+  }
+  if (!headers.has('X-Frame-Options')) {
+    headers.set('X-Frame-Options', 'DENY')
+  }
+  if (!headers.has('Referrer-Policy')) {
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  }
+  if (!headers.has('Permissions-Policy')) {
+    headers.set(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()',
+    )
+  }
+
+  if (isProduction && !headers.has('Strict-Transport-Security')) {
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
+}
+
+/**
+ * Policy for the runtime 500 page.
+ *
+ * `renderServerError()` is returned straight from the server entrypoints'
+ * `onError`, outside the middleware chain, so there is no request nonce to gate
+ * the page's authored `<style>` with. The page is script-less, so a static
+ * `style-src 'unsafe-inline'` is acceptable here and only here; anything the
+ * router renders keeps the nonce-gated policy from `contentSecurityPolicy()`.
+ */
+export const serverErrorContentSecurityPolicy =
+  "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+
 export function securityHeaders(): Middleware {
   return async (_context, next) => {
     let response = await next()
     let headers = new SuperHeaders(response.headers)
 
-    if (!headers.has('X-Content-Type-Options')) {
-      headers.xContentTypeOptions = 'nosniff'
-    }
-    if (!headers.has('X-Frame-Options')) {
-      headers.xFrameOptions = 'DENY'
-    }
-    if (!headers.has('Referrer-Policy')) {
-      headers.referrerPolicy = 'strict-origin-when-cross-origin'
-    }
-    if (!headers.has('Permissions-Policy')) {
-      headers.permissionsPolicy =
-        'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()'
-    }
+    applyHardeningHeaders(headers)
 
-    if (isProduction && !headers.has('Strict-Transport-Security')) {
-      headers.strictTransportSecurity = 'max-age=31536000; includeSubDomains'
+    // Error responses (the router's default 404, thrown-route 500s) must never
+    // be cached: they are request-specific and can hide a recovered route.
+    if (response.status >= 400 && !headers.has('Cache-Control')) {
+      headers.set('Cache-Control', 'no-store')
     }
 
     return new Response(response.body, {

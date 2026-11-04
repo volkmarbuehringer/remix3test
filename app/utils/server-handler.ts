@@ -1,12 +1,31 @@
 import { html } from 'remix/html-template'
+import { SuperHeaders } from 'remix/headers'
+
+import {
+  applyHardeningHeaders,
+  serverErrorContentSecurityPolicy,
+} from '../middleware/security-headers.ts'
 
 /** The subset of a Remix router the runtime entrypoints depend on. */
 interface RequestRouter {
   fetch(request: Request): Response | Promise<Response>
 }
 
-/** Renders the app's 500 error page. */
+/**
+ * Renders the app's 500 error page.
+ *
+ * `onError` runs outside the router's middleware chain, so this response cannot
+ * inherit `securityHeaders()` / `csp()`. Apply the same non-CSP hardening
+ * headers through the shared helper, give the script-less page a static policy
+ * (no request nonce exists here), and keep it out of every cache.
+ */
 export function renderServerError(): Response {
+  let headers = new SuperHeaders()
+  applyHardeningHeaders(headers)
+  headers.set('Content-Type', 'text/html; charset=utf-8')
+  headers.set('Content-Security-Policy', serverErrorContentSecurityPolicy)
+  headers.set('Cache-Control', 'no-store')
+
   return new Response(
     String(
       html`<!doctype html>
@@ -53,7 +72,7 @@ export function renderServerError(): Response {
     ),
     {
       status: 500,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      headers,
     },
   )
 }

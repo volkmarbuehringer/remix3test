@@ -203,6 +203,20 @@ describe('Security headers middleware', () => {
     assert.ok(response.headers.get('Content-Security-Policy'), 'static CSS should keep the CSP')
   })
 
+  it('hardens an unmatched router 404 through the middleware chain', async () => {
+    // Unmatched routes still run the global middleware, so the 404 gets the
+    // same CSP and hardening as a rendered page. It must not be cached.
+    let response = await router.fetch(`${BASE}/definitely-not-a-route`)
+
+    assert.equal(response.status, 404)
+    assert.ok(response.headers.get('Content-Security-Policy'), '404 should keep the CSP')
+    assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff')
+    assert.equal(response.headers.get('X-Frame-Options'), 'DENY')
+    assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
+    assert.ok(response.headers.get('Permissions-Policy'), '404 should keep Permissions-Policy')
+    assert.equal(response.headers.get('Cache-Control'), 'no-store', '404 must not be cached')
+  })
+
   it('all 6 headers present on a non-auth route too', async () => {
     let response = await router.fetch(`${BASE}/`)
     let headers = [
