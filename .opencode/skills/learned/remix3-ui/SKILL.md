@@ -78,6 +78,7 @@ Delta index for styling/layout failures that look like "the CSS did nothing": ca
 | A scrollbar is missing in Firefox although `&::-webkit-scrollbar` is set | `references/remix3-css-and-layout/bounded-scroll-flexchain.md` |
 | An admin grid overflows on mobile / hides its row actions, or opening the two-column edit panel clips the table columns | `references/remix3-css-and-layout/admin-grid-responsive-panels.md` |
 | An admin grid's actions column overflows, a hover-reveal cluster should reclaim its width, or a `css()` breakpoint override silently does nothing | `references/remix3-css-and-layout/floating-row-actions.md` |
+| A desktop-only hide keeps an element visible, a narrow mouse window keeps the touch layout, or a new breakpoint flips browser-test focus/visibility | `references/remix3-css-and-layout/responsive-show-hide.md` |
 
 ### Core Rules
 
