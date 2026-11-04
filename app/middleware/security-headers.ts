@@ -28,14 +28,23 @@ export function getCspNonce(): string | undefined {
  * the document and theme render authored `<style>` elements and the app emits
  * inline `style` attributes; a nonce source would disable `'unsafe-inline'`
  * for those and require every style element to carry the nonce.
+ *
+ * The HMR websocket is only needed inside the node-HMR child, which sets
+ * `REMIX_NODE_HMR=1`. Plain `npm run dev` has no HMR websocket, so the source
+ * must not be allowed merely because `NODE_ENV=development`.
  */
 export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecurityPolicyInit {
+  let connectSrc = ["'self'", 'https://opencode.ai']
+  if (process.env.REMIX_NODE_HMR === '1') {
+    connectSrc.splice(1, 0, 'ws://localhost:44100')
+  }
+
   return {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'", `'nonce-${nonce}'`, 'blob:'],
     styleSrc: ["'self'", "'unsafe-inline'"],
     fontSrc: ["'self'"],
-    connectSrc: ["'self'", 'ws://localhost:44100', 'https://opencode.ai'],
+    connectSrc,
     frameAncestors: ["'none'"],
     formAction: ["'self'"],
     imgSrc: ["'self'", 'data:'],

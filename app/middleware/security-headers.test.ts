@@ -46,6 +46,45 @@ describe('Security headers middleware', () => {
     assert.ok(csp.includes('https://opencode.ai'), 'CSP connect-src should include AI provider')
   })
 
+  it('CSP connect-src omits the HMR websocket outside the node-HMR child', async () => {
+    let previous = process.env.REMIX_NODE_HMR
+    delete process.env.REMIX_NODE_HMR
+    try {
+      let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+      let csp = response.headers.get('Content-Security-Policy')!
+      let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
+      assert.ok(connectSrc.includes("'self'"), 'connect-src should keep self')
+      assert.ok(
+        connectSrc.includes('https://opencode.ai'),
+        'connect-src should keep the AI provider',
+      )
+      assert.ok(
+        !connectSrc.includes('ws://localhost:44100'),
+        'plain dev/test must not allow the HMR websocket',
+      )
+    } finally {
+      if (previous === undefined) delete process.env.REMIX_NODE_HMR
+      else process.env.REMIX_NODE_HMR = previous
+    }
+  })
+
+  it('CSP connect-src includes the HMR websocket inside the node-HMR child', async () => {
+    let previous = process.env.REMIX_NODE_HMR
+    process.env.REMIX_NODE_HMR = '1'
+    try {
+      let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+      let csp = response.headers.get('Content-Security-Policy')!
+      let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
+      assert.ok(
+        connectSrc.includes('ws://localhost:44100'),
+        'the node-HMR child should allow its development websocket',
+      )
+    } finally {
+      if (previous === undefined) delete process.env.REMIX_NODE_HMR
+      else process.env.REMIX_NODE_HMR = previous
+    }
+  })
+
   it('CSP includes frame-ancestors none', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
