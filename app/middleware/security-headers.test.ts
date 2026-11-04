@@ -1,12 +1,17 @@
-import { describe, it } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../test-router.ts'
-import { routes } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
+import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
+import { initializeAppDatabase } from '../db.ts'
 
 const BASE = 'https://remix.run'
 
 describe('Security headers middleware', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
   it('sets X-Content-Type-Options header', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff')
@@ -139,6 +144,44 @@ describe('Security headers middleware', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     // HSTS should only be present in production
     assert.equal(response.headers.get('Strict-Transport-Security'), null)
+  })
+
+  it('keeps nonce-bearing HTML out of caches', async () => {
+    for (let path of [routes.home.href(), routes.auth.login.index.href()]) {
+      let response = await router.fetch(`${BASE}${path}`)
+      assert.equal(
+        response.headers.get('Cache-Control'),
+        'private, no-store',
+        `${path}: a nonce-bearing document must not be reused by a shared cache`,
+      )
+    }
+  })
+
+  it('keeps frame fragments out of caches', async () => {
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+
+    let response = await router.fetch(`${BASE}${routes.admin.messages.index.href()}`, {
+      headers: {
+        Cookie: auth!.cookie,
+        'X-Remix-Frame': 'true',
+        'X-Remix-Target': frames.adminContent,
+        Accept: 'text/html',
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get('Content-Type') ?? '', /^text\/html/)
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-store',
+      'a frame fragment carries the document nonce and must not be cached',
+    )
+  })
+
+  it('does not override a cache policy the route already set', async () => {
+    let response = await router.fetch(`${BASE}${routes.health.href()}`)
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
   })
 
   it('CSP includes a per-request nonce for scripts', async () => {

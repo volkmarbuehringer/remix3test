@@ -107,10 +107,20 @@ export function securityHeaders(): Middleware {
 
     applyHardeningHeaders(headers)
 
-    // Error responses (the router's default 404, thrown-route 500s) must never
-    // be cached: they are request-specific and can hide a recovered route.
-    if (response.status >= 400 && !headers.has('Cache-Control')) {
-      headers.set('Cache-Control', 'no-store')
+    // Every cache policy is per-request: HTML carries the CSP nonce, and error
+    // responses are request-specific (the router's default 404, thrown-route
+    // 500s). Never let a shared cache reuse either. Routes that knowingly
+    // return a cacheable/streaming body (/health, uploads, SSE) set their own
+    // `Cache-Control` first and are left untouched.
+    if (!headers.has('Cache-Control')) {
+      if (isHtmlContentType(headers)) {
+        // `no-store` (not just `no-cache`) keeps the nonce-bearing document out
+        // of shared caches entirely; `private` documents browser-only caching
+        // as an additional signal for any intermediary that only honors it.
+        headers.set('Cache-Control', 'private, no-store')
+      } else if (response.status >= 400) {
+        headers.set('Cache-Control', 'no-store')
+      }
     }
 
     return new Response(response.body, {
@@ -119,4 +129,9 @@ export function securityHeaders(): Middleware {
       headers,
     })
   }
+}
+
+/** Matches `text/html` regardless of charset/parameter casing. */
+function isHtmlContentType(headers: Headers): boolean {
+  return headers.get('Content-Type')?.split(';', 1)[0]?.trim().toLowerCase() === 'text/html'
 }
