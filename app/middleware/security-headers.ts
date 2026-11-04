@@ -37,6 +37,11 @@ export function getCspNonce(): string | undefined {
  * `connect-src` stays first-party: all AI traffic is server-side
  * (`app/utils/ai-provider.ts` and `app/actions/mastra/*`), so the browser never
  * talks to the AI provider origin and it must not appear in the policy.
+ *
+ * The deny list pins what the app does not render: no iframes or embedded
+ * objects, no workers, no audio/video, no web app manifest, and no `<base>`
+ * element outside a test fixture. `default-src` stays `'self'` for the fetch
+ * directives that are not enumerated here.
  */
 export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecurityPolicyInit {
   let connectSrc = ["'self'"]
@@ -51,13 +56,49 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
     styleSrcElem: ["'self'", `'nonce-${nonce}'`],
     styleSrcAttr: ["'unsafe-inline'"],
     fontSrc: ["'self'"],
+    imgSrc: ["'self'"],
     connectSrc,
+    mediaSrc: ["'none'"],
+    objectSrc: ["'none'"],
+    frameSrc: ["'none'"],
+    workerSrc: ["'none'"],
+    manifestSrc: ["'none'"],
     frameAncestors: ["'none'"],
     formAction: ["'self'"],
-    imgSrc: ["'self'", 'data:'],
-    baseUri: ["'self'"],
+    baseUri: ["'none'"],
   }
 }
+
+/**
+ * Denies every powerful browser feature the app does not use. The list is
+ * intentionally explicit: adding an undecided feature later must be a
+ * deliberate policy change, not a browser default leaking through.
+ */
+export const permissionsPolicy = [
+  'camera=()',
+  'microphone=()',
+  'geolocation=()',
+  'payment=()',
+  'usb=()',
+  'accelerometer=()',
+  'gyroscope=()',
+  'magnetometer=()',
+  'midi=()',
+  'sync-xhr=()',
+  'display-capture=()',
+  'clipboard-read=()',
+  'clipboard-write=()',
+  'fullscreen=()',
+  'picture-in-picture=()',
+  'screen-wake-lock=()',
+  'serial=()',
+  'hid=()',
+  'bluetooth=()',
+  'local-fonts=()',
+  'encrypted-media=()',
+  'publickey-credentials-get=()',
+  'browsing-topics=()',
+].join(', ')
 
 /**
  * Non-CSP hardening headers applied to every response: middleware responses and
@@ -77,10 +118,24 @@ export function applyHardeningHeaders(headers: Headers): void {
     headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   }
   if (!headers.has('Permissions-Policy')) {
-    headers.set(
-      'Permissions-Policy',
-      'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()',
-    )
+    headers.set('Permissions-Policy', permissionsPolicy)
+  }
+  // Same-origin isolation: the app never cooperates with cross-origin windows,
+  // embeds no cross-origin resources, and has no legacy plugin/XHR surface.
+  if (!headers.has('Cross-Origin-Opener-Policy')) {
+    headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+  }
+  if (!headers.has('Cross-Origin-Resource-Policy')) {
+    headers.set('Cross-Origin-Resource-Policy', 'same-origin')
+  }
+  if (!headers.has('Origin-Agent-Cluster')) {
+    headers.set('Origin-Agent-Cluster', '?1')
+  }
+  if (!headers.has('X-Permitted-Cross-Domain-Policies')) {
+    headers.set('X-Permitted-Cross-Domain-Policies', 'none')
+  }
+  if (!headers.has('X-DNS-Prefetch-Control')) {
+    headers.set('X-DNS-Prefetch-Control', 'off')
   }
 
   if (isProduction && !headers.has('Strict-Transport-Security')) {

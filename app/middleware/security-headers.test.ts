@@ -5,8 +5,19 @@ import { router } from '../test-router.ts'
 import { frames, routes } from '../routes.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test/utils.ts'
 import { initializeAppDatabase } from '../db.ts'
+import { permissionsPolicy } from './security-headers.ts'
 
 const BASE = 'https://remix.run'
+
+/** Parses a serialized CSP into directive -> tokens. */
+function cspDirectives(csp: string): Map<string, string[]> {
+  return new Map(
+    csp.split(';').map((part) => {
+      let [name, ...values] = part.trim().split(/\s+/)
+      return [name!, values] as const
+    }),
+  )
+}
 
 describe('Security headers middleware', () => {
   before(async () => {
@@ -42,12 +53,7 @@ describe('Security headers middleware', () => {
   it('CSP splits style-src so nonce-gated style elements keep inline style attributes', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
-    let directives = new Map(
-      csp.split(';').map((part) => {
-        let [name, ...values] = part.trim().split(/\s+/)
-        return [name, values] as const
-      }),
-    )
+    let directives = cspDirectives(csp)
 
     assert.deepEqual(
       directives.get('style-src'),
@@ -134,9 +140,52 @@ describe('Security headers middleware', () => {
 
   it('sets Permissions-Policy header', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
-    assert.ok(
-      response.headers.get('Permissions-Policy'),
-      'Permissions-Policy header should be present',
+    assert.equal(response.headers.get('Permissions-Policy'), permissionsPolicy)
+  })
+
+  it('denies every unused powerful feature in Permissions-Policy', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let value = response.headers.get('Permissions-Policy')!
+
+    // Each feature must be explicitly denied rather than left at the browser
+    // default. `publickey-credentials-get` is not used (no WebAuthn).
+    for (let feature of [
+      'camera',
+      'microphone',
+      'geolocation',
+      'payment',
+      'clipboard-read',
+      'clipboard-write',
+      'fullscreen',
+      'picture-in-picture',
+      'screen-wake-lock',
+      'serial',
+      'hid',
+      'bluetooth',
+      'local-fonts',
+      'encrypted-media',
+      'publickey-credentials-get',
+      'browsing-topics',
+    ]) {
+      assert.ok(value.includes(`${feature}=()`), `${feature} must be denied`)
+    }
+  })
+
+  it('denies the unused embedding, worker, and media surface', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let directives = cspDirectives(response.headers.get('Content-Security-Policy')!)
+
+    // No iframes, plugins, workers, media, or manifest are rendered anywhere in
+    // `app/`; only a test fixture uses `<base>`.
+    for (let name of ['object-src', 'frame-src', 'worker-src', 'media-src', 'manifest-src']) {
+      assert.deepEqual(directives.get(name), ["'none'"], `${name} should be denied`)
+    }
+    assert.deepEqual(directives.get('base-uri'), ["'none'"], 'base-uri should be denied')
+    assert.deepEqual(directives.get('default-src'), ["'self'"], 'default-src stays self')
+    assert.deepEqual(
+      directives.get('img-src'),
+      ["'self'"],
+      'the favicon is served from public/, so img-src needs no data: source',
     )
   })
 
@@ -260,17 +309,25 @@ describe('Security headers middleware', () => {
     assert.equal(response.headers.get('Cache-Control'), 'no-store', '404 must not be cached')
   })
 
-  it('all 6 headers present on a non-auth route too', async () => {
+  it('sets every hardening header on a non-auth route too', async () => {
     let response = await router.fetch(`${BASE}/`)
-    let headers = [
-      'X-Content-Type-Options',
-      'X-Frame-Options',
-      'Referrer-Policy',
-      'Content-Security-Policy',
-      'Permissions-Policy',
+
+    let expected: ReadonlyArray<readonly [string, string]> = [
+      ['X-Content-Type-Options', 'nosniff'],
+      ['X-Frame-Options', 'DENY'],
+      ['Referrer-Policy', 'strict-origin-when-cross-origin'],
+      ['Permissions-Policy', permissionsPolicy],
+      ['Cross-Origin-Opener-Policy', 'same-origin'],
+      ['Cross-Origin-Resource-Policy', 'same-origin'],
+      ['Origin-Agent-Cluster', '?1'],
+      ['X-Permitted-Cross-Domain-Policies', 'none'],
+      ['X-DNS-Prefetch-Control', 'off'],
+      ['Cache-Control', 'private, no-store'],
     ]
-    for (let name of headers) {
-      assert.ok(response.headers.get(name), `${name} should be present on home page`)
+
+    for (let [name, value] of expected) {
+      assert.equal(response.headers.get(name), value, `${name} should be present on home page`)
     }
+    assert.ok(response.headers.get('Content-Security-Policy'), 'CSP should be present on home page')
   })
 })

@@ -69,10 +69,8 @@ export function Document(handle: Handle<DocumentProps>) {
           <meta property="og:type" content={ogType} />
           {ogImage ? <meta property="og:image" content={ogImage} /> : null}
           <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
-          <link
-            rel="icon"
-            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232dacf9'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='sans' fill='white'>R</text></svg>"
-          />
+          {/* Served from `public/` so `img-src` never needs a `data:` source. */}
+          <link rel="icon" href="/favicon.svg" />
           {/* Self-hosted (see public/fonts) — never load webfonts from a third-party CDN. */}
           <link rel="stylesheet" href="/fonts/fonts.css" />
           <Theme nonce={nonce} />
