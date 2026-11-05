@@ -84,6 +84,22 @@ alongside `node_modules`. The lockfile's tarball refs/integrity are unaffected.
 `--store-dir <path>` to use a different one (for example the currently linked
 global store).
 
+### Plain `pnpm update` picks the global store
+
+Once `node_modules` is linked from `.pnpm-store`, every pnpm command must keep
+passing that store. `pnpm update` does not remember it from
+`node_modules/.modules.yaml`; without the flag it falls back to
+`~/.local/share/pnpm/store/v11` and exits with `ERR_PNPM_UNEXPECTED_STORE`
+("currently linked from …/.pnpm-store/v11"). Rerun the same command with the
+store:
+
+```sh
+pnpm update --store-dir "$PWD/.pnpm-store"
+```
+
+The same applies to `pnpm add`, `pnpm remove`, and any other lockfile-changing
+command in this workspace.
+
 ### `ERR_PNPM_UNEXPECTED_STORE` after switching `--store-dir`
 
 `node_modules` was linked from the old store. Plain `pnpm install` does **not**
@@ -97,7 +113,7 @@ command, to force a full re-link into the new store.
 - You need to bump the preview pin or debug the release-asset update flow.
 - `npm run remix:pin:check` reports a mixed tag, a legacy tarball/codeload ref,
   or a release older than the refresh window.
-- `pnpm install` fails with `EROFS` or `UNEXPECTED_STORE`.
+- `pnpm install` or `pnpm update` fails with `EROFS` or `UNEXPECTED_STORE`.
 - `pnpm install` says "Already up to date" but `node_modules` still points at
   the old store/build.
 - You are debugging an old pin that still uses `github:…#path:` or
