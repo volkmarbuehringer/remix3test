@@ -1,6 +1,6 @@
 # Remix 3 Interactivity Runtime
 
-**Source:** Installed guide `node_modules/remix/guides/05-interactivity.md` (remix 3.1.0); §section refs in the text below are to that file. App seams re-checked against `app/` on 2026-11-02.
+**Source:** Installed guide `node_modules/remix/guides/05-interactivity.md` (remix 3.2.0); §section refs in the text below are to that file. App seams re-checked against `app/` on 2026-11-02.
 
 **Extracted:** 2026-09-26
 

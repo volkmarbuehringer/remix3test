@@ -3,15 +3,15 @@
 **Source:** `remix3-hmr-dev-server`
 
 **Extracted:** 2026-08-10
-**Revalidated:** 2026-11-04 against preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
+**Revalidated:** 2026-11-05 against preview release `v0.20261105.12650-main-f1cd1382` / source `f1cd1382` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
-## Current API anchors (release `v0.20261103.224609-main-98229b78`)
+## Current API anchors (release `v0.20261105.12650-main-f1cd1382`)
 
 - `run(entry, options)` at `@remix-run/node-hmr/dist/index.d.ts:126`; `RunOptions` at `:4` with `browserHmrChannel` at `:9`, plus `cwd`/`entryArgs`/`env`/`nodeArgs`/`watch`.
-- `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:114`; `dist/index.js:16` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.
+- `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:114`; `dist/index.js:17` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.
 - `createBrowserHmrChannel`/`emitServerReady` at `dist/runtime.d.ts:17`/`:25`.
-- `REMIX_NODE_HMR` is injected by the runner itself (`dist/lib/runner.js:16`, `buildChildProcessEnv` at `:874`) — never set it yourself.
+- `REMIX_NODE_HMR` is injected by the runner itself (`dist/lib/runner.js:16`, `buildChildProcessEnv` at `:864`) — never set it yourself.
 - The `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:802`.
 
 ## Problem

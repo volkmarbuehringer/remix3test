@@ -206,27 +206,42 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 
 **Follow-up 2026-11-04 (ops slice).** Enabled `.github/workflows/ci.yml` as a daily check (04:17 UTC, before upstream's 04:23 preview cleanup) with a Postgres 17 service, Playwright browser install, pin check, install, typecheck, lint, format, and the full test suite. The pin check now sends `GITHUB_TOKEN` when available, and `test/setup.ts` tolerates a missing `.env` so CI can provide the environment directly. Added `GET /health`: a DB-backed readiness probe (`SELECT 1`, 2s timeout) returning `{ status: "ok" }` / 200 or `{ status: "unavailable" }` / 503 with `Cache-Control: no-store`, covered by ready and mocked-failure server tests. Added a Docker `HEALTHCHECK` against the same route (HTTPS/loopback, self-signed certificate) and made shutdown drain connections: stop accepting, close idle keep-alives, wait up to 10s for active requests, then force-close; `assetServer.close()` and `closeAppDatabase()` are awaited before exit. Smoke-tested locally: `/health` returned 200 and SIGTERM exited 0. Full suite: server 2,010 (2,009 pass, 1 todo), browser 940 (938 pass, 2 skipped), e2e 120/120.
 
+**Bump recorded 2026-11-05: preview release `v0.20261103.224609-main-98229b78`/source `98229b788f` → `v0.20261105.12650-main-f1cd1382`/source `f1cd1382` (11 commits: the v3.2.0 release #12082 plus post-release runtime #12110, #12199, #12200, #12201; test/CI/docs #12173, #12175, #12192, #12194, #12195 and `chore: format`).**
+
+- **Lock:** all 277 release-tarball refs resolve to `v0.20261105.12650-main-f1cd1382`; no refs to the old tag remain. `.agents/skills/remix` resolves through the new `@remix-run/cli` 1.0.2 template.
+- **Versions:** first install of the 3.2.0 line — `remix` 3.2.0, `@remix-run/component` 1.2.0, `@remix-run/component-hmr` 1.0.1, `@remix-run/ui` 0.13.1; also `assets` 1.0.2, `headers` 1.1.0, `render-middleware` 1.1.0, `test` 1.1.0, `csp-middleware` 1.0.0, `session` 1.0.1, and the remaining subpackages on their patch bumps. `packages/remix/guides` are byte-identical to the prior pin.
+- **Release commit (#12082):** version/changelog/changeset deletion only — zero `src/` changes, so the app already ran this runtime under the 3.1.0 label.
+- **Runtime delta:** four commits, two packages.
+  - #12110 adds the additive `updateUrl(href, options?)` API (component `src/runtime/navigation.ts`, top-frame source sync in `frame.ts`, `index.ts` export; README + tests): replace or push a history entry without fetching, rendering, or changing scroll/focus. No app call sites.
+  - #12200 (`component/src/runtime/frame.ts`) makes the reload lifecycle an explicit state machine: exactly one `reloadStart`/`reloadComplete` pair per reload, including re-entered `frame.reload()` and ancestor-inherited reloads. App relevance: the lists UI listens for both events (`app/actions/lists/public/lists-client.tsx:1398`, `app/actions/lists/public/lists-sidebar-keyboard.tsx:98`); this fixes duplicate `reloadStart` / early `reloadComplete`.
+  - #12201 (`component/src/runtime/mixins/mixin.ts`, `reconcile.ts`) makes mixin removal an explicit active/removing/removed state machine; no changeset and no app `beforeRemove`/`persistNode` usage, so internal-only here.
+  - #12199 (`node-hmr/src/lib/runner.ts`) makes the dev supervisor lifecycle explicit (single restart during shutdown); dev-only.
+- **Test/CI/docs:** #12173 (HMR test flake + Windows Playwright connection patch), #12175 (affected-workspace CI selection), #12192 (3.2.0 notes), #12194 (publish workflow Playwright deps), #12195 (npm 12 trust command in a placeholder skill), `e98bed89fc` (`chore: format`).
+- **Learned-delta revalidation:** `packages/component` line refs moved in `src/runtime/frame.ts` (`startReload` 727→742, shared `reloadStart` dispatch 730→776, `completeReload` 821→838 and its dispatch 826→842, inherited dispatch 856→874, `hydrateContainer` 1404→1420, `createSubFrames` call 1438→1454, `scheduleHydrationMarker` 1439→1456) and `src/runtime/navigation.ts` (`data-rmx-document` 633/640→775/782; element-option reads 499-505→801-808 in source, dist `navigation.js:629-635`). `node-hmr` `buildChildProcessEnv` moved 874→864 and the `shouldRetry` reference 16→17. `stream.ts`, `reconcile.ts`, and all other package sources are unchanged. Updated the affected learned deltas and current-pin strings across the skills.
+- **Verification (2026-11-05):** operator reports `typecheck` and the full test suites green after the update.
+
 **Pin history (newest first).** Builds are the `preview/main` tips (through 2026-11-03) or `remix-run/previews` release tags (2026-11-04+); the source commit is what the build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
 
-| Recorded       | Build                              | Source       | Range highlights                                                               |
-| -------------- | ---------------------------------- | ------------ | ------------------------------------------------------------------------------ |
-| 2026-11-04     | `v0.20261103.224609-main-98229b78` | `98229b788f` | #12151 #12098 #12176 #12162; tooling #12174 #12177 #12178 #12181               |
-| 2026-11-03 (2) | `648eb9a0e7`                       | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                               |
-| 2026-11-03     | `cc2a50e2a0`                       | `c26a37ebe`  | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167 |
-| 2026-11-02     | `3f182ccc`                         | `26db8a3`    | #12148                                                                         |
-| 2026-10-31     | `57ecca4cba`                       | `a178e1f`    | #12125 #12121; test #12147                                                     |
-| 2026-10-30     | `0a6895947b`                       | `87a80a2`    | #12059; docs #12142; bot README `87a80a2`                                      |
-| 2026-10-29 (2) | `782c7a65`                         | `1b11033`    | #12107 #12119; docs #12129 (applied, not written up then)                      |
-| 2026-10-29     | `19b3c4e8`                         | `6ab52963`   | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102 |
-| 2026-10-26     | `8ae2f755`                         | `0b35d81`    | #11982; docs #12075 #12076                                                     |
-| 2026-10-23 (3) | `dfb4fc808`                        | `5e5a244`    | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                  |
-| 2026-10-23 (2) | `1e03013e1`                        | `446179f5a`  | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                  |
-| 2026-10-23     | `db58e1d9`                         | `32794c0`    | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                 |
-| 2026-10-22     | `060b32a`                          | `56f1fb6`    | #12004 #12061 #12067                                                           |
-| 2026-10-20 (2) | `9b5b702b1b`                       | `af3ea2c`    | #11993                                                                         |
-| 2026-10-20     | `3bb426e354`                       | `2e53e244`   | #12009 #12011 #12020                                                           |
-| 2026-10-16     | `7f900151`                         | `b65325d`    | #12005–#12018 #12019                                                           |
-| 2026-10-15     | `48b54a55`                         | `aa2efcd`    | #11987 #11992 #11999                                                           |
-| 2026-10-14 (2) | `2c9e033`                          | `e6a63ea`    | #11988 #11989 #11990                                                           |
-| 2026-10-14     | `c93cec30`                         | `e5ed055`    | #11986                                                                         |
-| 2026-10-14     | `c1787ef`                          | `7d5a2f9`    | prior                                                                          |
+| Recorded       | Build                              | Source       | Range highlights                                                                                    |
+| -------------- | ---------------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| 2026-11-05     | `v0.20261105.12650-main-f1cd1382`  | `f1cd1382`   | v3.2.0 #12082; runtime #12110 #12199 #12200 #12201; test/CI/docs #12173 #12175 #12192 #12194 #12195 |
+| 2026-11-04     | `v0.20261103.224609-main-98229b78` | `98229b788f` | #12151 #12098 #12176 #12162; tooling #12174 #12177 #12178 #12181                                    |
+| 2026-11-03 (2) | `648eb9a0e7`                       | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                                                    |
+| 2026-11-03     | `cc2a50e2a0`                       | `c26a37ebe`  | tarball install `t/c26a37eb`: #11909 #12097 #12152 #12165; build #12126 #12167                      |
+| 2026-11-02     | `3f182ccc`                         | `26db8a3`    | #12148                                                                                              |
+| 2026-10-31     | `57ecca4cba`                       | `a178e1f`    | #12125 #12121; test #12147                                                                          |
+| 2026-10-30     | `0a6895947b`                       | `87a80a2`    | #12059; docs #12142; bot README `87a80a2`                                                           |
+| 2026-10-29 (2) | `782c7a65`                         | `1b11033`    | #12107 #12119; docs #12129 (applied, not written up then)                                           |
+| 2026-10-29     | `19b3c4e8`                         | `6ab52963`   | §11 #12099; guides #12101; docs #12077; template/CLI/test #12086 #12096 #12102                      |
+| 2026-10-26     | `8ae2f755`                         | `0b35d81`    | #11982; docs #12075 #12076                                                                          |
+| 2026-10-23 (3) | `dfb4fc808`                        | `5e5a244`    | v3.1.0 release (no runtime change); docs #12055 #12072 #12074                                       |
+| 2026-10-23 (2) | `1e03013e1`                        | `446179f5a`  | #12023 #12029 #12030 #12049 #12070; docs #12032 #12071 #12073                                       |
+| 2026-10-23     | `db58e1d9`                         | `32794c0`    | #12002 #12025 #12027 #12040 #12041 #12043 #12045 #12046 #12048                                      |
+| 2026-10-22     | `060b32a`                          | `56f1fb6`    | #12004 #12061 #12067                                                                                |
+| 2026-10-20 (2) | `9b5b702b1b`                       | `af3ea2c`    | #11993                                                                                              |
+| 2026-10-20     | `3bb426e354`                       | `2e53e244`   | #12009 #12011 #12020                                                                                |
+| 2026-10-16     | `7f900151`                         | `b65325d`    | #12005–#12018 #12019                                                                                |
+| 2026-10-15     | `48b54a55`                         | `aa2efcd`    | #11987 #11992 #11999                                                                                |
+| 2026-10-14 (2) | `2c9e033`                          | `e6a63ea`    | #11988 #11989 #11990                                                                                |
+| 2026-10-14     | `c93cec30`                         | `e5ed055`    | #11986                                                                                              |
+| 2026-10-14     | `c1787ef`                          | `7d5a2f9`    | prior                                                                                               |

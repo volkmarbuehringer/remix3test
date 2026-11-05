@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `remix3-cliententry-browser-test-stubs`, the document-scoped full-page pattern (session 2026-10-04), and the frame-event synthetic-handle pattern.
 **Extracted:** 2026-09-13 … 2026-10-04
-**Revalidated:** 2026-11-04 against the current test harness (`remix/component/test` `render`/`act`/`cleanup`).
+**Revalidated:** 2026-11-05 against the current test harness (`remix/component/test` `render`/`act`/`cleanup`).
 **Context:** Three shapes of `*.test.browser.tsx` coverage for a `clientEntry`: geometry/media-driven side effects, full-page document-scoped enhancers, and frame-event state machines (`reloadStart`/`reloadComplete`). The vendor guide `node_modules/remix/guides/13-testing.md` owns the generic `render`/`act`/`cleanup` API; this reference is the app delta.
 
 ## 1. Geometry and media stubs

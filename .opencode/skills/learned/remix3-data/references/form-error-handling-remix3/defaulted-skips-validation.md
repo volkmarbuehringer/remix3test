@@ -4,7 +4,7 @@
 
 ## Vendor fact (version-pinned)
 
-`@remix-run/data-schema` at preview release `v0.20261103.224609-main-98229b78` / source `98229b788f` (the current install):
+`@remix-run/data-schema` at preview release `v0.20261105.12650-main-f1cd1382` / source `f1cd1382` (the current install):
 
 - `src/lib/schema.ts:515` — `export function defaulted<input, output>(...)`
 - `src/lib/schema.ts:519-528` — when the input is `undefined`, `defaulted` resolves the

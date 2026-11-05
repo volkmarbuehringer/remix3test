@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-04 (current pin is preview release `v0.20261103.224609-main-98229b78` / source `98229b788f`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-05 (current pin is preview release `v0.20261105.12650-main-f1cd1382` / source `f1cd1382`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -65,7 +65,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.1.0 / `@remix-run/ui` 0.13.0 / `@remix-run/component` 1.1.0 / `component-hmr` 1.0.0 at preview release `v0.20261103.224609-main-98229b78` (source `98229b788f`). The two `package.json` specs are the release asset URLs; the lock has 277 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261105.12650-main-f1cd1382` (source `f1cd1382`). The two `package.json` specs are the release asset URLs; the lock has 277 release tarball refs at that tag.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -107,21 +107,21 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261103.224609-main-98229b78/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261103.224609-main-98229b78/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261105.12650-main-f1cd1382/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261105.12650-main-f1cd1382/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other
 on an older release tag.
 
 **Released npm versions instead.** If the app leaves the preview line for
-published versions, `^3.1.0` / `^0.13.0` are the release-day pair. On a `0.x`
-package, `^0.13.0` means `>=0.13.0 <0.14.0` — it locks the minor and allows only
+published versions, `^3.2.0` / `^0.13.1` are the release-day pair. On a `0.x`
+package, `^0.13.1` means `>=0.13.1 <0.14.0` — it locks the minor and allows only
 patches, which is correct because a `0.x` minor can be breaking (0.11 -> 0.12
 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus
 the package-root runtime and JSX exports; 0.12 -> 0.13 removed the styled
-wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen it to
-`>=0.13.0`.
+wrapper prop types and renamed `toggle.control` to `toggle`). Do not widen the
+range across a `0.x` minor boundary.
 
 ## When to Use
 

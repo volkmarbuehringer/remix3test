@@ -1,8 +1,8 @@
 # Browser-only behavior mixin: per-element `ref()` wiring → delegated `createMixin(type, { ssr: false })`
 
 **Source:** session 2026-10-16 (lists drag-and-drop extraction, item #4 of the
-interactivity track). Commit `868aa6c`. Re-checked 2026-11-04 against the current
-pin (remix 3.1.0 / `@remix-run/component` 1.1.0): `createMixin(type, { ssr: false })`
+interactivity track). Commit `868aa6c`. Re-checked 2026-11-05 against the current
+pin (remix 3.2.0 / `@remix-run/component` 1.2.0): `createMixin(type, { ssr: false })`
 still skips server setup and render, and the vendor `on()` lifecycle below is unchanged.
 
 **Context:** `app/actions/lists/public/lists-view.tsx` wired drag-and-drop with

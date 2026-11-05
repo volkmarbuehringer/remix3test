@@ -1,7 +1,7 @@
 # Support-Agent Panel POST Forms: data-rmx-target Evaluation
 
 **Source:** session 2026-10-16 (interactivity item #3 research; implemented the
-same day). Mechanism re-checked against the current pin (remix 3.1.0, `@remix-run/component` 1.1.0)
+same day). Mechanism re-checked against the current pin (remix 3.2.0, `@remix-run/component` 1.2.0)
 (`@remix-run/component` `src/runtime/form-navigation.ts`, `src/runtime/navigation.ts`).
 
 ## Problem
