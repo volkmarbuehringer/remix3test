@@ -68,6 +68,8 @@
 
 10, 12, 14, 15 all say "This chapter is unfinished." Their APIs will move, so do not build full API skills from them; treat the gap column as a watch list and convert entries into pointer refs once the vendor authors the chapter. §11 is now authored in both the installed guide and the docs site and was re-audited on 2026-10-29 (see the note above).
 
+Chapters 10 and 14 are entirely vendor-owned gaps: the app-side deltas that already exist are recorded in `remix3-server` (§ Security, session storage) and `remix3-tooling` (§ Build & Tooling), and there is no app change to make until upstream authors the chapters. Chapters 12 and 15 have no owner skill and stay on the watch list.
+
 ## How to use
 
 - Before building on a guide section, find its row here; open the owner skill's matching reference, else the guide itself.
