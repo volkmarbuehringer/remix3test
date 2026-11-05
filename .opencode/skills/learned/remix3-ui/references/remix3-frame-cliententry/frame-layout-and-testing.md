@@ -115,7 +115,7 @@ Then drive that frame directly from the entry — `frame.reload({ src: href })` 
 1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
 2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
 
-**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-05 against preview release `v0.20261105.172537-main-ca504176` / source `ca504176`.
+**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-05 against preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e`.
 
 Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
 
@@ -163,7 +163,7 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 
 ### Why the input keeps its value
 
-`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (re-checked 2026-11-05 on the current pin: `diffVNodes` at `reconcile.ts:798` reuses a host node whenever `kind` and `type` match and **ignores `key`**; `patchHostProps` at `core/props.ts:56` skips unchanged props and only sets the `defaultValue` *property* when it changes). **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
+`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (re-checked 2026-11-05 on the current pin: `diffVNodes` at `reconcile.ts:823` reuses a host node whenever `kind` and `type` match and **ignores `key`**; `patchHostProps` at `core/props.ts:57` skips unchanged props and only sets the `defaultValue` *property* when it changes). **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
 
 **Simplest reliable fix — full-page navigation for clear/reset.** Instead of a client-side restore, make "clear"/"reset" a plain `<a href>` with **no `data-rmx-target`** (as `/admin/clients` already does). The browser does a full document load, so every input mounts fresh with the server's new `defaultValue`:
 
@@ -253,4 +253,19 @@ Then prove it was a same-document frame swap, not a reload: count `page.on('load
 
 **Caveat:** this signal only covers frames present in the **server-rendered** HTML. A nested pane that is mounted conditionally or arrives in a later fragment hydrate is not guaranteed by this ordering — wait for its own content instead. This is vendor code; re-check `hydrateContainer` in the installed `frame.ts` before relying on the line numbers.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-05 against preview release `v0.20261105.172537-main-ca504176` / source `ca504176`: `hydrateContainer` is at `src/runtime/frame.ts:1420`, the `createSubFrames(container.childNodes, context, options)` call at `:1454`, and `scheduleHydrationMarker(...)` at `:1456`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**The document URL commits before the frame's DOM swap.** A frame navigation's URL change is not a settle signal: the Navigation API commits `location` when the reload's `committed` promise resolves, but the destination fragment's DOM swap can land a beat later (measured ~50ms on `/appointments/new` in Chromium and Firefox: `location.search` already read `step=2` while the panel still had `data-panel-step="create:1"`). A global check such as `document.documentElement.style.overflow === 'hidden'` can likewise still be satisfied by the **outgoing** content. Clicking a frame-target control in that window can be swallowed when the swap replaces the anchor between mousedown and mouseup — no navigation starts and a later `waitForFunction` times out with a misleading failure.
+
+Wait for a marker rendered by the destination fragment before interacting with it, and scope the next locator to that marker so it cannot resolve the outgoing DOM:
+
+```ts
+await page.waitForFunction(
+  () => document.querySelector('[data-create-panel]')?.getAttribute('data-panel-step') === 'create:2',
+)
+await page
+  .locator('[data-create-panel][data-panel-step="create:2"] a[data-rmx-target="appointments-new-content"]')
+  .click()
+```
+
+See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
+
+**Validated:** 2026-10-04 and re-checked 2026-11-05 against preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e`: `hydrateContainer` is at `src/runtime/frame.ts:1420`, the `createSubFrames(container.childNodes, context, options)` call at `:1454`, and `scheduleHydrationMarker(...)` at `:1456`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

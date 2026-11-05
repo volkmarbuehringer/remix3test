@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-05 (current pin is preview release `v0.20261105.172537-main-ca504176` / source `ca504176`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-05 (current pin is preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -65,7 +65,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261105.172537-main-ca504176` (source `ca504176`). The two `package.json` specs are the release asset URLs; the lock has 277 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261105.191550-main-500bb65e` (source `500bb65e`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -107,8 +107,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261105.172537-main-ca504176/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261105.172537-main-ca504176/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261105.191550-main-500bb65e/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261105.191550-main-500bb65e/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

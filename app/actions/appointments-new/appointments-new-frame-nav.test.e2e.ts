@@ -124,6 +124,19 @@ describe('appointments-new frame navigation', () => {
     await page.waitForFunction(() => location.search.includes('step=2'), undefined, {
       timeout: 15_000,
     })
+    // The document URL commits before the frame's DOM swap finishes, and the
+    // step-1 scroll lock is still applied, so the URL + lock waits above can
+    // both pass while the panel still shows step 1. Clicking cancel in that
+    // window can be swallowed when the swap replaces the anchor mid-click,
+    // leaving the panel open until the timeout. Wait for the committed step-2
+    // fragment before interacting with it.
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-create-panel]')?.getAttribute('data-panel-step') ===
+        'create:2',
+      undefined,
+      { timeout: 15_000 },
+    )
     await page.waitForFunction(
       () => document.documentElement.style.overflow === 'hidden',
       undefined,
@@ -133,9 +146,12 @@ describe('appointments-new frame navigation', () => {
 
     // Cancel closes the panel and releases the body scroll lock, in-frame.
     await page
-      .locator('[data-create-panel] a[data-rmx-target="appointments-new-content"]', {
-        hasText: 'Abbrechen',
-      })
+      .locator(
+        '[data-create-panel][data-panel-step="create:2"] a[data-rmx-target="appointments-new-content"]',
+        {
+          hasText: 'Abbrechen',
+        },
+      )
       .first()
       .click()
     await page.waitForFunction(

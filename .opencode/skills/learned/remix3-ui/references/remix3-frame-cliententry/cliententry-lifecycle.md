@@ -237,20 +237,21 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261105.172537-main-ca504176`: `completeReload` is defined at `:838` and dispatches at `:842`; the inherited-reload variant dispatches at `:874`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261105.191550-main-500bb65e`: `completeReload` is defined at `:838` and dispatches at `:842`; the inherited-reload variant dispatches at `:874`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
 A GET form inside the frame can submit after a debounce (live search). Two separate problems decide whether the user can keep typing:
 
 - **The runtime's post-navigation focus reset moves focus to `document.body`.** Mark the submitted form `data-rmx-reset-focus="manual"` — `resolveFormNavigation` maps it to the Navigation API's `focusReset: 'manual'` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/navigation.ts`, `normalizeResetBehavior`, confirmed at the installed pin 2026-10-24), so the runtime stops stealing focus after the transition.
+- **A failed navigation keeps focus; successful ones still reset it.** Since #12208 (pin `500bb65e`, `keepFocusAfterFailure` in the same `navigation.ts`), a navigation whose handler throws restores focus to the element that was focused when it started, before the abort settles — the old page stays rendered, so the visitor keeps their place. `data-rmx-reset-focus="manual"` opts out of both the reset and the restore.
 - **The attribute alone is not enough when the field itself is re-rendered.** A frame navigation replaces the fragment's DOM (including the `<input>`), so focus still drops even with `focusReset: 'manual'`; verified on `/admin/uploads`, where the attribute alone left `document.activeElement === body`. Re-focus in `reloadComplete` (the new input exists there), and only when *this* entry initiated the navigation, so an unrelated reload cannot pull focus back. Keep the restore flag in the factory closure and clear it once used.
 
 First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/uploads` and `/admin/messages` via its `formSelector` prop) + `form[data-uploads-filter]` / `form[data-messages-filter]` in their controllers; e2e `uploads-ux.test.e2e.ts` and `messages-ux.test.e2e.ts` assert the field keeps focus after the filter navigation.
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261105.172537-main-ca504176`, inside `startReload` at `:742`, which delegates to `beginReload` at `:766`; the shared dispatch is at `:776`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:748` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261105.191550-main-500bb65e`, inside `startReload` at `:742`, which delegates to `beginReload` at `:766`; the shared dispatch is at `:776`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:748` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
@@ -353,7 +354,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1442-1479` at preview release `ca504176`). The factory closure
+   (`runtime/reconcile.ts:1487-1524` at preview release `500bb65e`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -390,15 +391,15 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-11-05 against preview release `v0.20261105.172537-main-ca504176` / source `ca504176`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-11-05 against preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
 - `ref()` is driven by the mixin `insert` event (`packages/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/component/src/runtime/reconcile.ts:938`, `:1100`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1267`, `:2091`) for mixin-persisted nodes — not for plain hydration.
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/component/src/runtime/reconcile.ts:963`, `:1144`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1311`, `:2136`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 
