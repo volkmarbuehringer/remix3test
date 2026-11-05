@@ -96,7 +96,7 @@ export const componentStyleValues: ComponentStyleValues = {
     md: '14px',
   },
   fontFamily: {
-    sans: '"Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    sans: 'inherit',
   },
   lineHeight: {
     normal: '1.45',

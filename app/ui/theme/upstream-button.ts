@@ -48,7 +48,7 @@ const baseStyle: CSSMixinDescriptor = css({
   width: 'max-content',
   maxWidth: '100%',
   borderRadius: '999px',
-  fontFamily: '"Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif',
+  fontFamily: 'inherit',
   fontStyle: 'normal',
   fontWeight: 500,
   fontFeatureSettings: '"cv01" on, "ss01" on',
