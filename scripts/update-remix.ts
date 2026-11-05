@@ -21,9 +21,11 @@ import * as path from 'node:path'
 // retained `t/<source-sha>/` specs so the last old-layout pins migrate in
 // place.
 //
-// The store and metadata cache are exported to pnpm as npm_config_* variables
-// (the sandbox's global store is read-only). If node_modules is linked from
-// another store, it is removed first so pnpm relinks instead of failing with
+// The store and metadata cache are exported to pnpm as both npm_config_* and
+// pnpm_config_* variables (pnpm 12 reads the pnpm_config_* prefix; the
+// npm_config_* pair keeps older pnpm and nested installs working). The
+// sandbox's global store is read-only. If node_modules is linked from another
+// store, it is removed first so pnpm relinks instead of failing with
 // ERR_PNPM_UNEXPECTED_STORE.
 // ---------------------------------------------------------------------------
 
@@ -71,10 +73,13 @@ let pnpmEnv: NodeJS.ProcessEnv = process.env
 
 function environmentForStore(storeDir: string | undefined): NodeJS.ProcessEnv {
   if (!storeDir) return process.env
+  let cacheDir = path.join(storeDir, 'cache')
   return {
     ...process.env,
     npm_config_store_dir: storeDir,
-    npm_config_cache_dir: path.join(storeDir, 'cache'),
+    npm_config_cache_dir: cacheDir,
+    pnpm_config_store_dir: storeDir,
+    pnpm_config_cache_dir: cacheDir,
   }
 }
 

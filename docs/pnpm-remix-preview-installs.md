@@ -79,10 +79,11 @@ pnpm install --store-dir "$PWD/.pnpm-store"
 
 Add `.pnpm-store/` to `.git/info/exclude` (local) or `.gitignore`, and keep it
 alongside `node_modules`. The lockfile's tarball refs/integrity are unaffected.
-`scripts/update-remix.ts` exports `npm_config_store_dir` /
-`npm_config_cache_dir` so pnpm and any child process agree on the store; pass
-`--store-dir <path>` to use a different one (for example the currently linked
-global store).
+`scripts/update-remix.ts` exports both `pnpm_config_store_dir` /
+`pnpm_config_cache_dir` (pnpm 12) and `npm_config_store_dir` /
+`npm_config_cache_dir` (older pnpm / nested installs) so pnpm and any child
+process agree on the store; pass `--store-dir <path>` to use a different one
+(for example the currently linked global store).
 
 ### Plain `pnpm update` picks the global store
 
