@@ -30,10 +30,38 @@ export const Counter = clientEntry(import.meta.url + '#Counter', function Counte
  */
 export default function CounterDemo(_handle: Handle) {
   return () => (
-    <section mix={rootCss}>
-      <header mix={headerCss}>
-        <h2 mix={headingCss}>Client-Entry</h2>
-        <p mix={copyCss}>
+    <section
+      mix={css({
+        display: 'grid',
+        gap: theme.space.lg,
+      })}
+    >
+      <header
+        mix={css({
+          display: 'grid',
+          gap: theme.space.xs,
+        })}
+      >
+        <h2
+          mix={css({
+            margin: 0,
+            fontSize: theme.fontSize.lg,
+            fontWeight: theme.fontWeight.semibold,
+            lineHeight: theme.lineHeight.tight,
+            color: theme.colors.text.primary,
+          })}
+        >
+          Client-Entry
+        </h2>
+        <p
+          mix={css({
+            margin: 0,
+            maxWidth: '52rem',
+            fontSize: theme.fontSize.sm,
+            lineHeight: theme.lineHeight.relaxed,
+            color: theme.colors.text.secondary,
+          })}
+        >
           Der Zähler lebt in einem <code>clientEntry</code> innerhalb der Demo. Nach der Hydration
           aktualisiert ein Klick nur diesen Teilbaum; der Server-Render bleibt der Ausgangszustand.
         </p>
@@ -42,29 +70,3 @@ export default function CounterDemo(_handle: Handle) {
     </section>
   )
 }
-
-const rootCss = css({
-  display: 'grid',
-  gap: theme.space.lg,
-})
-
-const headerCss = css({
-  display: 'grid',
-  gap: theme.space.xs,
-})
-
-const headingCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.lg,
-  fontWeight: theme.fontWeight.semibold,
-  lineHeight: theme.lineHeight.tight,
-  color: theme.colors.text.primary,
-})
-
-const copyCss = css({
-  margin: 0,
-  maxWidth: '52rem',
-  fontSize: theme.fontSize.sm,
-  lineHeight: theme.lineHeight.relaxed,
-  color: theme.colors.text.secondary,
-})

@@ -14,10 +14,23 @@ const sizes = ['md', 'lg'] as const
  */
 export default function ButtonDemo(_handle: Handle) {
   return () => (
-    <section mix={rootCss}>
+    <section
+      mix={css({
+        display: 'grid',
+        gap: theme.space.lg,
+      })}
+    >
       <header mix={headerCss}>
         <h2 mix={headingCss}>Töne</h2>
-        <p mix={copyCss}>
+        <p
+          mix={css({
+            margin: 0,
+            maxWidth: '52rem',
+            fontSize: theme.fontSize.sm,
+            lineHeight: theme.lineHeight.relaxed,
+            color: theme.colors.text.secondary,
+          })}
+        >
           Jeder Ton stammt aus dem Theme-Vertrag; <code>buttonLink()</code> stylt einen Anker, ohne
           ein <code>button</code> zu verschachteln.
         </p>
@@ -60,11 +73,6 @@ export default function ButtonDemo(_handle: Handle) {
   )
 }
 
-const rootCss = css({
-  display: 'grid',
-  gap: theme.space.lg,
-})
-
 const headerCss = css({
   display: 'grid',
   gap: theme.space.xs,
@@ -76,14 +84,6 @@ const headingCss = css({
   fontWeight: theme.fontWeight.semibold,
   lineHeight: theme.lineHeight.tight,
   color: theme.colors.text.primary,
-})
-
-const copyCss = css({
-  margin: 0,
-  maxWidth: '52rem',
-  fontSize: theme.fontSize.sm,
-  lineHeight: theme.lineHeight.relaxed,
-  color: theme.colors.text.secondary,
 })
 
 const rowCss = css({

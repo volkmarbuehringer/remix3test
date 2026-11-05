@@ -16,9 +16,36 @@ export function GalleryIndexPage(handle: Handle<GalleryIndexPageProps>) {
 
     return (
       <Document title="UI-Galerie" description="Server-gerenderte Komponenten-Demos aus app/ui.">
-        <main mix={pageCss}>
-          <header mix={headerCss}>
-            <p mix={eyebrowCss}>Entwicklung</p>
+        <main
+          mix={css({
+            width: 'min(100% - 3rem, 72rem)',
+            marginInline: 'auto',
+            paddingBlock: theme.space.xxl,
+            display: 'grid',
+            gap: theme.space.xxl,
+            flex: '1 1 auto',
+            alignContent: 'start',
+          })}
+        >
+          <header
+            mix={css({
+              display: 'grid',
+              gap: theme.space.sm,
+              maxWidth: '52rem',
+            })}
+          >
+            <p
+              mix={css({
+                margin: 0,
+                color: theme.colors.text.muted,
+                fontSize: theme.fontSize.xs,
+                fontWeight: theme.fontWeight.medium,
+                letterSpacing: theme.letterSpacing.meta,
+                textTransform: 'uppercase',
+              })}
+            >
+              Entwicklung
+            </p>
             <h1 mix={titleCss}>UI-Galerie</h1>
             <p mix={leadCss}>
               {handle.props.demos.length} server-gerenderte Komponenten-Demos. Jede Datei unter{' '}
@@ -43,23 +70,114 @@ export function GalleryIndexPage(handle: Handle<GalleryIndexPageProps>) {
           </header>
 
           {groups.length === 0 ? (
-            <p mix={emptyCss}>Noch keine Demos gefunden.</p>
+            <p
+              mix={css({
+                margin: 0,
+                padding: theme.space.xl,
+                border: `1px dashed ${theme.colors.border.default}`,
+                borderRadius: theme.radius.lg,
+                color: theme.colors.text.muted,
+                fontSize: theme.fontSize.sm,
+              })}
+            >
+              Noch keine Demos gefunden.
+            </p>
           ) : (
-            <div mix={groupsCss}>
+            <div
+              mix={css({
+                display: 'grid',
+                gap: theme.space.xxl,
+              })}
+            >
               {groups.map((group) => (
-                <section key={group.title} mix={groupCss}>
-                  <h2 mix={groupTitleCss}>{group.title}</h2>
-                  <ol mix={listCss}>
+                <section
+                  key={group.title}
+                  mix={css({
+                    display: 'grid',
+                    gap: theme.space.md,
+                  })}
+                >
+                  <h2
+                    mix={css({
+                      margin: 0,
+                      fontSize: theme.fontSize.lg,
+                      fontWeight: theme.fontWeight.semibold,
+                      lineHeight: theme.lineHeight.tight,
+                      color: theme.colors.text.primary,
+                    })}
+                  >
+                    {group.title}
+                  </h2>
+                  <ol
+                    mix={css({
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))',
+                      gap: theme.space.md,
+                      margin: 0,
+                      padding: 0,
+                      listStyle: 'none',
+                    })}
+                  >
                     {group.demos.map((demo) => (
-                      <li key={demo.filename} mix={itemCss}>
+                      <li
+                        key={demo.filename}
+                        mix={css({
+                          display: 'flex',
+                          minWidth: 0,
+                        })}
+                      >
                         <a
                           href={routes.ui.demo.href({ filename: demo.filename })}
-                          mix={itemLinkCss}
+                          mix={css({
+                            display: 'grid',
+                            gap: theme.space.xs,
+                            width: '100%',
+                            minWidth: 0,
+                            padding: theme.space.lg,
+                            border: `1px solid ${theme.colors.border.subtle}`,
+                            borderRadius: theme.radius.lg,
+                            backgroundColor: theme.surface.lvl0,
+                            boxShadow: theme.shadow.xs,
+                            color: theme.colors.text.primary,
+                            textDecoration: 'none',
+                            '&:hover': {
+                              borderColor: theme.colors.border.strong,
+                              boxShadow: theme.shadow.sm,
+                            },
+                            '&:focus-visible': {
+                              outline: `2px solid ${theme.colors.focus.ring}`,
+                              outlineOffset: '2px',
+                            },
+                          })}
                         >
-                          <span mix={itemTitleCss}>{demo.title}</span>
-                          <code mix={itemPathCss}>{demo.filename}</code>
+                          <span
+                            mix={css({
+                              fontSize: theme.fontSize.sm,
+                              fontWeight: theme.fontWeight.semibold,
+                              lineHeight: theme.lineHeight.tight,
+                            })}
+                          >
+                            {demo.title}
+                          </span>
+                          <code
+                            mix={css({
+                              color: theme.colors.text.muted,
+                              fontSize: theme.fontSize.xxs,
+                              overflowWrap: 'anywhere',
+                            })}
+                          >
+                            {demo.filename}
+                          </code>
                           {demo.description ? (
-                            <span mix={itemDescriptionCss}>{demo.description}</span>
+                            <span
+                              mix={css({
+                                color: theme.colors.text.secondary,
+                                fontSize: theme.fontSize.xs,
+                                lineHeight: theme.lineHeight.normal,
+                              })}
+                            >
+                              {demo.description}
+                            </span>
                           ) : null}
                         </a>
                       </li>
@@ -86,9 +204,34 @@ export function GalleryDemoPage(handle: Handle<GalleryDemoPageProps>) {
 
     return (
       <Document title={`${demo.title} – UI-Galerie`} description={demo.description}>
-        <main mix={demoPageCss}>
-          <header mix={demoHeaderCss}>
-            <a href={routes.ui.index.href()} mix={backLinkCss}>
+        <main
+          mix={css({
+            display: 'grid',
+            gap: theme.space.xl,
+            width: 'min(100% - 3rem, 80rem)',
+            marginInline: 'auto',
+            paddingBlock: theme.space.xl,
+            flex: '1 1 auto',
+            alignContent: 'start',
+          })}
+        >
+          <header
+            mix={css({
+              display: 'grid',
+              gap: theme.space.sm,
+              maxWidth: '52rem',
+            })}
+          >
+            <a
+              href={routes.ui.index.href()}
+              mix={css({
+                justifySelf: 'start',
+                color: theme.colors.text.link,
+                fontSize: theme.fontSize.sm,
+                textDecoration: 'none',
+                '&:hover': { textDecoration: 'underline' },
+              })}
+            >
               ← Alle Demos
             </a>
             <h1 mix={titleCss}>{demo.title}</h1>
@@ -100,7 +243,18 @@ export function GalleryDemoPage(handle: Handle<GalleryDemoPageProps>) {
 
           <div
             data-gallery-demo="true"
-            mix={demo.layout === 'center' ? [stageCss, centerStageCss] : stageCss}
+            mix={
+              demo.layout === 'center'
+                ? [
+                    stageCss,
+                    css({
+                      display: 'grid',
+                      placeItems: 'center',
+                      minHeight: '18rem',
+                    }),
+                  ]
+                : stageCss
+            }
           >
             <DemoComponent />
           </div>
@@ -125,31 +279,6 @@ function groupDemos(demos: DemoFile[]): Array<{ demos: DemoFile[]; title: string
   return [...groups].map(([title, items]) => ({ demos: items, title }))
 }
 
-const pageCss = css({
-  width: 'min(100% - 3rem, 72rem)',
-  marginInline: 'auto',
-  paddingBlock: theme.space.xxl,
-  display: 'grid',
-  gap: theme.space.xxl,
-  flex: '1 1 auto',
-  alignContent: 'start',
-})
-
-const headerCss = css({
-  display: 'grid',
-  gap: theme.space.sm,
-  maxWidth: '52rem',
-})
-
-const eyebrowCss = css({
-  margin: 0,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.medium,
-  letterSpacing: theme.letterSpacing.meta,
-  textTransform: 'uppercase',
-})
-
 const titleCss = css({
   margin: 0,
   fontSize: theme.fontSize.xxl,
@@ -172,111 +301,6 @@ const hintCss = css({
   color: theme.colors.text.muted,
 })
 
-const emptyCss = css({
-  margin: 0,
-  padding: theme.space.xl,
-  border: `1px dashed ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.sm,
-})
-
-const groupsCss = css({
-  display: 'grid',
-  gap: theme.space.xxl,
-})
-
-const groupCss = css({
-  display: 'grid',
-  gap: theme.space.md,
-})
-
-const groupTitleCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.lg,
-  fontWeight: theme.fontWeight.semibold,
-  lineHeight: theme.lineHeight.tight,
-  color: theme.colors.text.primary,
-})
-
-const listCss = css({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))',
-  gap: theme.space.md,
-  margin: 0,
-  padding: 0,
-  listStyle: 'none',
-})
-
-const itemCss = css({
-  display: 'flex',
-  minWidth: 0,
-})
-
-const itemLinkCss = css({
-  display: 'grid',
-  gap: theme.space.xs,
-  width: '100%',
-  minWidth: 0,
-  padding: theme.space.lg,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  borderRadius: theme.radius.lg,
-  backgroundColor: theme.surface.lvl0,
-  boxShadow: theme.shadow.xs,
-  color: theme.colors.text.primary,
-  textDecoration: 'none',
-  '&:hover': {
-    borderColor: theme.colors.border.strong,
-    boxShadow: theme.shadow.sm,
-  },
-  '&:focus-visible': {
-    outline: `2px solid ${theme.colors.focus.ring}`,
-    outlineOffset: '2px',
-  },
-})
-
-const itemTitleCss = css({
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  lineHeight: theme.lineHeight.tight,
-})
-
-const itemPathCss = css({
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.xxs,
-  overflowWrap: 'anywhere',
-})
-
-const itemDescriptionCss = css({
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xs,
-  lineHeight: theme.lineHeight.normal,
-})
-
-const demoPageCss = css({
-  display: 'grid',
-  gap: theme.space.xl,
-  width: 'min(100% - 3rem, 80rem)',
-  marginInline: 'auto',
-  paddingBlock: theme.space.xl,
-  flex: '1 1 auto',
-  alignContent: 'start',
-})
-
-const demoHeaderCss = css({
-  display: 'grid',
-  gap: theme.space.sm,
-  maxWidth: '52rem',
-})
-
-const backLinkCss = css({
-  justifySelf: 'start',
-  color: theme.colors.text.link,
-  fontSize: theme.fontSize.sm,
-  textDecoration: 'none',
-  '&:hover': { textDecoration: 'underline' },
-})
-
 const stageCss = css({
   minWidth: 0,
   padding: theme.space.xl,
@@ -284,10 +308,4 @@ const stageCss = css({
   borderRadius: theme.radius.lg,
   backgroundColor: theme.surface.lvl0,
   boxShadow: theme.shadow.xs,
-})
-
-const centerStageCss = css({
-  display: 'grid',
-  placeItems: 'center',
-  minHeight: '18rem',
 })
