@@ -21,6 +21,18 @@ export function getCspNonce(): string | undefined {
   }
 }
 
+function hmrEventPort(): number {
+  let configured = process.env.HMR_EVENT_PORT ?? process.env.HMR_PORT
+  if (configured !== undefined) {
+    let port = Number.parseInt(configured, 10)
+    if (Number.isInteger(port) && port > 0 && port <= 65_535) return port
+  }
+
+  let proxyPort = Number.parseInt(process.env.HMR_PROXY_PORT ?? '44100', 10)
+  let base = Number.isInteger(proxyPort) && proxyPort > 0 && proxyPort < 65_535 ? proxyPort : 44100
+  return base + 1
+}
+
 /**
  * Policy for `remix/middleware/csp`.
  *
@@ -36,9 +48,10 @@ export function getCspNonce(): string | undefined {
  * Authored markup therefore uses `css()` classes (or CSSOM for per-frame
  * geometry); a string-built `style="…"` is blocked by design.
  *
- * The HMR websocket is only needed inside the node-HMR child, which sets
- * `REMIX_NODE_HMR=1`. Plain `npm run dev` has no HMR websocket, so the source
- * must not be allowed merely because `NODE_ENV=development`.
+ * The browser HMR EventSource only exists inside the node-HMR child, which sets
+ * `REMIX_NODE_HMR=1` and receives `HMR_EVENT_PORT` from `hmr.ts`. Plain
+ * `npm run dev` has no HMR event stream, so its origin must not be allowed
+ * merely because `NODE_ENV=development`.
  *
  * `connect-src` stays first-party: all AI traffic is server-side
  * (`app/utils/ai-provider.ts` and `app/actions/mastra/*`), so the browser never
@@ -52,7 +65,8 @@ export function getCspNonce(): string | undefined {
 export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecurityPolicyInit {
   let connectSrc = ["'self'"]
   if (process.env.REMIX_NODE_HMR === '1') {
-    connectSrc.push('ws://localhost:44100')
+    let port = hmrEventPort()
+    connectSrc.push(`http://127.0.0.1:${port}`, `http://localhost:${port}`)
   }
 
   return {

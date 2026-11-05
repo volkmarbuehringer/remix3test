@@ -1278,6 +1278,11 @@ export const ListsClient = clientEntry(
       void handle.update()
     }
 
+    // Declared before `hydrateFromInitialState`: component HMR only rewrites
+    // setup state references after the declaration statement, so a later
+    // declaration would leave the closure throwing on the removed binding.
+    let loadingList = false
+
     // Hydrate from server-injected initial state
     let hydrateFromInitialState = (state: ListInitialState) => {
       items = cloneItems(state.items)
@@ -1301,7 +1306,6 @@ export const ListsClient = clientEntry(
     }
 
     // Initialize from initial state
-    let loadingList = false
     if (handle.props.initialState) {
       hydrateFromInitialState(handle.props.initialState)
       initialized = true

@@ -124,7 +124,7 @@ describe('Security headers middleware', () => {
     )
   })
 
-  it('CSP connect-src omits the HMR websocket outside the node-HMR child', async () => {
+  it('CSP connect-src omits the HMR event stream outside the node-HMR child', async () => {
     let previous = process.env.REMIX_NODE_HMR
     delete process.env.REMIX_NODE_HMR
     try {
@@ -133,8 +133,8 @@ describe('Security headers middleware', () => {
       let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
       assert.ok(connectSrc.includes("'self'"), 'connect-src should keep self')
       assert.ok(
-        !connectSrc.includes('ws://localhost:44100'),
-        'plain dev/test must not allow the HMR websocket',
+        !connectSrc.includes('http://127.0.0.1:44101'),
+        'plain dev/test must not allow the HMR event stream',
       )
     } finally {
       if (previous === undefined) delete process.env.REMIX_NODE_HMR
@@ -142,20 +142,55 @@ describe('Security headers middleware', () => {
     }
   })
 
-  it('CSP connect-src includes the HMR websocket inside the node-HMR child', async () => {
-    let previous = process.env.REMIX_NODE_HMR
+  it('CSP connect-src includes the HMR event stream inside the node-HMR child', async () => {
+    let previousHmr = process.env.REMIX_NODE_HMR
+    let previousEventPort = process.env.HMR_EVENT_PORT
+    let previousProxyPort = process.env.HMR_PROXY_PORT
     process.env.REMIX_NODE_HMR = '1'
+    delete process.env.HMR_EVENT_PORT
+    delete process.env.HMR_PROXY_PORT
     try {
       let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
       let csp = response.headers.get('Content-Security-Policy')!
       let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
       assert.ok(
-        connectSrc.includes('ws://localhost:44100'),
-        'the node-HMR child should allow its development websocket',
+        connectSrc.includes('http://127.0.0.1:44101'),
+        'the node-HMR child should allow the browser HMR event stream',
+      )
+      assert.ok(
+        connectSrc.includes('http://localhost:44101'),
+        'the node-HMR child should allow the localhost HMR event stream',
+      )
+      assert.ok(
+        !connectSrc.includes('ws://localhost:44100'),
+        'the retired HMR websocket must not be allowed',
       )
     } finally {
-      if (previous === undefined) delete process.env.REMIX_NODE_HMR
-      else process.env.REMIX_NODE_HMR = previous
+      if (previousHmr === undefined) delete process.env.REMIX_NODE_HMR
+      else process.env.REMIX_NODE_HMR = previousHmr
+      if (previousEventPort === undefined) delete process.env.HMR_EVENT_PORT
+      else process.env.HMR_EVENT_PORT = previousEventPort
+      if (previousProxyPort === undefined) delete process.env.HMR_PROXY_PORT
+      else process.env.HMR_PROXY_PORT = previousProxyPort
+    }
+  })
+
+  it('CSP connect-src follows a custom HMR event port', async () => {
+    let previousHmr = process.env.REMIX_NODE_HMR
+    let previousEventPort = process.env.HMR_EVENT_PORT
+    process.env.REMIX_NODE_HMR = '1'
+    process.env.HMR_EVENT_PORT = '5051'
+    try {
+      let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+      let csp = response.headers.get('Content-Security-Policy')!
+      let connectSrc = csp.split(';').find((part) => part.trim().startsWith('connect-src'))!
+      assert.ok(connectSrc.includes('http://127.0.0.1:5051'))
+      assert.ok(connectSrc.includes('http://localhost:5051'))
+    } finally {
+      if (previousHmr === undefined) delete process.env.REMIX_NODE_HMR
+      else process.env.REMIX_NODE_HMR = previousHmr
+      if (previousEventPort === undefined) delete process.env.HMR_EVENT_PORT
+      else process.env.HMR_EVENT_PORT = previousEventPort
     }
   })
 
