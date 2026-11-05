@@ -13,6 +13,8 @@
 - `createBrowserHmrChannel`/`emitServerReady` at `dist/runtime.d.ts:17`/`:25`.
 - `REMIX_NODE_HMR` is injected by the runner itself (`dist/lib/runner.js:16`, `buildChildProcessEnv` at `:864`) — never set it yourself.
 - The `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:802`.
+- The browser HMR channel is an **EventSource** at `http://127.0.0.1:<HMR_PORT>/hmr` (`@remix-run/assets/dist/lib/hmr.js:90`; channel default host `127.0.0.1`, port `proxy + 1`), not a WebSocket on the proxy port.
+- `componentHmr` setup-state rewriting lives in `@remix-run/component-hmr/dist/lib/transform.js` (`createSetupSource` at `:517`, `rewriteReferences` at `:584`).
 
 ## Problem
 
@@ -124,6 +126,32 @@ const handler = createRequestListener(
 
 The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR proxy, so it needs no equivalent. #11902 also changed `fetch-proxy` to strip hop-by-hop/`Connection`-listed headers and `Content-Length`, and `request-listener` to reject conflicting HTTP/2 `Host`/`:authority` with a 400 — no app change required.
 
+## `componentHmr` setup-state rewrite order
+
+**Symptom:** under `npm run hmr`, a page fails with the app error card (`Unexpected Error` / `Something went wrong`). Firefox console reports `ReferenceError: assignment to undeclared variable loadingList` (Chromium: `loadingList is not defined`). The page works under plain `npm run dev`.
+
+**Cause:** the component HMR transform replaces setup-scope `let`/`const` declarations with `__s__.name` and removes the local binding, but `createSetupSource` only rewrites references in statements **after** the declaration (`initializedStateNames` gates `rewriteReferences`). A closure declared before the `let` keeps a bare `name = …` assignment, which becomes an undeclared identifier in the transformed module. This app hit it in `app/actions/lists/public/lists-client.tsx`, where `hydrateFromInitialState` (declared before `let loadingList = false`) assigns `loadingList = false`; hydration always took that branch.
+
+**Fix:** declare setup state before any statement or closure that references it — move `let loadingList = false` above `hydrateFromInitialState`. Do not move it back down for readability. To audit a suspect module, fetch its transformed asset (`/assets/<path>`) and look for bare `name =` / `name++` assignments where `__s__.name` is the state key; every setup-state reference must be `__s__.name` (object keys such as `loadingList: __s__.loadingList` are fine). A real assignment statement left bare is the bug.
+
+## Browser HMR CSP must allow the EventSource port
+
+**Symptom:** the page loads but browser HMR never applies updates; Firefox console shows `Content-Security-Policy: … blocked … (connect-src) at http://127.0.0.1:44101/hmr` and `Firefox can't establish a connection to the server at http://127.0.0.1:44101/hmr`. Server restarts still work, so the failure looks like “HMR does nothing”.
+
+**Cause:** `node-hmr` coordinates browser updates with an EventSource hosted by the parent on `HMR_PORT` (default proxy port + 1, host `127.0.0.1`). The app's CSP was written for an earlier WebSocket design and only allowed `ws://localhost:44100`, which matches neither the scheme nor the port.
+
+**Fix:** `hmr.ts` passes `HMR_EVENT_PORT` into the child env; `security-headers.ts` adds `http://127.0.0.1:<port>` and `http://localhost:<port>` to `connect-src` only when `REMIX_NODE_HMR === '1'`. Do not allow it in plain dev, and do not restore the retired websocket source. `security-headers.test.ts` covers both the default and a custom event port.
+
+## `component-hmr/node` boot cost — app hook without server source maps
+
+**Symptom:** `npm run hmr` takes ~15–16s before `Server listening` (seed logs appear only at the end), while `npm run dev` is ready in ~1.5–2s. The supervisor itself is not the cause: plain `node server.ts` is ~1.8s, `--conditions=node-hmr` is ~1.9s, and the full proxy/child path adds only ~0.2s.
+
+**Cause:** `remix/component-hmr/node` calls `transformComponentsForServer(..., { sourceMap: true })` for every app module. `generateSourceMap` requests `hires: true` and, for each setup hint, adds a mapping per matching character; `getLineAndColumnAtIndex` re-slices/splits the whole source for every mapping, so a 77KB module costs ~5s. One large client entry is enough to dominate boot.
+
+**Fix:** `component-hmr-server.ts` at the repo root mirrors the vendor hook (`load` → `shouldTransformModule` → `detectImportSource` → `transformComponentsForServer`) but passes `sourceMap: false`; `hmr.ts` loads it via `new URL('./component-hmr-server.ts', import.meta.url).href` instead of `remix/component-hmr/node`. Server stack traces lose inline maps; **browser** assets still get maps from the asset server's `componentHmr()` loader. Measured 16.1s → 2.1s (dev baseline 1.9s).
+
+Re-audit this on every remix bump: if upstream adds a `sourceMap` option to the node hook or fixes the per-character mapper, delete the local hook and go back to `remix/component-hmr/node`. Keep the local copy in sync with `@remix-run/component-hmr/dist/lib/loaders.js` (module filter, import-source detection, canonical URL).
+
 ## Smoke-Testing the HMR Loop
 
 - **Restart vs update markers** — a server-module content edit logs `restart <file>` (child re-emits ready); a `.browser.*` edit logs `hmr update <file>` (no restart, event goes to the browser channel). Assert on these to prove which path fired.
@@ -135,4 +163,5 @@ The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR 
 
 - Adding or changing the HMR / asset-server / dev-server config in this app
 - Debugging `npm run hmr` symptoms: requests hang (ready-gate), proxy returns 500 (`ECONNREFUSED` path), `EADDRINUSE` on the app port (orphan/`HOST` leak), or "Failed running server.ts. Waiting for file changes before restarting..." stalls
+- A page renders the error card with `assignment to undeclared variable <name>` (component HMR setup-state rewrite order), or the browser console reports a CSP `connect-src` block for `http://127.0.0.1:<HMR_PORT>/hmr` (browser HMR EventSource not allowed)
 - Writing dev-server smoke tests and wondering why a `touch`-only change doesn't restart the server
