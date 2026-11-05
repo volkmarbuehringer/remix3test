@@ -222,10 +222,21 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 
 **Follow-up 2026-11-05 (`updateUrl()` adoption).** Added the first app call sites for #12110, replacing the two raw `history.replaceState` URL reflections: support-agent thread adoption (`reflectThreadInUrl` in `app/assets/streams/public/support-agent-controller.ts`) and customer-chat `?new=1` cleanup (`clearFreshParam` in `app/assets/streams/public/customer-chat-controller.ts`). Both calls use the replace mode and the component lifetime signal, so they preserve history state, wait out an active navigation instead of racing it, and sync Remix's top-frame source — a later top-frame reload now fetches the reflected URL instead of the pre-adoption one. The existing browser tests were extended to assert history-state preservation; `app/assets/streams/streams.test.browser.tsx` passes 110/112 in Chromium and Firefox (2 pre-existing skips).
 
+**Bump recorded 2026-11-05 (second, same day): preview release `v0.20261105.12650-main-f1cd1382`/source `f1cd1382` → `v0.20261105.172537-main-ca504176`/source `ca504176` (4 commits: #12171 docs/template, #12188 docs/demo styles, #12193 guide demos + single-use style rule, #12197 HMR e2e dedupe).**
+
+- **Lock:** all 277 release-tarball refs resolve to `v0.20261105.172537-main-ca504176`; no refs to the old tag remain.
+- **Versions:** unchanged — `remix` 3.2.0, `@remix-run/component` 1.2.0, `@remix-run/component-hmr` 1.0.1, `@remix-run/ui` 0.13.1; no release commit in the range.
+- **Runtime delta:** none. All four commits are docs/demo/template/test-only; the only `packages/*/src` changes are `src/**/demos/**` (#12193), so every learned-delta line ref remains valid at `ca504176` and only current-pin strings were refreshed.
+- **Guides:** #12193 changes vendor guide content — §04 gains the "single-use `css()` stays inline at its JSX site; name it when multiple JSX sites share it or a variant map clarifies the choices; extract at the second use" rule, §05's keyed-list example adds `handle.signal` abort cleanup for its interval, and the §04/§05/§07 examples simplify demos and move behavior mixins before `css()`. The guide anchor moves to `ca504176` in `docs/guide-skill-coverage.md`.
+- **Docs/template:** #12171 keeps single-use code inline in agent guidance and the starter template (`.agents/skills/remix`, `AGENTS.md`, component READMEs, `template/`); #12188 inlines single-use styles in demos and docs chrome.
+- **Tests:** #12197 drops duplicate chokidar `change` events in both HMR e2e harnesses by fingerprinting `birthtimeMs:ctimeMs:ino:mtimeMs:size`, mirroring `node-hmr`'s `createFileChangeEventDeduper()`.
+- **App-side clearance:** no production source change required — the app imports no demo modules and tracked `app/` code is unchanged. `npm run remix:pin:check` clean (277 refs, assets live). Operator reports the test suites green after the update.
+
 **Pin history (newest first).** Builds are the `preview/main` tips (through 2026-11-03) or `remix-run/previews` release tags (2026-11-04+); the source commit is what the build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
 
 | Recorded       | Build                              | Source       | Range highlights                                                                                    |
 | -------------- | ---------------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| 2026-11-05 (2) | `v0.20261105.172537-main-ca504176` | `ca504176`   | docs/template #12171; demos/docs #12188 #12193; test #12197 (no runtime source)                     |
 | 2026-11-05     | `v0.20261105.12650-main-f1cd1382`  | `f1cd1382`   | v3.2.0 #12082; runtime #12110 #12199 #12200 #12201; test/CI/docs #12173 #12175 #12192 #12194 #12195 |
 | 2026-11-04     | `v0.20261103.224609-main-98229b78` | `98229b788f` | #12151 #12098 #12176 #12162; tooling #12174 #12177 #12178 #12181                                    |
 | 2026-11-03 (2) | `648eb9a0e7`                       | `1bb19a0129` | #12127 #12128 #12146 #12155 #12159 #12161 #12164                                                    |

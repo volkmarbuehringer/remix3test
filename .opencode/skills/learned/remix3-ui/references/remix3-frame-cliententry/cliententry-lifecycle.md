@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261105.12650-main-f1cd1382`: `completeReload` is defined at `:838` and dispatches at `:842`; the inherited-reload variant dispatches at `:874`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261105.172537-main-ca504176`: `completeReload` is defined at `:838` and dispatches at `:842`; the inherited-reload variant dispatches at `:874`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -250,7 +250,7 @@ First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/upl
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261105.12650-main-f1cd1382`, inside `startReload` at `:742`, which delegates to `beginReload` at `:766`; the shared dispatch is at `:776`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:748` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261105.172537-main-ca504176`, inside `startReload` at `:742`, which delegates to `beginReload` at `:766`; the shared dispatch is at `:776`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:748` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
@@ -353,7 +353,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1442-1479` at preview release `f1cd1382`). The factory closure
+   (`runtime/reconcile.ts:1442-1479` at preview release `ca504176`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -390,7 +390,7 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-11-05 against preview release `v0.20261105.12650-main-f1cd1382` / source `f1cd1382`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-11-05 against preview release `v0.20261105.172537-main-ca504176` / source `ca504176`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 

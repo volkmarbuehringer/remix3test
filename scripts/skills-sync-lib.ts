@@ -50,7 +50,7 @@ async function findCliPackage(): Promise<string | null> {
   try {
     // Fallback: match the release tag (or the historical build prefix) from the
     // installed remix link, then any CLI. The directory name may keep only a
-    // truncated part of the tag (for example `…download+v0.20261105.12650`), so
+    // truncated part of the tag (for example `…download+v0.20261105.172537`), so
     // compare a short prefix.
     let remixLink = await fs.readlink(path.join(PROJECT_ROOT, 'node_modules/remix'))
     let tagMatch = remixLink.match(/releases\+download\+([^+/]+)/)?.[1] || ''

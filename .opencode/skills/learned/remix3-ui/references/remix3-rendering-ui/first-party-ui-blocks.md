@@ -38,6 +38,6 @@ Interactive controls must sit inside a `clientEntry(...)` boundary, directly or 
 
 ## Reference
 
-- `node_modules/remix/guides/04-rendering-ui.md` §"Styling with css and dynamic style values", §"Cascade layers and app-owned design tokens", §"Optional headless UI primitives"
+- `node_modules/remix/guides/04-rendering-ui.md` §"Styling with css and dynamic style values" (including the single-use-inline / extract-at-second-use placement rule), §"Cascade layers and app-owned design tokens", §"Optional headless UI primitives"
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/README.md` — per-subpath primitives API (the aliased `remix/src/ui` path no longer exists)
 - `app/ui/theme/button.ts`, `app/ui/breadcrumbs.tsx`
