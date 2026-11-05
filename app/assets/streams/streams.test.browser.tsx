@@ -1176,7 +1176,8 @@ describe('Customer chat resume + theme + busy state', () => {
     installSseMock()
     setupChatDom()
     resetCreatedEventSources()
-    window.history.replaceState({}, '', '/chat?new=1')
+    // updateUrl() must preserve history state while dropping the spent marker.
+    window.history.replaceState({ keep: 'customer-chat' }, '', '/chat?new=1')
 
     let originalFetch = window.fetch
     window.fetch = async () =>
@@ -1199,6 +1200,11 @@ describe('Customer chat resume + theme + busy state', () => {
     assert.ok(
       !window.location.href.includes('new=1'),
       'fresh marker should be cleared after sending a message',
+    )
+    assert.equal(
+      (window.history.state as { keep?: string } | null)?.keep,
+      'customer-chat',
+      'updateUrl() should preserve the existing history state',
     )
 
     window.history.replaceState({}, '', '/')
@@ -2325,7 +2331,9 @@ describe('Support agent chat UX', () => {
   it('reflects the server-created thread id into the URL and data-thread-id', async () => {
     installSseMock()
     resetCreatedEventSources()
-    window.history.replaceState({}, '', '/admin/support-agent')
+    // Seed history state: updateUrl() must preserve it while raw replaceState
+    // would have overwritten it with {}.
+    window.history.replaceState({ keep: 'support-agent' }, '', '/admin/support-agent')
     dom = setupSupportDom()
 
     let originalFetch = window.fetch
@@ -2352,7 +2360,13 @@ describe('Support agent chat UX', () => {
       'page-thread-1',
       'the chat element should adopt the created thread id',
     )
+    assert.equal(
+      (window.history.state as { keep?: string } | null)?.keep,
+      'support-agent',
+      'updateUrl() should preserve the existing history state',
+    )
 
+    window.history.replaceState({}, '', '/admin/support-agent')
     window.fetch = originalFetch
   })
 

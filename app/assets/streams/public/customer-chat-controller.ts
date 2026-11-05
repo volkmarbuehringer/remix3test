@@ -1,3 +1,5 @@
+import { updateUrl } from 'remix/component'
+
 import { readEventStream, isAbortError } from './sse-post.ts'
 
 /**
@@ -129,13 +131,23 @@ function isStartingFresh(): boolean {
  * the one-shot fresh-state marker is no longer wanted: otherwise a page
  * refresh keeps serving an empty conversation for /chat?new=1. Drop the
  * query param so the resumed conversation wins on the next load.
+ *
+ * `updateUrl()` rather than `history.replaceState` keeps Remix's top-frame
+ * source in sync, so a frame reload after the marker is spent fetches the
+ * resumed page instead of resurrecting `?new=1`. It also preserves history
+ * state and waits out an active navigation.
  */
-function clearFreshParam() {
+function clearFreshParam(cancelSignal?: AbortSignal) {
   try {
     let url = new URL(window.location.href)
     if (!url.searchParams.has('new')) return
     url.searchParams.delete('new')
-    window.history.replaceState({}, '', url.pathname + url.search)
+    void updateUrl(
+      url.pathname + url.search + url.hash,
+      cancelSignal ? { signal: cancelSignal } : undefined,
+    ).catch(() => {
+      /* URL cleanup is best-effort; the sent turn still owns the conversation */
+    })
   } catch {
     /* best-effort */
   }
@@ -300,7 +312,7 @@ export function createCustomerChatController(
       if (isAbortError(err)) return
       ui.appendMessage('Fehler: ' + String(err), 'error')
     } finally {
-      if (turnAccepted) clearFreshParam()
+      if (turnAccepted) clearFreshParam(lifecycleSignal ?? undefined)
       currentAbort = null
       ui.setBusy(false)
       if (!suspended) {

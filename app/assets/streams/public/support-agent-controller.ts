@@ -1,3 +1,5 @@
+import { updateUrl } from 'remix/component'
+
 import { readEventStream, isAbortError, fetchSseStream, type SseInit } from './sse-post.ts'
 
 /**
@@ -239,16 +241,23 @@ export function createSupportAgentStreamController(
    * Adopts a thread id the server created or resumed into the page state and
    * the address bar, so a reload restores the conversation instead of
    * starting empty.
+   *
+   * `updateUrl()` (not a raw `history.replaceState`) keeps Remix's top-frame
+   * source in sync with the address bar, so a later top-frame reload fetches
+   * the adopted thread instead of the pre-adoption URL. It also preserves the
+   * current history state and waits for an active navigation instead of
+   * racing it.
    */
   function reflectThreadInUrl(threadId: string) {
     let chat = getChat()
     if (chat) chat.setAttribute('data-thread-id', threadId)
     try {
       let url = new URL(window.location.href)
-      if (url.searchParams.get('threadId') !== threadId) {
-        url.searchParams.set('threadId', threadId)
-        window.history.replaceState({}, '', url.pathname + url.search)
-      }
+      if (url.searchParams.get('threadId') === threadId) return
+      url.searchParams.set('threadId', threadId)
+      void updateUrl(url.pathname + url.search + url.hash, { signal }).catch(() => {
+        /* URL reflection is best-effort; the chat keeps the adopted thread */
+      })
     } catch {
       /* best-effort */
     }
