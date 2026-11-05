@@ -1,15 +1,16 @@
-# Daily remix-preview and quality check.
+# Manual remix-preview and quality check.
 #
-# Main preview releases are pruned after ~7 days (the newest is kept), so run
-# the pin check daily instead of weekly. `remix:pin:check` fails when a pinned
-# asset is gone or the lock resolves a different release; it warns without
-# failing when a newer upstream preview exists or the pin crosses the five-day
-# refresh window.
+# Run from the Actions tab (or `gh workflow run ci.yml`) when validating a
+# dependency bump or a broad change. This workflow is intentionally not
+# scheduled and does not run on push.
+#
+# Main preview releases are pruned after ~7 days, so run `pnpm remix:pin:check`
+# around a bump: it fails when a pinned asset is gone or the lock resolves a
+# different release, and warns when a newer upstream preview exists or the pin
+# crosses the five-day refresh window.
 name: CI
 
 on:
-  schedule:
-    - cron: '17 4 * * *'
   workflow_dispatch:
 
 permissions:
