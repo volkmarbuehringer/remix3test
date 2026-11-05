@@ -79,6 +79,14 @@ function settle(ms = 0) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
+// `focusItemTrigger` prefers the kebab on touch and the row on pointer devices.
+function focusedItemId(): string | null {
+  let attribute = window.matchMedia('(hover: none)').matches
+    ? 'data-item-menu-button'
+    : 'data-item-id'
+  return document.activeElement?.getAttribute(attribute) ?? null
+}
+
 async function openMenu(result: ReturnType<typeof renderEditor>, id: string) {
   await result.act(() => kebabOf(result.container, id).click())
   assert.ok(menuOf(result.container, id), 'the row menu must open')
@@ -112,11 +120,7 @@ describe('lists row menu dismissal', () => {
     await result.act(() => settle())
 
     assert.equal(menuOf(result.container, 'a'), null)
-    assert.equal(
-      document.activeElement?.getAttribute('data-item-id'),
-      'a',
-      'Escape must return focus to the row trigger',
-    )
+    assert.equal(focusedItemId(), 'a', 'Escape must return focus to the row or its kebab trigger')
   })
 })
 
@@ -129,16 +133,12 @@ describe('lists row menu actions', () => {
     await result.act(() => settle())
 
     assert.equal(menuOf(result.container, 'a'), null)
-    assert.equal(
-      document.activeElement?.getAttribute('data-item-id'),
-      'a',
-      'focus must follow the moved item',
-    )
+    assert.equal(focusedItemId(), 'a', 'focus must follow the moved item')
 
     // Let the fast autosave flush against the stub so no timer leaks into the
     // next test; focus must survive the server echo re-render.
     await settle(350)
-    assert.equal(document.activeElement?.getAttribute('data-item-id'), 'a')
+    assert.equal(focusedItemId(), 'a')
   })
 
   it('returns focus to the next row after deleting', async () => {
@@ -149,11 +149,7 @@ describe('lists row menu actions', () => {
     await result.act(() => settle())
 
     assert.equal(menuOf(result.container, 'b'), null)
-    assert.equal(
-      document.activeElement?.getAttribute('data-item-id'),
-      'c',
-      'focus must move to the surviving neighbour',
-    )
+    assert.equal(focusedItemId(), 'c', 'focus must move to the surviving neighbour')
 
     // Clear the undo timer and let the fast autosave settle.
     let undo = [...result.container.querySelectorAll('button')].find((button) =>
