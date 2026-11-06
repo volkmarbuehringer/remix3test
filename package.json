@@ -14,7 +14,7 @@
     "test:e2e": "NODE_ENV=test remix test --type e2e --concurrency 2",
     "test:mobile": "npm run test:mobile:browser && npm run test:mobile:pages",
     "test:mobile:browser": "PLAYWRIGHT_MOBILE=1 NODE_ENV=test remix test --type browser --concurrency 3 --project mobile-chrome --project mobile-safari-sized",
-    "test:mobile:pages": "PLAYWRIGHT_MOBILE=1 NODE_ENV=test remix test --type e2e --concurrency 2 --project mobile-chrome --project mobile-safari-sized app/actions/admin/admin-grids-responsive.test.e2e.ts app/actions/settings/settings-responsive.test.e2e.ts app/actions/auth/auth-responsive.test.e2e.ts",
+    "test:mobile:pages": "PLAYWRIGHT_MOBILE=1 NODE_ENV=test remix test --type e2e --concurrency 2 --project mobile-chrome --project mobile-safari-sized app/actions/mobile-route-matrix.test.e2e.ts app/actions/admin/admin-grids-responsive.test.e2e.ts app/actions/settings/settings-responsive.test.e2e.ts app/actions/auth/auth-responsive.test.e2e.ts",
     "test:bun": "NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type server --concurrency 6 && NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type browser --concurrency 3 && NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test --type e2e --concurrency 2",
     "db:migrate": "node --env-file-if-exists=.env --import remix/node-tsx scripts/db.ts migrate",
     "db:status": "node --env-file-if-exists=.env --import remix/node-tsx scripts/db.ts status",
