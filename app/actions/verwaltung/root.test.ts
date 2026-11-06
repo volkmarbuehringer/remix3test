@@ -161,7 +161,9 @@ describe('Verwaltung Dashboard', () => {
     // The desktop nav collapses behind the hamburger below 768px; the drawer
     // must still carry the admin-only destinations or they become unreachable.
     let drawerStart = html.indexOf('id="nav-drawer"')
-    let drawerEnd = html.indexOf('</header>', drawerStart)
+    // The drawer now renders after the header (outside its backdrop-filter
+    // containing block), so scope the slice to the nav region before <main>.
+    let drawerEnd = html.indexOf('<main', drawerStart)
     assert.ok(drawerStart !== -1 && drawerEnd > drawerStart, 'navigation drawer should render')
     let drawer = html.slice(drawerStart, drawerEnd)
     assert.ok(
