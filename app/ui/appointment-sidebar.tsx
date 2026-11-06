@@ -148,6 +148,9 @@ const sidebarStyle = css({
   minHeight: 0,
   overflow: 'hidden',
   width: '280px',
+  '@media (max-width: 900px)': {
+    width: '100%',
+  },
 })
 
 const sidebarHeaderStyle = css({

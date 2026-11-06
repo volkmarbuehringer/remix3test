@@ -148,6 +148,12 @@ const shellStyle = css({
   gridTemplateColumns: '280px minmax(0, 1fr)',
   gap: theme.space.lg,
   alignItems: 'start',
+  // Stack the sidebar above the calendar on phone/compact widths. The fixed
+  // 280px column left the grid only a few dozen pixels and forced the whole
+  // page to scroll horizontally.
+  '@media (max-width: 900px)': {
+    gridTemplateColumns: 'minmax(0, 1fr)',
+  },
 })
 
 const sidebarColumnStyle = css({
@@ -157,6 +163,10 @@ const sidebarColumnStyle = css({
   minWidth: 0,
   position: 'sticky',
   top: theme.space.lg,
+  '@media (max-width: 900px)': {
+    position: 'static',
+    top: 'auto',
+  },
 })
 
 const gridColumnStyle = css({
