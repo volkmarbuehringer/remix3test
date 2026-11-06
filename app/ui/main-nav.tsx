@@ -62,121 +62,123 @@ export function MainNav() {
       .filter((item) => !coveredByMobileItems.has(item.href))
 
     return (
-      <header mix={navWrapCss}>
-        <div mix={navInnerCss}>
-          <a href={routes.home.href()} mix={logoGroupCss}>
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none" mix={logoSvgCss}>
-              <defs>
-                <linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color={indigo[500]} />
-                  <stop offset="100%" stop-color={indigo[700]} />
-                </linearGradient>
-              </defs>
-              <rect width="28" height="28" rx="8" fill="url(#logo-grad)" />
-              <path
-                d="M8 20V8h5.2c2.133 0 3.733.4 4.8 1.2 1.067.8 1.6 2 1.6 3.6 0 1.067-.267 1.933-.8 2.6-.533.667-1.333 1.133-2.4 1.4L19 20h-3.2l-2.6-3.2H11V20H8zm3-5.6h2c1.067 0 1.833-.2 2.3-.6.467-.4.7-1 .7-1.8 0-.8-.233-1.367-.7-1.7-.467-.333-1.233-.5-2.3-.5H11v4.6z"
-                fill="white"
-              />
-            </svg>
-            <span mix={logoNameCss}>
-              new<span mix={logoAccentCss}>app</span>
-            </span>
-          </a>
+      <>
+        <header mix={navWrapCss}>
+          <div mix={navInnerCss}>
+            <a href={routes.home.href()} mix={logoGroupCss}>
+              <svg width="24" height="24" viewBox="0 0 28 28" fill="none" mix={logoSvgCss}>
+                <defs>
+                  <linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color={indigo[500]} />
+                    <stop offset="100%" stop-color={indigo[700]} />
+                  </linearGradient>
+                </defs>
+                <rect width="28" height="28" rx="8" fill="url(#logo-grad)" />
+                <path
+                  d="M8 20V8h5.2c2.133 0 3.733.4 4.8 1.2 1.067.8 1.6 2 1.6 3.6 0 1.067-.267 1.933-.8 2.6-.533.667-1.333 1.133-2.4 1.4L19 20h-3.2l-2.6-3.2H11V20H8zm3-5.6h2c1.067 0 1.833-.2 2.3-.6.467-.4.7-1 .7-1.8 0-.8-.233-1.367-.7-1.7-.467-.333-1.233-.5-2.3-.5H11v4.6z"
+                  fill="white"
+                />
+              </svg>
+              <span mix={logoNameCss}>
+                new<span mix={logoAccentCss}>app</span>
+              </span>
+            </a>
 
-          <nav mix={navLinksCss}>
-            {/*
+            <nav mix={navLinksCss}>
+              {/*
               Section links collapse into the drawer below 900px, but the
               notification bell stays in the header at every width: it is the
               only unread-count indicator, and hiding it with the links made
               unread notifications invisible between 769px and 900px.
             */}
-            <div mix={navCollapseCss}>
-              {visibleSections.map((section, i) => {
-                let items = section.items
-                if (items.length === 0) return null
-                return (
-                  <div key={i} mix={sectionGroupCss}>
-                    {section.label ? <span mix={sectionLabelCss}>{section.label}</span> : null}
-                    {items.map((item) => (
-                      <a
-                        key={item.href}
-                        href={item.href}
-                        {...(item.href && isCrossSection(item.href)
-                          ? { 'data-rmx-document': '' }
-                          : {})}
-                        mix={[
-                          navLinkCss,
-                          item.href && isActive(item.href) ? navActiveCss : null,
-                        ].filter(Boolean)}
-                      >
-                        {item.label}
-                      </a>
-                    ))}
+              <div mix={navCollapseCss}>
+                {visibleSections.map((section, i) => {
+                  let items = section.items
+                  if (items.length === 0) return null
+                  return (
+                    <div key={i} mix={sectionGroupCss}>
+                      {section.label ? <span mix={sectionLabelCss}>{section.label}</span> : null}
+                      {items.map((item) => (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          {...(item.href && isCrossSection(item.href)
+                            ? { 'data-rmx-document': '' }
+                            : {})}
+                          mix={[
+                            navLinkCss,
+                            item.href && isActive(item.href) ? navActiveCss : null,
+                          ].filter(Boolean)}
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+              {user ? (
+                <>
+                  <NotificationBell
+                    eventsUrl={routes.notifications.events.href()}
+                    unreadCountUrl={routes.notifications.unreadCount.href()}
+                    inboxUrl={routes.notifications.index.href()}
+                  />
+                  {/* Settings and logout move into the drawer with the links. */}
+                  <div mix={navCollapseCss}>
+                    <a
+                      href={routes.settings.index.href()}
+                      {...(isCrossSection(routes.settings.index.href())
+                        ? { 'data-rmx-document': '' }
+                        : {})}
+                      mix={iconLinkCss}
+                      aria-label="Settings"
+                      title="Einstellungen"
+                    >
+                      <Glyph name="cog" width={18} height={18} />
+                    </a>
+                    <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
+                      {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
+                      <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
+                        <Glyph name="close" width={18} height={18} />
+                      </button>
+                    </form>
                   </div>
-                )
-              })}
+                </>
+              ) : (
+                <>
+                  <div mix={navCollapseCss}>
+                    <a
+                      href={routes.auth.login.index.href()}
+                      {...(isCrossSection(routes.auth.login.index.href())
+                        ? { 'data-rmx-document': '' }
+                        : {})}
+                      mix={navBtnCss}
+                    >
+                      <Glyph name="open" width={14} height={14} />
+                      Anmelden
+                    </a>
+                  </div>
+                </>
+              )}
+            </nav>
+
+            <div mix={[headerActionsCss, mobileOnlyCss]}>
+              <button
+                id="nav-toggle"
+                aria-label="Menü"
+                aria-expanded="false"
+                aria-controls="nav-drawer"
+                mix={hamburgerBtnCss}
+                type="button"
+              >
+                <Glyph name="menu" width={20} height={20} />
+              </button>
             </div>
-            {user ? (
-              <>
-                <NotificationBell
-                  eventsUrl={routes.notifications.events.href()}
-                  unreadCountUrl={routes.notifications.unreadCount.href()}
-                  inboxUrl={routes.notifications.index.href()}
-                />
-                {/* Settings and logout move into the drawer with the links. */}
-                <div mix={navCollapseCss}>
-                  <a
-                    href={routes.settings.index.href()}
-                    {...(isCrossSection(routes.settings.index.href())
-                      ? { 'data-rmx-document': '' }
-                      : {})}
-                    mix={iconLinkCss}
-                    aria-label="Settings"
-                    title="Einstellungen"
-                  >
-                    <Glyph name="cog" width={18} height={18} />
-                  </a>
-                  <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
-                    {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
-                    <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
-                      <Glyph name="close" width={18} height={18} />
-                    </button>
-                  </form>
-                </div>
-              </>
-            ) : (
-              <>
-                <div mix={navCollapseCss}>
-                  <a
-                    href={routes.auth.login.index.href()}
-                    {...(isCrossSection(routes.auth.login.index.href())
-                      ? { 'data-rmx-document': '' }
-                      : {})}
-                    mix={navBtnCss}
-                  >
-                    <Glyph name="open" width={14} height={14} />
-                    Anmelden
-                  </a>
-                </div>
-              </>
-            )}
-          </nav>
 
-          <div mix={[headerActionsCss, mobileOnlyCss]}>
-            <button
-              id="nav-toggle"
-              aria-label="Menü"
-              aria-expanded="false"
-              aria-controls="nav-drawer"
-              mix={hamburgerBtnCss}
-              type="button"
-            >
-              <Glyph name="menu" width={20} height={20} />
-            </button>
+            <ThemeToggle />
           </div>
-
-          <ThemeToggle />
-        </div>
+        </header>
 
         <NavToggle />
         <div
@@ -250,7 +252,7 @@ export function MainNav() {
             )}
           </div>
         </div>
-      </header>
+      </>
     )
   }
 }
