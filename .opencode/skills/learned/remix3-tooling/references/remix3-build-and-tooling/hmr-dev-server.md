@@ -3,10 +3,10 @@
 **Source:** `remix3-hmr-dev-server`
 
 **Extracted:** 2026-08-10
-**Revalidated:** 2026-11-05 against preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
+**Revalidated:** 2026-11-06 against preview release `v0.20261106.150533-main-305d22d0` / source `305d22d0` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
-## Current API anchors (release `v0.20261105.191550-main-500bb65e`)
+## Current API anchors (release `v0.20261106.150533-main-305d22d0`)
 
 - `run(entry, options)` at `@remix-run/node-hmr/dist/index.d.ts:126`; `RunOptions` at `:4` with `browserHmrChannel` at `:9`, plus `cwd`/`entryArgs`/`env`/`nodeArgs`/`watch`.
 - `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:114`; `dist/index.js:17` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.

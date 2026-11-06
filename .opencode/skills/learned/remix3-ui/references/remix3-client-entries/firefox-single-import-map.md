@@ -3,7 +3,7 @@
 **Source:** `remix3-firefox-single-import-map`
 
 **Extracted:** 2026-09-09
-**Revalidated:** 2026-11-05 against preview release `v0.20261105.191550-main-500bb65e` / source `500bb65e` (same runtime behavior; the CSP fix below now relies on the entry/preload nonces added by #12098).
+**Revalidated:** 2026-11-06 against preview release `v0.20261106.150533-main-305d22d0` / source `305d22d0` (same runtime behavior; the CSP fix below now relies on the entry/preload nonces added by #12098).
 **Context:** After the remix rc.2 / import-map upgrade (#11706), the /lists page broke in Firefox only: adding items did nothing, the row-action hover overlay stayed hidden, drag to the sidebar failed, and a hydrated textarea (Beschreibung) rendered empty. Chromium was fine.
 
 ## Problem
