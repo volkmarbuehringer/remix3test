@@ -10,13 +10,16 @@ const OPENCODE_SESSION_FILE = join(import.meta.dirname, '../../.opencode-session
 
 let _sessionId: string | null = null
 
+/**
+ * Stable id sent as the provider session header.
+ *
+ * Deliberately ignores `OPENCODE_SESSION_ID` from the environment: agent
+ * harnesses export that name for their own sessions, so reading it would make
+ * the app's id change whenever the surrounding agent session does. The
+ * persisted file is the single source of truth.
+ */
 export function getOpenCodeSessionId(): string {
   if (_sessionId) return _sessionId
-  let envId = envString('OPENCODE_SESSION_ID')
-  if (envId) {
-    _sessionId = envId
-    return _sessionId
-  }
   _sessionId = loadOrCreateSessionId()
   return _sessionId
 }
