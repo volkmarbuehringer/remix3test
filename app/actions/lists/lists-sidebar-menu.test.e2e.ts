@@ -355,18 +355,17 @@ describe('lists sidebar row action menu', () => {
       await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
       // Duplicate submits the menu's form; the frame navigates to the copy and
-      // the sidebar grows by one row.
-      let beforeRows = await page.locator('[data-list-id]').count()
+      // the sidebar shows its row. Match the row by title instead of asserting
+      // the row count grows: the sidebar is capped at 15 rows, so with enough
+      // lists the new row replaces the last one and the count stays the same.
       await openListMenu(page, openId)
       await page
         .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
         .filter({ hasText: 'Duplizieren' })
         .click()
-      await page.waitForFunction(
-        (count) => document.querySelectorAll('[data-list-id]').length > count,
-        beforeRows,
-        { timeout: 15_000 },
-      )
+      await page
+        .locator('[data-list-id]', { hasText: 'Sidebar menu open list (Kopie)' })
+        .waitFor({ state: 'attached', timeout: 15_000 })
       let copyRows = (
         await pool.query('SELECT id FROM lists WHERE title = $1', [
           'Sidebar menu open list (Kopie)',

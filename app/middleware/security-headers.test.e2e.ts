@@ -190,8 +190,6 @@ describe('CSP enforcement', () => {
       let documentLoads = 0
       page.on('load', () => documentLoads++)
 
-      let rowsBefore = await page.locator('[data-list-id]').count()
-
       // Submit the hidden copy form the way the toolbar button does, but without
       // depending on the lists client entry having hydrated: the runtime's
       // Navigation API interception (installed by `run()`, before `load`) reads
@@ -205,12 +203,13 @@ describe('CSP enforcement', () => {
         form.requestSubmit()
       })
 
-      // The followed PRG renders the new list into the sidebar fragment.
-      await page.waitForFunction(
-        (rows) => document.querySelectorAll('[data-list-id]').length > rows,
-        rowsBefore,
-        { timeout: 15_000 },
-      )
+      // The followed PRG renders the new list into the sidebar fragment. Match
+      // the copied row by title, not by row count: the sidebar is capped at one
+      // page (15 rows), so on a database with many lists the new row pushes the
+      // last one out and the total count stays the same.
+      await page
+        .locator('[data-list-id]', { hasText: `${title} (Kopie)` })
+        .waitFor({ state: 'attached', timeout: 15_000 })
       await page.waitForTimeout(1_000)
 
       assert.equal(

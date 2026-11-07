@@ -362,7 +362,10 @@ describe('lists copy selected items into another list', () => {
         scrollWidth: number
         innerWidth: number
       }
-      assert.ok(pickerGeometry.searchHeight >= 44, 'the picker search must be >=44px tall')
+      assert.ok(
+        pickerGeometry.searchHeight >= 44,
+        `the picker search must be >=44px tall (got ${pickerGeometry.searchHeight}px)`,
+      )
       assert.ok(pickerGeometry.optionHeight >= 44, 'picker options must be >=44px tall')
       assert.ok(
         pickerGeometry.scrollWidth <= pickerGeometry.innerWidth + 1,

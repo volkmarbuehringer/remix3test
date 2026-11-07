@@ -110,6 +110,26 @@ export const ListsClient = clientEntry(
     type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error'
     let saveStatus: SaveStatus = 'saved'
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+    // Forward declarations for the autosave and picker helpers. `undo` (below)
+    // calls `setDirty`/`scheduleAutosave`, `discardDraft`/`reloadFromFrame` call
+    // `clearSelection`, `performSave` calls `syncEditorSidebar`, and the picker
+    // confirmation calls `copyItemsToTarget`/`moveItem(s)ToTarget`, before those
+    // arrow functions are assigned. Component HMR rewrites setup state
+    // references only in statements after the declaration, so a closure defined
+    // above a `let` keeps a bare reference — under `npm run hmr` that throws
+    // (`scheduleAutosave is not defined`, `syncEditorSidebar is not defined`, …)
+    // and silently skips the save. Declaring the bindings here (before every
+    // closure that references them) keeps the HMR transform rewriting the
+    // calls, while the implementations can still sit next to the rest of the
+    // save/picker logic.
+    let setDirty: () => void
+    let scheduleAutosave: (fast?: boolean) => void
+    let clearSelection: () => void
+    let syncEditorSidebar: () => void
+    let announce: (message: string) => void
+    let copyItemsToTarget: (target: ListTarget, itemIds: string[]) => Promise<void>
+    let moveItemsToTarget: (target: ListTarget, itemIds: string[]) => Promise<void>
+    let moveSingleItemToTarget: (itemId: string, target: ListTarget) => Promise<void>
 
     // Conflict state
     let conflictState: ListConflictState = { show: false, serverState: null }
@@ -417,7 +437,7 @@ export const ListsClient = clientEntry(
       }
     }
 
-    let setDirty = () => {
+    setDirty = () => {
       // The previous action's undo stays available until the next mutation, but
       // not across it: a second edit must not silently revert to a stale state.
       if (keepUndoForMutation) {
@@ -632,7 +652,7 @@ export const ListsClient = clientEntry(
 
     // Push the current editor state into the matching sidebar row so the
     // sidebar's title / count stay in sync without a full frame reload.
-    let syncEditorSidebar = () => {
+    syncEditorSidebar = () => {
       if (loadedListId === null) return
       let name = title.trim() || description.trim()
       syncSidebarRow(loadedListId, {
@@ -644,7 +664,7 @@ export const ListsClient = clientEntry(
       })
     }
 
-    let scheduleAutosave = (fast = false) => {
+    scheduleAutosave = (fast = false) => {
       if (conflictState.show) return
       if (autosaveTimer) clearTimeout(autosaveTimer)
       autosaveTimer = setTimeout(
@@ -674,7 +694,7 @@ export const ListsClient = clientEntry(
 
     // Drop the current row selection. Called on every list load so a selection
     // never leaks onto a different list.
-    let clearSelection = () => {
+    clearSelection = () => {
       selectedItemIds = new Set()
     }
 
@@ -951,7 +971,7 @@ export const ListsClient = clientEntry(
       buttons[next]?.focus()
     }
 
-    let copyItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
+    copyItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
       let sourceId = loadedListId
       if (sourceId === null || copyBusy || itemIds.length === 0) return
       // Claim the in-flight guard *before* awaiting. A pending autosave makes
@@ -1003,7 +1023,7 @@ export const ListsClient = clientEntry(
       }
     }
 
-    let moveItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
+    moveItemsToTarget = async (target: ListTarget, itemIds: string[]) => {
       let sourceId = loadedListId
       if (sourceId === null || copyBusy || itemIds.length === 0) return
       copyBusy = true
@@ -1055,7 +1075,7 @@ export const ListsClient = clientEntry(
       }
     }
 
-    let moveSingleItemToTarget = async (itemId: string, target: ListTarget) => {
+    moveSingleItemToTarget = async (itemId: string, target: ListTarget) => {
       let sourceId = loadedListId
       if (sourceId === null || copyBusy) return
       // Focus the surviving neighbour after the row leaves the editor.
@@ -1810,7 +1830,7 @@ export const ListsClient = clientEntry(
     }
 
     // Keyboard navigation helpers
-    let announce = (msg: string) => {
+    announce = (msg: string) => {
       if (liveRegion) liveRegion.textContent = msg
     }
 

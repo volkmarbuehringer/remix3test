@@ -673,6 +673,12 @@ export const targetPickerBodyStyle = css({
 export const targetPickerSearchStyle = css({
   width: '100%',
   height: '44px',
+  // The dialog is a max-height flex column: with many candidate lists the
+  // results area fills it and a default `flex-shrink: 1` collapses the search
+  // field below the 44px touch target. `min-height` keeps the box even if a
+  // future flex/grid refactor reintroduces shrinking.
+  flexShrink: 0,
+  minHeight: '44px',
   padding: '0 ' + theme.space.sm,
   borderRadius: theme.radius.md,
   border: '1px solid ' + theme.colors.border.strong,

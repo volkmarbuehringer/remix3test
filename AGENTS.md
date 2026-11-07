@@ -8,6 +8,7 @@ This app was scaffolded with `remix new`. Use these conventions when continuing 
 npm i
 npm run start
 npm test
+npm run test:coverage
 npm run typecheck
 npm run format
 npm run format:fix

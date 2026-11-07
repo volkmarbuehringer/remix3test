@@ -215,7 +215,7 @@ Key facts:
 - Use `createAuthCookieWithCsrfForUser(email)` for an authenticated session (avoids the GET → CSRF-token dance).
 - Match generated CSS with the space after the colon (`min-height: 3.6rem`, not `min-height:3.6rem`).
 - This is a structural check (classes/styles present), not a visual one — scrollbar/layout behavior still needs a browser.
-- Run a single file quickly with `npm test -- <glob>`; delete throwaway verification tests afterwards.
+- Run a single file quickly with `npm run test:server -- <glob>` (or `test:browser`/`test:e2e` for that type); delete throwaway verification tests afterwards. `npm test -- <glob>` only filters the last chained command (`test:e2e`), because npm appends script arguments to the end of the whole `&&` chain.
 
 Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed without booting a browser, writing a regression assertion that a page no longer contains a specific style, or confirming `fullHeightTargets`/content-only frame targets take effect for a route.
 

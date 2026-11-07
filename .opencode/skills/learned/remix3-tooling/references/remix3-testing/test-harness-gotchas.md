@@ -1,8 +1,8 @@
 # Test Harness Gotchas (Playwright, browser tests, HTTP mocks)
 
-**Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`
+**Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`, `remix-test-coverage-flag-forwarding`, `home-nav-hydration-e2e-flake`
 
-**Extracted:** 2026-06-23 … 2026-09-24
+**Extracted:** 2026-06-23 … 2026-11-07
 **Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
@@ -72,6 +72,30 @@ await waitFor(() => {
 ```
 
 If you assert on `textContent`, wait on `textContent`.
+
+## Wait for the destination, not any matching element
+
+After a navigation click, `page.locator('main h1').first().waitFor()` can resolve on the **source**
+page — the login page has an `h1` too — so the test starts interacting while the destination
+document is still replacing the source. This made `home-nav-responsive.test.e2e.ts` flake (2/10
+runs) under load: the drawer opened on the outgoing page, then the home document replaced it, or
+the click landed before `NavToggle` had hydrated.
+
+Wait for the destination URL instead, then for the client entry's hydration marker:
+
+```ts
+await page.waitForURL((url) => url.pathname === routes.home.href(), { timeout: 15_000 })
+await page.locator('main h1').filter({ hasText: 'Verwaltung' }).first().waitFor({ timeout: 15_000 })
+await page.locator('#nav-toggle[data-nav-toggle-ready]').waitFor({ timeout: 15_000 })
+await page.locator('#nav-toggle').click()
+```
+
+The home-specific content wait matters: the URL can change while the outgoing header (and its stale readiness marker) is still mounted, so URL + marker alone still flaked. After waiting for the home hero plus hydration the test passed 10/10 Firefox runs.
+
+`NavToggle` now sets `data-nav-toggle-ready` when it binds listeners and re-checks/binds on every
+render (a layout re-render can replace `#nav-toggle`/`#nav-drawer` while the entry stays alive), and
+its toggle/close helpers resolve the current elements via `getElementById` instead of captured
+nodes.
 
 ## Mock an external HTTP service on port 0
 
@@ -153,6 +177,45 @@ Vendor reference: `node_modules/remix/src/test/README.md` § "Mocks and Spies"
 (the "defaults to the next call" wording means the current call index). Pair it
 with `callCount()` to prove every queued request ran.
 
+## Run coverage in one `remix test` invocation
+
+`npm test -- --coverage` is broken twice over. npm appends script arguments to the end of the whole
+`&&` chain, so the flag lands on the last command (`npm run test:e2e --coverage`) and npm 12
+rejects it as an unknown CLI flag (`EUNKNOWNCONFIG: Unknown cli flag: --coverage`). Even after
+forwarding, three separate `remix test` runs each write their own report: the CLI only combines
+server, browser, and e2e maps inside one invocation (`allCoverageMaps` →
+`generateCombinedCoverageReport`), so `.coverage` would end up containing just the last type.
+
+Use the dedicated script, which runs all three types together:
+
+```sh
+npm run test:coverage
+# rm -rf .coverage && NODE_ENV=test remix test \
+#   --type server --type browser --type e2e --coverage --concurrency 2
+```
+
+The `rm -rf .coverage` is not cosmetic: `collectServerCoverageMap` reads every `coverage-*.json`
+in the directory, and the vendor's cleanup is commented out, so raw V8 data from earlier runs
+accumulates into the merged report.
+
+One invocation also runs `test/setup.ts` once, so server, browser, and e2e share a single test
+database (the separate `npm test` phases each get a fresh one). Tests that assume an empty DB fail
+only in the combined run. Two real cases surfaced this: `lists copy`/`duplicate` e2e tests asserted
+the sidebar row count grows, but the sidebar caps at 15 rows, so a new row replaces the last one —
+match the copied row by title instead; and the target picker's search input shrank below its 44px
+touch target once the unpaginated candidate list filled the dialog — `flexShrink: 0` +
+`minHeight: 44px` on `targetPickerSearchStyle` fixed the layout.
+
+The same npm argument placement explains why `npm test -- <glob>` only filters the e2e phase; use
+`npm run test:server -- <glob>` (or `test:browser` / `test:e2e`) to target one type.
+
+`test:coverage` is also the heaviest run in the repo (~23 min at `--concurrency 2`). On a loaded dev
+machine the vendor's hardcoded 90s browser-progress timeout can fire during the Firefox browser
+phase with `(0/59 files completed)`; that is a harness timeout, not a test failure (run
+`npm run test:browser` standalone to confirm). Rerun on a quiet machine/CI. Browser-test coverage is
+collected only for Chromium (`coverageEnabled = e2e.coverage && browserType() === 'chromium'`), so a
+Firefox browser-phase timeout does not skew the report, but it still makes the command exit 1.
+
 ## When to Use
 
 - A Playwright navigation/submit hangs on a page with an SSE/EventSource channel.
@@ -162,3 +225,5 @@ with `callCount()` to prove every queued request ran.
 - A handler calls an external HTTP service that may already be running locally.
 - You need to choose Chromium vs Firefox from a DOMException report.
 - You queue several `t.mock` one-shot implementations and only the last one runs.
+- `npm test -- --coverage` exits with `EUNKNOWNCONFIG`, or a coverage report only reflects one type.
+- A navigation e2e test flaps because a generic wait (`main h1`) resolves on the source page, or a client-entry click is a no-op before hydration.

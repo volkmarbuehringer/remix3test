@@ -9,6 +9,7 @@
     "dev:bun": "NODE_ENV=development bun --watch server.bun.ts",
     "start:bun": "NODE_ENV=production bun server.bun.ts",
     "test": "npm run test:server && npm run test:browser && npm run test:e2e",
+    "test:coverage": "rm -rf .coverage && NODE_ENV=test remix test --type server --type browser --type e2e --coverage --concurrency 2",
     "test:server": "NODE_ENV=test remix test --type server --concurrency 6",
     "test:browser": "NODE_ENV=test remix test --type browser --concurrency 3",
     "test:e2e": "NODE_ENV=test remix test --type e2e --concurrency 2",
@@ -64,8 +65,8 @@
     "mastra": "^1.38.0",
     "oxfmt": "^0.76.0",
     "oxlint": "^1.91.0",
-    "oxlint-tsgolint": "^7.0.2005",
-    "playwright": "^1.64.1",
+    "oxlint-tsgolint": "^7.0.2006",
+    "playwright": "^1.65.0",
     "typescript": "7.0.2"
   },
   "engines": {
