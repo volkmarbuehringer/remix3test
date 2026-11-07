@@ -86,6 +86,7 @@ const INCLUDE_COMMANDS = [
   'go-review',
   'go-test',
   'gradle-build',
+  'issue-review',
   'kotlin-build',
   'kotlin-review',
   'kotlin-test',
@@ -111,7 +112,9 @@ const INCLUDE_COMMANDS = [
   'santa-loop',
   'setup-pm',
   'skill-create',
+  'skill-host-compat',
   'test-coverage',
+  'token-card',
   'update-codemaps',
   'update-docs',
   'vue-review',
@@ -197,8 +200,11 @@ for (let name of INCLUDE_COMMANDS) {
     continue
   }
   // The harness requires `name` in frontmatter; command files only carry
-  // `description` (+ optional `agent`/`argument-hint`).
-  let fm = fmStrip(`name: ${name}\n${parsed.fm}`, ['agent', 'model', 'temperature'])
+  // `description` (+ optional `agent`/`argument-hint`). Some ECC commands
+  // already declare a `name`, so strip every existing one and emit exactly
+  // one authoritative line — a duplicate YAML key is invalid frontmatter.
+  let fm = fmStrip(parsed.fm, ['agent', 'model', 'temperature', 'name'])
+  fm = `name: ${name}\n${fm}`
   let body = parsed.body.replace(/\$ARGUMENTS/g, "the user's request")
   writeSkill(name, fm, body)
   commandsOk++

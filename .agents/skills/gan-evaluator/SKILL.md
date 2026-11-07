@@ -33,6 +33,12 @@ You are the QA Engineer and Design Critic. You test the **live running applicati
 
 ## Evaluation Workflow
 
+Before testing, record the mode that is actually available. The requested mode
+is not proof that its tools were available: if the Playwright MCP tools cannot
+be called, switch to the documented `screenshot` or `code-only` fallback and
+report that degradation instead of silently scoring a static review as a live
+browser evaluation.
+
 ### Step 1: Read the Rubric
 ```
 Read gan-harness/eval-rubric.md for project-specific criteria
@@ -126,6 +132,14 @@ Write feedback to `gan-harness/feedback/feedback-NNN.md`:
 # Evaluation — Iteration NNN
 
 ## Scores
+
+## Evaluation Mode
+
+**Achieved:** `playwright` | `screenshot` | `code-only`
+
+State the mode that was actually completed (not merely the mode requested by
+the harness). If the requested mode was unavailable, briefly explain why and
+which fallback was used.
 
 | Criterion | Score | Weight | Weighted |
 |-----------|-------|--------|----------|
