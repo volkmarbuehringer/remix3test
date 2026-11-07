@@ -111,8 +111,8 @@ export const ListsClient = clientEntry(
     let saveStatus: SaveStatus = 'saved'
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
     // Forward declarations for the autosave and picker helpers. `undo` (below)
-    // calls `setDirty`/`scheduleAutosave`, `discardDraft`/`reloadFromFrame` call
-    // `clearSelection`, `performSave` calls `syncEditorSidebar`, and the picker
+    // calls `setDirty`/`scheduleAutosave`/`announce`, `discardDraft`/`reloadFromFrame`
+    // call `clearSelection`, `performSave` calls `syncEditorSidebar`, and the picker
     // confirmation calls `copyItemsToTarget`/`moveItem(s)ToTarget`, before those
     // arrow functions are assigned. Component HMR rewrites setup state
     // references only in statements after the declaration, so a closure defined
