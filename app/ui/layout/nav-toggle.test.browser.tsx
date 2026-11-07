@@ -1,6 +1,6 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { render } from 'remix/component/test'
+import { render, type RenderResult } from 'remix/component/test'
 
 import { NavToggle } from './nav-toggle.browser.tsx'
 
@@ -30,6 +30,7 @@ const NAV_HTML = `
 
 let fixture: HTMLElement | null = null
 let cleanup: (() => void) | null = null
+let result: RenderResult | null = null
 let mounted: { btn: HTMLElement; drawer: HTMLElement } | null = null
 
 function mount(): { btn: HTMLElement; drawer: HTMLElement; closeBtn: HTMLElement } {
@@ -47,7 +48,18 @@ function mount(): { btn: HTMLElement; drawer: HTMLElement; closeBtn: HTMLElement
 }
 
 function renderEntry() {
-  cleanup = render(<NavToggle />).cleanup
+  result = render(<NavToggle />)
+  cleanup = result.cleanup
+}
+
+/**
+ * Re-render the mounted entry in place, the way a layout re-render does.
+ * The entry keeps its own state across the re-render, so a drawer element
+ * that was replaced meanwhile is reconciled against the state it still holds.
+ */
+function rerenderEntry() {
+  result!.root.render(<NavToggle />)
+  result!.root.flush()
 }
 
 afterEach(() => {
@@ -59,6 +71,7 @@ afterEach(() => {
   mounted = null
   cleanup?.()
   cleanup = null
+  result = null
   fixture?.remove()
   fixture = null
 })
@@ -151,5 +164,61 @@ describe('NavToggle (real browser)', () => {
     // without the drawer.
     renderEntry()
     assert.equal(document.documentElement.style.overflow, '', 'no lock without a drawer')
+  })
+
+  it('releases the scroll lock when the open drawer element is replaced', () => {
+    // A layout re-render can swap the drawer element while the entry keeps
+    // running. The replacement has no `is-open`, so the drawer is closed —
+    // the reference-counted scroll lock must not stay held, or the page
+    // cannot scroll again until a full reload.
+    let { btn, drawer } = mount()
+    renderEntry()
+
+    btn.focus()
+    btn.click()
+    assert.equal(
+      document.documentElement.style.overflow,
+      'hidden',
+      'sanity: scroll is locked while the drawer is open',
+    )
+
+    let replacement = document.createElement('div')
+    replacement.id = 'nav-drawer'
+    drawer.replaceWith(replacement)
+
+    rerenderEntry()
+
+    assert.equal(
+      document.documentElement.style.overflow,
+      '',
+      'the scroll lock must be released when the drawer is replaced',
+    )
+  })
+
+  it('restores focus to the current toggle when the original trigger was replaced', () => {
+    // The trigger that opened the drawer can be replaced by a re-render.
+    // Focusing the detached original is a no-op, which drops focus to
+    // <body> and breaks the focus order (WCAG 2.4.3).
+    let { btn, drawer } = mount()
+    renderEntry()
+
+    btn.focus()
+    btn.click()
+
+    let replacement = document.createElement('button')
+    replacement.id = 'nav-toggle'
+    btn.replaceWith(replacement)
+    mounted = { btn: replacement, drawer }
+
+    rerenderEntry()
+
+    // Close the drawer through the replacement trigger.
+    replacement.click()
+
+    assert.equal(
+      document.activeElement,
+      replacement,
+      'focus should land on the toggle that is in the document',
+    )
   })
 })

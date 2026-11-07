@@ -20,19 +20,37 @@ export const NavToggle = clientEntry(
       let isOpen = drawer.classList.toggle('is-open')
       btn.setAttribute('aria-expanded', String(isOpen))
       if (isOpen) {
-        if (unlockScroll) unlockScroll()
+        releaseScrollLock()
         unlockScroll = lockScroll()
         previousFocus = document.activeElement as HTMLElement
         let closeBtn = document.getElementById('nav-close')
         if (closeBtn) closeBtn.focus()
       } else {
-        if (unlockScroll) unlockScroll()
-        unlockScroll = null
-        if (previousFocus) {
-          previousFocus.focus()
-          previousFocus = null
-        }
+        releaseScrollLock()
+        restoreFocus()
       }
+    }
+
+    /** Release the reference-counted scroll lock, if this entry holds one. */
+    function releaseScrollLock() {
+      if (!unlockScroll) return
+      unlockScroll()
+      unlockScroll = null
+    }
+
+    /**
+     * Return focus to whatever opened the drawer.
+     *
+     * The trigger can be replaced by a re-render while the drawer is open, and
+     * focusing a detached node is a no-op that drops focus to `<body>` — so
+     * fall back to the toggle button that is currently in the document.
+     */
+    function restoreFocus() {
+      let remembered = previousFocus
+      previousFocus = null
+      if (!remembered) return
+      let target = remembered.isConnected ? remembered : document.getElementById('nav-toggle')
+      target?.focus()
     }
 
     function close() {
@@ -62,10 +80,29 @@ export const NavToggle = clientEntry(
 
       // Hydration marker for e2e tests: clicking before this attribute exists
       // is a no-op because the listener is not attached yet.
-      btn.setAttribute('data-nav-toggle-ready', 'true')
+      if (btn.getAttribute('data-nav-toggle-ready') !== 'true') {
+        btn.setAttribute('data-nav-toggle-ready', 'true')
+      }
       // A parent render may have patched the SSR `aria-expanded="false"` back
       // onto the button while the drawer kept its imperative `is-open` class.
-      btn.setAttribute('aria-expanded', String(drawer.classList.contains('is-open')))
+      let isOpen = drawer.classList.contains('is-open')
+      if (btn.getAttribute('aria-expanded') !== String(isOpen)) {
+        btn.setAttribute('aria-expanded', String(isOpen))
+      }
+
+      // The drawer element can be replaced by a re-render while it is open.
+      // The replacement carries no `is-open`, so the drawer is closed — but the
+      // reference-counted scroll lock would stay held and the page could not
+      // scroll again until a full reload.
+      if (!isOpen && unlockScroll) {
+        releaseScrollLock()
+        previousFocus = null
+        // Focus was inside the replaced drawer and is now lost to `<body>`;
+        // move it to the trigger rather than leaving it on the document.
+        if (document.activeElement === document.body) {
+          btn.focus()
+        }
+      }
 
       return null
     }
