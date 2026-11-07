@@ -7,5 +7,3 @@ export function PasswordToggle(_handle: Handle) {
   let nonce = getCspNonce()
   return () => <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
 }
-
-export { PASSWORD_TOGGLE_SCRIPT }

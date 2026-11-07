@@ -2,7 +2,7 @@ import type { Page } from 'playwright'
 import * as assert from 'remix/assert'
 
 /** A `securitypolicyviolation` event reduced to the fields the tests assert on. */
-export interface CspViolation {
+interface CspViolation {
   /** The directive that was enforced (`script-src-elem`, `style-src-elem`, …). */
   directive: string
   /** The blocked resource URL, or `inline` / `eval` for inline behavior. */
