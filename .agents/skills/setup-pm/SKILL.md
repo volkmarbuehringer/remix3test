@@ -1,7 +1,6 @@
 ---
 name: setup-pm
 description: Configure your preferred package manager (npm/pnpm/yarn/bun)
-disable-model-invocation: true
 ---
 
 # Package Manager Setup

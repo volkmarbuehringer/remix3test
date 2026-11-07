@@ -1,7 +1,6 @@
 ---
 name: prp-implement
 description: Execute an implementation plan with rigorous validation loops
-argument-hint: <path/to/plan.md>
 ---
 
 > Adapted from PRPs-agentic-eng by Wirasm. Part of the PRP workflow series.

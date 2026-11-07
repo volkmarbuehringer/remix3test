@@ -1,7 +1,6 @@
 ---
 name: prp-commit
 description: "Quick commit with natural language file targeting — describe what to commit in plain English"
-argument-hint: "[target description] (blank = all changes)"
 ---
 
 # Smart Commit

@@ -1,7 +1,6 @@
 ---
 name: prp-prd
 description: "Interactive PRD generator - problem-first, hypothesis-driven product spec with back-and-forth questioning"
-argument-hint: "[feature/product idea] (blank = start with questions)"
 ---
 
 # Product Requirements Document Generator

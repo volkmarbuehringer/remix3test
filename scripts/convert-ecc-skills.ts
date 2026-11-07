@@ -10,9 +10,21 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-const HOME = process.env.HOME ?? '/home/lucky'
+const HOME = process.env.HOME
+if (!HOME) {
+  throw new Error('HOME is not set; cannot locate the ECC checkout')
+}
 const SRC = path.join(HOME, 'ECC')
 const DST = path.join(process.cwd(), '.agents/skills')
+
+/**
+ * Frontmatter keys that describe a Claude Code slash command rather than a
+ * harness skill. ECC's own portable allowlist is `name`, `description`,
+ * `allowed-tools`, `license`, `metadata` (see
+ * `scripts/ci/validate-skill-host-compat.js` in the ECC checkout); everything
+ * below that list is harness-inert at best and misleading at worst.
+ */
+const HARNESS_FRONTMATTER_KEYS = ['name', 'description', 'allowed-tools', 'license', 'metadata']
 
 const SKIP = new Set(['code-reviewer', 'architect', 'learn-eval'])
 
@@ -122,6 +134,14 @@ const INCLUDE_COMMANDS = [
 
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/**
+ * Manifest of the skills this script generated. It is the only source of truth
+ * for pruning: a skill directory that is not listed here is owned by someone
+ * else (a pilot, the vendored `remix` link, the `mastra` bundle, the learned
+ * skill farm) and must never be removed by this script.
+ */
+const MANIFEST_PATH = path.join(DST, '.generated.json')
+
 function parseFrontmatter(raw: string) {
   let m = raw.match(/^---\n([\s\S]*?)\n---\n?/)
   if (!m) return null
@@ -129,16 +149,33 @@ function parseFrontmatter(raw: string) {
 }
 
 function fmField(fm: string, key: string) {
-  let m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
+  let m = fm.match(new RegExp(`^${escapeRegExp(key)}:\\s*(.+)$`, 'm'))
   return m ? m[1]!.trim() : undefined
 }
 
-function fmStrip(fm: string, keys: string[]) {
-  let re = new RegExp(`^(?:${keys.join('|')}):`, 'm')
-  return fm
-    .split('\n')
-    .filter((l) => !re.test(l))
-    .join('\n')
+/** Escape a literal string for safe use inside a regular expression. */
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Reduce ECC frontmatter to the keys a harness skill understands, and emit
+ * exactly one `name` line. ECC sources carry Claude Code command internals
+ * (`command`, `argument-hint`, `disable-model-invocation`, `subtask`) and
+ * agent internals (`tools`, `model`, `color`) that are meaningless — and in
+ * the `name` case invalid, because a duplicate YAML key is not valid
+ * frontmatter — once the file becomes a skill.
+ */
+function harnessFrontmatter(fm: string, name: string) {
+  let kept: string[] = []
+  for (let line of fm.split('\n')) {
+    let key = line.match(/^([A-Za-z_-]+):/)?.[1]
+    if (!key) continue
+    if (key === 'name') continue
+    if (!HARNESS_FRONTMATTER_KEYS.includes(key)) continue
+    kept.push(line)
+  }
+  return [`name: ${name}`, ...kept].join('\n')
 }
 
 function writeSkill(name: string, fm: string, body: string) {
@@ -151,6 +188,7 @@ function writeSkill(name: string, fm: string, body: string) {
 let agentsOk = 0
 let commandsOk = 0
 const problems: string[] = []
+const generated = new Set<string>()
 
 // --- agents: every definition becomes a skill ---
 const agentsDir = path.join(SRC, 'agents')
@@ -171,8 +209,9 @@ for (let file of fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
     continue
   }
   if (SKIP.has(name)) continue
-  let fm = fmStrip(parsed.fm, ['tools', 'model', 'mode', 'temperature'])
+  let fm = harnessFrontmatter(parsed.fm, name)
   writeSkill(name, fm, parsed.body)
+  generated.add(name)
   agentsOk++
 }
 
@@ -199,19 +238,38 @@ for (let name of INCLUDE_COMMANDS) {
     problems.push(`command ${name}: missing description`)
     continue
   }
-  // The harness requires `name` in frontmatter; command files only carry
-  // `description` (+ optional `agent`/`argument-hint`). Some ECC commands
-  // already declare a `name`, so strip every existing one and emit exactly
-  // one authoritative line — a duplicate YAML key is invalid frontmatter.
-  let fm = fmStrip(parsed.fm, ['agent', 'model', 'temperature', 'name'])
-  fm = `name: ${name}\n${fm}`
+  let fm = harnessFrontmatter(parsed.fm, name)
   let body = parsed.body.replace(/\$ARGUMENTS/g, "the user's request")
   writeSkill(name, fm, body)
+  generated.add(name)
   commandsOk++
 }
 
+// --- prune: drop skills this script generated in an earlier run ---
+const previouslyGenerated: string[] = fs.existsSync(MANIFEST_PATH)
+  ? (JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8')).skills ?? [])
+  : []
+
+let pruned = 0
+for (let name of previouslyGenerated) {
+  if (generated.has(name)) continue
+  let dir = path.join(DST, name)
+  // Only remove a real directory this script owns. A symlink (the vendored
+  // `remix` link, the learned skill farm) is never ours to delete.
+  if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) continue
+  if (!fs.existsSync(path.join(dir, 'SKILL.md'))) continue
+  fs.rmSync(dir, { recursive: true, force: true })
+  pruned++
+}
+
+fs.writeFileSync(
+  MANIFEST_PATH,
+  `${JSON.stringify({ skills: [...generated].toSorted() }, null, 2)}\n`,
+)
+
 console.log(`agents: ${agentsOk} converted`)
 console.log(`commands: ${commandsOk} converted`)
+console.log(`pruned: ${pruned} stale generated skill(s)`)
 console.log(`skipped pilots: ${[...SKIP].join(', ')}`)
 console.log(`skipped infra commands: ${[...SKIP_COMMANDS].toSorted().join(', ')}`)
 if (problems.length) {

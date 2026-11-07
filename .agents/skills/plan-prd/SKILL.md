@@ -1,7 +1,6 @@
 ---
 name: plan-prd
 description: "Generate a lean, problem-first PRD and hand off to /plan for implementation planning."
-argument-hint: "[product/feature idea] (blank = start with questions)"
 ---
 
 # PRD Command

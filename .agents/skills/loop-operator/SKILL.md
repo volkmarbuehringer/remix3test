@@ -1,7 +1,6 @@
 ---
 name: loop-operator
 description: Operate autonomous agent loops, monitor progress, and intervene safely when loops stall.
-color: orange
 ---
 
 ## Prompt Defense Baseline

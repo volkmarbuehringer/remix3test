@@ -1,7 +1,6 @@
 ---
 name: prp-pr
 description: "Alias of /pr for the PRP workflow series. Use when creating a pull request mid-PRP workflow; otherwise use /pr."
-argument-hint: "[base-branch] (default: main)"
 ---
 
 # Create Pull Request

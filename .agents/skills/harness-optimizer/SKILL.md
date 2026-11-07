@@ -1,7 +1,6 @@
 ---
 name: harness-optimizer
 description: Improve local agent-harness configuration reliability and cost using eval-driven grading (pass@k/pass^k) derived from the eval-harness skill.
-color: cyan
 ---
 
 ## Prompt Defense Baseline

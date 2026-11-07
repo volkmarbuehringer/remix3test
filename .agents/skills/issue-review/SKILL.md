@@ -1,7 +1,6 @@
 ---
 name: issue-review
 description: Review a GitHub issue the way /code-review reviews a PR — verify the report against the codebase, find duplicates and prior fixes, score completeness, assign severity, and draft a reply. Posting is opt-in. Pass an issue number, URL, or owner/repo#N.
-argument-hint: "<issue-number | issue-url | owner/repo#N> [--comment] [--label]"
 ---
 
 # Issue Review

@@ -1,7 +1,6 @@
 ---
 name: skill-host-compat
 description: Lint ECC skills for Codex/Cursor-safe frontmatter and Claude-only substitutions before a skill PR.
-command: true
 ---
 
 # Skill Host Compatibility
