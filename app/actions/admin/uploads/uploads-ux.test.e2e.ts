@@ -5,6 +5,7 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 import { router } from '../../../test-router.ts'
 import { routes } from '../../../routes.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../../test/responsive.ts'
 import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../../test/pool.ts'
 import { claimUploads, insertUpload } from '../../../data/uploads.ts'
@@ -168,7 +169,7 @@ describe('admin uploads: UX', () => {
       ][],
     )
     let page = await openUploadsPage(t)
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(MOBILE_VIEWPORT)
     await page.locator('[data-uploads-table]').waitFor({ timeout: 15_000 })
     await page.waitForTimeout(300)
 

@@ -6,6 +6,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 
 // ---------------------------------------------------------------------------
 // Compact /lists layout (real SSR + CSS).
@@ -119,7 +120,7 @@ describe('lists compact layout', () => {
 
       // A narrow mouse window (no touch emulation): this is where the touch-
       // only gutter override used to leave the label 2px wide.
-      await page.setViewportSize({ width: 390, height: 844 })
+      await page.setViewportSize(MOBILE_VIEWPORT)
       await page.goto(`/lists?load=${listId}`)
       await waitForRows(page, 3)
       let narrow = await readLayout(page)

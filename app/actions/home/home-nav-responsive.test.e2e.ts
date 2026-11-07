@@ -5,12 +5,13 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 
 describe('home: mobile navigation', () => {
   it('opens the drawer from the hamburger button', async (t) => {
     let server = await createTestServer((request) => router.fetch(request))
     let page = await t.serve(server)
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(MOBILE_VIEWPORT)
     await page.goto(routes.home.href())
 
     let toggle = page.locator('#nav-toggle')
@@ -34,7 +35,7 @@ describe('home: mobile navigation', () => {
   it('opens the drawer after a client-side navigation to home', async (t) => {
     let server = await createTestServer((request) => router.fetch(request))
     let page = await t.serve(server)
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(MOBILE_VIEWPORT)
     await page.goto(routes.auth.login.index.href())
 
     await page.locator('header a[href="/"]').first().click()
@@ -68,7 +69,7 @@ describe('home: mobile navigation', () => {
     await page
       .context()
       .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(MOBILE_VIEWPORT)
     await page.goto(routes.home.href())
 
     let toggle = page.locator('#nav-toggle')

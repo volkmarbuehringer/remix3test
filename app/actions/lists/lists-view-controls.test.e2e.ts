@@ -6,6 +6,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 
 // ---------------------------------------------------------------------------
 // Status filter strip geometry (real SSR + CSS) at desktop and phone widths.
@@ -236,7 +237,7 @@ describe('lists status filter strip', () => {
       )
 
       // Phone: the strip may wrap, but it must not overflow the page or itself.
-      await page.setViewportSize({ width: 390, height: 844 })
+      await page.setViewportSize(MOBILE_VIEWPORT)
       await page.reload()
       await page.locator('[data-status-bar]').waitFor({ timeout: 15_000 })
       await page.waitForFunction(

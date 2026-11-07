@@ -6,6 +6,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 
 // ---------------------------------------------------------------------------
 // Sidebar row action menu (real server-rendered markup + geometry).
@@ -433,7 +434,7 @@ describe('lists sidebar row action menu', () => {
       await page
         .context()
         .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-      await page.setViewportSize({ width: 390, height: 844 })
+      await page.setViewportSize(MOBILE_VIEWPORT)
       await page.goto(`/lists?load=${openId}`)
       await waitForSidebar(page)
 

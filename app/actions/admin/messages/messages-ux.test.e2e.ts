@@ -5,6 +5,7 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 import { router } from '../../../test-router.ts'
 import { routes } from '../../../routes.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../../test/utils.ts'
+import { MOBILE_VIEWPORT } from '../../../../test/responsive.ts'
 import { initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../../test/pool.ts'
 
@@ -131,7 +132,7 @@ describe('admin messages: UX', () => {
       `test-ux-msg-mobile-long ${'lorem ipsum '.repeat(40)}`,
     ])
     let page = await openMessagesPage(t)
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(MOBILE_VIEWPORT)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.locator('[data-messages-table]').waitFor({ timeout: 15_000 })
     // MessageExpand hydrates and scans the clamped cells after the frame render;

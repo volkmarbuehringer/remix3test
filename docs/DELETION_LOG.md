@@ -1,5 +1,83 @@
 # Code Deletion Log
 
+## [2026-11-07] Entry-export cleanup & mobile-viewport consolidation
+
+Post-drift audit at `01f3f62`, starting from a clean working tree. Detection:
+`knip` 6.44.1 (normal graph plus `--include-entry-exports`), `depcheck` 1.4.7,
+`ts-prune`, `npm run typecheck:unused`, `oxlint -D no-unused-vars`, manual
+commented-code/unreachable-code checks, and `jscpd` 4.3.0 at min-tokens 70.
+The production-only duplicate scan covered 553 sources and found 169 clones /
+3,402 duplicated lines (4.0%). `ts-prune` emitted its broad legacy export list,
+including verified imports, so it was not used as deletion evidence.
+
+### Unused Exports Removed / Privatized (2 symbols)
+
+- `app/ui/password-toggle.browser.tsx` — removed the redundant
+  `PASSWORD_TOGGLE_SCRIPT` re-export. The canonical export remains in
+  `password-toggle.script.ts`, already used by both the component and its test.
+- `test/csp.ts` — `CspViolation` unexported; it remains the internal item type
+  behind `CspViolationCollector`, with no external type consumer.
+
+### Duplicate Code Consolidated
+
+- `test/responsive.ts` — `MOBILE_VIEWPORT` is now the single source for the
+  shared 390×844 E2E viewport. Replaced nine identical
+  `{ width: 390, height: 844 }` literals across seven files:
+  `admin/{lists,messages,uploads}/*-ux.test.e2e.ts`,
+  `home/home-nav-responsive.test.e2e.ts`, and
+  `lists/{lists-compact-layout,lists-sidebar-menu,lists-view-controls}.test.e2e.ts`.
+  This also resolved the entry-export finding without hiding a useful constant.
+
+### Kept Deliberately (dynamic/runtime contracts)
+
+- `app/ui/theme/counter.demo.tsx Counter` — despite having no static importer,
+  it is a `clientEntry(import.meta.url + '#Counter', …)` named export loaded by
+  the browser runtime. The gallery hydration E2E covers this contract.
+- Demo default exports (request-time discovery), the Playwright config default,
+  oxlint plugin defaults, and `test/setup.ts` lifecycle hooks (runner entries).
+- `@fission-ai/openspec` — the only `depcheck` hit; its `openspec` binary is
+  invoked by the documented `.opencode/commands/opsx-*` workflows and is already
+  intentionally ignored in `knip.json`.
+
+### Remaining (manual review — separate refactor work)
+
+- `admin-offerings-create-page.tsx` ↔ `admin-offerings-edit-page.tsx` remains the
+  largest clone (109 lines / 828 tokens).
+- `auth/pages.tsx` repeats the register/reset new-password fields (88 lines);
+  a related admin-user variant means this deserves one behavior-focused form
+  extraction rather than a local cleanup-only abstraction.
+- The previously documented admin-grid, support-question-form, lock/unlock
+  workflow, durable-chat, and PDF-skeleton families remain deferred for the same
+  behavior-boundary reasons as the 2026-10-24 pass.
+
+### Impact
+
+- Files deleted: 0; dependencies removed: 0
+- Redundant re-exports removed: 1; exported types privatized: 1
+- Duplicate viewport literals consolidated: 9 across 7 test files
+- Code diff: +17 / −12 over 9 code files (the seven shared imports account for
+  the net line increase), excluding this log
+- Runtime behavior changed: none
+
+### Verification
+
+- Baseline `npm test`: server 2,041 pass / 0 fail / 1 todo; browser 942 pass /
+  0 fail / 2 skipped; E2E 202 pass / 0 fail.
+- Targeted after export cleanup: 12 password-toggle browser tests and 5 CSP E2E
+  tests pass; both TypeScript targets are clean.
+- Targeted after viewport consolidation: all 17 tests from the seven modified
+  E2E files pass in Chromium; both TypeScript targets are clean.
+- Final `npm test`: server 2,041 pass / 0 fail / 1 todo; browser 942 pass /
+  0 fail / 2 skipped; E2E 202 pass / 0 fail.
+- `npm run knip`, `npm run typecheck:unused`, `npm run lint`,
+  `oxlint -D no-unused-vars`, and `npm run format` all pass.
+- `knip --include-entry-exports` now reports only the 13 deliberately retained
+  dynamic/runtime entry exports listed above (expected exit 1 for that audit
+  mode); the maintained normal scan is clean.
+- `npm run build` is not defined by this app (it runs through `node-tsx`), so
+  typecheck, lint, and the full three-phase test suite are the build-equivalent
+  verification gates here.
+
 ## [2026-10-24] Unused-symbol & duplicate-review pass (`refactor/dead-code-cleanup` branch)
 
 Post-drift audit after the `202e08e` → HEAD window (prefetch warming, lists row
