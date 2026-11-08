@@ -28,8 +28,11 @@ export const viewportBootstrapScript = `(function () {
       document.cookie = COOKIE + '=' + value + '; path=/; max-age=31536000; SameSite=Lax';
     };
     write(mql.matches);
+    var onChange = function (event) { write(event.matches); };
     if (mql.addEventListener) {
-      mql.addEventListener('change', function (event) { write(event.matches); });
+      mql.addEventListener('change', onChange);
+    } else if (mql.addListener) {
+      mql.addListener(onChange);
     }
   } catch (error) {}
 })();`

@@ -37,17 +37,22 @@ function stubCookie(initial = ''): string[] {
   return writes
 }
 
-function stubMatchMedia(matches: boolean): void {
+function stubMatchMedia(matches: boolean, legacyOnly = false): void {
   let original = window.matchMedia
   window.matchMedia = ((query: string) => ({
     matches,
     media: query,
     onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
+    addListener: (listener: (event: { matches: boolean }) => void) => {
+      if (!legacyOnly) throw new Error('the modern stub must not use addListener')
       changeListener = listener
     },
+    removeListener: () => {},
+    addEventListener: legacyOnly
+      ? undefined
+      : (_type: string, listener: (event: { matches: boolean }) => void) => {
+          changeListener = listener
+        },
     removeEventListener: () => {},
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
@@ -153,6 +158,18 @@ describe('viewport bootstrap', () => {
       writes[1]!.startsWith(`${VIEWPORT_COOKIE}=desktop;`),
       `expected a desktop cookie, got ${writes[1]}`,
     )
+  })
+
+  it('follows the viewport when only legacy listeners are available', () => {
+    stubMatchMedia(true, true)
+    let writes = stubCookie()
+
+    runBootstrap()
+    assert.ok(changeListener, 'the bootstrap must use the legacy change listener')
+
+    changeListener({ matches: false })
+    assert.equal(writes.length, 2)
+    assert.ok(writes[1]!.startsWith(`${VIEWPORT_COOKIE}=desktop;`))
   })
 
   it('does nothing when matchMedia is unavailable', () => {

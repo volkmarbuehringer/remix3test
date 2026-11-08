@@ -78,8 +78,8 @@ interface WritableSession extends ReadableSession {
 
 /**
  * True when `value` can be stored as a page-size preference. The Settings
- * control is a slider, so any whole number in [PAGE_SIZE_MIN, PAGE_SIZE_MAX] is
- * allowed — not just a preset list.
+ * select offers presets, but any previously saved whole number in
+ * [PAGE_SIZE_MIN, PAGE_SIZE_MAX] remains valid for backward compatibility.
  */
 export function isValidPageSize(value: number): boolean {
   return Number.isInteger(value) && value >= PAGE_SIZE_MIN && value <= PAGE_SIZE_MAX
