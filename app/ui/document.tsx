@@ -11,6 +11,7 @@ import { getCsrfToken } from 'remix/middleware/csrf'
 import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { themeBootstrapScript } from './theme-bootstrap.ts'
+import { viewportBootstrapScript } from './viewport-bootstrap.ts'
 
 interface DocumentProps {
   children?: RemixNode
@@ -124,6 +125,7 @@ export function Document(handle: Handle<DocumentProps>) {
             }
           `}</style>
           <script nonce={nonce}>{themeBootstrapScript}</script>
+          <script nonce={nonce}>{viewportBootstrapScript}</script>
           {(() => {
             let entry = getAssetEntry()
             if (!entry) return null

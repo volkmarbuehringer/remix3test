@@ -9,11 +9,15 @@ import {
   isPageSizeKey,
   isValidPageSize,
   pageSizeFormSchema,
+  pageSizeOptions,
   setPageSize,
   PAGE_SIZE_KEYS,
   PAGE_SIZE_MAX,
   PAGE_SIZE_MIN,
+  PAGE_SIZE_MOBILE_DEFAULT,
+  PAGE_SIZE_PRESETS,
 } from './get-page-size.ts'
+import { VIEWPORT_SESSION_KEY } from './viewport-class.ts'
 
 describe('isValidPageSize', () => {
   it('accepts any whole number in range', () => {
@@ -101,6 +105,70 @@ describe('per-page page-size overrides', () => {
     assert.ok(isPageSizeKey('notifications'))
     assert.ok(!isPageSizeKey('verwaltung.unknown'))
     assert.ok(!isPageSizeKey(''))
+  })
+})
+
+describe('mobile page size', () => {
+  it('uses the smaller default on a phone-sized viewport', () => {
+    let session = memorySession({ [VIEWPORT_SESSION_KEY]: 'mobile' })
+    assert.equal(getPageSize(session, 15), PAGE_SIZE_MOBILE_DEFAULT)
+    assert.equal(getPageSize(session, 15, PAGE_SIZE_KEYS.notifications), PAGE_SIZE_MOBILE_DEFAULT)
+  })
+
+  it('keeps the route default on a desktop viewport', () => {
+    let session = memorySession({ [VIEWPORT_SESSION_KEY]: 'desktop' })
+    assert.equal(getPageSize(session, 15), 15)
+    assert.equal(getPageSize(session, 20), 20)
+  })
+
+  it('never exceeds a route default that is already smaller', () => {
+    let session = memorySession({ [VIEWPORT_SESSION_KEY]: 'mobile' })
+    assert.equal(getPageSize(session, 3), 3, 'a route that wants fewer rows keeps its own default')
+  })
+
+  it('lets an explicit global default win over the mobile default', () => {
+    let session = memorySession({ [VIEWPORT_SESSION_KEY]: 'mobile', pageSize: 40 })
+    assert.equal(getPageSize(session, 15), 40)
+  })
+
+  it('lets an explicit per-page override win over the mobile default', () => {
+    let session = memorySession({
+      [VIEWPORT_SESSION_KEY]: 'mobile',
+      pageSizes: { notifications: 30 },
+    })
+    assert.equal(getPageSize(session, 15, PAGE_SIZE_KEYS.notifications), 30)
+  })
+
+  it('treats an unknown viewport class as desktop', () => {
+    let session = memorySession({ [VIEWPORT_SESSION_KEY]: 'tablet' })
+    assert.equal(getPageSize(session, 15), 15)
+  })
+})
+
+describe('pageSizeOptions', () => {
+  it('offers every preset', () => {
+    for (let preset of PAGE_SIZE_PRESETS) {
+      assert.ok(pageSizeOptions(15).includes(preset), `preset ${preset} must be offered`)
+    }
+  })
+
+  it('keeps a saved value that is not a preset', () => {
+    // A size saved from the old range slider must stay selected instead of
+    // silently jumping to a preset.
+    assert.ok(pageSizeOptions(37).includes(37))
+  })
+
+  it('drops an invalid saved value', () => {
+    assert.ok(!pageSizeOptions(999).includes(999))
+    assert.ok(!pageSizeOptions(0).includes(0))
+  })
+
+  it('returns the options in ascending order', () => {
+    let options = pageSizeOptions(37)
+    assert.deepEqual(
+      options,
+      [...options].toSorted((a, b) => a - b),
+    )
   })
 })
 

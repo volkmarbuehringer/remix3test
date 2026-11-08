@@ -30,6 +30,7 @@ import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
 import { frameRedirects } from './frame-redirect.ts'
+import { viewportClass } from './viewport-class.ts'
 
 import { assetServer } from '../assets.ts'
 
@@ -102,6 +103,10 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     // single byte is parsed or stored. The parser still runs before route-level
     // requireAuth(), so upload ownership is claimed in the action afterwards.
     session(cookie, storage),
+    // Mirrors the client's layout breakpoint from the `viewport` cookie into the
+    // session, so the page-size resolution can pick a phone-sized default.
+    // Must run after session() — it writes to the session.
+    viewportClass(),
     asyncContext(),
     loadDatabase(),
     loadAuth(),

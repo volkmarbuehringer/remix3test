@@ -9,6 +9,7 @@ import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { assertMobileCards, assertMobilePage } from '../../../test/responsive.ts'
+import { PAGE_SIZE_MOBILE_DEFAULT } from '../../utils/get-page-size.ts'
 
 // ---------------------------------------------------------------------------
 // Admin grids: mobile layout.
@@ -91,5 +92,26 @@ describe('admin grids: mobile layout', () => {
     }))
     assert.notEqual(actionStyles.opacity, '0', 'row actions must not be hidden at 390px')
     assert.notEqual(actionStyles.pointerEvents, 'none', 'row actions must be interactive at 390px')
+  })
+
+  it('renders the phone-sized page once the viewport cookie is set', async (t) => {
+    let page = await openAdminPage(t)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(CLIENTS_PATH)
+    await page.locator('[data-clients-table]').waitFor({ timeout: 15_000 })
+
+    // The inline bootstrap reports the layout breakpoint to the server.
+    let cookies = await page.context().cookies()
+    let viewportCookie = cookies.find((cookie) => cookie.name === 'viewport')
+    assert.ok(viewportCookie, 'the document bootstrap must write the viewport cookie')
+    assert.equal(viewportCookie.value, 'mobile', 'a 390px viewport is the mobile class')
+
+    // The cookie only travels with the next request, so the reload already
+    // renders the phone-sized page: a card is ~300px tall, so 15 rows are
+    // ~11 screens of scrolling on a phone and 5 rows are ~4.
+    await page.reload()
+    await page.locator('[data-clients-table]').waitFor({ timeout: 15_000 })
+    let rows = await page.locator('[data-clients-table] tbody tr').count()
+    assert.equal(rows, PAGE_SIZE_MOBILE_DEFAULT, 'a phone must get the smaller page size')
   })
 })

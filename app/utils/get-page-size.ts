@@ -2,14 +2,39 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import * as coerce from 'remix/data-schema/coerce'
 
-/** Lowest value the "Einträge pro Seite" slider can save. */
+import { isMobileViewport, VIEWPORT_SESSION_KEY } from './viewport-class.ts'
+
+/** Lowest value the "Einträge pro Seite" control can save. */
 export const PAGE_SIZE_MIN = 5
 
-/** Highest value the "Einträge pro Seite" slider can save. */
+/** Highest value the "Einträge pro Seite" control can save. */
 export const PAGE_SIZE_MAX = 100
 
 /** Shown when the user has not chosen a page size. */
 export const PAGE_SIZE_DEFAULT = 15
+
+/**
+ * Page size used on a phone-sized viewport when the user has not chosen one.
+ *
+ * Below the 768px breakpoint a grid row becomes a stacked card with one
+ * label/value line per column. A card is ~300px tall instead of the 47px
+ * desktop row, and only ~1.4 cards fit in the grid's scroll window, so the
+ * default 15 rows are ~11 screens of scrolling on a phone; five are ~4.
+ *
+ * An explicit choice (the global default or a per-page override) always wins
+ * over this — the user asked for that number.
+ */
+export const PAGE_SIZE_MOBILE_DEFAULT = 5
+
+/**
+ * Page sizes the "Einträge pro Seite" select offers.
+ *
+ * A select replaced the old range slider: 96 draggable stops are unusable on
+ * a phone, and every size anyone actually picks is one of these. The mobile
+ * and desktop defaults are both in the list so the select can always show the
+ * current value.
+ */
+export const PAGE_SIZE_PRESETS = [5, 10, 15, 25, 50, 100] as const
 
 /**
  * Stable keys for the per-page page-size overrides. Each key names one grid and
@@ -106,8 +131,9 @@ export function getPageSizeOverride(
 
 /**
  * Resolve the page size for a grid: an explicit per-page override first, then
- * the global default, then the caller's fallback (the value shown when the user
- * has never chosen one and the route has no saved setting).
+ * the global default, then the viewport-sized default, then the caller's
+ * fallback (the value shown when the user has never chosen one and the route
+ * has no saved setting).
  */
 export function getPageSize(
   session: ReadableSession | null | undefined,
@@ -125,7 +151,26 @@ export function getPageSize(
   if (typeof global === 'number' && isValidPageSize(global)) {
     return global
   }
+
+  // No explicit choice yet: a phone gets the smaller default. The viewport
+  // class is mirrored into the session by app/middleware/viewport-class.ts.
+  if (isMobileViewport(session.get(VIEWPORT_SESSION_KEY))) {
+    return Math.min(PAGE_SIZE_MOBILE_DEFAULT, defaultSize)
+  }
+
   return defaultSize
+}
+
+/**
+ * The options the page-size select offers: every preset plus the current
+ * value when it is not one — a size saved from the old range slider must
+ * still show up as the selected option instead of silently jumping to a
+ * preset.
+ */
+export function pageSizeOptions(current: number): number[] {
+  let options = new Set<number>(PAGE_SIZE_PRESETS)
+  if (isValidPageSize(current)) options.add(current)
+  return [...options].toSorted((a, b) => a - b)
 }
 
 /**

@@ -4,8 +4,7 @@ import { getContext } from 'remix/middleware/async-context'
 
 import { theme } from './theme/theme.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { PageSizeSlider } from './page-size-slider.browser.tsx'
-import { PAGE_SIZE_MAX, PAGE_SIZE_MIN } from '../utils/get-page-size.ts'
+import { pageSizeOptions } from '../utils/get-page-size.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 export interface PageSizeControlProps {
@@ -17,15 +16,19 @@ export interface PageSizeControlProps {
   pageSize: number
   /** Saved override for this page, or null when the global default applies. */
   pageSizeOverride: number | null
-  /** Unique DOM id for the range input (one control per page). */
+  /** Unique DOM id for the control (one control per page). */
   controlId: string
 }
 
 /**
- * "Einträge pro Seite" slider shown beside a grid's pagination. Saves a
+ * "Einträge pro Seite" select shown beside a grid's pagination. Saves a
  * per-page override (see `app/utils/get-page-size.ts`) that shadows the global
- * default from Settings until reset. Mirrors the Settings slider markup and
- * reuses the PageSizeSlider client entry for the live readout.
+ * default from Settings until reset.
+ *
+ * A select replaced the old range slider: the slider spanned 5..100 in steps
+ * of one, so 96 drag stops shared a 144px track — unusable on a phone, where
+ * a grid row is a ~300px stacked card and the page size matters most. The
+ * select posts the same `pageSize` field, so the server contract is unchanged.
  */
 export function PageSizeControl(handle: Handle<PageSizeControlProps>) {
   return () => {
@@ -48,22 +51,19 @@ export function PageSizeControl(handle: Handle<PageSizeControlProps>) {
         <input type="hidden" name="returnTo" value={returnTo} />
         <label htmlFor={controlId} mix={labelCss}>
           <span>Einträge pro Seite</span>
-          <span mix={rangeControlCss} data-page-size-control="true">
-            <input
-              id={controlId}
-              type="range"
-              name="pageSize"
-              min={PAGE_SIZE_MIN}
-              max={PAGE_SIZE_MAX}
-              step={1}
-              value={String(pageSize)}
-              mix={rangeCss}
-              data-page-size-range="true"
-            />
-            <output mix={rangeOutputCss} data-page-size-output="true" htmlFor={controlId}>
-              {pageSize}
-            </output>
-          </span>
+          <select
+            id={controlId}
+            name="pageSize"
+            mix={pageSizeSelectCss}
+            data-page-size-select="true"
+            data-page-size-control="true"
+          >
+            {pageSizeOptions(pageSize).map((option) => (
+              <option key={option} value={String(option)} selected={option === pageSize}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
         <button type="submit" name="_action" value="page-size" mix={applyCss}>
           Speichern
@@ -73,7 +73,6 @@ export function PageSizeControl(handle: Handle<PageSizeControlProps>) {
             Standard
           </button>
         ) : null}
-        <PageSizeSlider />
       </form>
     )
   }
@@ -95,24 +94,26 @@ const labelCss = css({
   whiteSpace: 'nowrap',
 })
 
-const rangeControlCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.4rem',
-})
-
-const rangeCss = css({
-  width: '9rem',
-  accentColor: theme.colors.action.primary.background,
-  cursor: 'pointer',
-})
-
-const rangeOutputCss = css({
-  minWidth: '3ch',
-  textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
-  fontWeight: theme.fontWeight.semibold,
+/**
+ * Shared by the per-grid control and the Settings control so both render the
+ * same select. Sized for a native picker on a phone: 44px tall, the WCAG 2.2
+ * target size, with the current value in tabular figures.
+ */
+export const pageSizeSelectCss = css({
+  minHeight: '2.75rem',
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl0,
   color: theme.colors.text.primary,
+  fontSize: theme.fontSize.sm,
+  fontFamily: theme.fontFamily.sans,
+  fontVariantNumeric: 'tabular-nums',
+  cursor: 'pointer',
+  '&:focus': {
+    borderColor: theme.colors.action.primary.background,
+    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}`,
+  },
 })
 
 const applyCss = css({

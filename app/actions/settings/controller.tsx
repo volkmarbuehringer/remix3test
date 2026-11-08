@@ -19,9 +19,8 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import {
   getPageSize,
   pageSizeFormSchema,
+  pageSizeOptions,
   PAGE_SIZE_DEFAULT,
-  PAGE_SIZE_MAX,
-  PAGE_SIZE_MIN,
 } from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
@@ -43,7 +42,7 @@ import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
-import { PageSizeSlider } from '../../ui/page-size-slider.browser.tsx'
+import { pageSizeSelectCss } from '../../ui/page-size-control.tsx'
 import { buttonLink } from '../../ui/theme/button.ts'
 import { segmentedButton } from '../../ui/mixins/segmented.ts'
 
@@ -499,28 +498,23 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                 <input type="hidden" name="_action" value="set-page-size" />
                 <CsrfTokenInput />
                 <div mix={pageSizeRowCss}>
-                  <label mix={[fieldLabelCss, pageSizeFieldCss]} htmlFor="page-size-slider">
+                  <label mix={[fieldLabelCss, pageSizeFieldCss]} htmlFor="page-size-select">
                     <span>Einträge pro Seite</span>
-                    <span mix={rangeControlCss} data-page-size-control="true">
-                      <input
-                        id="page-size-slider"
-                        type="range"
-                        name="pageSize"
-                        min={PAGE_SIZE_MIN}
-                        max={PAGE_SIZE_MAX}
-                        step={1}
-                        value={String(pageSize)}
-                        mix={rangeCss}
-                        data-page-size-range="true"
-                      />
-                      <output
-                        mix={rangeOutputCss}
-                        data-page-size-output="true"
-                        htmlFor="page-size-slider"
-                      >
-                        {pageSize}
-                      </output>
-                    </span>
+                    {/* A select, not a range slider: 5..100 in steps of one is
+                        unusable on a phone. See app/ui/page-size-control.tsx. */}
+                    <select
+                      id="page-size-select"
+                      name="pageSize"
+                      mix={pageSizeSelectCss}
+                      data-page-size-select="true"
+                      data-page-size-control="true"
+                    >
+                      {pageSizeOptions(pageSize).map((option) => (
+                        <option key={option} value={String(option)} selected={option === pageSize}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <button type="submit" mix={submitButton} aria-label="Anzeige speichern">
                     Speichern
@@ -647,7 +641,6 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
             </div>
           ) : null}
         </div>
-        <PageSizeSlider />
       </>
     )
   }
@@ -910,29 +903,6 @@ const pageSizeRowCss = css({
 const pageSizeFieldCss = css({
   flex: '1 1 18rem',
   maxWidth: '24rem',
-})
-
-// Range + live readout for the page-size slider. `accentColor` themes the
-// thumb/track across browsers without a bespoke pseudo-element reset.
-const rangeControlCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-})
-
-const rangeCss = css({
-  flex: 1,
-  minWidth: '8rem',
-  accentColor: theme.colors.action.primary.background,
-  cursor: 'pointer',
-})
-
-const rangeOutputCss = css({
-  minWidth: '3ch',
-  textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
 })
 
 const complexityListCss = css({

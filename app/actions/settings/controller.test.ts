@@ -339,7 +339,7 @@ describe('Settings controller', () => {
       )
     })
 
-    it('renders the page size as an arbitrary-value slider', async () => {
+    it('renders the page size as a select', async () => {
       let session = await createAuthCookieWithCsrfForUser(testUserEmail)
       if (!session) throw new Error('Could not create auth session')
 
@@ -349,10 +349,21 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 200)
       let html = await response.text()
-      assert.ok(html.includes('type="range"'), 'page size should render as a slider')
-      assert.ok(html.includes('name="pageSize"'), 'slider should post pageSize')
-      assert.ok(html.includes('min="5"'), 'slider should expose the lower bound')
-      assert.ok(html.includes('max="100"'), 'slider should expose the upper bound')
+      assert.ok(
+        html.includes('data-page-size-select="true"'),
+        'page size should render as a select',
+      )
+      assert.ok(html.includes('name="pageSize"'), 'the select should post pageSize')
+      assert.ok(html.includes('<option value="5"'), 'the select should offer the mobile default')
+      assert.ok(
+        html.includes('<option value="15" selected>'),
+        'the select should show the current page size as selected',
+      )
+      assert.ok(
+        html.includes('<option value="100">'),
+        'the select should offer the maximum page size',
+      )
+      assert.ok(!html.includes('type="range"'), 'the range slider must be gone')
     })
   })
 

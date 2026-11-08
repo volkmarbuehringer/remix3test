@@ -29,7 +29,7 @@ const TABS = [
     tab: 'display',
     ready: '#settings-display',
     landmarks: [
-      '#settings-display [data-page-size-range]',
+      '#settings-display [data-page-size-select]',
       '#settings-display button[type="submit"]',
     ],
   },
