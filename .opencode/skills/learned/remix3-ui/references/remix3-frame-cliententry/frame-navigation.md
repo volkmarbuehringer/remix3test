@@ -162,6 +162,24 @@ Key facts:
 
 Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build, writing a custom client `resolveFrame`, debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data), or when the resolver's encoding drifts from the runtime default after a pin bump.
 
+## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
+
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.33851-main-092c4d60` (source `092c4d60`; `@remix-run/component` 1.2.0).
+
+The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
+
+- `reloadStart` — dispatched by `beginReload()` when the reload starts, before the fetch (`@remix-run/component/src/runtime/frame.ts:776`; inherited reloads at `:866`).
+- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:842`, `:874`).
+
+There is no pre-commit/before-reconcile event and no `onCommit` option on the public API, so app code cannot bracket the DOM commit:
+
+- Starting the transition on `reloadStart` snapshots the old DOM, but its update callback runs before the response arrives; the later frame swap is not part of that transition.
+- `startViewTransition(async () => { await frame.reload() })` is technically valid (the new snapshot waits for the promise) but holds the transition's update phase for the entire request, freezing the page until the response lands — not acceptable for navigation.
+- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:816`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
+- A `MutationObserver` that starts a transition when the frame subtree changes is rejected: it re-enters for unrelated mutations, has no ordering guarantee against the runtime's reconcile, and produces duplicate/partial snapshots.
+
+Status: frame swaps stay without a View Transition. Revisit when upstream exposes a pre-commit/commit hook (or a `startViewTransition` option on `reload()`); the receipt is one transition around the reconcile, not a page-wide observer.
+
 ## data-rmx-document: Binary Downloads & Cross-Section Links
 
 **Context:** Links inside Frame contexts to binary download endpoints or to a different Frame-relay section crash or freeze the browser when the frame router intercepts them.

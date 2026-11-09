@@ -73,6 +73,8 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
 
 **Same-document (theme flip).** `app/ui/theme-toggle.browser.tsx` wraps the `data-theme`/storage/cookie update in `document.startViewTransition(update)` after a `typeof … === 'function'` feature check and a `prefersReducedMotion()` guard from `app/utils/motion.ts`. The update callback runs asynchronously (after the old snapshot), so tests either stub `startViewTransition` to record/invoke the callback or await the transition; the fallback must still flip exactly once when `startViewTransition` throws.
 
+**Same-document (lists reorder).** `app/actions/lists/public/lists-view-transition.ts` names the keyed rows (`view-transition-name: list-item-<id>`) only while a reorder is in flight, re-applies the names inside the update callback (a re-created row needs the new-snapshot name), and clears them when `finished` settles. It uses the same support/reduced-motion guards and an instant fallback; a superseded transition must not clear the newer transition's names. Tests: `lists-view-transition.test.browser.tsx` (phase-level stubs) and `lists-reorder-transition.test.e2e.ts` (real platform).
+
 ## Reduced motion
 
 **CSS boundary first — global in this app.** `app/ui/document.tsx` ships a shell-level guard: under `@media (prefers-reduced-motion: reduce)` it sets `transition: none !important` on `body` **and** `*, *::before, *::after`, plus `animation-duration: 0.01ms !important` (so `animationend` still fires). Component-level CSS transitions need no per-component media query; do not re-gate new components. `app/ui/scaffold-home-page.tsx` keeps an older scoped kill-switch.
