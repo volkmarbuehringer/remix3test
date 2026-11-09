@@ -4,7 +4,14 @@ import { getContext } from 'remix/middleware/async-context'
 
 import { theme } from './theme/theme.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { pageSizeOptions, PAGE_SIZE_MAX, PAGE_SIZE_MIN } from '../utils/get-page-size.ts'
+import { PageSizeCustomKeys } from './page-size-custom-keys.browser.tsx'
+import { PageSizeSelectSync } from './page-size-select-sync.browser.tsx'
+import {
+  pageSizeOptions,
+  PAGE_SIZE_MAX,
+  PAGE_SIZE_MIN,
+  PAGE_SIZE_PRESETS,
+} from '../utils/get-page-size.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
 export interface PageSizeControlProps {
@@ -117,24 +124,29 @@ export interface PageSizeCustomInputProps {
 /**
  * Optional free-form size beside the preset select. Empty means "use the
  * select"; any whole 5–100 wins over it. Shared with Settings so the server
- * always receives the same `pageSizeCustom` field.
+ * always receives the same `pageSizeCustom` field. PageUp/PageDown jump between
+ * the presets and Home/End to the bounds; arrows still step by 1.
  */
 export function PageSizeCustomInput(handle: Handle<PageSizeCustomInputProps>) {
   return () => {
     let { id } = handle.props
     return (
-      <input
-        id={id}
-        name="pageSizeCustom"
-        type="number"
-        min={PAGE_SIZE_MIN}
-        max={PAGE_SIZE_MAX}
-        step={1}
-        inputMode="numeric"
-        placeholder={`${PAGE_SIZE_MIN}–${PAGE_SIZE_MAX}`}
-        mix={pageSizeCustomCss}
-        data-page-size-custom="true"
-      />
+      <>
+        <input
+          id={id}
+          name="pageSizeCustom"
+          type="number"
+          min={PAGE_SIZE_MIN}
+          max={PAGE_SIZE_MAX}
+          step={1}
+          inputMode="numeric"
+          placeholder={`${PAGE_SIZE_MIN}–${PAGE_SIZE_MAX}`}
+          mix={pageSizeCustomCss}
+          data-page-size-custom="true"
+        />
+        <PageSizeSelectSync />
+        <PageSizeCustomKeys presets={PAGE_SIZE_PRESETS} min={PAGE_SIZE_MIN} max={PAGE_SIZE_MAX} />
+      </>
     )
   }
 }
