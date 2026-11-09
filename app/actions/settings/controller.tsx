@@ -16,12 +16,7 @@ import { users, type User } from '../../data/schema.ts'
 import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import {
-  getPageSize,
-  pageSizeFormSchema,
-  pageSizeOptions,
-  PAGE_SIZE_DEFAULT,
-} from '../../utils/get-page-size.ts'
+import { getPageSize, pageSizeFormSchema, PAGE_SIZE_DEFAULT } from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
 import { FlashBanner } from '../../ui/flash-banner.tsx'
@@ -42,7 +37,7 @@ import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
-import { pageSizeSelectCss } from '../../ui/page-size-control.tsx'
+import { PageSizeCustomInput, PageSizeSelect } from '../../ui/page-size-control.tsx'
 import { buttonLink } from '../../ui/theme/button.ts'
 import { segmentedButton } from '../../ui/mixins/segmented.ts'
 
@@ -501,20 +496,17 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                   <label mix={[fieldLabelCss, pageSizeFieldCss]} htmlFor="page-size-select">
                     <span>Einträge pro Seite</span>
                     {/* A select, not a range slider: 5..100 in steps of one is
-                        unusable on a phone. See app/ui/page-size-control.tsx. */}
-                    <select
-                      id="page-size-select"
-                      name="pageSize"
-                      mix={pageSizeSelectCss}
-                      data-page-size-select="true"
-                      data-page-size-control="true"
-                    >
-                      {pageSizeOptions(pageSize).map((option) => (
-                        <option key={option} value={String(option)} selected={option === pageSize}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                        unusable on a phone. The free-form input beside it
+                        restores arbitrary sizes. See app/ui/page-size-control.tsx. */}
+                    <PageSizeSelect id="page-size-select" pageSize={pageSize} />
+                  </label>
+                  <label
+                    mix={[fieldLabelCss, pageSizeCustomFieldCss]}
+                    htmlFor="page-size-custom"
+                    title="Überschreibt die Auswahl; leer lassen, um die Auswahl zu verwenden."
+                  >
+                    <span>Eigene Größe</span>
+                    <PageSizeCustomInput id="page-size-custom" />
                   </label>
                   <button type="submit" mix={submitButton} aria-label="Anzeige speichern">
                     Speichern
@@ -903,6 +895,11 @@ const pageSizeRowCss = css({
 const pageSizeFieldCss = css({
   flex: '1 1 18rem',
   maxWidth: '24rem',
+})
+
+const pageSizeCustomFieldCss = css({
+  flex: '0 1 8rem',
+  maxWidth: '10rem',
 })
 
 const complexityListCss = css({

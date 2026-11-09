@@ -189,6 +189,38 @@ describe('pageSizeFormSchema', () => {
     assert.equal(parsed.value.pageSize, 50)
   })
 
+  it('prefers the free-form custom size over the preset select', () => {
+    let parsed = s.parseSafe(
+      pageSizeFormSchema,
+      submission({ pageKey: 'notifications', pageSize: '25', pageSizeCustom: '37' }),
+    )
+    assert.ok(parsed.success)
+    assert.equal(parsed.value.pageSize, 37)
+  })
+
+  it('accepts a custom size without a preset value', () => {
+    let parsed = s.parseSafe(pageSizeFormSchema, submission({ pageSizeCustom: '37' }))
+    assert.ok(parsed.success)
+    assert.equal(parsed.value.pageSize, 37)
+  })
+
+  it('falls back to the preset when the custom field is blank', () => {
+    let parsed = s.parseSafe(
+      pageSizeFormSchema,
+      submission({ pageSize: '50', pageSizeCustom: '   ' }),
+    )
+    assert.ok(parsed.success)
+    assert.equal(parsed.value.pageSize, 50)
+  })
+
+  it('rejects an invalid custom size even when the select is valid', () => {
+    let parsed = s.parseSafe(
+      pageSizeFormSchema,
+      submission({ pageSize: '25', pageSizeCustom: '999' }),
+    )
+    assert.ok(!parsed.success, 'the custom field wins, so its invalid value must fail the parse')
+  })
+
   it('defaults pageKey to an empty string and fails on a missing pageSize', () => {
     let parsed = s.parseSafe(pageSizeFormSchema, submission({}))
     assert.ok(!parsed.success)

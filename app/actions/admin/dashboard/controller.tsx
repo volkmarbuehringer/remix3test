@@ -26,7 +26,7 @@ export default createController(routes.admin, {
     },
 
     // Shared "Einträge pro Seite" endpoint behind every admin grid, mirroring
-    // routes.verwaltung.pageSize. The slider form submits the page key and the
+    // routes.verwaltung.pageSize. The control submits the page key and the
     // grid URL to return to; a change resets paging so a stale page/offset
     // cannot land on an out-of-range page.
     async pageSize(context) {

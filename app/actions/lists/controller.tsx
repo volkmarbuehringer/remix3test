@@ -142,8 +142,8 @@ export default createController(routes.lists, {
       let sortRaw = context.url.searchParams.get('sort')
       let sort: SidebarSort = sortRaw === 'name' || sortRaw === 'count' ? sortRaw : 'recent'
       let sizeRaw = context.url.searchParams.get('size')
-      // Accept the preset sizes and any whole 5–100 (the Settings slider can
-      // store a custom global page size). "all" is capped at the query limit.
+      // Accept the preset sizes and any whole 5–100 (the Settings page-size
+      // control can store a custom global size). "all" is capped at the query limit.
       let requestedSize: number | 'all' | null = null
       if (sizeRaw === 'all') requestedSize = 'all'
       else if (sizeRaw && /^[0-9]+$/.test(sizeRaw)) {

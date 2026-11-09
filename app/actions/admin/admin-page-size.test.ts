@@ -67,6 +67,24 @@ describe('Admin page-size preference', () => {
     assert.equal(response.headers.get('Location'), '/admin/uploads?sort=created_at&order=desc')
   })
 
+  it('saves a custom size typed beside the preset select', async () => {
+    let auth = await freshAdmin()
+
+    let response = await pageSizePost(auth, {
+      _action: 'page-size',
+      pageKey: 'admin.users',
+      pageSize: '25',
+      pageSizeCustom: '37',
+      returnTo: '/admin/users',
+    })
+
+    assert.equal(response.status, 302)
+
+    let sid = await readSessionId(auth.cookie)
+    let session = await sessionStorage.read(sid)
+    assert.deepEqual(session?.get('pageSizes'), { 'admin.users': 37 })
+  })
+
   it('reset clears the override', async () => {
     let auth = await freshAdmin()
     await pageSizePost(auth, {
@@ -163,6 +181,10 @@ describe('Admin page-size preference', () => {
         assert.ok(
           html.includes('data-page-size-control="true"'),
           `${path} should render the page-size control`,
+        )
+        assert.ok(
+          html.includes('data-page-size-custom="true"'),
+          `${path} should render the free-form page-size input`,
         )
         assert.ok(
           html.includes(`action="${routes.admin.pageSize.href()}"`),

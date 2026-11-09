@@ -190,11 +190,44 @@ describe('Notifications controller', () => {
     })
     let html = await page.text()
     assert.ok(html.includes('data-current-page-size="25"'), 'the saved size should be effective')
-    assert.ok(html.includes('value="25"'), 'the slider should show the saved size')
+    assert.ok(
+      html.includes('<option value="25" selected>'),
+      'the select should show the saved size',
+    )
     assert.ok(
       html.includes('value="reset-page-size"'),
       'a reset-to-default control should be offered once overridden',
     )
+  })
+
+  it('POST /notifications/page-size saves a custom size from the free-form input', async () => {
+    let { id, email } = await createFreshUser()
+    await createNotificationFor(id, 'confirmation')
+    let session = await getSessionFor(email)
+
+    let response = await router.fetch(`${BASE}${routes.notifications.pageSize.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        _action: 'page-size',
+        pageSize: '25',
+        pageSizeCustom: '37',
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+
+    let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    let html = await page.text()
+    assert.ok(
+      html.includes('data-current-page-size="37"'),
+      'the custom size must win over the preset select',
+    )
+    assert.ok(html.includes('<option value="37" selected>'), 'the select must show the custom size')
   })
 
   it('POST /notifications/page-size with the reset action clears the override', async () => {
@@ -220,7 +253,7 @@ describe('Notifications controller', () => {
     })
     let html = await page.text()
     assert.ok(html.includes('data-current-page-size="15"'), 'falls back to the global default')
-    assert.ok(html.includes('value="15"'), 'the slider should show the global default')
+    assert.ok(html.includes('<option value="15" selected>'), 'the select should show the default')
     assert.ok(
       !html.includes('value="reset-page-size"'),
       'the reset control should hide once there is no override',

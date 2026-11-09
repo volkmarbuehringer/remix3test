@@ -1,6 +1,5 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import * as coerce from 'remix/data-schema/coerce'
 
 import { isMobileViewport, VIEWPORT_SESSION_KEY } from './viewport-class.ts'
 
@@ -29,10 +28,11 @@ export const PAGE_SIZE_MOBILE_DEFAULT = 5
 /**
  * Page sizes the "Einträge pro Seite" select offers.
  *
- * A select replaced the old range slider: 96 draggable stops are unusable on
- * a phone, and every size anyone actually picks is one of these. The mobile
- * and desktop defaults are both in the list so the select can always show the
- * current value.
+ * The select replaced the old range slider: 96 draggable stops are unusable on
+ * a phone, and every size anyone actually picks is one of these. The free-form
+ * input beside the select still accepts any whole 5–100 for the rare custom
+ * size. The mobile and desktop defaults are both in the list so the select can
+ * always show the current value.
  */
 export const PAGE_SIZE_PRESETS = [5, 10, 15, 25, 50, 100] as const
 
@@ -85,25 +85,37 @@ export function isValidPageSize(value: number): boolean {
   return Number.isInteger(value) && value >= PAGE_SIZE_MIN && value <= PAGE_SIZE_MAX
 }
 
-/** Valid page-size submit: numeric text that decodes to a whole number in range. */
-const pageSizeValue = coerce
-  .number()
-  .refine(
-    isValidPageSize,
-    `Ganze Zahl zwischen ${PAGE_SIZE_MIN} und ${PAGE_SIZE_MAX} erforderlich.`,
-  )
+/**
+ * Raw "Einträge pro Seite" submission. The hybrid control sends a preset
+ * through `pageSize` (the select) and an optional free-form number through
+ * `pageSizeCustom`. Both are read as strings here; the resolver below picks the
+ * custom value whenever the user typed one, so it wins over the select.
+ */
+const pageSizeSubmission = f
+  .object({
+    pageKey: f.field(s.defaulted(s.string(), '')),
+    pageSize: f.field(s.defaulted(s.string(), '')),
+    pageSizeCustom: f.field(s.defaulted(s.string(), '')),
+  })
+  .transform((value) => ({
+    pageKey: value.pageKey,
+    rawPageSize: value.pageSizeCustom.trim() !== '' ? value.pageSizeCustom : value.pageSize,
+  }))
 
 /**
  * Form-data schema for the "Einträge pro Seite" submissions every grid
  * round-trips. `pageKey` is an opaque string here — whitelist it against
  * `PAGE_SIZE_KEYS` with `isPageSizeKey` before trusting it. An invalid or
- * missing `pageSize` fails the parse so the controller silently ignores the
- * submission (same behavior as the previously hand-rolled field checks).
+ * missing size (from either field) fails the parse so the controller silently
+ * ignores the submission (same behavior as the previously hand-rolled field
+ * checks).
  */
-export const pageSizeFormSchema = f.object({
-  pageKey: f.field(s.defaulted(s.string(), '')),
-  pageSize: f.field(pageSizeValue),
-})
+export const pageSizeFormSchema = pageSizeSubmission
+  .refine(
+    (value) => isValidPageSize(Number(value.rawPageSize)),
+    `Ganze Zahl zwischen ${PAGE_SIZE_MIN} und ${PAGE_SIZE_MAX} erforderlich.`,
+  )
+  .transform((value) => ({ pageKey: value.pageKey, pageSize: Number(value.rawPageSize) }))
 
 /** Form-data schema for the reset action, which carries the grid key only. */
 export const pageKeyFormSchema = f.object({
@@ -163,9 +175,9 @@ export function getPageSize(
 
 /**
  * The options the page-size select offers: every preset plus the current
- * value when it is not one — a size saved from the old range slider must
- * still show up as the selected option instead of silently jumping to a
- * preset.
+ * value when it is not one — a size saved from the old range slider or typed
+ * into the free-form input must still show up as the selected option instead
+ * of silently jumping to a preset.
  */
 export function pageSizeOptions(current: number): number[] {
   let options = new Set<number>(PAGE_SIZE_PRESETS)

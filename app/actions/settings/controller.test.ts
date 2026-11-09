@@ -339,7 +339,35 @@ describe('Settings controller', () => {
       )
     })
 
-    it('renders the page size as a select', async () => {
+    it('saves a custom page size from the free-form input', async () => {
+      let session = await createAuthCookieWithCsrfForUser(testUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'set-page-size',
+          pageSize: '25',
+          pageSizeCustom: '37',
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302)
+
+      let page = await router.fetch(`${BASE}${routes.settings.index.href()}?tab=display`, {
+        headers: { Cookie: session.cookie },
+      })
+      let html = await page.text()
+      assert.ok(
+        html.includes('<option value="37" selected>'),
+        'the custom size must win over the preset select',
+      )
+    })
+
+    it('renders the page size as a select with a free-form override', async () => {
       let session = await createAuthCookieWithCsrfForUser(testUserEmail)
       if (!session) throw new Error('Could not create auth session')
 
@@ -362,6 +390,14 @@ describe('Settings controller', () => {
       assert.ok(
         html.includes('<option value="100">'),
         'the select should offer the maximum page size',
+      )
+      assert.ok(
+        html.includes('data-page-size-custom="true"'),
+        'a free-form custom size input should sit beside the select',
+      )
+      assert.ok(
+        html.includes('name="pageSizeCustom"'),
+        'the custom input should post pageSizeCustom',
       )
       assert.ok(!html.includes('type="range"'), 'the range slider must be gone')
     })

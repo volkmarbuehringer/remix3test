@@ -417,9 +417,9 @@ export const pageSizeSlotCss = css({
   '@media (max-width: 720px)': {
     marginLeft: 0,
     width: '100%',
-    // Phones: the save button used to wrap under the slider as a narrow,
-    // left-aligned orphan. Stretch it across the row so the control reads as
-    // one block.
+    // Phones: the save button used to wrap under the page-size controls as a
+    // narrow, left-aligned orphan. Stretch it across the row so the control
+    // reads as one block.
     '& form > button': { flex: '1 1 auto' },
   },
 })
