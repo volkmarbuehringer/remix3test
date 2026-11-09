@@ -188,14 +188,14 @@ importers:
         specifier: https://github.com/remix-run/previews/releases/download/v0.20261106.150533-main-305d22d0/ui.tgz
         version: https://github.com/remix-run/previews/releases/download/v0.20261106.150533-main-305d22d0/ui.tgz
       date-holidays:
-        specifier: ^3.38.0
-        version: 3.38.0
+        specifier: ^3.38.1
+        version: 3.38.1
       nodemailer:
-        specifier: ^10.3.1
-        version: 10.3.1
+        specifier: ^10.4.0
+        version: 10.4.0
       pdfmake:
-        specifier: ^0.3.13
-        version: 0.3.13
+        specifier: ^0.3.14
+        version: 0.3.14
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -2783,8 +2783,8 @@ packages:
     resolution: {integrity: sha512-pMhOfFDPiv9t5jjIXkHosWmkSyQbvsgEVNkz0ERHbuLh2T/7j4Mqqpz523Fe8MVY89KC6Sh/QfS2sM+SjgFDcw==}
     engines: {node: '>= 0.8'}
 
-  caldate@2.0.5:
-    resolution: {integrity: sha512-JndhrUuDuE975KUhFqJaVR1OQkCHZqpOrJur/CFXEIEhWhBMjxO85cRSK8q4FW+B+yyPq6GYua2u4KvNzTcq0w==}
+  caldate@2.1.0:
+    resolution: {integrity: sha512-RtO0e0m5Qk36Qqd038V1qn6f8esmbmK16fYlGj9wlack3CD1VGzFJ7B4HacVOprbPkyCR+P3JHnlTYGoMpJUVQ==}
     engines: {node: '>=12.0.0'}
 
   caniuse-lite@1.0.30001823:
@@ -2908,8 +2908,8 @@ packages:
     resolution: {integrity: sha512-h09ZEtM6u5cYM6m1bX+1Ny9f+nLO9KVZUKNPEnH7lhbXYTfqZogaGTnhONswGeIJFF91UImIftS3CdM9HLW5oQ==}
     engines: {node: '>=12.0.0'}
 
-  date-holidays@3.38.0:
-    resolution: {integrity: sha512-5Y22xxJM1+p/wbHBjUTiD4NxGwNNzy+Gq7IPcMns9p62I11SHKY9Wfuh8Z/PLE9pYItkncFtQGHUAXvVPC+p7w==}
+  date-holidays@3.38.1:
+    resolution: {integrity: sha512-8KCm5dJWa5qH60w9QpTOMwPPV1B0sMtZU3+C14OyFgjrwZh4iPi6MfrGMxTaHsS85r+Hxsgcr1DFtv7D/thO4A==}
     engines: {node: '>=12.0.0'}
     hasBin: true
 
@@ -3580,6 +3580,9 @@ packages:
   moment-timezone@0.5.48:
     resolution: {integrity: sha512-f22b8LV1gbTO2ms2j2z13MuPogNoh5UzxL3nzNAYKGraILnbGc9NEE6dyiiiLv46DGRb8A4kg8UKWLjPthxBHw==}
 
+  moment-timezone@0.6.6:
+    resolution: {integrity: sha512-LF5AAYsMduXFW2ungr/D9JqNq9ykZyhWgYG6wFtdGZW5ZlBDTBgTUFqW8EC7Fa+Dvs3IMZxlWkSR09sW2D/+0w==}
+
   moment@2.31.0:
     resolution: {integrity: sha512-0acOTfMiWOheYS4eoWb80yYMb/JLvVv9SHbs2PehaDzfUG0Bw855SKyk0IKTnPGa5+U2bmi3W68l1+sGLX/pvw==}
 
@@ -3599,8 +3602,8 @@ packages:
     resolution: {integrity: sha512-6li2QanLsAXpIH2R6j77MzRyvOyrvdTqlKtO4CgBdHGNvN99ZZfyxszHc5o5+IZBWD5u6Hzwg83JoGXmqZNG9Q==}
     engines: {node: '>=18'}
 
-  nodemailer@10.3.1:
-    resolution: {integrity: sha512-uF0AFsJC07Y1vdW7p580DKAnh7rAO+4UPSSB3mDCPNDufoiaOebV6JmrzpxB14OjEEEiBsNdYoM2Y+fN8M7BBA==}
+  nodemailer@10.4.0:
+    resolution: {integrity: sha512-fyy6r4Q5euRJ9Qr3Cts9K7SZrfe9zmz9oLOYiAR02MEJRDRci+99y0OoYBYBgpLffOqkkjXrB/d26VfiMje/kA==}
     engines: {node: '>=20.0.0'}
 
   normalize-path@3.0.0:
@@ -3732,8 +3735,8 @@ packages:
   pdfkit@0.20.2:
     resolution: {integrity: sha512-Q/w03ICAQyXfHNfTsg1udp0ADerdBN0s7a6XSPL7J7Ro6ABnafoBOCDBstIO9U02mvzHEV8HrvFIw5iV5ejIRA==}
 
-  pdfmake@0.3.13:
-    resolution: {integrity: sha512-Am2dbb5SuDwnpx1oNlCgZou91p9SMsyUs7Dws+yF6MmZbycfItt53MbyqdVUhFg6fWL3sWwu2acsJV7lzoRLlg==}
+  pdfmake@0.3.14:
+    resolution: {integrity: sha512-EDyOlwiDnE8e0eITSpHwZCVAP/veWq0TxA2RyhoDO0cSLat7HEGNtKUN6UiW9+YovO2GhcWlK99Q7tj9sof9gg==}
     engines: {node: '>=20'}
 
   pg-cloudflare@1.4.1:
@@ -6154,9 +6157,9 @@ snapshots:
 
   bytes@3.0.0: {}
 
-  caldate@2.0.5:
+  caldate@2.1.0:
     dependencies:
-      moment-timezone: 0.5.48
+      moment-timezone: 0.6.6
 
   caniuse-lite@1.0.30001823: {}
 
@@ -6254,7 +6257,7 @@ snapshots:
   date-holidays-parser@3.4.7:
     dependencies:
       astronomia: 4.2.0
-      caldate: 2.0.5
+      caldate: 2.1.0
       date-bengali-revised: 2.0.2
       date-chinese: 2.1.4
       date-easter: 1.0.3
@@ -6262,7 +6265,7 @@ snapshots:
       jalaali-js: 1.2.8
       moment-timezone: 0.5.48
 
-  date-holidays@3.38.0:
+  date-holidays@3.38.1:
     dependencies:
       date-holidays-parser: 3.4.7
       js-yaml: 5.5.0
@@ -7108,6 +7111,10 @@ snapshots:
     dependencies:
       moment: 2.31.0
 
+  moment-timezone@0.6.6:
+    dependencies:
+      moment: 2.31.0
+
   moment@2.31.0: {}
 
   ms@2.1.3: {}
@@ -7124,7 +7131,7 @@ snapshots:
 
   node-releases@2.0.63: {}
 
-  nodemailer@10.3.1: {}
+  nodemailer@10.4.0: {}
 
   normalize-path@3.0.0: {}
 
@@ -7379,7 +7386,7 @@ snapshots:
       linebreak: 1.1.0
       png-js: 2.0.0
 
-  pdfmake@0.3.13:
+  pdfmake@0.3.14:
     dependencies:
       linebreak: 1.1.0
       pdfkit: 0.20.2
