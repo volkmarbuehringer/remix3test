@@ -11,7 +11,7 @@
 
 - OS light + app toggled dark → menus/buttons stay light on a dark page.
 - OS dark + explicit light → vendor palettes stay dark.
-- The app's breadcrumbs workaround documented this (`app/ui/breadcrumbs.tsx`), and menu/button palettes had the same problem until the shell mapped explicit `data-theme` to `color-scheme` (`app/ui/document.tsx`).
+- Menu/button palettes had this problem until the shell mapped explicit `data-theme` to `color-scheme` (`app/ui/document.tsx`). The app-owned `app/ui/breadcrumbs.tsx` uses theme tokens directly, so it never depended on `light-dark()`; the vendor component that did was deleted before 0.12.
 
 ## Solution
 
