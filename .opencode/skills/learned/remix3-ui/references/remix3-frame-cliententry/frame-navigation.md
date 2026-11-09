@@ -164,7 +164,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.195810-main-bb68ae33` (source `bb68ae33`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.201521-main-d683ebb5` (source `d683ebb5`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
@@ -266,6 +266,14 @@ The `link` mixin exposes the same control as `link({ history: 'replace' })`, and
 For a `<form method="post" data-rmx-target="...">` whose action equals the current frame URL, the runtime already replaces the history entry by default — a server 302 redirect loop (PRG) won't stack history entries. Use `data-rmx-history="push"` if you intentionally want the destination to occupy a new entry.
 
 Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asserts `replaceHistory` outcomes for both explicit and attribute-driven cases.
+
+### Interrupted pushes replace their unrendered entry (#12240)
+
+**Since #12240** `startNavigationListenerImpl` records the key of a push entry that committed before its page rendered (`unrenderedEntryKey`, with `uncommittedPushFromKey` covering a navigation started from `currententrychange`). When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
+
+The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
+
+App checks: the five GET filter forms carrying `data-rmx-history="replace"` (admin lists/users/messages, client grid, settings) and `app/actions/scroll-restoration/public/scroll-restoration.tsx`'s replace-mode `navigate()`. `app/actions/admin/lists/lists-frame-history.test.e2e.ts` holds an editor response open, interrupts it with a second row, and asserts no history entry for the first URL plus a Back return to the grid (Chromium).
 
 ## Post-Form PRG Redirects in Nested Frames — Bail vs. Stale src
 
