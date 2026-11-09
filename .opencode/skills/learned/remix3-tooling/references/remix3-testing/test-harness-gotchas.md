@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`, `remix-test-coverage-flag-forwarding`, `home-nav-hydration-e2e-flake`
 
-**Extracted:** 2026-06-23 … 2026-11-07
+**Extracted:** 2026-06-23 … 2026-11-09
 **Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
@@ -92,10 +92,10 @@ await page.locator('#nav-toggle').click()
 
 The home-specific content wait matters: the URL can change while the outgoing header (and its stale readiness marker) is still mounted, so URL + marker alone still flaked. After waiting for the home hero plus hydration the test passed 10/10 Firefox runs.
 
-`NavToggle` now sets `data-nav-toggle-ready` when it binds listeners and re-checks/binds on every
-render (a layout re-render can replace `#nav-toggle`/`#nav-drawer` while the entry stays alive), and
-its toggle/close helpers resolve the current elements via `getElementById` instead of captured
-nodes.
+`NavToggle` sets `data-nav-toggle-ready` when its delegated document listeners attach. It resolves
+`#nav-toggle`/`#nav-drawer` by id on every event instead of capturing nodes, so a layout re-render
+can replace either element without rebinding; the drawer's open state lives on the native
+`<dialog>`, not in a mirrored class.
 
 ## Mock an external HTTP service on port 0
 

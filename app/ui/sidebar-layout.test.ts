@@ -192,6 +192,29 @@ describe('Admin sidebar shell — flash messages', () => {
       'the document Layout and the inlined shell fragment must not both render the flash',
     )
   })
+
+  it('opts full-document navigations into View Transitions and names persistent chrome', async () => {
+    let cookie = await createAdminSessionWith('success', 'View transition probe')
+
+    let response = await router.fetch(ADMIN_USERS_URL, { headers: { Cookie: cookie } })
+    assert.equal(response.status, 200, 'full-document GET should render')
+    let html = await response.text()
+
+    assert.ok(
+      /@media \(prefers-reduced-motion: no-preference\)\s*{\s*@view-transition\s*{\s*navigation:\s*auto;?\s*}/.test(
+        html,
+      ),
+      'the shell must opt in to cross-document transitions only without reduced motion',
+    )
+    assert.ok(
+      /view-transition-name:\s*app-header/.test(html),
+      'the header must keep a stable view-transition-name across documents',
+    )
+    assert.ok(
+      /view-transition-name:\s*app-sidebar/.test(html),
+      'the sidebar must keep a stable view-transition-name across documents',
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

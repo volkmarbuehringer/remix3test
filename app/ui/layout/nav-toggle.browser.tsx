@@ -1,109 +1,101 @@
 import { clientEntry, type Handle } from 'remix/component'
 import { lockScroll } from '../../utils/scroll-lock.ts'
 
+/**
+ * Mobile navigation drawer.
+ *
+ * `<dialog>` owns the top layer, inert background, Escape (`cancel`), focus
+ * containment, and focus restore. This entry adds only the page scroll lock and
+ * the trigger's `aria-expanded`. Listeners are delegated by id so a re-render
+ * replacing either node needs no rebinding; `handle.signal` removes them.
+ */
 export const NavToggle = clientEntry(
   import.meta.url + '#NavToggle',
-  function NavToggleEntry(_handle: Handle) {
-    let previousFocus: HTMLElement | null = null
+  function NavToggleEntry(handle: Handle) {
     let unlockScroll: (() => void) | null = null
-    // Bind once per element, but re-check on every render: a layout re-render
-    // can replace #nav-toggle or #nav-drawer while this entry instance stays
-    // alive, and the new nodes need listeners too.
-    let boundButtons = new WeakSet<HTMLElement>()
-    let boundDrawers = new WeakSet<HTMLElement>()
 
-    function toggle() {
+    function getDrawer(): HTMLDialogElement | null {
       let drawer = document.getElementById('nav-drawer')
-      let btn = document.getElementById('nav-toggle')
-      if (!drawer || !btn) return
-
-      let isOpen = drawer.classList.toggle('is-open')
-      btn.setAttribute('aria-expanded', String(isOpen))
-      if (isOpen) {
-        releaseScrollLock()
-        unlockScroll = lockScroll()
-        previousFocus = document.activeElement as HTMLElement
-        let closeBtn = document.getElementById('nav-close')
-        if (closeBtn) closeBtn.focus()
-      } else {
-        releaseScrollLock()
-        restoreFocus()
-      }
+      return drawer instanceof HTMLDialogElement ? drawer : null
     }
 
-    /** Release the reference-counted scroll lock, if this entry holds one. */
-    function releaseScrollLock() {
-      if (!unlockScroll) return
-      unlockScroll()
+    function setExpanded(isOpen: boolean) {
+      document.getElementById('nav-toggle')?.setAttribute('aria-expanded', String(isOpen))
+    }
+
+    function open() {
+      let drawer = getDrawer()
+      if (!drawer || drawer.open) return
+      drawer.showModal()
+      setExpanded(true)
+      unlockScroll = lockScroll()
+      document.getElementById('nav-close')?.focus()
+    }
+
+    function cleanup() {
+      setExpanded(false)
+      unlockScroll?.()
       unlockScroll = null
-    }
-
-    /**
-     * Return focus to whatever opened the drawer.
-     *
-     * The trigger can be replaced by a re-render while the drawer is open, and
-     * focusing a detached node is a no-op that drops focus to `<body>` — so
-     * fall back to the toggle button that is currently in the document.
-     */
-    function restoreFocus() {
-      let remembered = previousFocus
-      previousFocus = null
-      if (!remembered) return
-      let target = remembered.isConnected ? remembered : document.getElementById('nav-toggle')
-      target?.focus()
+      // The hamburger is the only opener. Focus the live node: native restore
+      // would target the pre-showModal trigger, which a re-render may replace.
+      document.getElementById('nav-toggle')?.focus()
     }
 
     function close() {
-      let drawer = document.getElementById('nav-drawer')
-      if (drawer?.classList.contains('is-open')) toggle()
+      let drawer = getDrawer()
+      if (!drawer?.open) return
+      drawer.close()
+      // The platform queues `close`; clean up now so a close click unlocks
+      // immediately. The dialog-event listener repeats this idempotently.
+      cleanup()
+    }
+
+    /** `cancel` (Escape) and `close` both target the drawer; neither bubbles. */
+    function onDialogEvent(event: Event) {
+      if (event.target instanceof Element && event.target.id === 'nav-drawer') cleanup()
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener(
+        'click',
+        (event) => {
+          let target = event.target
+          if (!(target instanceof Element)) return
+          if (target.closest('#nav-toggle')) {
+            let drawer = getDrawer()
+            if (drawer) drawer.open ? close() : open()
+          } else if (target.closest('#nav-drawer')) {
+            // Backdrop, close button, and destination links all dismiss.
+            close()
+          }
+        },
+        { signal: handle.signal },
+      )
+      // Neither `cancel` (Escape) nor `close` bubbles, so both are observed in
+      // the capture phase. `cancel` runs before the platform closes, so the
+      // trigger and scroll lock do not lag; never preventDefault.
+      for (let type of ['cancel', 'close'] as const) {
+        document.addEventListener(type, onDialogEvent, {
+          signal: handle.signal,
+          capture: true,
+        })
+      }
     }
 
     return () => {
       if (typeof document === 'undefined') return null
 
-      let drawer = document.getElementById('nav-drawer')
+      let drawer = getDrawer()
       let btn = document.getElementById('nav-toggle')
+      // A re-render can replace the open dialog with a closed one; the old
+      // modal is gone and cannot emit `close`, so release the lock here.
+      if (unlockScroll && !drawer?.open) cleanup()
       if (!drawer || !btn) return null
 
-      if (!boundButtons.has(btn)) {
-        btn.addEventListener('click', toggle)
-        boundButtons.add(btn)
-      }
-
-      if (!boundDrawers.has(drawer)) {
-        drawer.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') close()
-        })
-        drawer.addEventListener('click', () => close())
-        boundDrawers.add(drawer)
-      }
-
-      // Hydration marker for e2e tests: clicking before this attribute exists
-      // is a no-op because the listener is not attached yet.
+      // Hydration marker for e2e: clicking before listeners attach is a no-op.
       if (btn.getAttribute('data-nav-toggle-ready') !== 'true') {
         btn.setAttribute('data-nav-toggle-ready', 'true')
       }
-      // A parent render may have patched the SSR `aria-expanded="false"` back
-      // onto the button while the drawer kept its imperative `is-open` class.
-      let isOpen = drawer.classList.contains('is-open')
-      if (btn.getAttribute('aria-expanded') !== String(isOpen)) {
-        btn.setAttribute('aria-expanded', String(isOpen))
-      }
-
-      // The drawer element can be replaced by a re-render while it is open.
-      // The replacement carries no `is-open`, so the drawer is closed — but the
-      // reference-counted scroll lock would stay held and the page could not
-      // scroll again until a full reload.
-      if (!isOpen && unlockScroll) {
-        releaseScrollLock()
-        previousFocus = null
-        // Focus was inside the replaced drawer and is now lost to `<body>`;
-        // move it to the trigger rather than leaving it on the document.
-        if (document.activeElement === document.body) {
-          btn.focus()
-        }
-      }
-
       return null
     }
   },

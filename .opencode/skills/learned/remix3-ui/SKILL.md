@@ -144,7 +144,7 @@ Delta index for motion above guide `node_modules/remix/guides/07-animation.md`: 
 
 | Task involves... | Start with |
 | --- | --- |
-| Motion values, entrance/exit/layout animation, reduced-motion gating, or WAAPI/`transitionend` teardown | `references/remix3-animation/gotchas.md` |
+| Motion values, entrance/exit/layout animation, reduced-motion gating, View Transitions, or WAAPI/`transitionend` teardown | `references/remix3-animation/gotchas.md` |
 
 ### Core Rules
 
@@ -152,6 +152,7 @@ Delta index for motion above guide `node_modules/remix/guides/07-animation.md`: 
 - The shell's reduced-motion guard (`transition: none !important` on `body` and `*`) beats inline `element.style.transition`, so every `transitionend` teardown needs a timeout fallback — and it does **not** cover WAAPI, so `element.animate()` must check `prefersReducedMotion()` itself.
 - Interruption is the default: handlers and mixins abort their own in-flight work, while imperative code keeps the current `Animation` in setup scope and `cancel()`s it before restarting.
 - Since #12220 `animateExit()` starts its animations synchronously in `beforeRemove`, so a `getAnimations()` snapshot right after close observes them; the persisted teardown/removal still settles asynchronously, so browser tests poll for DOM removal.
+- Cross-document View Transitions are shell-owned (`app/ui/document.tsx` `@view-transition` under a no-preference media guard; named `app-header`/`app-sidebar` chrome) and only fire on real document navigations, never frame swaps. Same-document VT (theme flip) must feature-check `document.startViewTransition` and check `prefersReducedMotion()`; browser floor (Chrome 126+/Safari 18.2+) is in AGENTS.md.
 - Reduced motion is not "no feedback" — prefer shorter fades, instant layout, or a non-motion state change.
 
 ### When to Use

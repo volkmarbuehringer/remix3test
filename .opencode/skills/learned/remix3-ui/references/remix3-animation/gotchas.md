@@ -57,6 +57,16 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
 - These mixins run on server-rendered markup, not only inside a `clientEntry`.
 - `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes for server panels; `animateEntrance` is `ssr: false` and must not be applied to plain server components.
 
+## View Transitions
+
+**Cross-document (full page).** The shared shell (`app/ui/document.tsx`) opts in with `@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }`. This needs Chrome 126+ / Safari 18.2+; Firefox ignores the at-rule (no cross-document support as of 2026-11) and navigates normally. Only real document navigations participate — login/logout and links carrying `data-rmx-document`; frame swaps are same-document and never trigger it.
+
+- Persistent chrome is named `app-header` (`app/ui/main-nav.tsx`) and `app-sidebar` (`app/ui/sidebar-layout.tsx`). A `view-transition-name` must be unique per document, so never render two matching shells.
+- Browser test: `app/ui/view-transitions.test.e2e.ts`. Playwright `page.goto()` does **not** activate cross-document View Transitions; click a real `data-rmx-document` link and observe `pageswap`/`pagereveal`'s `viewTransition` (write it to `sessionStorage` so it survives the swap). Chromium is the only project that asserts activation; Firefox asserts the frame/no-op path.
+- App floor: `app/assets.ts` targets `{ chrome: '126', safari: '18.2' }`, matching both the VT baseline and `linear()` springs (Safari 17.2+); see AGENTS.md § Browser Support Floor.
+
+**Same-document (theme flip).** `app/ui/theme-toggle.browser.tsx` wraps the `data-theme`/storage/cookie update in `document.startViewTransition(update)` after a `typeof … === 'function'` feature check and a `prefersReducedMotion()` guard from `app/utils/motion.ts`. The update callback runs asynchronously (after the old snapshot), so tests either stub `startViewTransition` to record/invoke the callback or await the transition; the fallback must still flip exactly once when `startViewTransition` throws.
+
 ## Reduced motion
 
 **CSS boundary first — global in this app.** `app/ui/document.tsx` ships a shell-level guard: under `@media (prefers-reduced-motion: reduce)` it sets `transition: none !important` on `body` **and** `*, *::before, *::after`, plus `animation-duration: 0.01ms !important` (so `animationend` still fires). Component-level CSS transitions need no per-component media query; do not re-gate new components. `app/ui/scaffold-home-page.tsx` keeps an older scoped kill-switch.

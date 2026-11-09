@@ -113,6 +113,15 @@ export function Document(handle: Handle<DocumentProps>) {
               from { opacity: 0; transform: translateY(4px); }
               to { opacity: 1; transform: none; }
             }
+            /* Cross-document View Transitions for full-document navigations
+               (login/logout and links marked data-rmx-document). Frame swaps
+               never trigger a document navigation and stay untouched.
+               Supported by Chrome 126+ and Safari 18.2+; other browsers ignore
+               the at-rule and keep the normal navigation. The media guard also
+               opts reduced-motion users out before the UA snapshots a page. */
+            @media (prefers-reduced-motion: no-preference) {
+              @view-transition { navigation: auto; }
+            }
             /* Global reduced-motion guard: component-level CSS transitions
                (hover lifts, nav fades) have no local prefers-reduced-motion
                rule of their own, so kill movement in the shell. */

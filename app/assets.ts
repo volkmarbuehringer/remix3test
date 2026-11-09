@@ -26,7 +26,7 @@ export const assetServer = createAssetServer({
       }
     : {}),
   ...(isDevelopment ? {} : { fingerprint: true }),
-  target: { es: '2022', chrome: '109', safari: '16.4' },
+  target: { es: '2022', chrome: '126', safari: '18.2' },
   ...(isDevelopment ? { sourceMaps: 'external' } : {}),
   scripts: {
     define: {

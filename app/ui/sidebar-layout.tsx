@@ -233,6 +233,10 @@ export const sidebarStyle = css({
   background: theme.surface.lvl1,
   padding: theme.space.lg,
   boxShadow: theme.shadow.sm,
+  // Shared by the admin and lists shells. Cross-document View Transitions
+  // pair it with the same name on the destination page so a section-to-section
+  // full-document navigation keeps the sidebar visually stable.
+  viewTransitionName: 'app-sidebar',
 })
 
 const sidebarHeaderStyle = css({

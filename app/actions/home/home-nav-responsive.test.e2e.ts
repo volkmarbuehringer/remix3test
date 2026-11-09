@@ -17,7 +17,7 @@ describe('home: mobile navigation', () => {
     let toggle = page.locator('#nav-toggle')
     await page.locator('#nav-toggle[data-nav-toggle-ready]').waitFor({ timeout: 15_000 })
     await toggle.click()
-    await page.locator('#nav-drawer.is-open').waitFor({ timeout: 5_000 })
+    await page.locator('#nav-drawer[open]').waitFor({ timeout: 5_000 })
 
     assert.equal(await toggle.getAttribute('aria-expanded'), 'true')
     let drawer = await page.locator('#nav-drawer').evaluate((element) => ({
@@ -30,6 +30,34 @@ describe('home: mobile navigation', () => {
     // the header's backdrop-filter as its containing block and was clamped to
     // the ~60px header height, so the menu appeared not to open.
     assert.ok(drawer.rect.height >= 700, 'drawer must cover the viewport, not just the header')
+  })
+
+  it('closes on Escape, releases the scroll lock and restores the trigger', async (t) => {
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    await page.goto(routes.home.href())
+
+    let toggle = page.locator('#nav-toggle')
+    await page.locator('#nav-toggle[data-nav-toggle-ready]').waitFor({ timeout: 15_000 })
+    await toggle.click()
+    await page.locator('#nav-drawer[open]').waitFor({ timeout: 5_000 })
+
+    // Real keyboard path: the browser turns Escape into the dialog's `cancel`
+    // default action; the entry must only clean up (scroll lock, aria state,
+    // native focus restore), not reimplement dismissal.
+    await page.keyboard.press('Escape')
+    await page.locator('#nav-drawer').waitFor({ state: 'hidden', timeout: 5_000 })
+
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'false')
+    assert.equal(
+      await page.evaluate(() => document.documentElement.style.overflow),
+      '',
+      'the scroll lock must be released on Escape',
+    )
+    await page.waitForFunction(() => document.activeElement?.id === 'nav-toggle', undefined, {
+      timeout: 5_000,
+    })
   })
 
   it('opens the drawer after a client-side navigation to home', async (t) => {
@@ -55,7 +83,7 @@ describe('home: mobile navigation', () => {
     // hydration is a silent no-op and made this test flaky.
     await page.locator('#nav-toggle[data-nav-toggle-ready]').waitFor({ timeout: 15_000 })
     await toggle.click()
-    await page.locator('#nav-drawer.is-open').waitFor({ timeout: 5_000 })
+    await page.locator('#nav-drawer[open]').waitFor({ timeout: 5_000 })
     await page.locator('#nav-toggle[aria-expanded="true"]').waitFor({ timeout: 5_000 })
     assert.equal(await toggle.getAttribute('aria-expanded'), 'true')
   })
@@ -75,7 +103,7 @@ describe('home: mobile navigation', () => {
     let toggle = page.locator('#nav-toggle')
     await page.locator('#nav-toggle[data-nav-toggle-ready]').waitFor({ timeout: 15_000 })
     await toggle.click()
-    await page.locator('#nav-drawer.is-open').waitFor({ timeout: 5_000 })
+    await page.locator('#nav-drawer[open]').waitFor({ timeout: 5_000 })
     assert.equal(await toggle.getAttribute('aria-expanded'), 'true')
   })
 })

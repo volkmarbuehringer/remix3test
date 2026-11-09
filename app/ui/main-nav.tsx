@@ -181,13 +181,7 @@ export function MainNav() {
         </header>
 
         <NavToggle />
-        <div
-          id="nav-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigation"
-          mix={navDrawerCss}
-        >
+        <dialog id="nav-drawer" aria-label="Navigation" mix={navDrawerCss}>
           <div mix={drawerHeaderCss}>
             <a href={routes.home.href()} mix={drawerLogoGroupCss}>
               <span mix={drawerLogoTextCss}>
@@ -251,7 +245,7 @@ export function MainNav() {
               </a>
             )}
           </div>
-        </div>
+        </dialog>
       </>
     )
   }
@@ -266,6 +260,9 @@ const navWrapCss = css({
   backdropFilter: 'blur(12px)',
   background: `${theme.surface.lvl0}cc`,
   borderBottom: `1px solid ${theme.colors.border.subtle}`,
+  // Cross-document View Transitions pair this element with the same name in
+  // the destination document, so the header morphs instead of cross-fading.
+  viewTransitionName: 'app-header',
 })
 
 const navInnerCss = css({
@@ -453,17 +450,38 @@ const hamburgerBtnCss = css({
 })
 
 const navDrawerCss = css({
-  display: 'none',
+  // Native <dialog>: UA styles hide it until showModal() adds `[open]` and
+  // place it in the top layer. The explicit box overrides the UA dialog
+  // margin/width/border so the drawer keeps covering the viewport.
   position: 'fixed',
   inset: 0,
   zIndex: 200,
+  width: '100%',
+  maxWidth: 'none',
+  height: '100%',
+  maxHeight: 'none',
+  margin: 0,
+  padding: 0,
+  border: 'none',
+  boxSizing: 'border-box',
   flexDirection: 'column',
   background: theme.surface.lvl0,
-  '&.is-open': {
+  '&[open]': {
     display: 'flex',
+  },
+  // The dialog itself is the full-screen surface; there is no visible
+  // backdrop to tint (a click on the drawer still dismisses it).
+  '&::backdrop': {
+    background: 'transparent',
   },
   '@media (min-width: 901px)': {
     display: 'none !important',
+    // If the viewport grows while the drawer is open, keep it visible instead
+    // of hiding an open modal in the top layer (which would leave the page
+    // inert with no visible way to close it).
+    '&[open]': {
+      display: 'flex !important',
+    },
   },
 })
 

@@ -36,6 +36,13 @@ When you need API docs or usage examples for a `remix/*` subpath:
 
 Do not reference `~/remix` (a separate vendor checkout) — the installed `node_modules/remix` / `node_modules/.pnpm/@remix-run+<pkg>@*/` tree and the in-project vendor skills are authoritative.
 
+## Browser Support Floor
+
+- **Floor: Chrome/Edge 126+ and Safari/iOS 18.2+.** `app/assets.ts` targets `chrome: '126'`, `safari: '18.2'`, `es: '2022'`. Two features used without a fallback set that floor: `spring()` emits CSS `linear(...)` easing (Safari 17.2+), and cross-document View Transitions require Chrome 126 / Safari 18.2. Do not lower the target without adding a non-`linear()` spring fallback and accepting that the shell's `@view-transition` opt-in is ignored.
+- **Firefox is supported with graceful degradation.** Playwright Firefox runs in the browser and e2e suites, but Firefox does not (as of 2026-11) run cross-document View Transitions: it ignores `@view-transition` and navigates normally. Same-document transitions are feature-checked before use.
+- **View Transitions scope.** `app/ui/document.tsx` opts full documents in under `@media (prefers-reduced-motion: no-preference)`. Persistent chrome is named `app-header` (`app/ui/main-nav.tsx`) and `app-sidebar` (`app/ui/sidebar-layout.tsx`); a `view-transition-name` must be unique per document. Frames do not participate — a frame swap is not a document navigation — so only login/logout and links carrying `data-rmx-document` morph. The theme flip (`app/ui/theme-toggle.browser.tsx`) is a same-document transition with a feature check and `prefersReducedMotion()` guard.
+- **Guards:** `app/ui/view-transitions.test.e2e.ts` (a real document navigation starts a transition only in Chromium; a frame navigation never does), `app/ui/layout/nav-toggle.test.browser.tsx`, and `app/ui/theme-toggle.test.browser.tsx`.
+
 ## Building Features
 
 Refer to `.opencode/skills/remix/SKILL.md` (plus the consolidated learned skills — `remix3-server` for controllers/routes/uploads/security, `remix3-tooling` for build/tooling, `remix3-ui` for rendering/frames/client-entries). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
