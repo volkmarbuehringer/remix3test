@@ -104,10 +104,10 @@ describe('lists row toolbar reordering', () => {
       await page.waitForFunction(
         () => {
           let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]
-          let visible = rows.flatMap((row) => {
-            let cluster = row.querySelector<HTMLElement>('[data-item-actions]')
+          let visible = rows.flatMap((candidate) => {
+            let cluster = candidate.querySelector<HTMLElement>('[data-item-actions]')
             if (!cluster) return []
-            return Number(getComputedStyle(cluster).opacity) > 0.5 ? [row.dataset.itemId] : []
+            return Number(getComputedStyle(cluster).opacity) > 0.5 ? [candidate.dataset.itemId] : []
           })
           return visible.length === 1 && visible[0] === 'move-c'
         },
