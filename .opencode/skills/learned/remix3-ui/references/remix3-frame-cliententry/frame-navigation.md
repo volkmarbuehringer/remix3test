@@ -164,7 +164,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.33851-main-092c4d60` (source `092c4d60`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.195810-main-bb68ae33` (source `bb68ae33`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 

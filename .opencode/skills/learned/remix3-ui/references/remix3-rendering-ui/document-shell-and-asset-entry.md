@@ -3,7 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
-**Revalidated:** 2026-11-09 against preview release `v0.20261109.33851-main-092c4d60` / source `092c4d60` (`Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
+**Revalidated:** 2026-11-09 against preview release `v0.20261109.195810-main-bb68ae33` / source `bb68ae33` (`Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
 
 **Context:** Editing the shared document shell, adding head tags/preloads/styles, wiring the browser entry script or import map, or returning a rendered page with a status/headers.
 

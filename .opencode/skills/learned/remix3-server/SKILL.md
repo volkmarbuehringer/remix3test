@@ -63,7 +63,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.
 
-**Session storage (`app/middleware/session.ts`, preview release `v0.20261109.33851-main-092c4d60`)**
+**Session storage (`app/middleware/session.ts`, preview release `v0.20261109.195810-main-bb68ae33`)**
 
 - The fs store saves via temp file + rename (remix #12148), so an overlapping read never sees a partial session — do not re-add a per-operation serialization wrapper; that workaround was removed when the pin moved.
 - The middleware reads before the handler and saves afterwards, so two overlapping requests still overwrite each other's snapshot. `mergeSessionWrites()` (`app/utils/session-storage-merge.ts`) re-applies only this request's changed keys on the stored session at save time, including the `success`/`error` flash keys.
