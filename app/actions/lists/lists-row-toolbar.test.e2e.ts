@@ -17,6 +17,8 @@ import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 // two toolbars at once. These tests drive the real pointer/keyboard paths and
 // assert a single visible cluster; the CSS reveal itself lives in
 // lists-view.tsx (`:hover`, `:focus-visible`, `:has(:focus-visible)`).
+// Since the reorder runs in a same-document View Transition, the pointer test
+// waits for the snapshot overlay to clear before reading the hover reveal.
 // ---------------------------------------------------------------------------
 
 describe('lists row toolbar reordering', () => {
@@ -95,9 +97,23 @@ describe('lists row toolbar reordering', () => {
       }
       assert.ok(moved, 'the down button must reorder the row once hydrated')
 
-      // The move + focus restore are queued; let them settle. No transition
-      // remains on the cluster, so the hover swap is immediate.
-      await page.waitForTimeout(250)
+      // The reorder runs inside a same-document View Transition. Hover
+      // hit-testing is suspended while the transition snapshot overlays the
+      // list, so wait for the reveal to settle on the row under the stationary
+      // pointer instead of assuming the old instant reorder.
+      await page.waitForFunction(
+        () => {
+          let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]
+          let visible = rows.flatMap((row) => {
+            let cluster = row.querySelector<HTMLElement>('[data-item-actions]')
+            if (!cluster) return []
+            return Number(getComputedStyle(cluster).opacity) > 0.5 ? [row.dataset.itemId] : []
+          })
+          return visible.length === 1 && visible[0] === 'move-c'
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
 
       let state = (await page.evaluate(() => {
         let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]
