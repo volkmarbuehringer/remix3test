@@ -167,6 +167,11 @@ export const pageSizeFormSchema = pageSizeSubmission
 - A saved value outside the presets must still render as the selected option
   (`pageSizeOptions(current)` in `app/utils/get-page-size.ts`); otherwise a legacy custom
   size silently jumps to a preset.
+- Progressive enhancement: `page-size-select-sync.browser.tsx` mirrors a chosen preset
+  into the custom input (and prefills an empty input on focus), while
+  `page-size-custom-keys.browser.tsx` maps PageUp/PageDown to presets and Home/End to the
+  bounds; arrows stay native ±1. Without JS the fields stay independent and the empty
+  custom field falls back to the select.
 - `s.defaulted` is safe here because it wraps only `s.string()`; the range check lives on
   the object-level `.refine()` **after** the source-selection transform, so the default
   path is still validated.

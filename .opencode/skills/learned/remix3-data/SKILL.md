@@ -249,7 +249,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - `app/actions/agent-events/controller.tsx` — `promptSchema` (required field, no `s.defaulted`) + `promptIssueMessage()` response-boundary mapping, tested in `prompt-schema.test.ts`
 - `app/utils/offering-schema.ts` — declarative `f.object()` + `coerce.number()` + `.refine()`
 - `app/utils/get-page-size.ts` — `pageSizeFormSchema` hybrid preset + free-form precedence (`pageSizeCustom` wins when non-empty)
-- `app/ui/page-size-control.tsx` — shared `PageSizeSelect`/`PageSizeCustomInput` used by every grid and Settings
+- `app/ui/page-size-control.tsx` — shared `PageSizeSelect`/`PageSizeCustomInput` used by every grid and Settings; `page-size-select-sync`/`page-size-custom-keys` client entries add coarse→fine sync and preset jumps
 - `app/utils/grid-state.ts` — `gridStateFromFormData`, `gridStateOverrides`, `gridStateToParams`
 - `app/actions/client/controller.tsx` + `controller.test.ts` — direct-re-render reference and tests
 - `app/ui/admin-grid-error.tsx` — `renderGridFormError` (status 200)
