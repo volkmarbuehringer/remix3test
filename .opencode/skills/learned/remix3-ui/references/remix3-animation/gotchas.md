@@ -57,6 +57,12 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
 - These mixins run on server-rendered markup, not only inside a `clientEntry`.
 - `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes for server panels; `animateEntrance` is `ssr: false` and must not be applied to plain server components.
 
+**Native `<details>` is not a drop-in for a measured expand control.** Spiked for the `/admin/messages` two-line message clamp on 2026-11-09 and rejected — keep `app/ui/message-expand.browser.tsx`:
+
+- The app floor (Chrome 126 / Safari 18.2) predates every CSS piece the migration needs: `::details-content` is Chrome 131+/Safari 18.4+, and `interpolate-size: allow-keywords` is Chrome 129+ with no Safari implementation, so there is no CSS-only height transition at the floor.
+- "Hide the toggle when the text fits" is a measurement, not a style. CSS has no general overflow query: scroll-state container queries (`@container scroll-state(scrollable: bottom)`, the closest candidate) are Chrome 133+ and unsupported in Safari and Firefox, and a closed `<details>` hides its content (`display: none`), so the full text cannot be measured after render either. The entry's `scrollHeight > clientHeight` post-render sweep is what keeps short messages button-free.
+- Moving the toggle into `<summary>` while keeping that sweep retains the client entry and changes the ARIA/interaction contract for no deletion win, so the migration was abandoned rather than half-landed. Revisit only if the floor reaches scroll-state queries in every supported engine (or the product accepts an always-visible toggle).
+
 ## View Transitions
 
 **Cross-document (full page).** The shared shell (`app/ui/document.tsx`) opts in with `@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }`. This needs Chrome 126+ / Safari 18.2+; Firefox ignores the at-rule (no cross-document support as of 2026-11) and navigates normally. Only real document navigations participate — login/logout and links carrying `data-rmx-document`; frame swaps are same-document and never trigger it.
