@@ -45,6 +45,7 @@ import {
   type ListTarget,
 } from './lists-api.ts'
 import { renderListsEditor, type ListsEditorView } from './lists-view.tsx'
+import { applyListReorder } from './lists-view-transition.ts'
 import { requestConfirmDecision } from '../../../ui/confirm-delete.browser.tsx'
 
 export const ListsClient = clientEntry(
@@ -1431,6 +1432,19 @@ export const ListsClient = clientEntry(
       }, 0)
     }
 
+    // Every reorder commit (drag drop, keyboard quick-move, touch ↑/↓) runs
+    // through the same View Transition helper: it names the keyed rows, defers
+    // the state update into the transition callback, and falls back to an
+    // instant reorder when the platform or reduced-motion guards fail.
+    let commitReorder = (next: ListItem[], saveFast = false) => {
+      applyListReorder(listRef, async () => {
+        items = next
+        setDirty()
+        await handle.update()
+        if (saveFast) scheduleAutosave(true)
+      })
+    }
+
     // Drag-and-drop (item reorder, cross-list item move, list merge) lives in
     // its own module and is applied to the element-list container through the
     // browser-only `drag()` mixin (see lists-drag-mixin.ts). These callbacks
@@ -1445,9 +1459,7 @@ export const ListsClient = clientEntry(
       getCsrfHeaders,
       flush: flushNow,
       commitReorder: (next) => {
-        items = next
-        setDirty()
-        void handle.update()
+        commitReorder(next)
       },
       setSaveError: (message) => {
         saveError = message
@@ -1587,10 +1599,7 @@ export const ListsClient = clientEntry(
       if (from === to) return
       let newItems = moveItemInArray(items, from, to)
       if (newItems === items) return
-      items = newItems
-      setDirty()
-      void handle.update()
-      scheduleAutosave(true)
+      commitReorder(newItems, true)
     }
 
     // Move a row one step within the visible order by swapping it with its
@@ -1612,10 +1621,7 @@ export const ListsClient = clientEntry(
       disarmClear()
       let next = items.slice()
       ;[next[index], next[target]] = [next[target]!, next[index]!]
-      items = next
-      setDirty()
-      void handle.update()
-      scheduleAutosave(true)
+      commitReorder(next, true)
       return true
     }
 
