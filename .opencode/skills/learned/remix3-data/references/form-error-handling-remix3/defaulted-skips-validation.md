@@ -51,8 +51,10 @@ only latency/behavior — but with non-trivially-validated fields the default ca
   `s.string()` with "Expected string", and `promptIssueMessage()` folds that into the
   canonical "Message is required" 400 — restoring the pre-schema fail-fast behavior.
 - `s.defaulted` is fine when the default is itself always valid (e.g. the
-  `pageSize`/`pageKey` schemas in `app/utils/get-page-size.ts`, where absence must mean
-  "no override", or where the default already satisfies the schema's own checks).
+  `pageSize`/`pageKey` fields in `app/utils/get-page-size.ts`, where the defaulted
+  strings mean "not provided" and the real range check lives on the object-level
+  `.refine()` **after** the source-selection `.transform()`; see
+  `validation-and-schema.md § Multi-Source Fields`).
 - Cross-check every existing `s.defaulted` whose wrapped schema carries `.refine`s: the
   default path has never been validated by them.
 

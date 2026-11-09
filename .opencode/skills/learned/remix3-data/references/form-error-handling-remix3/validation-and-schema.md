@@ -126,6 +126,56 @@ Render the placeholder in **both** create and edit modes: edit mode also re-rend
 from `formValues` on a failed submit, and the same empty-string fallback would
 otherwise show the first row.
 
+### Multi-Source Fields: Pick the Source, Then Validate
+
+When two controls feed one setting — the page-size preset `<select name="pageSize">`
+plus the optional free-form `<input name="pageSizeCustom">` in
+`app/utils/get-page-size.ts` — parse both as defaulted strings, pick the source in a
+`.transform()`, then validate the **selected** value. Validating each field
+independently cannot express "custom wins when filled": a required `pageSize` rejects a
+custom-only submit, and two always-valid strings let an invalid custom value reach the
+controller.
+
+```ts
+const pageSizeSubmission = f
+  .object({
+    pageKey: f.field(s.defaulted(s.string(), '')),
+    pageSize: f.field(s.defaulted(s.string(), '')),
+    pageSizeCustom: f.field(s.defaulted(s.string(), '')),
+  })
+  .transform((value) => ({
+    pageKey: value.pageKey,
+    rawPageSize: value.pageSizeCustom.trim() !== '' ? value.pageSizeCustom : value.pageSize,
+  }))
+
+export const pageSizeFormSchema = pageSizeSubmission
+  .refine(
+    (value) => isValidPageSize(Number(value.rawPageSize)),
+    `Ganze Zahl zwischen ${PAGE_SIZE_MIN} und ${PAGE_SIZE_MAX} erforderlich.`,
+  )
+  .transform((value) => ({ pageKey: value.pageKey, pageSize: Number(value.rawPageSize) }))
+```
+
+- The first `.transform()` selects the source; it must not validate.
+- `.refine()` runs on the selected value, so an invalid custom field fails even when the
+  select is valid. `Number('')` and `Number('  ')` are `0`, so "both blank" fails too.
+- The final `.transform()` restores the original parsed shape
+  (`{ pageKey, pageSize: number }`), so controllers and `s.parseSafe` tests need no change.
+- Both fields live in the same `<form>`. The custom input uses
+  `type="number" min={PAGE_SIZE_MIN} max={PAGE_SIZE_MAX} step={1} inputMode="numeric"` so
+  the browser blocks out-of-range/fractional values before the POST.
+- A saved value outside the presets must still render as the selected option
+  (`pageSizeOptions(current)` in `app/utils/get-page-size.ts`); otherwise a legacy custom
+  size silently jumps to a preset.
+- `s.defaulted` is safe here because it wraps only `s.string()`; the range check lives on
+  the object-level `.refine()` **after** the source-selection transform, so the default
+  path is still validated.
+
+**Test anchors:** `app/utils/page-size.test.ts` ("prefers the free-form custom size over
+the preset select", "falls back to the preset when the custom field is blank", "rejects
+an invalid custom size even when the select is valid"); `app/actions/notifications/controller.test.ts`
+and `app/actions/admin/admin-page-size.test.ts` cover the POST round-trip.
+
 ### Announce and focus server-rendered errors
 
 Server-rendered field errors are not announced by default, and focus stays where it
