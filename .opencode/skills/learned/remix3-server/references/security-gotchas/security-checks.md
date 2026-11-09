@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-csp-inline-scripts`, `remix3-return-to-open-redirect`, `nodejs-path-traversal-guard`; the CSP section absorbed the nonce/policy deltas that used to live inline in `remix3-server § Security`.
 
 **Extracted:** 2026-07-09 … 2026-09-17
-**Revalidated:** 2026-11-06 against preview release `v0.20261106.150533-main-305d22d0` / source `305d22d0` — CSP now comes from the vendor `csp()` middleware, not a local implementation.
+**Revalidated:** 2026-11-09 against preview release `v0.20261109.33851-main-092c4d60` / source `092c4d60` — CSP now comes from the vendor `csp()` middleware, not a local implementation.
 **Context:** Three request-boundary checks that are easy to get subtly wrong. For CSRF/ownership/authz see `security-middleware.md` and `idor-scope-write-bypass.md`.
 
 ## CSP-safe inline scripts

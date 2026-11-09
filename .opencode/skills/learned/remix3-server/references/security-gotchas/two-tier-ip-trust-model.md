@@ -3,7 +3,7 @@
 **Source:** `remix3-two-tier-ip-trust-model`
 
 **Extracted:** 2026-06-26
-**Revalidated:** 2026-11-06 against preview release `v0.20261106.150533-main-305d22d0` / source `305d22d0` (`@remix-run/node-fetch-server` `src/lib/request-listener.ts:458-471` — `createClientAddress` derives `client.address` from forwarded headers only when `trustProxy` is true).
+**Revalidated:** 2026-11-09 against preview release `v0.20261109.33851-main-092c4d60` / source `092c4d60` (`@remix-run/node-fetch-server` `src/lib/request-listener.ts:458-471` — `createClientAddress` derives `client.address` from forwarded headers only when `trustProxy` is true).
 **Context:** Remix 3 apps where client IP is used for both security-critical checks (localhost guards, rate limiting) and audit logging.
 
 ## Problem

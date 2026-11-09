@@ -51,9 +51,9 @@ function dialog(): HTMLElement | null {
 
 /**
  * The dialog animates out with animateExit, so it lingers in the DOM until
- * the WAAPI teardown finishes — and the exit animations are created
- * asynchronously, so a single getAnimations() snapshot is not enough. Poll
- * until the runtime actually removes the node.
+ * the WAAPI teardown finishes. Since #12220 the exit animations start
+ * synchronously in beforeRemove, but the persisted removal still settles
+ * asynchronously, so poll until the runtime actually removes the node.
  */
 async function waitDialogGone() {
   for (let i = 0; i < 200; i++) {
@@ -61,6 +61,15 @@ async function waitDialogGone() {
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
   assert.fail('dialog did not close (exit animation never finished)')
+}
+
+/** Entrance animations use fill: 'none', so they leave getAnimations() once done. */
+async function waitForEntranceAnimations() {
+  for (let i = 0; i < 200; i++) {
+    if (result!.container.getAnimations({ subtree: true }).length === 0) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.fail('entrance animations did not finish')
 }
 
 afterEach(() => {
@@ -110,6 +119,26 @@ describe('ConfirmDelete', () => {
 
     assert.equal(dialog(), null, 'the dialog closes on cancel')
     assert.deepEqual(submitted, [], 'a cancelled confirm must not submit the form')
+  })
+
+  it('starts the exit animations synchronously when closing', async () => {
+    let { btn } = mountForm('data-confirm="Wirklich löschen?"')
+    mountEntry()
+    await result!.act(() => btn.click())
+    await waitForEntranceAnimations()
+
+    let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
+    await result!.act(() => cancel.click())
+
+    // #12220: beforeRemove creates the exit animations synchronously; only the
+    // persisted teardown (and therefore node removal) is deferred.
+    assert.ok(
+      result!.container.getAnimations({ subtree: true }).length > 0,
+      'exit animations should exist immediately after the close click',
+    )
+    assert.ok(dialog(), 'the node is retained while the exit animation runs')
+
+    await waitDialogGone()
   })
 
   it('traps focus in the modal and restores it to the trigger on close', async () => {

@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-06 (current pin is preview release `v0.20261106.150533-main-305d22d0` / source `305d22d0`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-09 (current pin is preview release `v0.20261109.33851-main-092c4d60` / source `092c4d60`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -65,7 +65,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261106.150533-main-305d22d0` (source `305d22d0`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag. The 2026-11-06 range changed only `packages/component/src/runtime/client-entries.ts` (type-level TS2589 fix) plus CI/build/test scripts, so existing learned line refs remain valid at this pin.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261109.33851-main-092c4d60` (source `092c4d60`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag. The 2026-11-09 range changed only `packages/ui/src/animation` (#12220: per-property `transition` overrides and synchronous `animateExit()` start in `beforeRemove`) plus docs-site examples, so learned line refs outside that package remain valid at this pin; the animation gotchas were re-checked against it.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -107,8 +107,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261106.150533-main-305d22d0/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261106.150533-main-305d22d0/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261109.33851-main-092c4d60/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261109.33851-main-092c4d60/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

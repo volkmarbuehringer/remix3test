@@ -102,14 +102,19 @@ const dialogStyle = css({
 
 // Entrance/exit for the overlay + dialog (guides.remix.run/animation).
 // Keys on the conditional elements let the runtime track enter/exit identity.
+// The dialog fades on a short tween while the transform keeps the spring;
+// `transition` (#12220) overrides the shared timing per property.
+const dialogFade = { opacity: { duration: 120, easing: 'ease-out' } } as const
+const dialogMotion = {
+  opacity: 0,
+  transform: 'scale(0.97) translateY(4px)',
+  ...spring('snappy'),
+  transition: dialogFade,
+}
 const overlayEntrance = animateEntrance(entrance({ opacity: 0, ...spring('snappy') }))
 const overlayExit = animateExit(exit({ opacity: 0, ...spring('snappy') }))
-const dialogEntrance = animateEntrance(
-  entrance({ opacity: 0, transform: 'scale(0.97) translateY(4px)', ...spring('snappy') }),
-)
-const dialogExit = animateExit(
-  exit({ opacity: 0, transform: 'scale(0.97) translateY(4px)', ...spring('snappy') }),
-)
+const dialogEntrance = animateEntrance(entrance(dialogMotion))
+const dialogExit = animateExit(exit(dialogMotion))
 
 const titleStyle = css({
   margin: 0,

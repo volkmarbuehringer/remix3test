@@ -50,6 +50,8 @@ const animateGentlyIn = animateEntrance(
     opacity: 0,
     transform: 'translateY(-14px) scale(0.97)',
     ...spring('smooth'),
+    // Fade on a short tween while the translate/scale keeps the spring (#12220).
+    transition: { opacity: { duration: 120, easing: 'ease-out' } },
   }),
 )
 
