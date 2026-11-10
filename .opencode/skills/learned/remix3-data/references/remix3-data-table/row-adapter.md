@@ -1,7 +1,7 @@
 # Narrow Unknown Columns at One Row Adapter
 
 **Extracted:** 2026-09-04
-**Revalidated:** 2026-11-10 against preview release `v0.20261110.182141-main-d488afb4` / source `d488afb4` (`@remix-run/data-table` 1.0.0).
+**Revalidated:** 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (`@remix-run/data-table` 1.0.0).
 
 ## Problem
 
