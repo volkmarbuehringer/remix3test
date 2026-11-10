@@ -39,7 +39,13 @@ export async function generatePdfBuffer(docDef: TDocumentDefinitions): Promise<B
 /**
  * Wrap a PDF buffer as an attachment-download Response with the standard
  * headers (Content-Type, Content-Disposition, Content-Length, nosniff) used
- * by the verwaltung PDF export routes.
+ * by the PDF export routes.
+ *
+ * Exports are generated per request from session-scoped rows (owner filters,
+ * admin views) and their URL carries no user identity, so a shared cache must
+ * never store one. `securityHeaders()` only defaults a cache policy for HTML
+ * and error responses, which makes this explicit `private, no-store` the
+ * route's own responsibility (matching the uploads ZIP attachment).
  */
 export function pdfAttachmentResponse(buffer: Buffer, filename: string): Response {
   let headers = new SuperHeaders()
@@ -47,5 +53,6 @@ export function pdfAttachmentResponse(buffer: Buffer, filename: string): Respons
   headers.contentDisposition = { type: 'attachment', filename }
   headers.contentLength = buffer.length
   headers.set('X-Content-Type-Options', 'nosniff')
+  headers.set('Cache-Control', 'private, no-store')
   return new Response(new Uint8Array(buffer), { headers })
 }

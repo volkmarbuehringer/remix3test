@@ -13,6 +13,11 @@ describe('pdfAttachmentResponse', () => {
     assert.match(response.headers.get('Content-Disposition') ?? '', /attachment/)
     assert.match(response.headers.get('Content-Disposition') ?? '', /test-export-2026_01\.pdf/)
     assert.equal(response.headers.get('Content-Length'), String(buffer.length))
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-store',
+      'session-scoped exports must not be stored by shared caches',
+    )
   })
 
   it('wraps the buffer bytes unchanged', async () => {
