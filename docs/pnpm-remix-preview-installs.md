@@ -101,6 +101,22 @@ pnpm update --store-dir "$PWD/.pnpm-store"
 The same applies to `pnpm add`, `pnpm remove`, and any other lockfile-changing
 command in this workspace.
 
+### `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` in a sandbox
+
+pnpm 12 keeps its store-operation locks in `$XDG_RUNTIME_DIR` when that is a
+user-only directory, and in `/tmp` otherwise. A sandbox that denies writes
+outside the workspace fails with
+`Failed to open the store operation lock at "pnpm-store-operation-locks"` /
+`EROFS`. Point pnpm at a writable runtime directory (mode `0700`):
+
+```sh
+mkdir -p .pnpm-home/run && chmod 700 .pnpm-home/run
+XDG_RUNTIME_DIR="$PWD/.pnpm-home/run" pnpm update --store-dir "$PWD/.pnpm-store"
+```
+
+`scripts/update-remix.ts` exports the store/cache dirs but not this variable, so
+a sandboxed `npm run update:remix` needs the same `XDG_RUNTIME_DIR` override.
+
 ### `ERR_PNPM_UNEXPECTED_STORE` after switching `--store-dir`
 
 `node_modules` was linked from the old store. Plain `pnpm install` does **not**
