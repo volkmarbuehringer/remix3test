@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createSession } from 'remix/session'
 import { MaxFileSizeExceededError } from 'remix/form-data-parser'
-import { ContentDisposition } from 'remix/headers'
+import { ContentDisposition, ContentType } from 'remix/headers'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../../test/pool.ts'
@@ -1411,5 +1411,227 @@ describe('Admin Uploads controller', () => {
     })
 
     assert.equal(response.status, 404)
+  })
+
+  // ── PDF export (/admin/uploads/pdf) ──
+
+  /** Insert one-byte uploads and claim them for the given user. */
+  async function seedClaimedUploads(
+    ownerId: number,
+    files: [filename: string, mimeType: string][],
+  ): Promise<number[]> {
+    let ids: number[] = []
+    for (let [filename, mimeType] of files) {
+      let id = Number(
+        await insertUpload(db, {
+          filename,
+          mimeType,
+          buffer: Buffer.from('x'),
+          size: 1,
+          now: Date.now(),
+        }),
+      )
+      ids.push(id)
+    }
+    let claimed = await claimUploads(db, ids, ownerId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+    return ids
+  }
+
+  /** Download an export and return its bytes (Content-Length may be rewritten by compression). */
+  async function fetchPdfBytes(cookie: string, search = ''): Promise<Buffer> {
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.pdf.href()}${search ? '?' + search : ''}`,
+      { headers: { Cookie: cookie } },
+    )
+    assert.equal(response.status, 200, `export ${search} should succeed`)
+    return Buffer.from(await response.arrayBuffer())
+  }
+
+  it('GET /admin/uploads/pdf returns a PDF attachment for the current view', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    await seedClaimedUploads(userId, [['uplctl-pdf-report.pdf', 'application/pdf']])
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.pdf.href()}?filter=uplctl-pdf&sort=size&order=asc`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+
+    let contentType = ContentType.from(response.headers.get('Content-Type'))
+    assert.equal(contentType.mediaType, 'application/pdf')
+
+    let disposition = ContentDisposition.from(response.headers.get('Content-Disposition'))
+    assert.equal(disposition.type, 'attachment')
+    assert.ok(disposition.filename?.startsWith('dateien-'), 'filename should describe the export')
+    assert.ok(disposition.filename?.endsWith('.pdf'))
+
+    let buffer = Buffer.from(await response.arrayBuffer())
+    assert.equal(buffer.subarray(0, 4).toString('latin1'), '%PDF')
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-store',
+      'the owner-scoped export must not be stored by shared caches',
+    )
+  })
+
+  it('GET /admin/uploads/pdf applies the search filter to the export', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    await seedClaimedUploads(userId, [
+      ['uplctl-pdf-filter-alpha.txt', 'text/plain'],
+      ['uplctl-pdf-filter-beta-perhaps-a-longer-name.txt', 'text/plain'],
+    ])
+
+    let both = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-filter')
+    let one = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-filter-alpha')
+    assert.ok(
+      one.byteLength < both.byteLength,
+      'the filtered export must contain fewer rows than the unfiltered one',
+    )
+  })
+
+  it('GET /admin/uploads/pdf applies the kind filter', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    await seedClaimedUploads(userId, [
+      ['uplctl-pdf-kind-doc.pdf', 'application/pdf'],
+      ['uplctl-pdf-kind-note-which-is-deliberately-long.txt', 'text/plain'],
+    ])
+
+    let allKinds = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-kind')
+    let pdfOnly = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-kind&kind=pdf')
+    assert.ok(pdfOnly.byteLength < allKinds.byteLength, 'kind=pdf must drop the text row')
+  })
+
+  it('GET /admin/uploads/pdf accepts the grid sort parameters and falls back for unknown ones', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    await seedClaimedUploads(userId, [
+      ['uplctl-pdf-sort-a.txt', 'text/plain'],
+      ['uplctl-pdf-sort-b.txt', 'text/plain'],
+    ])
+
+    let sorted = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-sort&sort=size&order=asc')
+    assert.equal(sorted.subarray(0, 4).toString('latin1'), '%PDF')
+
+    // A crafted column/direction must never reach the ORDER BY clause.
+    let fallback = await fetchPdfBytes(
+      session.cookie,
+      'filter=uplctl-pdf-sort&sort=password_hash&order=drop',
+    )
+    assert.equal(fallback.subarray(0, 4).toString('latin1'), '%PDF')
+  })
+
+  it('GET /admin/uploads/pdf exports every matching row regardless of the grid page', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    await seedClaimedUploads(userId, [
+      ['uplctl-pdf-page-a.txt', 'text/plain'],
+      ['uplctl-pdf-page-b.txt', 'text/plain'],
+    ])
+
+    let noPage = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-page')
+    let pageTwo = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-page&page=2')
+    assert.equal(pageTwo.byteLength, noPage.byteLength, 'the page must not narrow the export')
+  })
+
+  it("GET /admin/uploads/pdf leaves another user's uploads out of the export", async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+    let adminSession = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!adminSession) throw new Error('admin@newapp.com not found in seed')
+
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other-pdf-ctrl@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    await seedClaimedUploads(userId, [['uplctl-pdf-scope-own.txt', 'text/plain']])
+    let other = Number(
+      await insertUpload(db, {
+        filename: 'uplctl-pdf-scope-other-with-a-much-longer-filename.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, other])
+
+    let own = await fetchPdfBytes(session.cookie, 'filter=uplctl-pdf-scope')
+    let all = await fetchPdfBytes(adminSession.cookie, 'filter=uplctl-pdf-scope')
+    assert.ok(own.byteLength < all.byteLength, "another user's upload must not reach the export")
+  })
+
+  it('GET /admin/uploads/pdf redirects unauthenticated users to login', async () => {
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.pdf.href()}`, {
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    assert.ok(
+      (response.headers.get('Location') ?? '').startsWith(routes.auth.login.index.href()),
+      'should redirect to login',
+    )
+  })
+
+  it('redirects a framed export request to the marker URL exactly once', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.pdf.href()}?filter=uplctl-pdf&kind=pdf&sort=size&order=asc`,
+      { headers: { Cookie: session.cookie, 'X-Remix-Frame': 'true' } },
+    )
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.includes(routes.admin.uploads.pdf.href()))
+    assert.ok(location.includes('filter=uplctl-pdf'), 'location should keep the view params')
+    assert.ok(location.includes('kind=pdf'))
+    assert.ok(location.includes('sort=size'), 'location should keep the sort column')
+    assert.ok(location.includes('order=asc'), 'location should keep the sort direction')
+    assert.ok(location.includes('frameDownload=1'), 'location should carry the marker param')
+  })
+
+  it('renders the uploads page for the framed marker so the chain terminates', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.pdf.href()}?filter=uplctl-pdf&frameDownload=1`,
+      { headers: { Cookie: session.cookie, 'X-Remix-Frame': 'true' } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Datei-Upload'), 'should render the uploads page as HTML')
+    assert.ok(html.includes('data-uploads-pdf'), 'the page should keep its export link')
+    assert.ok(!html.startsWith('%PDF'), 'must not return the binary inside a frame')
+  })
+
+  it('links the uploads grid to the filtered/sorted export without the page number', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?page=2&filter=uplctl-pdf&kind=pdf&sort=size&order=asc`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('data-uploads-pdf'), 'the export link should be present')
+    assert.ok(html.includes('data-rmx-document'), 'the link must bypass frame interception')
+
+    let match = html.match(/href="(\/admin\/uploads\/pdf\?[^"]*)"/)
+    assert.ok(match, 'the uploads page should link to /admin/uploads/pdf')
+    let href = match![1]!.replaceAll('&amp;', '&')
+    assert.ok(href.includes('filter=uplctl-pdf'), 'the link should carry the search term')
+    assert.ok(href.includes('kind=pdf'), 'the link should carry the kind filter')
+    assert.ok(href.includes('sort=size'), 'the link should carry the sort column')
+    assert.ok(href.includes('order=asc'), 'the link should carry the sort direction')
+    assert.ok(!href.includes('page='), 'the export covers all rows, not just this page')
   })
 })

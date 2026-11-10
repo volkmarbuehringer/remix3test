@@ -76,6 +76,7 @@ import {
   pageNumberLinkCss,
   pageCurrentCss,
   pageGapCss,
+  pdfExportCss,
 } from './uploads-grid-css.ts'
 import {
   rowActions as rowActionsCss,
@@ -90,6 +91,7 @@ import {
   getUploadsPage,
   getUploadKindCounts,
   getUploadsQuotaUsage,
+  loadUploadsExport,
   claimUploads,
   getUploadDownload,
   getUploadsByIds,
@@ -103,6 +105,8 @@ import {
 } from '../../../data/uploads.ts'
 import { buildZipArchive } from '../../../utils/zip.ts'
 import { attachmentDisposition } from '../../../utils/content-disposition.ts'
+import { buildUploadsPdf } from '../../../utils/uploads-pdf.ts'
+import { pdfAttachmentResponse } from '../../../utils/pdf-utils.ts'
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
@@ -119,7 +123,12 @@ import { sortArrow, sortRule } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
 import { paginationWindow } from '../../../utils/pagination-window.ts'
-import { formatCompactDateDE, formatRelativeTimeDE, MS_PER_DAY } from '../../../utils/date-utils.ts'
+import {
+  formatCompactDateDE,
+  formatIsoDateUtc,
+  formatRelativeTimeDE,
+  MS_PER_DAY,
+} from '../../../utils/date-utils.ts'
 import {
   ALLOWED_EXTENSIONS,
   MAX_UPLOAD_BYTES,
@@ -130,6 +139,7 @@ import {
 } from '../../../utils/upload-validation.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
+import { buttonLink } from '../../../ui/theme/button.ts'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
@@ -140,6 +150,14 @@ import { getQuotaStats, type QuotaStats } from './uploads-quota.ts'
 import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
+
+/**
+ * Marker that terminates the framed-export redirect. A framed request must be
+ * answered with HTML, never the binary, and a bare redirect to the same URL
+ * loops because fetch() preserves X-Remix-Frame across same-origin redirects.
+ * Mirrors the admin users / report1 export shims.
+ */
+const FRAME_DOWNLOAD_PARAM = 'frameDownload'
 
 /**
  * The file-picker `accept` list and full extension list come from the server
@@ -197,6 +215,30 @@ function parseUploadKind(raw: string | null): UploadKind | undefined {
   return isUploadKind(raw) ? raw : undefined
 }
 
+/**
+ * Grid state shared by the page renderer and the PDF export: the same search,
+ * MIME grouping and whitelisted sort/order. One parser for both means the file
+ * cannot describe a different view than the one the user sees.
+ */
+function parseUploadsGridQuery(url: URL): {
+  filter: string | undefined
+  kind: UploadKind | undefined
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+} {
+  let { column, direction } = parseSort(url, {
+    allowedColumns: UPLOAD_SORT_FIELDS,
+    defaultColumn: 'created_at',
+    defaultDirection: 'desc',
+  })
+  return {
+    filter: url.searchParams.get('filter') || undefined,
+    kind: parseUploadKind(url.searchParams.get('kind')),
+    sortColumn: column,
+    sortDirection: direction,
+  }
+}
+
 /** Display label for a whitelisted kind (used by the kind-aware empty state). */
 function uploadKindLabel(kind: UploadKind): string {
   return UPLOAD_KIND_LABELS[kind]
@@ -249,6 +291,25 @@ function uploadsSortHref(
 }
 
 /**
+ * Build the PDF export URL for the current view. The page number and page size
+ * are deliberately absent: the export covers every matching row, not just the
+ * visible page.
+ */
+function uploadsPdfHref(
+  filter: string | undefined,
+  kind: UploadKind | undefined,
+  sortColumn: string,
+  sortDirection: 'asc' | 'desc',
+): string {
+  let params = new URLSearchParams()
+  if (filter) params.set('filter', filter)
+  if (kind) params.set('kind', kind)
+  params.set('sort', sortColumn)
+  params.set('order', sortDirection)
+  return `${routes.admin.uploads.pdf.href()}?${params.toString()}`
+}
+
+/**
  * Kind-tab link. Selecting a MIME grouping always resets to page 1 — a stale
  * page can be out of range for the narrower result set — and keeps the active
  * search and sort.
@@ -292,20 +353,14 @@ async function renderUploadsPage(
     opts.deletedCount !== undefined
       ? opts.deletedCount
       : Number(context.url.searchParams.get('deleted')) || 0
-  let filter =
-    opts.filter !== undefined ? opts.filter : context.url.searchParams.get('filter') || undefined
-  let kind =
-    opts.kind !== undefined ? opts.kind : parseUploadKind(context.url.searchParams.get('kind'))
+  let query = parseUploadsGridQuery(context.url)
+  let filter = opts.filter !== undefined ? opts.filter : query.filter
+  let kind = opts.kind !== undefined ? opts.kind : query.kind
   let pageKey = PAGE_SIZE_KEYS.adminUploads
   let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let { column, direction } = parseSort(context.url, {
-    allowedColumns: UPLOAD_SORT_FIELDS,
-    defaultColumn: 'created_at',
-    defaultDirection: 'desc',
-  })
-  let sortColumn = opts.sortColumn ?? column
-  let sortDirection = opts.sortDirection ?? direction
+  let sortColumn = opts.sortColumn ?? query.sortColumn
+  let sortDirection = opts.sortDirection ?? query.sortDirection
   // Admins see every upload; everyone else only the rows they claimed. The
   // counts query uses the same scope so the tab badges cannot drift from the grid.
   let ownerId = user.role === 'admin' ? undefined : user.id
@@ -343,6 +398,51 @@ export default createController(routes.admin.uploads, {
   actions: {
     async index(context) {
       return renderUploadsPage(context)
+    },
+
+    // PDF export of the current view: every row matching the search/kind filter
+    // in the grid's sort order (not just the visible page). The page links here
+    // with `data-rmx-document`, so the happy path is a native document
+    // navigation; the marker shim only covers a framed direct hit, because a
+    // frame must receive HTML and never the binary.
+    async pdf(context) {
+      if (context.request.headers.get('X-Remix-Frame') === 'true') {
+        let url = new URL(context.url)
+        if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {
+          // The marker request is followed in-frame, so it must render the real
+          // uploads page; a minimal placeholder would replace the grid.
+          return renderUploadsPage(context)
+        }
+        url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
+        return redirect(url.href)
+      }
+
+      try {
+        let user = getCurrentUser()
+        let { filter, kind, sortColumn, sortDirection } = parseUploadsGridQuery(context.url)
+        // Same ownership scope as the grid: admins export every upload, other
+        // users only the rows they claimed.
+        let { rows, total, truncated } = await loadUploadsExport(context.db, {
+          userId: user.role === 'admin' ? undefined : user.id,
+          sortColumn,
+          sortDirection,
+          filter,
+          kind,
+        })
+        let buffer = await buildUploadsPdf({
+          rows,
+          total,
+          truncated,
+          filter,
+          kind,
+          sortColumn,
+          sortDirection,
+        })
+        return pdfAttachmentResponse(buffer, `dateien-${formatIsoDateUtc()}.pdf`)
+      } catch (error) {
+        context.logger?.(`Fehler beim Erstellen des Datei-PDFs: ${error}`)
+        return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
+      }
     },
 
     // The frame commits the POST delete form action path (form action == frame
@@ -763,6 +863,19 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   Zurücksetzen
                 </a>
               ) : null}
+              {/* Export the whole filtered/sorted result set, not just this
+                  page: the page number is deliberately absent from the link.
+                  `data-rmx-document` makes the browser navigate natively so the
+                  frame runtime does not swallow the attachment response. */}
+              <a
+                href={uploadsPdfHref(filter, kind, sortColumn, sortDirection)}
+                data-rmx-document
+                data-uploads-pdf="true"
+                title="Alle Dateien dieser Ansicht als PDF exportieren"
+                mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), pdfExportCss]}
+              >
+                <Glyph name="download" width={14} height={14} /> PDF exportieren
+              </a>
               {/* The sortable Typ/Größe/Datum headers are hidden on phones, so
                   keep their sort toggles here instead. */}
               <span mix={mobileSortCss} data-mobile-sort>

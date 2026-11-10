@@ -177,6 +177,12 @@ export const routes = route({
     uploads: route('uploads', {
       index: get('/'),
       action: post('/'),
+      // PDF export of the uploads grid: every row matching the current
+      // search/kind filter in the grid's sort order (filter/kind/sort/order
+      // query params). The page links here with `data-rmx-document` so the
+      // browser performs a native document navigation and the frame runtime
+      // does not swallow the attachment.
+      pdf: get('/pdf'),
       download: get('/:id/download'),
       destroy: post('/:id/delete'),
       // The frame commits the POST delete form action path (form action ==

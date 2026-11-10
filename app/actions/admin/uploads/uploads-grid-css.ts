@@ -898,3 +898,16 @@ export const clearSelectionBtnCss = css({
   // rule and "Auswahl aufheben" stays visible with nothing selected.
   '&[hidden]': { display: 'none' },
 })
+
+// ── PDF export ──────────────────────────────────────────────────
+
+// Export anchor in the filter toolbar. `marginLeft: auto` pins it to the right
+// edge without a spacer element (a spacer would consume a whole wrapped row on
+// a phone). Below 720px the auto margin is dropped so the link lines up with
+// the other wrapped controls instead of floating alone at the right.
+export const pdfExportCss = css({
+  marginLeft: 'auto',
+  '@media (max-width: 720px)': {
+    marginLeft: 0,
+  },
+})

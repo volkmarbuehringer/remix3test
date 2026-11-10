@@ -29,6 +29,13 @@ export interface UploadRow {
 export const UPLOAD_SORT_FIELDS = ['id', 'filename', 'mime_type', 'size', 'created_at'] as const
 
 /**
+ * Row cap for one uploads PDF export. Mirrors the admin users export: a
+ * filtered view can be much larger than a page, and an unbounded export would
+ * let one request lay out the whole table in pdfmake.
+ */
+const UPLOADS_EXPORT_LIMIT = 10_000
+
+/**
  * MIME groupings the uploads grid can be filtered by. Each value maps to a
  * static WHERE fragment (see {@link kindCondition}) rather than an interpolated
  * value, so a URL-driven kind can never inject SQL. Shared with the controller
@@ -234,6 +241,51 @@ export async function getUploadsPage(
     kind,
   })
   return { rows, total, totalPages, page: safePage }
+}
+
+/**
+ * Load every upload matching the grid's current filter/sort for a PDF export.
+ * Unlike {@link getUploadsPage} this takes no page/pageSize: the file must
+ * describe the whole filtered view, not the visible page.
+ *
+ * One row past `limit` is fetched so truncation is detected from the rows
+ * themselves instead of trusting the (possibly stale) count for the cap.
+ */
+export async function loadUploadsExport(
+  db: Database,
+  opts: {
+    userId?: number | undefined
+    sortColumn?: string | undefined
+    sortDirection?: 'asc' | 'desc' | undefined
+    filter?: string | undefined
+    kind?: UploadKind | undefined
+    limit?: number | undefined
+  } = {},
+): Promise<{ rows: UploadRow[]; total: number; truncated: boolean }> {
+  let {
+    userId,
+    sortColumn = 'created_at',
+    sortDirection = 'desc',
+    filter,
+    kind,
+    limit = UPLOADS_EXPORT_LIMIT,
+  } = opts
+  let [total, fetched] = await Promise.all([
+    countUploads(db, userId, filter, kind),
+    listUploads(db, userId, {
+      limit: limit + 1,
+      offset: 0,
+      sortColumn,
+      sortDirection,
+      filter,
+      kind,
+    }),
+  ])
+  let truncated = fetched.length > limit
+  let rows = truncated ? fetched.slice(0, limit) : fetched
+  // A row inserted between the count and the list query can leave `total` one
+  // short; never report fewer rows than the file actually contains.
+  return { rows, total: Math.max(total, rows.length + (truncated ? 1 : 0)), truncated }
 }
 
 /**
