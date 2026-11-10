@@ -114,8 +114,10 @@ mkdir -p .pnpm-home/run && chmod 700 .pnpm-home/run
 XDG_RUNTIME_DIR="$PWD/.pnpm-home/run" pnpm update --store-dir "$PWD/.pnpm-store"
 ```
 
-`scripts/update-remix.ts` exports the store/cache dirs but not this variable, so
-a sandboxed `npm run update:remix` needs the same `XDG_RUNTIME_DIR` override.
+`scripts/update-remix.ts` exports the store/cache dirs and points
+`XDG_RUNTIME_DIR` at `<store>/cache/runtime` (created with mode `0700`) for the
+pnpm child processes, so a sandboxed `npm run update:remix` keeps the locks
+inside the workspace.
 
 ### `ERR_PNPM_UNEXPECTED_STORE` after switching `--store-dir`
 

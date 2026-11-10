@@ -23,10 +23,12 @@ import * as path from 'node:path'
 //
 // The store and metadata cache are exported to pnpm as both npm_config_* and
 // pnpm_config_* variables (pnpm 12 reads the pnpm_config_* prefix; the
-// npm_config_* pair keeps older pnpm and nested installs working). The
-// sandbox's global store is read-only. If node_modules is linked from another
-// store, it is removed first so pnpm relinks instead of failing with
-// ERR_PNPM_UNEXPECTED_STORE.
+// npm_config_* pair keeps older pnpm and nested installs working). A writable
+// XDG_RUNTIME_DIR is exported as well, because pnpm 12 puts its
+// store-operation locks there (or in /tmp) and sandboxes deny writes outside
+// the workspace. The sandbox's global store is read-only. If node_modules is
+// linked from another store, it is removed first so pnpm relinks instead of
+// failing with ERR_PNPM_UNEXPECTED_STORE.
 // ---------------------------------------------------------------------------
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -80,7 +82,19 @@ function environmentForStore(storeDir: string | undefined): NodeJS.ProcessEnv {
     npm_config_cache_dir: cacheDir,
     pnpm_config_store_dir: storeDir,
     pnpm_config_cache_dir: cacheDir,
+    XDG_RUNTIME_DIR: runtimeDir(cacheDir),
   }
+}
+
+// pnpm 12 keeps store-operation locks in $XDG_RUNTIME_DIR when it is a
+// user-only directory, and in /tmp otherwise. Sandboxes deny writes outside the
+// workspace (including /tmp and /run/user), so point pnpm at a runtime dir next
+// to the workspace store rather than inheriting the ambient variable.
+function runtimeDir(cacheDir: string): string {
+  let dir = path.join(cacheDir, 'runtime')
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+  fs.chmodSync(dir, 0o700)
+  return dir
 }
 
 type Options = {
