@@ -1,4 +1,5 @@
 export { default as adminController } from './dashboard/controller.tsx'
+export { default as adminOutput } from './output/controller.tsx'
 export { adminChatlog } from './chatlog/controller.tsx'
 export { default as adminChatlogFragments } from './chatlog/fragments/controller.tsx'
 export { default as adminMessages } from './messages/controller.tsx'

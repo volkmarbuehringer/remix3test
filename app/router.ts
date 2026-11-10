@@ -124,6 +124,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Admin routes
   router.map(routes.admin, admin.adminController)
+  router.map(routes.admin.output, admin.adminOutput)
   router.map(routes.admin.chatlog, admin.adminChatlog)
   router.map(routes.admin.messages, admin.adminMessages)
   router.map(routes.admin.fragments, admin.adminFragments)

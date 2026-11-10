@@ -101,6 +101,15 @@ export const routes = route({
     // the grid URL to return to).
     pageSize: post('/page-size'),
 
+    // PDF output for the admin users grid: every row matching the current
+    // search/status filter in the grid's sort order (filter/status/sort/order
+    // query params). The page links here with `data-rmx-document` so the
+    // browser performs a native document navigation and the frame runtime does
+    // not swallow the attachment.
+    output: route('output', {
+      index: get('/'),
+    }),
+
     clients: route('clients', {
       index: get('/'),
       // The frame commits the PUT/DELETE form action path as its src; a later

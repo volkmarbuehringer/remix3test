@@ -423,6 +423,16 @@ const mobilePanelFirstStyle = css({
   '@media (max-width: 1100px)': { order: -1 },
 })
 
+/** Title row: grid title on the left, the PDF export on the right. */
+const titleBarStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
+  flexWrap: 'wrap',
+  marginBottom: theme.space.sm,
+})
+
 const srOnlyStyle = css({
   position: 'absolute',
   width: '1px',
@@ -501,6 +511,25 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     let searchValue = filter ?? ''
     let hasFilters = searchValue.length > 0 || activeStatus !== undefined
     let stalePage = rows.length === 0 && offset > 0
+
+    // Export the whole filtered/sorted result set, not just this page: the
+    // offset is deliberately omitted from the link. `data-rmx-document` makes
+    // the browser navigate natively so the frame runtime does not swallow the
+    // attachment response.
+    let pdfHref =
+      routes.admin.output.index.href() +
+      '?' +
+      buildFilterParams(searchValue, sortColumn, sortDirection, 0, undefined, activeStatus)
+    let pdfLink = (
+      <a
+        href={pdfHref}
+        data-rmx-document
+        data-users-pdf="true"
+        mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+      >
+        <Glyph name="download" width={14} height={14} /> PDF exportieren
+      </a>
+    )
 
     let emptyMessage: string
     if (stalePage) {
@@ -1130,7 +1159,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     if (hasPanel) {
       return (
         <div mix={[table.pageWide, table.minWidth0]}>
-          <h2 mix={table.title}>Benutzer</h2>
+          <div mix={titleBarStyle}>
+            <h2 mix={table.title}>Benutzer</h2>
+            {pdfLink}
+          </div>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
             {gridSection}
@@ -1166,7 +1198,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
     return (
       <div mix={[table.page, dataGridFill]}>
-        <h2 mix={table.title}>Benutzer</h2>
+        <div mix={titleBarStyle}>
+          <h2 mix={table.title}>Benutzer</h2>
+          {pdfLink}
+        </div>
         {gridSection}
       </div>
     )

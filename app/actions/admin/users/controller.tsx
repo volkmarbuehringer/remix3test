@@ -1,13 +1,4 @@
-import {
-  and,
-  ilike,
-  isNull,
-  notNull,
-  or,
-  type Database,
-  type SingleTableWhere,
-  type TableRow,
-} from 'remix/data-table'
+import { type Database, type TableRow } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { email, minLength } from 'remix/data-schema/checks'
@@ -16,6 +7,13 @@ import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction, logAdminActionStrict } from '../../../data/audit-log.ts'
+import {
+  USERS_SORTABLE_FIELDS,
+  loadUsersPage,
+  parseUsersQuery,
+  toSafeUser,
+  type SafeUser,
+} from '../../../data/admin-users.ts'
 import { apiTokens, users } from '../../../data/schema.ts'
 import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
@@ -40,21 +38,12 @@ import { parseUserStatus, type UserStatus } from '../../../utils/user-status.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
-import { paginate } from '../../../utils/pagination.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
 import { sendAccountDeletionEmail } from '../../../utils/send-email.ts'
 
-import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 
-type SafeUser = Pick<
-  User,
-  'id' | 'email' | 'name' | 'role' | 'email_verified' | 'disabled_at' | 'created_at' | 'updated_at'
->
-
 const USERS_PAGE_SIZE = 15
-
-const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'created_at'] as const
 
 const USERS_FORM_KEYS = [
   'name',
@@ -68,29 +57,6 @@ const USERS_FORM_KEYS = [
   '_filter',
   '_status',
 ] as const
-
-/**
- * Resolve the status filter from the dedicated `status` param, falling back to
- * the legacy `filter=enabled|disabled` form (bookmarks, agent navigation, and
- * the users-export links still use it). The text search and the status filter
- * are independent axes, so a disabled account can also be found by name.
- */
-function resolveUserStatus(
-  filter: string | undefined,
-  statusParam: string | undefined,
-): UserStatus | undefined {
-  return parseUserStatus(statusParam) ?? parseUserStatus(filter)
-}
-
-/**
- * The text-search term. A legacy `filter=enabled|disabled` token is always a
- * status, never a search term — including when a `status` param is also
- * present, so `?filter=enabled&status=disabled` cannot accidentally search
- * names for the literal string "enabled".
- */
-function resolveUserFilter(filter: string | undefined): string | undefined {
-  return parseUserStatus(filter) ? undefined : filter
-}
 
 const userCreateSchema = f.object({
   name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
@@ -116,74 +82,6 @@ const userUpdateSchema = f.object({
 })
 
 // ── Helpers ──
-
-function toSafeUser(u: User): SafeUser {
-  return {
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    role: u.role,
-    email_verified: u.email_verified,
-    disabled_at: u.disabled_at,
-    created_at: u.created_at,
-    updated_at: u.updated_at,
-  }
-}
-
-/** Escape LIKE wildcards so a text filter is treated as a literal substring
- *  (mirrors the admin-lists search). Without this, an email like
- *  `john_doe@x.com` matches `johnXdoe@x.com` too. */
-function likePattern(value: string): string {
-  return `%${value.replace(/[%_\\]/g, '\\$&')}%`
-}
-
-function buildUsersFilterPredicate(
-  filter?: string,
-  status?: UserStatus,
-): SingleTableWhere<typeof users> | undefined {
-  let term = filter?.trim()
-  let filterPredicate: SingleTableWhere<typeof users> | undefined = term
-    ? /^\d+$/.test(term)
-      ? { id: Number(term) }
-      : or(ilike('name', likePattern(term)), ilike('email', likePattern(term)))
-    : undefined
-  let statusPredicate: SingleTableWhere<typeof users> | undefined =
-    status === 'enabled'
-      ? isNull('disabled_at')
-      : status === 'disabled'
-        ? notNull('disabled_at')
-        : undefined
-
-  if (filterPredicate && statusPredicate) return and(filterPredicate, statusPredicate)
-  return filterPredicate ?? statusPredicate
-}
-
-async function loadGridData(
-  db: Database,
-  opts: {
-    offset: number
-    column: string
-    direction: 'asc' | 'desc'
-    filter?: string | undefined
-    status?: UserStatus | undefined
-    pageSize: number
-  },
-): Promise<{ rows: SafeUser[]; hasMore: boolean; total: number }> {
-  let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
-  let where = buildUsersFilterPredicate(opts.filter, opts.status)
-  let [total, { items: page, hasMore }] = await Promise.all([
-    db.count(users, where ? { where } : undefined),
-    paginate(db, users, {
-      pageSize: opts.pageSize,
-      page: pageNum,
-      orderBy: [[opts.column, opts.direction]],
-      ...(where ? { where } : {}),
-    }),
-  ])
-
-  let rows = (page as User[]).map(toSafeUser)
-  return { rows, hasMore, total }
-}
 
 /** Strips sensitive/private fields before passing form values to the UI. Password
  *  is never echoed back into the DOM; grid-state keys are passed as separate props. */
@@ -297,7 +195,7 @@ async function renderUsersError(
     render: context.render,
     activeItem: 'users',
     loadRows: () =>
-      loadGridData(context.db, {
+      loadUsersPage(context.db, {
         offset: opts.offset,
         column: opts.column,
         direction: opts.direction,
@@ -342,7 +240,7 @@ async function renderUsersError(
  * frame action-path resolver, which re-renders the grid when a stale frame
  * reload GETs the POST toggle path.
  */
-async function renderUsersIndex(
+export async function renderUsersIndex(
   context: Pick<AppContext, 'db' | 'render' | 'session' | 'url' | 'auth'>,
 ): Promise<Response> {
   let pageKey = PAGE_SIZE_KEYS.adminUsers
@@ -352,18 +250,9 @@ async function renderUsersIndex(
   // `offset=Infinity`/`1e21` would otherwise reach the SQL OFFSET and 500 the
   // page; keep the value inside the safe-integer range.
   let offset = Number.isSafeInteger(rawOffset) && rawOffset > 0 ? rawOffset : 0
-  let filterParam = context.url.searchParams.get('filter') || undefined
-  let statusParam = context.url.searchParams.get('status') || undefined
-  let status = resolveUserStatus(filterParam, statusParam)
-  let filter = resolveUserFilter(filterParam)
+  let { filter, status, column, direction } = parseUsersQuery(context.url)
 
-  let { column, direction } = parseSort(context.url, {
-    allowedColumns: SORTABLE_FIELDS,
-    defaultColumn: 'name',
-    defaultDirection: 'asc',
-  })
-
-  let { rows, hasMore, total } = await loadGridData(context.db, {
+  let { rows, hasMore, total } = await loadUsersPage(context.db, {
     offset,
     column,
     direction,
@@ -441,7 +330,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: parseUserStatus(rawValues._status),
@@ -456,7 +345,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { password: 'Passwort ist erforderlich.' },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: parseUserStatus(rawValues._status),
@@ -470,7 +359,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { password: complexityError },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: parseUserStatus(rawValues._status),
@@ -487,7 +376,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { email: 'E-Mail existiert bereits.' },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: parseUserStatus(rawValues._status),
@@ -552,7 +441,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: parseUserStatus(rawValues._status),
@@ -571,7 +460,7 @@ export default createController(routes.admin.users, {
             formValues: userFormValues(rawValues),
             fieldErrors: { email: 'E-Mail existiert bereits.' },
             offset: gridOffset(rawValues),
-            column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+            column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
             status: parseUserStatus(rawValues._status),
@@ -588,7 +477,7 @@ export default createController(routes.admin.users, {
             formValues: userFormValues(rawValues),
             fieldErrors: { password: complexityError },
             offset: gridOffset(rawValues),
-            column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
+            column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
             status: parseUserStatus(rawValues._status),
