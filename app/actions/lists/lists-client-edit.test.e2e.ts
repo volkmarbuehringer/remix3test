@@ -202,8 +202,10 @@ describe('lists new-list creation', () => {
       let draftTitle = `Entwurf ${Date.now()}`
       await typeInto(page.locator('#lists-title'), draftTitle)
 
-      // Leave the draft behind by opening a real list.
-      await page.locator(`[data-list-id="${targetId}"] a`).click()
+      // Leave the draft behind by opening a real list. Scope to the row's
+      // title link: the same row also carries the PDF-export link in its
+      // actions menu, so a bare `a` selector is ambiguous in strict mode.
+      await page.locator(`[data-list-id="${targetId}"] a[href*="load="]`).click()
       await page.waitForFunction(
         (expected) =>
           (document.querySelector('#lists-title') as HTMLInputElement)?.value === expected,
