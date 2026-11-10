@@ -3,6 +3,7 @@
 **Source:** consolidated from `ad-hoc-verification-safety`, `playwright-capture-swallowed-exception-stack`, `remix3-html-amp-escaped-assertions`
 
 **Extracted:** 2026-08-30 … 2026-09-30
+**Extended:** 2026-11-10 by the `/admin/uploads` PDF-export visual check
 **Context:** Test-writing and verification practices that prevent false positives, live-data damage, and blind debugging. For harness failures see `test-harness-gotchas.md`; for state isolation see `state-isolation-and-e2e-serve.md`.
 
 ## Ad-hoc browser checks must not mutate the persistent database
@@ -22,6 +23,37 @@ Instead:
 2. **Run destructive paths in the ephemeral test DB** — `t.serve(await createTestServer((request) => router.fetch(request)))` with self-seeded rows, deleted only in `finally` (`DELETE FROM lists WHERE id = $1`). See `state-isolation-and-e2e-serve.md`.
 3. **Snapshot before touching a persistent DB** (row ids/counts), and avoid any click that can commit.
 4. **Separate selection from mutation** — selection is often view-only and safe to automate.
+
+## Screenshot a UI change from an ephemeral e2e run
+
+To verify *how* a change looks (control placement, responsive wrap, dark mode), render the page from
+a throwaway `*.test.e2e.ts` against the ephemeral test DB instead of clicking through the dev server
+(§ above). Seed what the page needs, add the session cookie, screenshot at desktop and phone widths.
+(`t.serve(createTestServer(...))` + cookie wiring: see `state-isolation-and-e2e-serve.md`.)
+
+```ts
+// e.g. app/actions/admin/uploads/tmp-visual-check.test.e2e.ts — delete after the check
+let server = await createTestServer((request) => router.fetch(request))
+let page = await t.serve(server)
+await page.context().addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+await page.setViewportSize({ width: 1440, height: 900 })
+await page.goto(routes.admin.uploads.index.href())
+await page.locator('[data-uploads-pdf]').waitFor({ timeout: 15_000 })
+await page.waitForTimeout(500)
+await page.screenshot({ path: 'tmp/uploads-pdf-desktop.png' })
+```
+
+- **Write the image under the repo's gitignored `tmp/`.** In an agent shell `/tmp` is private to one
+  command execution: `page.screenshot({ path: '/tmp/x.png' })` succeeds inside the test run, yet the
+  next tool call sees no such file (checked 2026-11-10: bash `printf > /tmp/x`, then `ls /tmp/x` in a
+  new execution → missing; the same file under `tmp/` persists). The e2e worker's cwd is the repo
+  root, so the relative `tmp/<name>.png` path above lands in the workspace.
+- Repeat at a phone viewport (`{ width: 390, height: 844 }`, `fullPage: true`) and assert the page
+  does not scroll sideways:
+  `page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)`
+  ≤ 1.
+- Delete the seeded rows in the test (`DELETE … WHERE filename LIKE '<prefix>-%'`) and then delete the
+  throwaway `*.test.e2e.ts` — it is a verification artifact, not a test to ship.
 
 ## Capture a stack swallowed by a crash card
 
@@ -79,3 +111,5 @@ assert.ok(
 - A control arms on the first click and confirms on the second; a scripted double-click is a live delete.
 - A crash card hides the real exception stack from `pageerror`/console.
 - An assertion on an `href`/`action`/query string in rendered HTML fails unexpectedly.
+- You need a screenshot to check a UI change's placement or responsive layout without touching the
+  dev server (and `/tmp` images vanish between agent tool calls).
