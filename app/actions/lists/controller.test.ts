@@ -2,6 +2,7 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../db.ts'
+import { LIST_ITEM_LABEL_MAX_CHARS } from '../../data/lists.ts'
 import { lists, users } from '../../data/schema.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser, createTestUser } from '../../../test/utils.ts'
@@ -244,6 +245,134 @@ describe('Lists controller', () => {
       )
       assert.ok(copyAction.test(text), 'the duplicate form action must carry filter/sort/size')
       assert.ok(deleteAction.test(text), 'the delete form action must carry filter/sort/size')
+    } finally {
+      await db.delete(lists, { id })
+    }
+  })
+
+  it('GET /lists/:id/pdf downloads one list and its sidebar action bypasses frames', async () => {
+    let marker = 'list-pdf-' + Date.now()
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: marker,
+        description: 'PDF integration test',
+        items: [
+          {
+            label: 'Open item',
+            priority: 'high',
+            due: '2026-11-12',
+            tags: ['pdf', 'test'],
+          },
+          { label: 'Done item', done: true },
+        ],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    try {
+      let pageResponse = await router.fetch(`${LISTS_URL}?filter=${marker}&load=${id}`, {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(pageResponse.status, 200)
+      let html = await pageResponse.text()
+      let link = new RegExp(`<a[^>]*data-list-pdf="${id}"[^>]*>`).exec(html)
+      assert.ok(link, 'the saved list menu should contain a PDF export link')
+      assert.ok(link[0].includes(`href="/lists/${id}/pdf"`))
+      assert.ok(link[0].includes('data-rmx-document'))
+
+      let response = await router.fetch(`${LISTS_URL}/${id}/pdf`, {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(response.status, 200)
+      assert.equal(response.headers.get('Content-Type'), 'application/pdf')
+      assert.equal(response.headers.get('Cache-Control'), 'private, no-store')
+      assert.ok((response.headers.get('Content-Disposition') ?? '').includes(`liste-${id}-`))
+      let bytes = new Uint8Array(await response.arrayBuffer())
+      assert.equal(String.fromCharCode(...bytes.subarray(0, 4)), '%PDF')
+    } finally {
+      await db.delete(lists, { id })
+    }
+  })
+
+  it('GET /lists/:id/pdf terminates a framed direct hit with the full lists page', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ title: 'Framed PDF fallback', items: [{ label: 'Item' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+    let siblingId: number | undefined
+
+    try {
+      let siblingTitle = 'Framed PDF sibling ' + Date.now()
+      let siblingResponse = await router.fetch(LISTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': userCsrfToken,
+          Cookie: userCookie,
+        },
+        body: JSON.stringify({ title: siblingTitle, items: [] }),
+      })
+      assert.equal(siblingResponse.status, 200)
+      siblingId = (await siblingResponse.json()).id
+
+      let pdfUrl = `${LISTS_URL}/${id}/pdf`
+      let framed = await router.fetch(pdfUrl, {
+        headers: { Cookie: userCookie, 'X-Remix-Frame': 'true' },
+      })
+      assert.equal(framed.status, 302)
+      assert.ok((framed.headers.get('Location') ?? '').includes('frameDownload=1'))
+
+      let fallback = await router.fetch(`${pdfUrl}?frameDownload=1`, {
+        headers: { Cookie: userCookie, 'X-Remix-Frame': 'true' },
+      })
+      assert.equal(fallback.status, 200)
+      let html = await fallback.text()
+      assert.ok(html.includes('Framed PDF fallback'))
+      assert.ok(html.includes(siblingTitle), 'the fallback must render the real sidebar')
+      assert.ok(!html.startsWith('%PDF'))
+    } finally {
+      await db.delete(lists, { id })
+      if (siblingId !== undefined) await db.delete(lists, { id: siblingId })
+    }
+  })
+
+  it("GET /lists/:id/pdf rejects invalid ids and another user's list", async () => {
+    let invalid = await router.fetch(`${LISTS_URL}/invalid/pdf`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(invalid.status, 400)
+
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': adminCsrfToken,
+        Cookie: adminCookie,
+      },
+      body: JSON.stringify({ title: 'Private admin PDF list', items: [] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    try {
+      let response = await router.fetch(`${LISTS_URL}/${id}/pdf`, {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(response.status, 404)
     } finally {
       await db.delete(lists, { id })
     }
@@ -2141,6 +2270,40 @@ describe('Lists controller', () => {
     assert.equal(patchResponse.status, 400)
     let body = await patchResponse.json()
     assert.ok(body.error, 'invalid priority should be rejected')
+  })
+
+  it('PUT /lists/:id (patch) rejects an item label over the export cap', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Label cap', items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
+
+    try {
+      let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': userCsrfToken,
+          Cookie: userCookie,
+          'If-Match': String(updated_at),
+        },
+        body: JSON.stringify({
+          items: [{ label: 'x'.repeat(LIST_ITEM_LABEL_MAX_CHARS + 1) }],
+        }),
+      })
+      assert.equal(patchResponse.status, 400)
+      let body = await patchResponse.json()
+      assert.ok(body.error, 'an oversized item label should be rejected')
+    } finally {
+      await db.delete(lists, { id })
+    }
   })
 
   it('PUT /lists/:id (patch) persists and clears per-item metadata', async () => {

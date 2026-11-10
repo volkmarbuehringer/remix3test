@@ -37,6 +37,7 @@ export const routes = route({
   lists: route('lists', {
     index: get('/'),
     targets: get('/targets'),
+    pdf: get('/:id/pdf'),
     create: post('/'),
     update: put('/:id'),
     move: post('/:id/move'),

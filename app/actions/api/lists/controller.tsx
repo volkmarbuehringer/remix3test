@@ -6,7 +6,14 @@ import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth, requireApiUser } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { routes } from '../../../routes.ts'
-import { getAllLists, getListById, createList, patchList, deleteList } from '../../../data/lists.ts'
+import {
+  getAllLists,
+  getListById,
+  createList,
+  patchList,
+  deleteList,
+  LIST_ITEM_LABEL_MAX_CHARS,
+} from '../../../data/lists.ts'
 
 const apiListsLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 60 })
 
@@ -22,7 +29,7 @@ function apiListsRateLimit(): Middleware {
 
 const listItemSchema = s.object({
   id: s.string(),
-  label: s.string(),
+  label: s.string().pipe(maxLength(LIST_ITEM_LABEL_MAX_CHARS)),
 })
 
 const listsSaveSchema = s.object({

@@ -104,6 +104,9 @@ import {
   iconActionDangerStyle,
 } from './lists-styles.ts'
 
+/** Mirrors the server-side item-label cap (`LIST_ITEM_LABEL_MAX_CHARS`). */
+const ITEM_LABEL_MAX_LENGTH = 2_000
+
 /**
  * Presentational contract for the /lists editor. The ListsClient closure builds
  * this view and calls renderListsEditor; every mutation flows back through the
@@ -860,6 +863,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             ]}
             placeholder="Neues Element eingeben…"
             rows={1}
+            maxLength={ITEM_LABEL_MAX_LENGTH}
             wrap="soft"
             defaultValue={newItemLabel}
           />
@@ -1714,6 +1718,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           ]}
                           autoFocus
                           rows={3}
+                          maxLength={ITEM_LABEL_MAX_LENGTH}
                           wrap="soft"
                           defaultValue={editText}
                         />

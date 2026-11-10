@@ -688,6 +688,16 @@ function ListsLayout(
                             Duplizieren
                           </button>
                         </form>
+                        <a
+                          href={routes.lists.pdf.href({ id: listId })}
+                          data-rmx-document
+                          data-list-pdf={listId}
+                          draggable="false"
+                          mix={listMenuItemStyle}
+                          aria-label={`Liste "${displayName}" als PDF exportieren`}
+                        >
+                          PDF exportieren
+                        </a>
                         <form
                           method="POST"
                           action={withSidebarState(routes.lists.destroy.href({ id: listId }))}
@@ -934,6 +944,7 @@ const listMenuItemStyle = css({
   fontFamily: theme.fontFamily.sans,
   fontSize: theme.fontSize.sm,
   textAlign: 'left',
+  textDecoration: 'none',
   cursor: 'pointer',
   ':hover': {
     background: theme.surface.lvl2,

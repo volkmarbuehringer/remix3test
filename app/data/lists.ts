@@ -16,6 +16,13 @@ interface ListItem {
   updatedAt?: number
 }
 
+/**
+ * Longest item label a list may store. Longer pasted text is rejected at the
+ * route boundary so no request has to lay out an arbitrarily large label; the
+ * PDF export clamps any older longer label before it reaches pdfmake.
+ */
+export const LIST_ITEM_LABEL_MAX_CHARS = 2_000
+
 const listItemWireSchema = z.object({
   id: z.string(),
   label: z.string(),

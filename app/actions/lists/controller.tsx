@@ -19,6 +19,8 @@ import {
   copyList,
   mergeListIntoList,
   copyItemsToList,
+  LIST_ITEM_LABEL_MAX_CHARS,
+  type ListRow,
   type ListSummary,
   type ListItemInput,
   type SidebarSort,
@@ -32,10 +34,17 @@ import {
 } from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 import { getPageSize } from '../../utils/get-page-size.ts'
+import { parseId } from '../../utils/ids.ts'
+import { buildListPdf } from '../../utils/list-pdf.ts'
+import { pdfAttachmentResponse } from '../../utils/pdf-utils.ts'
+
+const FRAME_DOWNLOAD_PARAM = 'frameDownload'
 
 const listItemSchema = s.object({
   id: s.optional(s.string()),
-  label: s.string(),
+  // Longer labels are rejected up front: they cannot be exported intact and
+  // made the PDF layout path pathologically slow (see list-pdf.ts).
+  label: s.string().pipe(maxLength(LIST_ITEM_LABEL_MAX_CHARS)),
   done: s.optional(s.boolean()),
   priority: s.optional(s.enum_(['low', 'medium', 'high'])),
   due: s.optional(s.string()),
@@ -50,6 +59,16 @@ function toSidebarEntry(row: ListSummary): ListSidebarEntry {
     count: row.count,
     doneCount: row.doneCount,
     updatedAt: row.updated_at,
+  }
+}
+
+function toInitialState(row: ListRow): ListInitialState {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    items: row.list,
+    updated_at: row.updated_at,
   }
 }
 
@@ -221,13 +240,7 @@ export default createController(routes.lists, {
           let row = await getListById(context.db, listId, listUserId)
           if (row) {
             activeItem = `list:${listId}` as ListsNavItem
-            initialState = {
-              id: row.id,
-              title: row.title,
-              description: row.description,
-              items: row.list,
-              updated_at: row.updated_at,
-            }
+            initialState = toInitialState(row)
           }
         }
       }
@@ -239,6 +252,65 @@ export default createController(routes.lists, {
         <ListsIndexPage initialState={initialState} />,
         listResult,
       )
+    },
+
+    async pdf(context) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
+        return new Response('Ungültige Listen-ID.', { status: 400 })
+      }
+
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
+
+      try {
+        let row = await getListById(context.db, listId, listUserId)
+        if (!row) {
+          return new Response('Liste nicht gefunden.', { status: 404 })
+        }
+
+        // Native downloads use data-rmx-document. If a framed direct hit still
+        // arrives, redirect only once; the marked request renders the list as
+        // HTML so the frame never tries to mount a binary PDF response.
+        if (context.request.headers.get('X-Remix-Frame') === 'true') {
+          let url = new URL(context.url)
+          if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {
+            // frameRedirects() follows this marker URL in-frame, so this
+            // fragment is mounted (and briefly visible) before the client
+            // reconciles frame.src. Render the normal page, with the real
+            // sidebar, instead of a one-row placeholder.
+            let pageSize = getPageSize(context.session, 15)
+            let summaries = await getListSummaries(
+              context.db,
+              { limit: pageSize, offset: 0, sort: 'recent' },
+              listUserId,
+            )
+            return renderListsPage(
+              context.render,
+              `list:${row.id}`,
+              summaries.data.map(toSidebarEntry),
+              <ListsIndexPage initialState={toInitialState(row)} />,
+              {
+                offset: summaries.offset,
+                hasMore: summaries.hasMore,
+                limit: pageSize,
+                total: summaries.total,
+              },
+            )
+          }
+          url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
+          return redirect(url.href)
+        }
+
+        let buffer = await buildListPdf(row)
+        let filename = `liste-${row.id}-${new Date().toISOString().slice(0, 10)}.pdf`
+        let response = pdfAttachmentResponse(buffer, filename)
+        response.headers.set('Cache-Control', 'private, no-store')
+        return response
+      } catch (error) {
+        context.logger?.(`Fehler beim Erstellen des Listen-PDFs: ${error}`)
+        return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
+      }
     },
 
     async create(context) {
