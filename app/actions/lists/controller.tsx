@@ -37,6 +37,7 @@ import { getPageSize } from '../../utils/get-page-size.ts'
 import { parseId } from '../../utils/ids.ts'
 import { buildListPdf } from '../../utils/list-pdf.ts'
 import { pdfAttachmentResponse } from '../../utils/pdf-utils.ts'
+import { listPdfViewLabel, parseListPdfView, selectListPdfItems } from './list-pdf-view.ts'
 
 const FRAME_DOWNLOAD_PARAM = 'frameDownload'
 
@@ -302,7 +303,14 @@ export default createController(routes.lists, {
           return redirect(url.href)
         }
 
-        let buffer = await buildListPdf(row)
+        // The editor links here with its current view; without params this is
+        // the whole saved list (manual order), so the sidebar export is unchanged.
+        let view = parseListPdfView(context.url.searchParams)
+        let items = selectListPdfItems(row.list, view)
+        let buffer = await buildListPdf(
+          { ...row, list: items },
+          { viewLabel: listPdfViewLabel(view), totalCount: row.list.length },
+        )
         let filename = `liste-${row.id}-${new Date().toISOString().slice(0, 10)}.pdf`
         let response = pdfAttachmentResponse(buffer, filename)
         response.headers.set('Cache-Control', 'private, no-store')

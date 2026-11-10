@@ -26,6 +26,8 @@ import {
   removeItemsByIds,
   setDoneByIds,
   shuffleItems,
+  sortModeLabel,
+  statusFilterLabel,
   clearDoneItems,
   toggleDoneAt,
   addItem as appendItem,
@@ -302,14 +304,6 @@ export const ListsClient = clientEntry(
       announce('Filter zurückgesetzt')
       void handle.update()
     }
-    let statusFilterLabel = (status: StatusFilter): string =>
-      status === 'open'
-        ? 'Offen'
-        : status === 'done'
-          ? 'Erledigt'
-          : status === 'overdue'
-            ? 'Überfällig'
-            : 'Alle'
     let setStatusFilter = (status: StatusFilter) => {
       disarmClear()
       statusFilter = status
@@ -327,16 +321,6 @@ export const ListsClient = clientEntry(
       announce(value ? 'Erledigte ausgeblendet' : 'Erledigte eingeblendet')
       void handle.update()
     }
-    let sortLabel = (mode: SortMode): string =>
-      mode === 'az'
-        ? 'A–Z'
-        : mode === 'done'
-          ? 'Nach Erledigt'
-          : mode === 'due'
-            ? 'Nach Fälligkeit'
-            : mode === 'updated'
-              ? 'Nach Änderung'
-              : 'Manuell'
     let setSortMode = (mode: SortMode) => {
       disarmClear()
       sortMode = mode
@@ -347,7 +331,7 @@ export const ListsClient = clientEntry(
       announce(
         mode === 'manual'
           ? 'Manuelle Reihenfolge'
-          : `Ansicht: ${sortLabel(mode)} (nicht gespeichert)`,
+          : `Ansicht: ${sortModeLabel(mode)} (nicht gespeichert)`,
       )
       void handle.update()
     }

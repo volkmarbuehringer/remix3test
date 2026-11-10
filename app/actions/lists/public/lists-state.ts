@@ -30,6 +30,30 @@ export function priorityLabel(p: ItemPriority): string {
   return p === 'high' ? 'Hoch' : p === 'medium' ? 'Mittel' : 'Niedrig'
 }
 
+/** German label for a status tab, shared by the editor and the PDF export. */
+export function statusFilterLabel(status: StatusFilter): string {
+  return status === 'open'
+    ? 'Offen'
+    : status === 'done'
+      ? 'Erledigt'
+      : status === 'overdue'
+        ? 'Überfällig'
+        : 'Alle'
+}
+
+/** German label for a view-only sort mode. */
+export function sortModeLabel(mode: SortMode): string {
+  return mode === 'az'
+    ? 'A–Z'
+    : mode === 'done'
+      ? 'Nach Erledigt'
+      : mode === 'due'
+        ? 'Nach Fälligkeit'
+        : mode === 'updated'
+          ? 'Nach Änderung'
+          : 'Manuell'
+}
+
 /**
  * Local calendar date key ("YYYY-MM-DD") for an epoch — compared against item
  * `due` strings, which are plain calendar days (no time, no timezone). ISO

@@ -45,16 +45,26 @@ function pdfTable(list: ListRow): ContentTable {
   return tableOf(createListPdfDocument(list))
 }
 
-function summaryText(list: ListRow): string {
-  let content = createListPdfDocument(list).content
+function contentTexts(document: TDocumentDefinitions): string[] {
+  let content = document.content
   assert.ok(Array.isArray(content))
-  let summary = (content as Content[])
-    .map((entry) =>
-      typeof entry === 'object' && entry !== null && 'text' in entry ? String(entry.text) : '',
-    )
-    .find((text) => text.startsWith('Insgesamt'))
+  return (content as Content[]).map((entry) =>
+    typeof entry === 'object' && entry !== null && 'text' in entry ? String(entry.text) : '',
+  )
+}
+
+function summaryTextOf(document: TDocumentDefinitions): string {
+  let summary = contentTexts(document).find(
+    (text) =>
+      (text.startsWith('Insgesamt ') || /^\d+ von \d+ Einträgen/.test(text)) &&
+      / · \d+ erledigt/.test(text),
+  )
   assert.ok(summary, 'the list PDF should contain the item summary line')
   return summary
+}
+
+function summaryText(list: ListRow): string {
+  return summaryTextOf(createListPdfDocument(list))
 }
 
 describe('buildListPdf', () => {
@@ -131,5 +141,29 @@ describe('buildListPdf', () => {
       summaryText(list).includes(`nur ${LIST_PDF_MAX_ITEMS} von ${count} Einträgen`),
       'the summary must state that the export is partial',
     )
+  })
+
+  it('describes a filtered view and reports the visible subset', () => {
+    let document = createListPdfDocument(
+      { ...LIST, list: LIST.list.slice(0, 1) },
+      { viewLabel: 'Ansicht: Status Offen · A–Z', totalCount: 2 },
+    )
+
+    assert.ok(contentTexts(document).includes('Ansicht: Status Offen · A–Z'))
+    assert.ok(
+      summaryTextOf(document).startsWith('1 von 2 Einträgen · 1 erledigt'),
+      'a filtered export must state how many of the stored items it contains',
+    )
+  })
+
+  it('distinguishes an empty view from an empty list', () => {
+    let filtered = createListPdfDocument(
+      { ...LIST, list: [] },
+      { viewLabel: 'Ansicht: Status Offen', totalCount: 2 },
+    )
+    assert.ok(contentTexts(filtered).includes('Keine Einträge für diese Ansicht.'))
+
+    let empty = createListPdfDocument({ ...LIST, title: '', description: '', list: [] })
+    assert.ok(contentTexts(empty).includes('Diese Liste enthält keine Einträge.'))
   })
 })

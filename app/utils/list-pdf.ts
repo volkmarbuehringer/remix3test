@@ -95,13 +95,27 @@ function truncationNote(listCount: number, exported: number, shortened: boolean)
   return notes.join('')
 }
 
+export interface ListPdfOptions {
+  /** Describes the exported view (filter/sort) under the document header. */
+  viewLabel?: string | undefined
+  /** Items before the view filter, so a filtered export can state "X von Y". */
+  totalCount?: number | undefined
+}
+
 /** Describe a PDF for one saved list, including (bounded) item metadata. */
-export function createListPdfDocument(list: ListRow): TDocumentDefinitions {
+export function createListPdfDocument(
+  list: ListRow,
+  options: ListPdfOptions = {},
+): TDocumentDefinitions {
   let titleText = list.title.trim() || list.description.trim() || `Liste ${list.id}`
   let title = clampCell(titleText)
   let description = clampCell(list.description)
   let doneCount = list.list.filter((item) => item.done === true).length
-  let itemCountLabel = `${list.list.length} ${list.list.length === 1 ? 'Eintrag' : 'Einträge'}`
+  let totalCount = options.totalCount ?? list.list.length
+  let countLabel =
+    totalCount === list.list.length
+      ? `Insgesamt ${list.list.length} ${list.list.length === 1 ? 'Eintrag' : 'Einträge'}`
+      : `${list.list.length} von ${totalCount} Einträgen`
   let itemRows = buildItemRows(list)
   let shortened = title.truncated || description.truncated || itemRows.shortened
   let content: TDocumentDefinitions['content'] = [
@@ -109,20 +123,30 @@ export function createListPdfDocument(list: ListRow): TDocumentDefinitions {
     { text: `Zuletzt geändert: ${formatCompactDateDE(list.updated_at)}`, style: 'subheader' },
   ]
 
+  if (options.viewLabel) {
+    content.push({ text: options.viewLabel, style: 'subheader' })
+  }
+
   if (list.description.trim() && list.description.trim() !== titleText) {
     content.push({ text: description.text, style: 'description' })
   }
 
   content.push({
     text:
-      `Insgesamt ${itemCountLabel} · ${doneCount} erledigt` +
+      `${countLabel} · ${doneCount} erledigt` +
       truncationNote(list.list.length, itemRows.rows.length, shortened),
     style: 'subheader',
     margin: [0, 0, 0, 20],
   })
 
   if (list.list.length === 0) {
-    content.push({ text: 'Diese Liste enthält keine Einträge.', style: 'description' })
+    content.push({
+      text:
+        totalCount === 0
+          ? 'Diese Liste enthält keine Einträge.'
+          : 'Keine Einträge für diese Ansicht.',
+      style: 'description',
+    })
   } else {
     content.push({
       table: {
@@ -159,6 +183,6 @@ export function createListPdfDocument(list: ListRow): TDocumentDefinitions {
 }
 
 /** Build a PDF attachment body for one saved list. */
-export async function buildListPdf(list: ListRow): Promise<Buffer> {
-  return generatePdfBuffer(createListPdfDocument(list))
+export async function buildListPdf(list: ListRow, options: ListPdfOptions = {}): Promise<Buffer> {
+  return generatePdfBuffer(createListPdfDocument(list, options))
 }

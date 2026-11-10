@@ -1,7 +1,7 @@
 import { type RemixNode, css, on, ref } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
-import { frames } from '../../../routes.ts'
-import button from '../../../ui/theme/button.ts'
+import { frames, routes } from '../../../routes.ts'
+import button, { buttonLink } from '../../../ui/theme/button.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 
 import type { ListsDragMixinDescriptor } from './lists-drag-mixin.ts'
@@ -18,6 +18,7 @@ import {
   priorityLabel,
 } from './lists-state.ts'
 import { UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
+import { listViewSearchParams } from './lists-view-params.ts'
 import {
   multilineDisplayStyle,
   gripStyle,
@@ -106,6 +107,25 @@ import {
 
 /** Mirrors the server-side item-label cap (`LIST_ITEM_LABEL_MAX_CHARS`). */
 const ITEM_LABEL_MAX_LENGTH = 2_000
+
+/** Download URL for the open list's current view (filters and ordering). */
+function pdfViewHref(
+  listId: number,
+  listFilter: string,
+  statusFilter: StatusFilter,
+  hideDone: boolean,
+  sortMode: SortMode,
+  reverseView: boolean,
+): string {
+  let search = listViewSearchParams({
+    query: listFilter,
+    status: statusFilter,
+    hideDone,
+    sort: sortMode,
+    reverse: reverseView,
+  }).toString()
+  return routes.lists.pdf.href({ id: listId }) + (search ? `?${search}` : '')
+}
 
 /**
  * Presentational contract for the /lists editor. The ListsClient closure builds
@@ -471,6 +491,23 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
               >
                 ⧉ Duplizieren
               </button>
+              <a
+                href={pdfViewHref(
+                  loadedListId,
+                  listFilter,
+                  statusFilter,
+                  hideDone,
+                  sortMode,
+                  reverseView,
+                )}
+                data-rmx-document
+                data-list-pdf-view
+                title="Aktuelle Ansicht (Filter und Sortierung) als PDF exportieren"
+                aria-label="Liste in der aktuellen Ansicht als PDF exportieren"
+                mix={buttonLink({ tone: 'secondary' })}
+              >
+                PDF exportieren
+              </a>
               {isDirty() && (
                 <button
                   mix={[button({ tone: 'secondary' }), on('click', discardChanges)]}

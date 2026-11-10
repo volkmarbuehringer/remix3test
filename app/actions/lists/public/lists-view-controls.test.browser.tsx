@@ -68,6 +68,10 @@ function sortSelect(container: HTMLElement): HTMLSelectElement {
   return container.querySelector('select[aria-label="Sortieren"]') as HTMLSelectElement
 }
 
+function pdfViewLink(container: HTMLElement): HTMLAnchorElement {
+  return container.querySelector('[data-list-pdf-view]') as HTMLAnchorElement
+}
+
 function buttonByText(container: HTMLElement, text: string): HTMLButtonElement | undefined {
   return [...container.querySelectorAll('button')].find(
     (button) => button.textContent?.trim() === text,
@@ -155,6 +159,60 @@ describe('lists view controls', () => {
     assert.ok(await waitFor(() => itemIds(container).join(',') === 'b'))
     assert.equal(hideDone(container).checked, false)
     assert.equal(hideDone(container).disabled, true)
+  })
+
+  it('keeps the PDF export link in sync with the visible view', async () => {
+    let result = mount([
+      { id: 'a', label: 'Alpha' },
+      { id: 'b', label: 'Beta', done: true },
+    ])
+    let container = result.container as HTMLElement
+    await waitFor(() => statusTab(container, 'all') !== null)
+
+    assert.equal(pdfViewLink(container).getAttribute('href'), '/lists/7/pdf')
+    assert.ok(pdfViewLink(container).hasAttribute('data-rmx-document'))
+
+    await result.act(() => statusTab(container, 'open').click())
+    assert.ok(
+      await waitFor(
+        () => pdfViewLink(container).getAttribute('href') === '/lists/7/pdf?status=open',
+      ),
+      'the status tab must reach the export URL',
+    )
+
+    await setFilter(container, 'alpha')
+    assert.ok(
+      await waitFor(
+        () => pdfViewLink(container).getAttribute('href') === '/lists/7/pdf?q=alpha&status=open',
+      ),
+      'the text filter must reach the export URL',
+    )
+
+    await result.act(() => {
+      let select = sortSelect(container)
+      select.value = 'az'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    assert.ok(
+      await waitFor(
+        () =>
+          pdfViewLink(container).getAttribute('href') ===
+          '/lists/7/pdf?q=alpha&status=open&sort=az',
+      ),
+      'the view sort must reach the export URL',
+    )
+
+    await result.act(() =>
+      (container.querySelector('[data-reverse-toggle]') as HTMLButtonElement).click(),
+    )
+    assert.ok(
+      await waitFor(
+        () =>
+          pdfViewLink(container).getAttribute('href') ===
+          '/lists/7/pdf?q=alpha&status=open&sort=az&reverse=1',
+      ),
+      'the reversed view must reach the export URL',
+    )
   })
 
   it('keeps ↑/↓ available while done rows are hidden and steps over them', async () => {

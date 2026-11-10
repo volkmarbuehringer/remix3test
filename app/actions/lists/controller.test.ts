@@ -287,6 +287,11 @@ describe('Lists controller', () => {
       assert.ok(link[0].includes(`href="/lists/${id}/pdf"`))
       assert.ok(link[0].includes('data-rmx-document'))
 
+      let viewLink = new RegExp(`<a[^>]*data-list-pdf-view[^>]*>`).exec(html)
+      assert.ok(viewLink, 'the open list header should contain a view PDF export link')
+      assert.ok(viewLink[0].includes(`href="/lists/${id}/pdf"`), 'default view carries no params')
+      assert.ok(viewLink[0].includes('data-rmx-document'))
+
       let response = await router.fetch(`${LISTS_URL}/${id}/pdf`, {
         headers: { Cookie: userCookie },
       })
@@ -347,6 +352,53 @@ describe('Lists controller', () => {
     } finally {
       await db.delete(lists, { id })
       if (siblingId !== undefined) await db.delete(lists, { id: siblingId })
+    }
+  })
+
+  it('GET /lists/:id/pdf exports only the rows of the requested view', async () => {
+    let doneItems = Array.from({ length: 40 }, (_, index) => ({
+      label: `Erledigter Eintrag ${index} mit etwas Text`,
+      done: true,
+    }))
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: 'View PDF',
+        items: [{ label: 'Offener Eintrag' }, ...doneItems],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    try {
+      let headers = { Cookie: userCookie }
+      let all = await router.fetch(`${LISTS_URL}/${id}/pdf`, { headers })
+      assert.equal(all.status, 200)
+      let open = await router.fetch(`${LISTS_URL}/${id}/pdf?status=open&sort=az&reverse=1`, {
+        headers,
+      })
+      assert.equal(open.status, 200)
+      assert.equal(open.headers.get('Content-Type'), 'application/pdf')
+      let openBytes = new Uint8Array(await open.arrayBuffer())
+      assert.equal(String.fromCharCode(...openBytes.subarray(0, 4)), '%PDF')
+
+      let allSize = Number(all.headers.get('Content-Length'))
+      let openSize = Number(open.headers.get('Content-Length'))
+      assert.ok(
+        allSize > openSize && openSize > 0,
+        'the open-only export must contain fewer rows than the whole list',
+      )
+
+      // Hand-edited download URLs still produce a PDF instead of a 400.
+      let bogus = await router.fetch(`${LISTS_URL}/${id}/pdf?status=bogus&sort=bogus`, { headers })
+      assert.equal(bogus.status, 200)
+    } finally {
+      await db.delete(lists, { id })
     }
   })
 
