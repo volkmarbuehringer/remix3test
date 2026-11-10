@@ -1,6 +1,6 @@
 ---
 name: remix3-server
-description: "Use when building or hardening Remix 3 server-side routes and controllers — createController vs createAction, the route contract (resources/exclude, patch/head/options, nested-map registration, context.method), context keys and Pick slices, the request pipeline (createRequestListener, middleware ordering, RouterContext vs MiddlewareContext, request.signal), controller consolidation + error-centralization tests, opaque RoutePattern access, typed remix/headers, adding/moving/deleting routes + typed routes.* URLs + parseSafe/context.render upgrades, multipart/fs/S3/bytea uploads, the bytea upload-handler delta, ZIP via node:zlib, shared query parser for PDF/CSV export, and request-handling security (CSRF/CORS/cross-origin middleware, client-IP trust, open redirects, IDOR ownership-scope, path traversal, CSP nonces, Bearer-token JSON API)."
+description: "Use when building or hardening Remix 3 server-side routes and controllers — createController vs createAction, the route contract (resources/exclude, patch/head/options, nested-map registration, context.method), context keys and Pick slices, the request pipeline (createRequestListener, middleware ordering, RouterContext vs MiddlewareContext, request.signal), controller consolidation + error-centralization tests, opaque RoutePattern access, typed remix/headers, adding/moving/deleting routes + typed routes.* URLs + parseSafe/context.render upgrades, multipart/fs/S3/bytea uploads, the bytea upload-handler delta, ZIP via node:zlib, shared query parser + bounded pdfmake layout for PDF/CSV export, and request-handling security (CSRF/CORS/cross-origin middleware, client-IP trust, open redirects, IDOR ownership-scope, path traversal, CSP nonces, Bearer-token JSON API)."
 user-invocable: false
 origin: consolidated
 ---
@@ -166,7 +166,7 @@ Upstream also ships opt-in `/future` streaming entrypoints (`remix/multipart-par
 | --- | --- |
 | Upload endpoints, storage, ordering, rejection handling (the deltas below) | this file, §1–§4 |
 | Bulk ZIP download without a dependency | this file, §6 |
-| Adding a PDF/CSV export to an existing list/report page — sharing the page's parser, a static child route, and the `data-rmx-document` / `X-Remix-Frame` traps | `references/remix-file-uploads/report-pdf-export.md` |
+| Adding a PDF/CSV export — sharing the page's parser, exporting client-held view state, bounding pdfmake's `break-all` layout cost, and the `data-rmx-document` / `X-Remix-Frame` traps | `references/remix-file-uploads/report-pdf-export.md` |
 
 ### Working implementations in this repo
 
@@ -267,7 +267,7 @@ Gotchas:
 - vendor `remix` skill (`.agents/skills/remix/`) — upload examples and middleware patterns
 - `remix3-ui § Frames` (`references/remix3-frame-cliententry/frame-navigation.md`) — serving binary downloads through Frame navigation
 - `app/middleware/uploads.ts`, `app/middleware/upload-files.ts`, `app/middleware/upload-claim.ts`, `app/storage.ts`, `app/data/uploads.ts`, `app/data/upload-files.ts`, `app/utils/zip.ts`, `app/actions/admin/uploads/controller.tsx`, `app/actions/admin/uploadnew/controller.tsx` — working implementations in this repo
-- `references/remix-file-uploads/report-pdf-export.md` — sharing a report page's query parser with a PDF/CSV export, and the `data-rmx-document` / `X-Remix-Frame` download traps
+- `references/remix-file-uploads/report-pdf-export.md` — sharing a report page's query parser with a PDF/CSV export, the client-held view round-trip, pdfmake layout bounds, and the `data-rmx-document` / `X-Remix-Frame` download traps
 
 ---
 

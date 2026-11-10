@@ -111,3 +111,4 @@
 - `references/remix3-css-and-layout/hover-reveal.md` — the hover/focus reveal the touch menu replaces.
 - `references/remix3-testing/cliententry-browser-tests.md` — deferred-response and document-scoped entry tests.
 - `remix3-server` § Security — `/api/*` skips CSRF, so session endpoints stay on the authenticated page route.
+- `remix3-server` → `references/remix-file-uploads/report-pdf-export.md` — the `/lists` header view export reuses `buildVisibleItems` server-side so the PDF matches the visible rows.
