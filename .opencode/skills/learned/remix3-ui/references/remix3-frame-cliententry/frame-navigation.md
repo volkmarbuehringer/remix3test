@@ -164,18 +164,18 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-10 against the installed preview release `v0.20261109.230941-main-af7b225e` (source `af7b225e`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-10 against the installed preview release `v0.20261110.182141-main-d488afb4` (source `d488afb4`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — dispatched by `beginReload()` when the reload starts, before the fetch (`@remix-run/component/src/runtime/frame.ts:766`; inherited reloads at `:856`).
-- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:832`, `:864`).
+- `reloadStart` — dispatched by `beginReload()` when the reload starts, before the fetch (`@remix-run/component/src/runtime/frame.ts:763`; inherited reloads at `:853`).
+- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:829`, `:861`).
 
 There is no pre-commit/before-reconcile event and no `onCommit` option on the public API, so app code cannot bracket the DOM commit:
 
 - Starting the transition on `reloadStart` snapshots the old DOM, but its update callback runs before the response arrives; the later frame swap is not part of that transition.
 - `startViewTransition(async () => { await frame.reload() })` is technically valid (the new snapshot waits for the promise) but holds the transition's update phase for the entire request, freezing the page until the response lands — not acceptable for navigation.
-- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:806`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
+- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:803`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
 - A `MutationObserver` that starts a transition when the frame subtree changes is rejected: it re-enters for unrelated mutations, has no ordering guarantee against the runtime's reconcile, and produces duplicate/partial snapshots.
 
 Status: frame swaps stay without a View Transition. Revisit when upstream exposes a pre-commit/commit hook (or a `startViewTransition` option on `reload()`); the receipt is one transition around the reconcile, not a page-wide observer.
