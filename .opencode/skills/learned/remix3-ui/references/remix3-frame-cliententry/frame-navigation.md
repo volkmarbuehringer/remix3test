@@ -164,18 +164,18 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-09 against the installed preview release `v0.20261109.201521-main-d683ebb5` (source `d683ebb5`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-10 against the installed preview release `v0.20261109.230941-main-af7b225e` (source `af7b225e`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — dispatched by `beginReload()` when the reload starts, before the fetch (`@remix-run/component/src/runtime/frame.ts:776`; inherited reloads at `:866`).
-- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:842`, `:874`).
+- `reloadStart` — dispatched by `beginReload()` when the reload starts, before the fetch (`@remix-run/component/src/runtime/frame.ts:766`; inherited reloads at `:856`).
+- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:832`, `:864`).
 
 There is no pre-commit/before-reconcile event and no `onCommit` option on the public API, so app code cannot bracket the DOM commit:
 
 - Starting the transition on `reloadStart` snapshots the old DOM, but its update callback runs before the response arrives; the later frame swap is not part of that transition.
 - `startViewTransition(async () => { await frame.reload() })` is technically valid (the new snapshot waits for the promise) but holds the transition's update phase for the entire request, freezing the page until the response lands — not acceptable for navigation.
-- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:816`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
+- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:806`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
 - A `MutationObserver` that starts a transition when the frame subtree changes is rejected: it re-enters for unrelated mutations, has no ordering guarantee against the runtime's reconcile, and produces duplicate/partial snapshots.
 
 Status: frame swaps stay without a View Transition. Revisit when upstream exposes a pre-commit/commit hook (or a `startViewTransition` option on `reload()`); the receipt is one transition around the reconcile, not a page-wide observer.
@@ -225,7 +225,7 @@ async index(context) {
 
 Target-ful frame clients then bail to a full-page navigation of the marker URL (no frame headers → binary downloads); target-less fetches degrade to rendering the page fragment. For the download trigger itself, prefer `data-rmx-document` **on the form** (as of #11668 forms are intercepted like links): native navigation hands the attachment to the browser's download manager without leaving the page — no shim needed on the happy path.
 
-**Since #11940** the browser navigation listener also steps aside when `event.downloadRequest != null` and for hash-only changes (`event.hashChange` with no pending frame reload) (`@remix-run/component` `src/runtime/navigation.ts`, `startNavigationListenerImpl`). A link carrying the native `download` attribute therefore needs no `data-rmx-document`; the escape is still required for an attachment endpoint reached by a plain link or form with no `download` attribute. Also, a hash-only change no longer triggers a frame reload, so in-frame `#fragment` deep links are handled entirely by the browser.
+**Since #11940** the browser navigation listener also steps aside when `event.downloadRequest != null` and for hash-only changes (`event.hashChange` with no pending frame reload) (`@remix-run/component` `src/runtime/navigation.ts`, `startNavigationListener`). A link carrying the native `download` attribute therefore needs no `data-rmx-document`; the escape is still required for an attachment endpoint reached by a plain link or form with no `download` attribute. Also, a hash-only change no longer triggers a frame reload, so in-frame `#fragment` deep links are handled entirely by the browser.
 
 ### Conditionally apply `data-rmx-document` in shared navigation
 
@@ -269,7 +269,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 ### Interrupted pushes replace their unrendered entry (#12240)
 
-**Since #12240** `startNavigationListenerImpl` records the key of a push entry that committed before its page rendered (`unrenderedEntryKey`, with `uncommittedPushFromKey` covering a navigation started from `currententrychange`). When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
+**Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered (`unrenderedEntryKey`, with `uncommittedPushFromKey` covering a navigation started from `currententrychange`). When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 

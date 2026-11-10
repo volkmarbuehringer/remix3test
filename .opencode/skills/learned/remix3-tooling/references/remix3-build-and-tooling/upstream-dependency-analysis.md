@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-09 (current pin is preview release `v0.20261109.201521-main-d683ebb5` / source `d683ebb5`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-10 (current pin is preview release `v0.20261109.230941-main-af7b225e` / source `af7b225e`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -65,7 +65,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261109.201521-main-d683ebb5` (source `d683ebb5`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag. The 2026-11-09 (third) range is #12240 only, in `packages/component`'s `src/runtime/navigation.ts` (+ its tests and a patch changeset): a push navigation interrupted before it renders now replaces its history entry, and `data-rmx-history="replace"` links/GET forms replace the entry through `NavigationPrecommitController` where supported. Nothing else moved, so all other learned line refs remain valid; the `navigation.ts` attribute reads shifted +30 lines (see `remix3-ui` → `jsx-attributes.md`).
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261109.230941-main-af7b225e` (source `af7b225e`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag. The 2026-11-10 range is #12245 only, in `packages/component`'s `src/runtime/frame.ts`, `navigation.ts`, and `run.ts` (+ their tests): frame state (top frame + named-frame registry) is now created per `run()` runtime instead of as module globals, module-level helpers (`updateUrl()`, targeted prefetch) read the most recently started runtime through `setAppFrames()` and clear it on `dispose()`, and `startNavigationListener(signal, frames)` takes the frames handle (the test-only `startNavigationListenerImpl` is gone). `frame.ts` anchors shifted −10 lines and `navigation.ts` anchors −13 (see `remix3-ui` → `jsx-attributes.md`, `frame-navigation.md`, `cliententry-lifecycle.md`, `frame-layout-and-testing.md`); nothing else moved. The 2026-11-09 (third) range was #12240 only, in `packages/component`'s `src/runtime/navigation.ts` (+ its tests and a patch changeset): a push navigation interrupted before it renders now replaces its history entry, and `data-rmx-history="replace"` links/GET forms replace the entry through `NavigationPrecommitController` where supported.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -107,8 +107,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261109.201521-main-d683ebb5/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261109.201521-main-d683ebb5/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261109.230941-main-af7b225e/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261109.230941-main-af7b225e/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

@@ -92,7 +92,7 @@ Use when embedding a nested `<Frame>` (panel) inside a page that already renders
 
 - `admin-content` renders with a `fallback`, so it is a **non-blocking** frame: the root document ships only `<!-- rmx:f:id -->` plus a template, and the frame's real content arrives from a second fetch and hydrates through `frame.ts`'s `resolveAndRenderReload` → fragment render path.
 - That path builds a `responseContext` from the fragment's own `rmx-data` (the one naming the nested frame) and calls `createSubFrames`, but the nested marker never ends up registered in the runtime's `namedFrames` map. `handle.frames.get('<nested-name>')` returns `undefined` in a `clientEntry`'s `queueTask` — and still does seconds later.
-- `getNamedFrame(name)` in `navigation.ts` resolves against that map; when the named target is missing it now calls `fallbackToDocumentNavigation(...)` and returns instead of falling back to `topFrame`, so the row link does a full document navigation rather than loading the pane. That is the `X-Remix-Target: undefined` you see — the header is only set when the lookup succeeded.
+- `navigation.ts` resolves a target through the frames handle (`options.get(name)`, backed by the per-`run()` `NamedFrameRegistry` created in `run.ts`; the module-level `getNamedFrame(name)` in `frame.ts` reads the most recently started runtime); when the named target is missing it now calls `fallbackToDocumentNavigation(...)` and returns instead of falling back to `topFrame`, so the row link does a full document navigation rather than loading the pane. That is the `X-Remix-Target: undefined` you see — the header is only set when the lookup succeeded.
 
 **Rule:** a nested `<Frame>` must be present in the **server-rendered** response of the frame that hosts it. Never mount it conditionally from client state, and never rely on one appearing in a fragment a parent frame fetches afterwards — if the pane's `<Frame>` only renders once a selection exists, the selection can never be made.
 
@@ -115,7 +115,7 @@ Then drive that frame directly from the entry — `frame.reload({ src: href })` 
 1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
 2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
 
-**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-09 against preview release `v0.20261109.201521-main-d683ebb5` / source `d683ebb5`.
+**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-10 against preview release `v0.20261109.230941-main-af7b225e` / source `af7b225e`.
 
 Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
 
@@ -268,4 +268,4 @@ await page
 
 See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-09 against preview release `v0.20261109.201521-main-d683ebb5` / source `d683ebb5`: `hydrateContainer` is at `src/runtime/frame.ts:1420`, the `createSubFrames(container.childNodes, context, options)` call at `:1454`, and `scheduleHydrationMarker(...)` at `:1456`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**Validated:** 2026-10-04 and re-checked 2026-11-10 against preview release `v0.20261109.230941-main-af7b225e` / source `af7b225e`: `hydrateContainer` is at `src/runtime/frame.ts:1410`, the `createSubFrames(container.childNodes, context, options)` call at `:1444`, and `scheduleHydrationMarker(...)` at `:1446`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

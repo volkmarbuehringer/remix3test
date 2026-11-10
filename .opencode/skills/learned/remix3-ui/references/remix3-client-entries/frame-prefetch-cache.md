@@ -1,6 +1,6 @@
 # Frame prefetching with a one-shot response cache
 
-**Extracted:** 2026-10-23 · **Updated:** 2026-11-09 · **Pin:** remix 3.2.0 (preview release `v0.20261109.201521-main-d683ebb5` / source `d683ebb5`)
+**Extracted:** 2026-10-23 · **Updated:** 2026-11-10 · **Pin:** remix 3.2.0 (preview release `v0.20261109.230941-main-af7b225e` / source `af7b225e`)
 **Vendor:** `@remix-run/component/src/runtime/prefetch.ts` (`startPrefetching`, `getIntentAnchor`), `run.ts` (`prefetch` option), installed guide `node_modules/remix/guides/05-interactivity.md` §"Prefetch links before navigation".
 
 ## Why the default prefetcher is not enough here
@@ -27,6 +27,7 @@
 - **CSP nonces.** Frame fragments carry the nonce of the response that rendered them. Reuse is same-document and short-lived; the app's frame content has inert JSON scripts plus import maps that the runtime appends with the installed map's nonce. Do not introduce executable `nonce={getCspNonce()}` inline scripts into frame fragments — a warmed copy would carry a stale nonce.
 - **Warm requests are `priority: 'low'`**, matching the vendor default, so a hover warm does not compete with the navigation it accelerates; navigation requests keep the browser default.
 - **Asset hints are part of the warm.** `prefetchFrame()` calls `prefetchFrameAssets()` after storing the response. Discovery mirrors the vendor default: clone + inert `<template>` parse, honor `<base href>`, recurse into nested `<template>` content, skip assets the document already has, dedupe by `href`/`as`/`crossorigin`/`integrity`/`referrerpolicy`, and remove each hint on `load`/`error`. Hints are independent of the one-shot HTML cache: `clearPrefetchedFrames()` does not remove them, because a destination entry module or stylesheet stays useful after the one-shot fragment is invalidated. Do not run scripts from the parsed HTML or inject its nonce-bearing nodes.
+- **Targeted warms resolve against the most recent `run()`.** Since #12245 the named-frame registry is per runtime; the module-level `prefetch(href, { target })` lookup (`prefetch.ts` → `getNamedFrame`) reads the frames published by the most recently started `run()`. The app starts one runtime in `app/assets/entry.tsx`, so the target lookup is unaffected; a second `run()` in the same document would redirect targeted warms to its own frames.
 - **Head reconciliation is not vendor-identical.** The vendor registers its hints in the internal `pendingPrefetchLinks` WeakSet, which `frame.ts`'s head diff preserves. These app-owned hints are outside that set, so a top-level frame navigation can remove an in-flight hint without firing `load`/`error`. `prefetchAsset()` treats a disconnected pending hint as stale and re-creates it, and a 15 s fallback timer clears a hint that never settles; without both, the pending promise would suppress that asset for the rest of the document's lifetime.
 
 ## Adoption points
