@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-20
 **Extended:** 2026-11-10
-**Context:** `/verwaltung/report1` (Monatsauswertung) already rendered from `year/month/user_id/filter/sort/order`; a PDF export had to return exactly the view the page shows. Extended 2026-11-10 by the `/lists` view export: the view exists only in client state, and one long item label took pdfmake ~35 s to lay out.
+**Context:** `/verwaltung/report1` (Monatsauswertung) already rendered from `year/month/user_id/filter/sort/order`; a PDF export had to return exactly the view the page shows. Extended 2026-11-10 by the `/lists` view export: the view exists only in client state, and one long item label took pdfmake ~35 s to lay out. Extended 2026-11-10 (second) by `/admin/users` → `/admin/output`: the export is a sibling admin route, so the shared parser/loader moved to a data module and the marker branch reuses the grid's own renderer.
 
 ## Problem
 
@@ -112,6 +112,34 @@ Report pages keep their view in the URL, so the export re-parses it (§2). The `
 
 The `data-rmx-document` requirement is the frame rule from `remix3-frame-cliententry` → `frame-navigation.md`. `app/actions/lists/lists-pdf-export.test.e2e.ts` clicks the link inside the frame and asserts a real download (`page.waitForEvent('download')`, filename, `%PDF`); if the frame swallowed it, no download event would fire. The transient `shuffleOrder` ("mischen") is deliberately not encoded — no reproducible order exists, so the export uses the selected sort/manual order.
 
+### 8. Export a URL-held grid from a separate route
+
+The page and its export need not share a route map. `/admin/users` exports
+through `GET /admin/output` (`app/actions/admin/output/controller.tsx`), which
+`routes.admin.users` cannot own because `/admin/output` is not a child of
+`/admin/users`.
+
+- **Share parsing and loading in a data module** — `app/data/admin-users.ts`
+  exports `parseUsersQuery(url)` (search/status resolution plus the sort
+  whitelist) and `loadUsersPage(db, { offset, pageSize, ... })`. The page
+  controller (`renderUsersIndex`) and the output controller both call them, so
+  the file cannot drift from the grid. This is §2 with the parser moved out of
+  the controller.
+- **Build the link without `offset`** — reuse `buildFilterParams(value, sort,
+  order, 0, undefined, status)`, which omits `offset` at 0, so the export
+  covers every matching row (capped) rather than the visible page. The export
+  ignores `?offset=` server-side; assert both the link and the all-rows result.
+- **Reuse the grid renderer for the marker branch** — export the page renderer
+  (`renderUsersIndex`) from the page controller and call it for the
+  `frameDownload=1` request (§5) instead of duplicating the data load and JSX.
+- **Bound admin text too** — the admin user form does not cap name/e-mail, so
+  `app/utils/admin-users-pdf.ts` clamps each cell at 300 chars, caps rows at
+  10,000, and discloses both in the count line (`X von Y Benutzern — Hinweis:
+  … — Lange Einträge sind gekürzt.`). Format date+time cells as two lines
+  (`toLocaleDateString` + `\n` + `toLocaleTimeString`); `toLocaleString('de-DE')`
+  produces `"15.01.2024, 01:00"`, which wraps at the comma in a narrow auto
+  column and leaves the comma dangling.
+
 ## Testing
 
 - Server test via `router.fetch(url, { headers: { Cookie } })`: assert `Content-Type: application/pdf`, a `Content-Disposition` filename, and `String.fromCharCode(...bytes.subarray(0, 4)) === '%PDF'`.
@@ -119,6 +147,14 @@ The `data-rmx-document` requirement is the frame rule from `remix3-frame-cliente
 - Assert the shim: framed request → 302 whose `Location` carries `frameDownload=1`; the marked framed request → 200 HTML (not `%PDF`).
 - Download e2e when the link sits in a frame: `page.waitForEvent('download')`, assert `download.url()` carries the view params, the suggested filename, and `%PDF` in the downloaded bytes (`app/actions/lists/lists-pdf-export.test.e2e.ts`).
 - To prove a filtered export applied the view server-side, compare `Content-Length` of the full and filtered PDFs (`app/actions/lists/controller.test.ts`); DOM/text assertions cannot see compressed PDF streams.
+- For a grid export served from a sibling route, assert the page link carries
+  the filter/status/sort and **omits `offset`**, and that a request with
+  `?offset=N` returns the same byte length as one without it (all-rows
+  behavior).
+- Adding an export anchor inside a grid row makes broad row locators
+  (`[data-row-id] a`, `[data-list-id] a`) ambiguous in Playwright strict mode;
+  scope existing e2e locators to the row's navigation href when the export link
+  lands (see `app/actions/lists/lists-client-edit.test.e2e.ts`).
 - Browser/client behaviors are a separate skill: `remix3-testing` (`references/test-harness-gotchas.md`, `references/testing-hygiene.md`).
 
 ## When to Use
@@ -128,6 +164,9 @@ The `data-rmx-document` requirement is the frame rule from `remix3-frame-cliente
 - Reusing `users-pdf` / `users-export` / `pdf` as a template — start from `pdf-utils.ts`, and take the frame guard from `users-export`, not `users-pdf`.
 - A styled view (search/status/sort/reverse) needs an export of exactly those rows — including when the state lives only in client state rather than the URL.
 - A PDF cell receives unbounded user text (labels, notes, tags) — bound it before pdfmake; see §6.
+- The export lives on a sibling output route rather than under the grid; share
+  the parser/loader in a data module and reuse the grid renderer for the frame
+  marker (§8).
 
 ## References
 
@@ -137,5 +176,7 @@ The `data-rmx-document` requirement is the frame rule from `remix3-frame-cliente
 - `app/utils/list-pdf.ts`, `app/data/lists.ts` — bounded list PDF (cell/row/char clamps, view label/subset count)
 - `app/actions/lists/list-pdf-view.ts`, `app/actions/lists/public/lists-view-params.ts` — client-held view round-trip
 - `app/actions/lists/lists-pdf-export.test.e2e.ts` — framed download e2e
+- `app/actions/admin/output/controller.tsx`, `app/data/admin-users.ts`, `app/utils/admin-users-pdf.ts` — sibling-route export for the admin users grid (shared parse/loader, marker reuses `renderUsersIndex`)
+- `app/actions/admin/admin-users-pdf.test.e2e.ts` — framed admin-grid download e2e
 - `remix3-frame-cliententry` → `references/frame-navigation.md` — §data-rmx-document, §Guard the controller against frame requests
 - `remix-file-uploads` §5 (download endpoint) and §6 (ZIP attachments)
