@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `ddl-migration-dedicated-client` and `data-table-migration-drift-recovery`.
 **Extracted:** 2026-07-17 … 2026-08-18
-**Revalidated:** 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (`@remix-run/data-table` 1.0.0).
+**Revalidated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`@remix-run/data-table` 1.0.0).
 **Context:** DDL/migrations in a `remix/data-table` app: the runner's journal/checksums, startup drift/orphan errors, boot and test-time DDL races, and the config-backed pool tradeoff.
 
 ## Current app state (2026-11)
@@ -82,7 +82,7 @@ Config-backed construction makes the driver own the pool internally (`this.#clie
 
 - Server-side terminations of idle connections (Postgres restart, RDS failover, `pg_terminate_backend`) escape as an uncaught `'error'` and can crash the process. newapp sidesteps this by building the pool itself and attaching a listener.
 - Passing your own `pg.Pool` to `createPostgresDatabase(pool)` re-enables the listener but disables `wipe()`/`reset()` (`#configOrThrow` throws "requires config-based construction"), which is why `test/setup.ts` resets the schema through a throwaway pool instead.
-- The vendor CLI path (`createConfiguredDatabase` in `packages/cli/src/lib/commands/db.ts`) is config-backed too and has the same behavior — vendor-consistent, not a newapp regression.
+- The vendor CLI path (`createConfiguredDatabase` in `@remix-run/cli` `src/lib/commands/db.ts`) is config-backed too and has the same behavior — vendor-consistent, not a newapp regression.
 
 ## Gotchas (verified against vendor source)
 

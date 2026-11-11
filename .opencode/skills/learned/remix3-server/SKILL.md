@@ -50,7 +50,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 **Route Contract and Resource Helpers (`references/remix-controllers/route-contract-and-controllers.md`)**
 
-- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:83,252,254`) — do not rewrite to `only`.
+- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:87,295,298`) — do not rewrite to `only`.
 - A controller owns only the direct `Route` leaves of its map; register nested maps (e.g. `routes.appointment.types`) separately. A missing, unknown, or nested key throws a `TypeError` at `router.map(...)` (startup), not on the first request.
 - `controller.middleware` reaches only that controller's direct leaves, not a separately-mapped nested map; repeat the boundary there.
 - Bare-string leaves are `Route<'ANY', ...>` — branch on `context.method`. `context.headers` is request headers, so return a `Response` for response headers; `context.router` re-enters the pipeline.
@@ -63,7 +63,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.
 
-**Session storage (`app/middleware/session.ts`, preview release `v0.20261110.195407-main-cc53667f`)**
+**Session storage (`app/middleware/session.ts`, preview release `v0.20261111.313-main-3273a048`)**
 
 - The fs store saves via temp file + rename (remix #12148), so an overlapping read never sees a partial session — do not re-add a per-operation serialization wrapper; that workaround was removed when the pin moved.
 - The middleware reads before the handler and saves afterwards, so two overlapping requests still overwrite each other's snapshot. `mergeSessionWrites()` (`app/utils/session-storage-merge.ts`) re-applies only this request's changed keys on the stored session at save time, including the `success`/`error` flash keys.

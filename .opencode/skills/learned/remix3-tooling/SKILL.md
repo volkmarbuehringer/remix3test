@@ -98,8 +98,8 @@ _(formerly `remix3-bun-runtime` — references live under `references/remix3-bun
 
 **Consolidated from:** the seven former `remix3-bun-runtime` notes (entrypoint, MIME, pnpm shim, runner, SSR signal, TypeScript scoping, validation)
 
-**Extracted:** 2026-09-19; last vendor re-check 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (Bun 1.4.4)
-**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (currently `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0; Bun 1.4.3). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
+**Extracted:** 2026-09-19; last vendor re-check 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (Bun 1.4.4)
+**Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (currently `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0; Bun 1.4.4). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
 
 This skill is the **index** for running this Remix 3 + pnpm app under Bun. For the runtime APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 

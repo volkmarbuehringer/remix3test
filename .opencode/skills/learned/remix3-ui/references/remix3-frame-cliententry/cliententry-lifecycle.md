@@ -19,7 +19,7 @@ For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, s
 
 A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
 
-> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/scheduler.ts:129`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
+> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/scheduler.ts:119`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
 
 **Root cause chain:**
 
@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261110.195407-main-cc53667f`: `completeReload` is defined at `:825` and dispatches at `:829`; the inherited-reload variant dispatches at `:861`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261111.313-main-3273a048`: `completeReload` is defined at `:825` and dispatches at `:829`; the inherited-reload variant dispatches at `:861`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -251,7 +251,7 @@ First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/upl
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261110.195407-main-cc53667f`, inside `startReload` at `:729`, which delegates to `beginReload` at `:753`; the shared dispatch is at `:763`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:733` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261111.313-main-3273a048`, inside `startReload` at `:729`, which delegates to `beginReload` at `:753`; the shared dispatch is at `:763`, and the ancestor path `beginClientFrameReloadForAncestorReload` at `:733` goes through the same `beginReload`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
@@ -354,7 +354,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1474-1511` at preview release `cc53667f`). The factory closure
+   (`runtime/reconcile.ts:1474-1511` at preview release `3273a048`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -391,14 +391,14 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048`; the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
-- `ref()` is driven by the mixin `insert` event (`packages/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/component/src/runtime/reconcile.ts:950`, `:1131`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- `ref()` is driven by the mixin `insert` event (`@remix-run/component/src/runtime/mixins/ref-mixin.ts:17`).
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:950`, `:1131`), so `insert` is dispatched on the client and `ref()` fires at hydration.
 - The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1298`, `:2123`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
@@ -480,7 +480,7 @@ This applies whenever a hide-after-hydration change touches an element that carr
 
 ## HMR Entry Identity (timestamped hrefs)
 
-**Dev-only.** Under HMR a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` retain the HMR timestamp, remix #11980). The runtime compares client-entry identity with exactly **one** 13-digit `t=` query segment ignored — `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN = /^t=\d{13}$/` at `@remix-run/component` `src/runtime/diff-dom.ts:9` (compiled to `dist/runtime/diff-dom.js`), applied by skipping that one segment at `:19` — so the existing entry keeps its state instead of remounting. Two `t` segments means nothing is ignored and the entries are treated as different. Production hrefs are fingerprinted, not timestamped, so this never fires in a build.
+**Dev-only.** Under HMR a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` retain the HMR timestamp, remix #11980). The runtime compares client-entry identity with exactly **one** 13-digit `t=` query segment ignored — `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN = /^t=\d{13}$/` at `@remix-run/component` `src/runtime/diff-dom.ts:9` (compiled to `dist/runtime/diff-dom.js`), applied by `getHmrTimestampQuerySegmentIndex` at `:15-24` and stripped at `:40` — so the existing entry keeps its state instead of remounting. Two `t` segments means nothing is ignored and the entries are treated as different. Production hrefs are fingerprinted, not timestamped, so this never fires in a build.
 
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 

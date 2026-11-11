@@ -3,7 +3,7 @@
 **Source:** consolidated from `motion-values`, `presence-and-layout`, `reduced-motion` (installed guide `node_modules/remix/guides/07-animation.md`)
 
 **Extracted:** 2026-09-26; app deltas through 2026-10-24
-**Validated:** 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (#12220: per-property `transition`, synchronous `animateExit()` start)
+**Validated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (#12220: per-property `transition`, synchronous `animateExit()` start)
 **Context:** Springs/tweens, entrance/exit/layout mixins, and `prefers-reduced-motion` in this app.
 
 ## Motion values: springs, tweens, easing
@@ -116,5 +116,5 @@ Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointme
 
 - `node_modules/remix/guides/07-animation.md` — §"Springs, tweens, and easing", §"Interruptible interactions", §"Entrance and exit animations", §"Layout animations", §"CSS-first visual states", §"Reduced-motion behavior"
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/README.md` — per-property `transition` section
-- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/animate-mixins.ts` — `transition` type at `:20` and the `beforeRemove` handler at `:477` at source `cc53667f`
+- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/animate-mixins.ts` — `transition` type at `:20` and the `beforeRemove` handler at `:477` at source `3273a048`
 - `app/utils/motion.ts`, `app/ui/document.tsx`, `app/ui/mixins/card-lift.ts`, `app/ui/appointment-grid.browser.tsx`, `app/ui/confirm-delete.browser.tsx`

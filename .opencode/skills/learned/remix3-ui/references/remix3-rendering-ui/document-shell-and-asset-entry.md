@@ -3,7 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
-**Revalidated:** 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (`Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
+**Revalidated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
 
 **Context:** Editing the shared document shell, adding head tags/preloads/styles, wiring the browser entry script or import map, or returning a rendered page with a status/headers.
 
@@ -25,7 +25,7 @@ Use the guide for the head/shell rules; wire them to these app seams.
 - **Explicit theme:** the shell emits `data-theme="dark"|"light"` for a cookie choice and the standalone bootstrap in `app/ui/theme-bootstrap.ts` does the same for localStorage, then maps it to `color-scheme` (`html[data-theme="dark"] { color-scheme: dark }`). Auto mode leaves the attribute off and uses the `light dark` meta. This keeps vendor `light-dark(...)` palettes (menus/buttons) aligned with `data-theme`. The bootstrap is a string so `app/ui/theme-bootstrap.test.browser.tsx` executes exactly what `Document` renders.
 - **Server panel entrance:** `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes. `animateEntrance` from `@remix-run/ui/animation` is `ssr: false` and only runs inside a `clientEntry`; do not apply it to plain server page components.
 - **View Transitions:** the shell opts full documents into cross-document transitions with `@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }`. Chrome 126+/Safari 18.2+ animate; Firefox ignores the rule (no cross-document VT as of 2026-11) and navigates normally. Only real document navigations participate (login/logout, `data-rmx-document` links), never frame swaps. Persistent chrome carries unique names: `app-header` on the main nav (`app/ui/main-nav.tsx`) and `app-sidebar` on the shared sidebar shell (`app/ui/sidebar-layout.tsx`). Same-document theme VT lives in `app/ui/theme-toggle.browser.tsx` behind a feature check + reduced-motion guard. Asset target/floor and tests: AGENTS.md § Browser Support Floor, `.opencode/skills/learned/remix3-ui/references/remix3-animation/gotchas.md` § View Transitions.
-- **Response pipeline:** `createHtmlResponse()` (guide §"Document shells, head content, and HTML responses") preserves or prepends `<!DOCTYPE html>` and sets `Content-Type: text/html; charset=UTF-8` unless supplied — note the app test comment at `app/router.test.ts:170` that it always adds the doctype. `context.render(tree, { status, headers })` adds a status/headers (guide §"Rendering pages through request context").
+- **Response pipeline:** `createHtmlResponse()` (guide §"Document shells, head content, and HTML responses") preserves or prepends `<!DOCTYPE html>` and sets `Content-Type: text/html; charset=UTF-8` unless supplied — note the app test comment at `app/router.test.ts:192` that it always adds the doctype. `context.render(tree, { status, headers })` adds a status/headers (guide §"Rendering pages through request context").
 
 ## When to Use
 

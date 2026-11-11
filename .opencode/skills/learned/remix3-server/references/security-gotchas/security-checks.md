@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-csp-inline-scripts`, `remix3-return-to-open-redirect`, `nodejs-path-traversal-guard`; the CSP section absorbed the nonce/policy deltas that used to live inline in `remix3-server § Security`.
 
 **Extracted:** 2026-07-09 … 2026-09-17
-**Revalidated:** 2026-11-10 against preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` — CSP now comes from the vendor `csp()` middleware, not a local implementation.
+**Revalidated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` — CSP now comes from the vendor `csp()` middleware, not a local implementation.
 **Context:** Three request-boundary checks that are easy to get subtly wrong. For CSRF/ownership/authz see `security-middleware.md` and `idor-scope-write-bypass.md`.
 
 ## CSP-safe inline scripts
@@ -43,7 +43,7 @@ The Firefox multiple-import-maps polyfill evaluates blob module scripts, but the
 
 The policy uses `report-uri /csp-reports` (deliberately not `report-to`: Chromium's Reporting API batches for tens of seconds, `report-uri` is immediate in Chromium and Firefox). `app/actions/csp-reports/controller.tsx` accepts `application/csp-report` and `application/reports+json`, caps the body at 16 KB, trims/strips control characters before logging, dedupes identical sinks for 5 minutes, and caps reports at 120/min per IP (silent 204 over the cap). The route is CSRF-exempt in `skip-csrf.ts`.
 
-The Trusted Types policy is report-only: enforcement is blocked by the pinned vendor runtime, which assigns string HTML to `innerHTML` (`component/dist/runtime/frame.js`, `core/props.js`, `core/mix.js`); do not add `require-trusted-types-for` to the enforced policy until upstream emits TrustedHTML (a `default` identity policy would be security theater). Both engines implement Trusted Types (verified in the pinned Playwright Chromium 156 and Firefox 157, which expose `window.trustedTypes`/`TrustedHTML` and fire report-only `require-trusted-types-for` violations), so browser-specific test assumptions must not rely on Chromium-only support.
+The Trusted Types policy is report-only: enforcement is blocked by the pinned vendor runtime, which assigns string HTML to `innerHTML` (`component/dist/runtime/frame.js`, `component/dist/runtime/reconcile.js`, `component/dist/runtime/prefetch.js`); do not add `require-trusted-types-for` to the enforced policy until upstream emits TrustedHTML (a `default` identity policy would be security theater). Both engines implement Trusted Types (verified in the pinned Playwright Chromium 158 and Firefox 159, which expose `window.trustedTypes`/`TrustedHTML` and fire report-only `require-trusted-types-for` violations), so browser-specific test assumptions must not rely on Chromium-only support.
 
 ## CSP policy shape
 

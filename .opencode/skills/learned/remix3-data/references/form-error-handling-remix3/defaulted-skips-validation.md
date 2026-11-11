@@ -1,13 +1,14 @@
 # `s.defaulted` Returns Its Default Without Running The Wrapped Schema
 
 **Discovered:** 2026-10-17 — agent-events prompt schema (`85a552c` fix for review on `154acc3`)
+**Revalidated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`@remix-run/data-schema` 1.0.0; `defaulted` at `src/lib/schema.ts:667`).
 
 ## Vendor fact (version-pinned)
 
-`@remix-run/data-schema` at preview release `v0.20261110.195407-main-cc53667f` / source `cc53667f` (the current install):
+`@remix-run/data-schema` at preview release `v0.20261111.313-main-3273a048` / source `3273a048` (the current install):
 
-- `src/lib/schema.ts:515` — `export function defaulted<input, output>(...)`
-- `src/lib/schema.ts:519-528` — when the input is `undefined`, `defaulted` resolves the
+- `src/lib/schema.ts:667` — `export function defaulted<input, output>(...)`
+- `src/lib/schema.ts:671-685` — when the input is `undefined`, `defaulted` resolves the
   default and returns `{ value: resolved }` **immediately, without invoking the wrapped
   schema's `~run`**. Validations (`.refine`, `.check`, `.transform` chains, etc.) built
   into the wrapped schema never execute for the default path.
@@ -32,7 +33,7 @@ message: f.field(
 ```
 
 The chain runs only when a string value is present. With `f.field`, a missing entry
-passes `undefined` to the inner schema (`form-data.ts:226`, `value ?? undefined`),
+passes `undefined` to the inner schema (`src/lib/form-data.ts:231`, `value ?? undefined`),
 which `defaulted` swallows into the default.
 
 **App case:** `app/actions/agent-events/controller.tsx` — `promptSchema`. The agent prompt
