@@ -1,6 +1,8 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+
+import { refreshPinDocs } from './remix-pin-docs.ts'
 
 // ---------------------------------------------------------------------------
 // Bump the remix preview pin.
@@ -100,6 +102,7 @@ function runtimeDir(cacheDir: string): string {
 type Options = {
   dryRun: boolean
   noTests: boolean
+  noDocs: boolean
   allowDirty: boolean
   storeDir: string | undefined
 }
@@ -152,6 +155,7 @@ typecheck, lint, format and (by default) the full test suite.
 Options:
   --dry-run           Resolve and print the target release/commits; change nothing
   --no-tests          Skip the full \`npm test\` run
+  --no-docs           Skip refreshing the current-pin strings in AGENTS.md/learned skills
   --allow-dirty       Allow an uncommitted working tree
   --store-dir <dir>   pnpm store (default: ./.pnpm-store when it exists)
   -h, --help          Show this help
@@ -167,6 +171,7 @@ function parseOptions(argv: string[]): Options {
   let options: Options = {
     dryRun: false,
     noTests: false,
+    noDocs: false,
     allowDirty: false,
     storeDir: fs.existsSync(DEFAULT_STORE) ? DEFAULT_STORE : undefined,
   }
@@ -175,6 +180,7 @@ function parseOptions(argv: string[]): Options {
     let arg = argv[i]
     if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-tests') options.noTests = true
+    else if (arg === '--no-docs') options.noDocs = true
     else if (arg === '--allow-dirty') options.allowDirty = true
     else if (arg === '--store-dir') {
       let value = argv[++i]
@@ -203,6 +209,136 @@ function run(command: string, args: string[], capture = false): string {
     throw new Error(`${command} ${args.join(' ')} exited ${result.status ?? 'without a status'}`)
   }
   return capture ? (result.stdout ?? '').trim() : ''
+}
+
+type TestSummaryBlock = Record<string, string>
+
+function runTestsAndSummarize(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let child = spawn('npm', ['test'], {
+      cwd: ROOT,
+      env: process.env,
+      stdio: ['inherit', 'pipe', 'inherit'],
+    })
+    let blocks: TestSummaryBlock[] = []
+    let current: TestSummaryBlock | undefined
+    let buffer = ''
+
+    child.stdout?.setEncoding('utf8')
+    child.stdout?.on('data', (chunk: string) => {
+      process.stdout.write(chunk)
+      buffer += chunk
+      let lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (let line of lines) {
+        let match = /^ℹ\s+([a-z_]+)\s+(.+)$/.exec(line.trim())
+        if (!match) continue
+        let key = match[1]
+        let value = match[2]
+        if (!key || !value) continue
+        if (key === 'files') {
+          current = { files: value }
+          blocks.push(current)
+        } else if (current) {
+          current[key] = value
+        }
+      }
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error('npm test exited ' + (code ?? 'without a status')))
+        return
+      }
+      resolve(formatTestSummary(blocks))
+    })
+  })
+}
+
+function formatTestSummary(blocks: TestSummaryBlock[]): string {
+  if (blocks.length === 0) return 'tests passed (summary unavailable)'
+  let names = ['server', 'browser', 'e2e']
+  return blocks
+    .map((block, index) => {
+      let tests = Number(block.tests ?? 0).toLocaleString('en-US')
+      let counts = [Number(block.pass ?? 0).toLocaleString('en-US') + ' pass']
+      if (block.todo) counts.push(block.todo + ' todo')
+      if (block.skipped) counts.push(block.skipped + ' skipped')
+      counts.push((block.fail ?? '?') + ' fail')
+      let duration = block.duration_ms
+        ? ', ~' + Math.round(Number(block.duration_ms) / 1000) + ' s'
+        : ''
+      let name = names[index] ?? 'phase ' + (index + 1)
+      return (
+        name +
+        ' ' +
+        (block.files ?? '?') +
+        ' files / ' +
+        (block.suites ?? '?') +
+        ' suites / ' +
+        tests +
+        ' tests (' +
+        counts.join(', ') +
+        duration +
+        ')'
+      )
+    })
+    .join('; ')
+}
+
+type ScaffoldArgs = {
+  oldTag: string
+  oldSource: string
+  targetTag: string
+  targetSource: string
+  subjects: string[] | undefined
+  refs: number
+  versions: string
+  tests: string
+}
+
+function printPinHistoryScaffold(args: ScaffoldArgs): void {
+  let date = new Date().toLocaleDateString('sv-SE')
+  let oldSource = args.oldSource.slice(0, 8)
+  let newSource = args.targetSource.slice(0, 8)
+  let commits = args.subjects?.length
+    ? ' (' + args.subjects.length + ' commits: ' + args.subjects.join('; ') + ')'
+    : ''
+
+  console.log('\nPin-history scaffold (paste into docs/remix-pin-history.md, then fill the TODOs):')
+  console.log(
+    '**Bump recorded ' +
+      date +
+      ': preview release `' +
+      args.oldTag +
+      '`/source `' +
+      oldSource +
+      '` → `' +
+      args.targetTag +
+      '`/source `' +
+      newSource +
+      '`' +
+      commits +
+      '.**',
+  )
+  console.log('')
+  console.log(
+    '- **Lock:** all ' +
+      args.refs +
+      ' release-tarball refs resolve to `' +
+      args.targetTag +
+      '`; no refs to the old tag remain.',
+  )
+  console.log('- **Versions:** ' + args.versions + '.')
+  console.log('- **Package delta:** TODO — diff the old and new installed trees before recording.')
+  console.log('- **Behavior:** TODO — one bullet per runtime/API change.')
+  console.log('- **App-side clearance:** TODO — call sites, or "no production source change".')
+  console.log('- **Verification (' + date + '):** ' + args.tests + '.')
+  console.log('\nStill editorial (not automated):')
+  console.log('  - AGENTS.md: add the "This bump" paragraph and demote the previous one')
+  console.log('  - docs/guide-skill-coverage.md: add the bump sentence if the guides moved')
+  console.log('  - upstream-dependency-analysis.md: add the new range summary')
 }
 
 function unique(values: string[]): string[] {
@@ -683,8 +819,9 @@ async function main(): Promise<void> {
     `Target:      ${PINNED_PACKAGES.map((name) => releaseUrl(release, name)).join('\n             ')}`,
   )
 
+  let subjects: string[] | undefined
   if (oldPin.source && oldPin.source !== targetSource) {
-    let subjects = await compareCommits(oldPin.source, targetSource)
+    subjects = await compareCommits(oldPin.source, targetSource)
     if (subjects?.length) {
       console.log('Commits:')
       for (let subject of subjects) console.log(`  - ${subject}`)
@@ -704,6 +841,21 @@ async function main(): Promise<void> {
 
   if (options.dryRun) {
     relinkIntoStore(options.storeDir, true)
+    if (!options.noDocs && oldPin.kind === 'release' && oldPin.tag) {
+      let preview = refreshPinDocs(
+        ROOT,
+        {
+          oldTag: oldPin.tag,
+          oldSource: oldPin.source ?? oldPin.build,
+          newTag: targetTag,
+          newSource: targetSource,
+        },
+        { dryRun: true },
+      )
+      console.log(
+        `Dry run: would refresh current-pin strings in ${preview.updated.length} file(s).`,
+      )
+    }
     console.log('\nDry run: would rewrite the two tarball specs and run pnpm install.')
     return
   }
@@ -724,29 +876,57 @@ async function main(): Promise<void> {
   console.log('\n== Vendor skill symlink ==')
   repointSkillLinks(targetTag)
 
+  if (!options.noDocs && oldPin.kind === 'release' && oldPin.tag) {
+    let docs = refreshPinDocs(ROOT, {
+      oldTag: oldPin.tag,
+      oldSource: oldPin.source ?? oldPin.build,
+      newTag: targetTag,
+      newSource: targetSource,
+    })
+    if (docs.updated.length > 0) {
+      console.log(`\nRefreshed current-pin strings in ${docs.updated.length} file(s).`)
+      run('npx', ['oxfmt', ...docs.updated, '--write'], true)
+    } else {
+      console.log('\nNo current-pin strings needed refreshing.')
+    }
+    if (docs.skipped.length > 0) {
+      console.log(
+        `Left ${docs.skipped.length} historical/ambiguous line(s) unchanged: ${docs.skipped.join(', ')}`,
+      )
+    }
+  }
+
   console.log(`\nVersions: ${installedVersions()}`)
 
   console.log('\n== Checks ==')
   run('npm', ['run', 'typecheck'])
   run('npm', ['run', 'lint'])
   run('npm', ['run', 'format'])
+  let testSummary: string | undefined
   if (options.noTests) {
     console.log('Tests skipped (--no-tests).')
   } else {
-    run('npm', ['test'])
+    testSummary = await runTestsAndSummarize()
+    console.log(`Tests: ${testSummary}`)
+  }
+
+  if (!options.noDocs && oldPin.kind === 'release' && oldPin.tag) {
+    printPinHistoryScaffold({
+      oldTag: oldPin.tag,
+      oldSource: oldPin.source ?? oldPin.build,
+      targetTag,
+      targetSource,
+      subjects,
+      refs: readLockState().releaseRefs,
+      versions: installedVersions(),
+      tests: testSummary ?? 'tests skipped (--no-tests)',
+    })
   }
 
   console.log('\n== Done ==')
   console.log(`Release: ${targetTag}`)
   console.log(`Source:  ${targetSource} (main ${short(mainTip)})`)
-  console.log('Record the bump in:')
-  console.log('  - AGENTS.md (installed build/source)')
-  console.log('  - docs/remix-pin-history.md')
-  console.log('  - docs/guide-skill-coverage.md (anchor)')
-  console.log(
-    '  - .opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md',
-  )
-  console.log(`Commit: chore(deps): bump remix preview pin to ${targetSha}`)
+  console.log(`Commit: chore(deps): bump remix pin to ${targetTag}`)
 }
 
 main().catch((error: unknown) => {

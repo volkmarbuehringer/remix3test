@@ -15,8 +15,11 @@ builds, but the URL host and retention mechanism changed.
 **Automation:** `npm run update:remix` (`scripts/update-remix.ts`) resolves the
 latest main preview release, rewrites the two tarball specs, runs `pnpm install`,
 verifies the lock has one release tag, runs a frozen-install check, repoints the
-vendor skill links, then typecheck/lint/format/tests. Use `--dry-run`,
-`--no-tests`, or `--allow-dirty`. It still migrates the old `github:` and
+vendor skill links, refreshes the current-pin strings in `AGENTS.md` and the
+learned skills (historical `Since preview build …` lines are left alone), then
+typecheck/lint/format/tests and a pin-history scaffold with the parsed test
+counts. Use `--dry-run`, `--no-tests`, `--no-docs`, or `--allow-dirty`. It still
+migrates the old `github:` and
 `t/<sha>/` specs on the first run.
 
 ## Current release-asset flow (2026-11-04+)
@@ -40,7 +43,8 @@ URLs. The update script:
 5. Verify every preview ref in the lock is the same release tag and no
    `codeload.github.com` or `raw.githubusercontent.com/…/t/` refs remain.
 6. Run the frozen-install check, repoint `.agents/skills/remix` and
-   `.opencode/skills/remix`, then typecheck/lint/format/tests.
+   `.opencode/skills/remix`, refresh the current-pin strings (`--no-docs` opts
+   out), then typecheck/lint/format/tests and print the pin-history scaffold.
 
 **Retention matters.** Main preview releases are pruned after about seven days
 (the newest is kept), so a lockfile that points at an old release tag can 404

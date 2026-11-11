@@ -286,7 +286,7 @@ describe('ListsClient undo', () => {
   })
 
   it('autosaves the cleared selection and then the undone order', async (t) => {
-    let timers = t.useFakeTimers()
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     stubFetch({ defer: true })
 
     let result = renderEditor({

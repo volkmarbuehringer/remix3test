@@ -115,7 +115,9 @@ content-addressed and one build cannot drift from another.
 
 `npm run update:remix` automates the release flow: read `releases/latest`,
 rewrite both specs, install, verify one release tag, frozen check, skill links,
-typecheck/lint/format/tests. `npm run remix:pin:check` verifies lock/tag
+current-pin string refresh (historical `Since …` lines skipped; `--no-docs` opts
+out), typecheck/lint/format/tests, then a pin-history scaffold with parsed test
+counts. `npm run remix:pin:check` verifies lock/tag
 unification, HEADs the assets, and warns when the pin is not the newest main
 release or is older than five days. Install retries use the universal
 `--config.fetch-retries=…` / `--config.fetch-retry-*-timeout=…` form because
