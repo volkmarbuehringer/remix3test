@@ -34,6 +34,16 @@ export function safeClose(controller: ReadableStreamDefaultController) {
   }
 }
 
+/** Enqueue a chunk, reporting false instead of throwing on a closed body. */
+function safeEnqueue(controller: ReadableStreamDefaultController, chunk: Uint8Array): boolean {
+  try {
+    controller.enqueue(chunk)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Normalizes an agent/tool error payload to a display string.
  *
@@ -123,6 +133,58 @@ export function createRunSignal(
       scope.cleanup()
     },
   }
+}
+
+/** The handles an SSE run body gets while it produces its events. */
+interface SseRunContext {
+  controller: ReadableStreamDefaultController
+  signal: AbortSignal
+  /**
+   * Writes one event, or reports `false` when the body is already gone. Use it
+   * for terminal writes only: a live write must keep throwing so the caller's
+   * catch sees the cancelled body and settles the run.
+   */
+  enqueue: (chunk: Uint8Array) => boolean
+}
+
+/**
+ * Opens the SSE response for a single agent/workflow run.
+ *
+ * Owns the lifecycle every chat stream repeats: the run signal is created before
+ * the body (so a cancelled body can never race an unset handle), `cancel()`
+ * aborts the run and drops the timer and request listener, the body is closed
+ * once the producer finishes, and the signal is cleaned up either way. What the
+ * body emits — the event vocabulary, the recovery policy, the ownership rows —
+ * stays in the caller's `start`.
+ */
+export function sseRunResponse(
+  requestSignal: AbortSignal | undefined,
+  timeoutMs: number,
+  start: (run: SseRunContext) => Promise<void>,
+): Response {
+  let run = createRunSignal(requestSignal, timeoutMs)
+
+  let body = new ReadableStream({
+    start: async (controller) => {
+      try {
+        await start({
+          controller,
+          signal: run.signal,
+          enqueue: (chunk) => safeEnqueue(controller, chunk),
+        })
+      } finally {
+        safeClose(controller)
+        run.cleanup()
+      }
+    },
+    // A cancelled body (client disconnect, router teardown) must stop the run
+    // and drop the timer/listener, not leave the producer running.
+    cancel() {
+      run.abort()
+      run.cleanup()
+    },
+  })
+  return new Response(body, { headers: sseHeaders() })
 }
 
 type SuspensionInfo = {

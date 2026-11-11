@@ -5,14 +5,7 @@ import {
   sanitizeLog,
 } from '../actions/mastra/shared-agent.ts'
 import { createActorRequestContext } from '../actions/mastra/actor-context.ts'
-import {
-  createRunSignal,
-  pipeStream,
-  safeClose,
-  sseErrorResponse,
-  sseEvent,
-  sseHeaders,
-} from './agent-sse.ts'
+import { pipeStream, sseErrorResponse, sseEvent, sseRunResponse } from './agent-sse.ts'
 import { createLogger } from './logger.ts'
 
 // ── Durable agent surface ──────────────────────────────────────────
@@ -238,11 +231,10 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
     onSettled?: ((info: { runId: string; threadId: string }) => void) | undefined
   }): Response {
     let { context, actorId, message, threadId } = options
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let runId: string | undefined
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
@@ -250,7 +242,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           let agent = config.resolveAgent()
           let result = await agent.stream(message, {
             maxSteps: 10,
-            abortSignal: run.signal,
+            abortSignal: signal,
             memory: { thread: threadId, resource: String(actorId) },
             requestContext: createActorRequestContext(actorId),
             ...(config.requireToolApproval !== undefined
@@ -265,7 +257,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
 
           // A cancelled body must not create an ownership row for a run no
           // client can observe; only dispose the handle.
-          if (run.signal.aborted) {
+          if (signal.aborted) {
             endReason = 'aborted'
             return
           }
@@ -276,7 +268,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           endReason = await pipeDurableRun({
             controller,
             fullStream: result.output.fullStream,
-            signal: run.signal,
+            signal,
             runId: result.runId,
           })
 
@@ -285,29 +277,15 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
         } catch (err) {
           endReason = 'error'
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
-          try {
-            controller.enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
+          enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
         } finally {
           if (endReason !== 'suspended') {
             if (runId) await clearRun(runId)
             cleanup?.()
           }
-          run.cleanup()
         }
       },
-      // A cancelled body disposes the durable run the same way a settle does:
-      // abort the signal, clear the timer/request listener, and let the
-      // stream's finally clear the ownership row and run handle.
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /** Streams the outcome of an approve/decline decision via durable `resume()`. */
@@ -331,11 +309,10 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
     threadId = threadId ?? owner.threadId
     let gateThreadId = threadId
 
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let contRunId = runId
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
@@ -347,7 +324,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
             runId,
             { approved: decision === 'approve' },
             {
-              abortSignal: run.signal,
+              abortSignal: signal,
               requestContext: createActorRequestContext(actorId),
               ...(toolCallId !== undefined ? { toolCallId } : {}),
             },
@@ -357,7 +334,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           contRunId = result.runId || runId
 
           // Cancelled while resuming: do not record a continuation pointer.
-          if (run.signal.aborted) {
+          if (signal.aborted) {
             endReason = 'aborted'
             return
           }
@@ -369,20 +346,15 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           endReason = await pipeDurableRun({
             controller,
             fullStream: result.output.fullStream,
-            signal: run.signal,
+            signal,
             runId: contRunId,
           })
         } catch (err) {
           endReason = 'error'
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
-          try {
-            controller.enqueue(
-              sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung der Entscheidung.' }),
-            )
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
+          enqueue(
+            sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung der Entscheidung.' }),
+          )
         } finally {
           if (endReason === 'suspended') {
             // A distinct continuation run takes over the pointer; a same-run
@@ -393,15 +365,9 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
             if (contRunId !== runId) await clearRun(contRunId)
             cleanup?.()
           }
-          run.cleanup()
         }
       },
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /** Streams the resume of a suspended `ask_user` question via durable `resume()`. */
@@ -438,18 +404,17 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
       }
     }
 
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let contRunId = runId
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
         try {
           let agent = config.resolveAgent()
           let result = await agent.resume(runId, resumeData, {
-            abortSignal: run.signal,
+            abortSignal: signal,
             requestContext: createActorRequestContext(actorId),
             ...(toolCallId !== undefined ? { toolCallId } : {}),
           })
@@ -457,7 +422,7 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           contRunId = result.runId || runId
 
           // Cancelled while resuming: do not record a continuation pointer.
-          if (run.signal.aborted) {
+          if (signal.aborted) {
             endReason = 'aborted'
             return
           }
@@ -471,18 +436,13 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           endReason = await pipeDurableRun({
             controller,
             fullStream: result.output.fullStream,
-            signal: run.signal,
+            signal,
             runId: contRunId,
           })
         } catch (err) {
           endReason = 'error'
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
-          try {
-            controller.enqueue(sseEvent('agent-error', { error: config.answerErrorMessage }))
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
+          enqueue(sseEvent('agent-error', { error: config.answerErrorMessage }))
         } finally {
           if (endReason === 'suspended') {
             if (contRunId !== runId) await clearRun(runId)
@@ -491,15 +451,9 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
             if (contRunId !== runId) await clearRun(contRunId)
             cleanup?.()
           }
-          run.cleanup()
         }
       },
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /**

@@ -6,14 +6,7 @@ import {
   sanitizeLog,
 } from '../actions/mastra/shared-agent.ts'
 import { createActorRequestContext } from '../actions/mastra/actor-context.ts'
-import {
-  createRunSignal,
-  pipeStream,
-  safeClose,
-  sseErrorResponse,
-  sseEvent,
-  sseHeaders,
-} from './agent-sse.ts'
+import { pipeStream, sseErrorResponse, sseEvent, sseRunResponse } from './agent-sse.ts'
 import type { GateStore } from './agent-gate-store.ts'
 import { createLogger } from './logger.ts'
 
@@ -281,17 +274,16 @@ export function createAgentChat(config: AgentChatConfig) {
     onSettled?: ((info: { runId: string; threadId: string }) => void) | undefined
   }): Response {
     let { context, actorId, message, threadId } = options
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let startedRunId: string | undefined
         try {
           let agent = config.resolveAgent()
           let output = await agent.stream(message, {
             maxSteps: config.maxSteps ?? 10,
-            abortSignal: run.signal,
+            abortSignal: signal,
             memory: { thread: threadId, resource: String(actorId) },
             requestContext: createActorRequestContext(actorId),
           })
@@ -305,7 +297,7 @@ export function createAgentChat(config: AgentChatConfig) {
           await pipeRun({
             controller,
             fullStream: output.fullStream,
-            signal: run.signal,
+            signal,
             actorId,
             threadId,
             runId: output.runId,
@@ -318,28 +310,14 @@ export function createAgentChat(config: AgentChatConfig) {
           // A cancelled body closes the controller, so the start/pipe writes
           // throw. Settle the durable pointers the same way pipeRun would: an
           // abort keeps the pointer only on a surface configured to survive it.
-          if (startedRunId && shouldClear(run.signal.aborted ? 'aborted' : 'error')) {
+          if (startedRunId && shouldClear(signal.aborted ? 'aborted' : 'error')) {
             await clearGate(actorId, startedRunId)
             await clearRun(startedRunId)
           }
-          try {
-            controller.enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
-        } finally {
-          run.cleanup()
+          enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
         }
       },
-      // A cancelled body (client disconnect, router teardown) must stop the
-      // model run and drop the timer/listener, not leave them running.
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /** Streams the outcome of an approve/decline decision for a suspended tool. */
@@ -380,11 +358,10 @@ export function createAgentChat(config: AgentChatConfig) {
     let confirmedRunId = runId
 
     let gateThreadId = threadId ?? ''
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let contRunId = confirmedRunId
         try {
           controller.enqueue(sseEvent('start', { runId: confirmedRunId, threadId }))
@@ -394,13 +371,13 @@ export function createAgentChat(config: AgentChatConfig) {
           let result = (await (decision === 'approve'
             ? agent.approveToolCallGenerate!({
                 runId: confirmedRunId,
-                abortSignal: run.signal,
+                abortSignal: signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
                 requestContext,
               })
             : agent.declineToolCallGenerate!({
                 runId: confirmedRunId,
-                abortSignal: run.signal,
+                abortSignal: signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
                 requestContext,
               }))) as DecisionResult
@@ -425,7 +402,7 @@ export function createAgentChat(config: AgentChatConfig) {
             await pipeRun({
               controller,
               fullStream: result.fullStream,
-              signal: run.signal,
+              signal,
               actorId,
               threadId: gateThreadId,
               runId: contRunId,
@@ -443,28 +420,15 @@ export function createAgentChat(config: AgentChatConfig) {
           await clearGate(actorId, contRunId)
           await clearRun(confirmedRunId)
           if (contRunId !== confirmedRunId) await clearRun(contRunId)
-          controller.close()
         } catch (err) {
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
           await clearGate(actorId, contRunId)
-          try {
-            controller.enqueue(
-              sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung der Entscheidung.' }),
-            )
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
-        } finally {
-          run.cleanup()
+          enqueue(
+            sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung der Entscheidung.' }),
+          )
         }
       },
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /** Streams the resume of a suspended `ask_user` question. */
@@ -521,18 +485,17 @@ export function createAgentChat(config: AgentChatConfig) {
     }
 
     let gateThreadId = threadId ?? ''
-    let runHandle: ReturnType<typeof createRunSignal> | undefined
-    let body = new ReadableStream({
-      start: async (controller) => {
-        let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
-        runHandle = run
+    return sseRunResponse(
+      context.request.signal,
+      AGENT_TIMEOUT_MS,
+      async ({ controller, signal, enqueue }) => {
         let contRunId = confirmedRunId
         try {
           let agent = config.resolveAgent()
           let output = await agent.resumeStream(resumeData, {
             runId: confirmedRunId,
             toolCallId,
-            abortSignal: run.signal,
+            abortSignal: signal,
             requestContext: createActorRequestContext(actorId),
           })
 
@@ -552,36 +515,20 @@ export function createAgentChat(config: AgentChatConfig) {
           await pipeRun({
             controller,
             fullStream: output.fullStream,
-            signal: run.signal,
+            signal,
             actorId,
             threadId: gateThreadId,
             runId: contRunId,
           })
 
-          try {
-            controller.enqueue(sseEvent('complete', {}))
-          } catch {
-            /* already closed/sent */
-          }
+          enqueue(sseEvent('complete', {}))
         } catch (err) {
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
           await clearGate(actorId, contRunId)
-          try {
-            controller.enqueue(sseEvent('agent-error', { error: config.answerErrorMessage }))
-          } catch {
-            /* already closed */
-          }
-          safeClose(controller)
-        } finally {
-          run.cleanup()
+          enqueue(sseEvent('agent-error', { error: config.answerErrorMessage }))
         }
       },
-      cancel() {
-        runHandle?.abort()
-        runHandle?.cleanup()
-      },
-    })
-    return new Response(body, { headers: sseHeaders() })
+    )
   }
 
   /** Re-surfaces a gate that is still pending after a reload / reconnect. */
