@@ -39,6 +39,10 @@ css({ accentColor: theme.colors.success.background })
 css({ accentColor: theme.colors.success.foreground })
 ```
 
+## A cast around `theme.*` hides a wrong group
+
+Assigning `element.style.backgroundColor = undefined` is a silent no-op — the declaration is simply absent — so a wrong token group can ship as an *unstyled* element with every gate green. Real case: `app/ui/toast.ts` did `const surface = theme.surface as Record<string, string>` and read `surface.dangerBg` / `surface.successBg` / `surface.dangerText` / `surface.dangerBorder`. `theme.surface` only has `lvl0`–`lvl4`, so every tone key was `undefined` and toasts rendered with no background, ink or border; the cast suppressed the `tsc` error that would have pointed at the real groups (`theme.colors.action.danger` for error, `theme.colors.success` for success), and `check-theme-conformance` only scans raw `var(--rmx-` literals. Fix: resolve the tone triple through the typed object (`tone.background`/`tone.foreground`/`tone.border`) and never cast a theme group to `Record<string, string>`. Guard the rendered result, not the source: `app/ui/toast.test.browser.ts` asserts a non-empty `style.backgroundColor`/`style.color` and that the error and success tones differ.
+
 ## When a token does not exist
 
 If the required semantic color has no token, **add it to the theme** — do not hardcode a fallback:
