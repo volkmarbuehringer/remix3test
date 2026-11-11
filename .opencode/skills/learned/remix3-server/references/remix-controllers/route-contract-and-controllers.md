@@ -4,6 +4,8 @@
 
 **Extracted:** 2026-09-26
 
+**Re-validated (2026-11-11):** against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`remix` `3.2.0` / `@remix-run/fetch-router` as installed). #12190 added the HEAD GET-fallback body strip after router middleware; the HEAD bullet and its app guard were refreshed in the same pass.
+
 **Context:** Adding or registering a route or controller in this app: picking resource-helper options, wiring a nested route map, reading the built-in action context (`context.has`, `context.router`, `context.headers`), or inspecting an opaque `RoutePattern` without reaching into its internals.
 
 ## Problem
@@ -22,7 +24,7 @@ The guide introduces the route map, route builders, and controller ownership, bu
 ### `patch`, `head`, `options`, and bare-string (any-method) leaves
 
 - Guide §"Route builders: route, get, post, put, del, form, resources" lists the method builders; `patch`, `head`, and `options` are exported from `remix/routes` exactly like `get`/`post` (`route-helpers/method.ts`). This app imports only `del, get, post, put, route, form, resources` at `app/routes.ts:1`; no `patch`/`head`/`options` leaf exists yet, so adding one is a new import from `remix/routes`.
-- `head` interacts with `GET`: a `GET` route also serves `HEAD` (the router strips the body), and an explicit `HEAD` route wins for `HEAD` (`node_modules/remix/src/fetch-router/README.md` §"HEAD Requests"). This app registers no `HEAD` leaves and relies on the `GET` fallback.
+- `head` interacts with `GET`: a `GET` route also serves `HEAD`, and an explicit `HEAD` route wins for `HEAD` (`node_modules/remix/src/fetch-router/README.md` §"HEAD Requests"). Since #12190 the fallback is picked in `dispatchMatches()` (the most specific `GET` match, installed `fetch-router/src/lib/router.ts:388-425`), and the body is stripped **after** router middleware returns: `dispatchRouter()` awaits `runMiddleware(...)` and only then passes the response through `headResponse()` (`:378-385`), which cancels the GET body and returns `new Response(null, { status, statusText, headers })` (`:265-277`). Ordering rule: router middleware sees the **GET** response (its status and headers), and any header it adds survives on the `HEAD` response; only the body is dropped. Do not move header stamping into the route handler for HEAD — put it in router middleware, after `next()`. This app registers no `HEAD` leaves and relies on the fallback; `app/actions/home/controller.test.ts` §"HEAD requests served by the GET fallback" guards `HEAD /` and `HEAD /health` (GET status, all stable headers, empty body, and exactly one middleware pass via the first logger).
 - A bare-string leaf (`webhook: "/webhooks/github"`, guide §"Route builders: route, get, post, put, del, form, resources") produces a `Route<'ANY', ...>` that matches any method, so its action must branch on `context.method`. This app has no `ANY` leaf today: the webhook/callback endpoints are `post(...)` (`app/routes.ts` `system.*`, mapped with `router.post(...)` in `app/router.ts`). If you add an `ANY` leaf, `context.method` is the field to switch on — the same field `app/middleware/uploads.ts:125` reads (`context.method === 'POST'`).
 
 ### A controller owns only its direct leaves; nested maps are registered separately
@@ -62,7 +64,7 @@ function routeParentPath(route: { pattern: { source: string } }): string {
 
 - Adding or reshaping a CRUD route with `resources()`/`resource()` and deciding `only` vs `exclude` in this app.
 - Registering a controller for a route map whose branches are handled by their own controllers, or triaging a `Missing action` / `nested route map key` / `Unknown action` throw at startup.
-- Adding a `patch`/`head`/`options` leaf or an any-method (bare-string) route whose handler must check `context.method`.
+- Adding a `patch`/`head`/`options` leaf, an any-method (bare-string) route whose handler must check `context.method`, or a `HEAD` request served by the `GET` fallback (body stripped after router middleware; middleware sees the GET response).
 - Reading `context.has`, `context.router`, or `context.headers` inside middleware/actions and expecting response-side behavior from `context.headers`.
 - A `RoutePattern` property stops typechecking, or you need a route's variables/wildcards (`getRoutePatternCaptures()` replaces token walking; `routeParentPath()` shows the string-based parent-path rewrite).
 
