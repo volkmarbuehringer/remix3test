@@ -233,9 +233,13 @@ export const AdminChatlogDetail = clientEntry(
           if (event.defaultPrevented) return
           let target = event.target as HTMLElement | null
 
-          // Dismiss the transcript without leaving the list.
+          // Dismiss the transcript without leaving the list. The href stays as
+          // the no-JS fallback, so the client path must cancel it explicitly —
+          // otherwise the runtime refetches the list and steals the focus the
+          // collapse just restored.
           let close = target?.closest<HTMLElement>('[data-chatlog-close]')
           if (close) {
+            event.preventDefault()
             event.stopPropagation()
             collapsePane(close.getAttribute('data-chatlog-return') ?? '')
             return

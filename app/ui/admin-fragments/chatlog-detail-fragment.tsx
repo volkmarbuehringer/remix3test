@@ -40,11 +40,20 @@ const detailStyle = css({
 
 const headerStyle = css({
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
+  flexDirection: 'column',
+  gap: theme.space.sm,
   marginBottom: theme.space.md,
   paddingBottom: theme.space.sm,
   borderBottom: `1px solid ${theme.colors.border.subtle}`,
+})
+
+/** Title row: the conversation title keeps the full width while the close
+ *  control stays pinned to the panel's top-right corner, like the edit panels. */
+const headerTopStyle = css({
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
 })
 
 const titleStyle = css({
@@ -52,13 +61,32 @@ const titleStyle = css({
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.primary,
   margin: 0,
+  minWidth: 0,
 })
 
 const headerMetaStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
+})
+
+/** Header close control, matching the editor panels' icon close button. */
+const closeButtonStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
-  gap: theme.space.sm,
+  justifyContent: 'center',
+  width: '1.75rem',
+  height: '1.75rem',
   flexShrink: 0,
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.muted,
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:focus-visible': {
+    outline: '2px solid ' + theme.colors.focus.ring,
+    outlineOffset: '1px',
+  },
 })
 
 const continueLinkStyle = css({
@@ -117,26 +145,6 @@ const dayHeaderStyle = css({
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   margin: '4px 0',
-})
-
-const closeLinkStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '4px',
-  alignSelf: 'flex-start',
-  marginBottom: theme.space.xs,
-  padding: 0,
-  border: 'none',
-  background: 'none',
-  color: theme.colors.text.secondary,
-  font: 'inherit',
-  fontSize: theme.fontSize.xs,
-  textDecoration: 'none',
-  cursor: 'pointer',
-  '&:hover': {
-    color: theme.colors.action.primary.background,
-    textDecoration: 'underline',
-  },
 })
 
 const messageItemStyle = css({
@@ -235,16 +243,20 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
         data-chatlog-detail="true"
         data-chatlog-missing={hasError || showEmpty}
       >
-        <a
-          href={closeHref ?? routes.admin.chatlog.index.href()}
-          data-chatlog-close="true"
-          data-chatlog-return={returnId ?? ''}
-          mix={closeLinkStyle}
-        >
-          ← Schließen
-        </a>
         <div mix={headerStyle}>
-          <h3 mix={titleStyle}>{displayTitle}</h3>
+          <div mix={headerTopStyle}>
+            <h3 mix={titleStyle}>{displayTitle}</h3>
+            <a
+              href={closeHref ?? routes.admin.chatlog.index.href()}
+              data-chatlog-close="true"
+              data-chatlog-return={returnId ?? ''}
+              aria-label="Konversation schließen"
+              title="Schließen"
+              mix={closeButtonStyle}
+            >
+              <Glyph name="close" width={14} height={14} />
+            </a>
+          </div>
           <div mix={headerMetaStyle}>
             <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>
               {messages.length === 1 ? '1 Nachricht' : `${messages.length} Nachrichten`}

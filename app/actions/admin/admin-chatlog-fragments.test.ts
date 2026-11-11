@@ -106,6 +106,16 @@ describe('Admin Chatlog Fragments Controller', () => {
       'an unreadable conversation should be marked missing',
     )
     assert.ok(html.includes('data-chatlog-close'), 'should offer a way back to the list')
+    assert.ok(
+      html.includes('aria-label="Konversation schließen"'),
+      'the dismiss control should be an accessible close button',
+    )
+    assert.ok(html.includes('title="Schließen"'), 'the close control keeps its tooltip label')
+    assert.match(
+      html,
+      /<\/h3>\s*<a[^>]*data-chatlog-close/,
+      'the close control sits in the header title row, not above the panel',
+    )
   })
 
   it('dismiss control keeps the list page offset', async () => {
