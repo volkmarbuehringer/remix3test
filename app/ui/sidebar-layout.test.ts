@@ -193,6 +193,54 @@ describe('Admin sidebar shell — flash messages', () => {
     )
   })
 
+  it('does not repeat the document flash in the fragment the renderer inlines', async () => {
+    let cookie = await createAdminSessionWith('success', 'Inlined fragment flash message')
+
+    // The exact header set the renderer adds to the internal subrequest it
+    // makes for a blocking <Frame> (see @remix-run/render-middleware). The
+    // inlined HTML becomes part of the document, whose Layout surfaces the
+    // flash, so the fragment must not render it a second time.
+    let response = await router.fetch(ADMIN_USERS_URL, {
+      headers: {
+        Cookie: cookie,
+        'X-Remix-Frame': 'true',
+        'X-Remix-Target': 'admin-content',
+        'X-Remix-Top-Frame-Src': ADMIN_USERS_URL,
+      },
+    })
+    assert.equal(response.status, 200, 'the internal frame subrequest should render')
+    let html = await response.text()
+    assert.ok(
+      !html.includes('Inlined fragment flash message'),
+      'an inlined fragment belongs to the enclosing document and must not repeat its flash',
+    )
+  })
+
+  it('renders the flash exactly once when a POST re-renders the shell inline', async () => {
+    let cookie = await createAdminSessionWith('success', 'POST re-render flash message')
+
+    let body = new URLSearchParams({
+      name: '',
+      email: `probe-${Date.now()}@example.com`,
+      role: 'customer',
+      password: 'testpass123!',
+      _csrf: 'test-csrf-token-for-shell-flash',
+    })
+    let response = await router.fetch(ADMIN_USERS_URL, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    })
+    assert.equal(response.status, 200, 'the validation error should re-render the page')
+    let html = await response.text()
+    let occurrences = html.split('POST re-render flash message').length - 1
+    assert.equal(
+      occurrences,
+      1,
+      'a POST that renders the document inline must not also let the shell render the flash',
+    )
+  })
+
   it('opts full-document navigations into View Transitions and names persistent chrome', async () => {
     let cookie = await createAdminSessionWith('success', 'View transition probe')
 

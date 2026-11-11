@@ -35,6 +35,27 @@ export function currentRequestTargetsFrame(...names: string[]): boolean {
 }
 
 /**
+ * True when the current request is a frame the renderer resolved *inside*
+ * another response — the internal SSR subrequest behind a `<Frame>`, not a
+ * browser frame navigation.
+ *
+ * The renderer creates those subrequests itself and marks them with the
+ * enclosing document's `X-Remix-Top-Frame-Src`; a browser frame navigation
+ * sends `X-Remix-Frame`/`X-Remix-Target` but never that header. The HTML
+ * rendered here is spliced into a larger response, so response-level chrome
+ * (the one-shot flash banner, the document `Layout`) belongs to the enclosing
+ * document and must not also render in this fragment.
+ */
+export function currentRequestIsInlinedFrame(): boolean {
+  try {
+    return getContext().request.headers.get('X-Remix-Top-Frame-Src') != null
+  } catch {
+    /* no request context */
+    return false
+  }
+}
+
+/**
  * Pure decision behind `getSelfFrameTarget()`, split out so the per-panel
  * branches are unit-testable without a request context.
  *

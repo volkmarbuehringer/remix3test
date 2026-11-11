@@ -182,8 +182,13 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
               <Glyph name="menu" width={16} height={16} /> Bereiche
             </button>
             {/* Admin pages render as frame fragments through this shell (not the
-                top-level Layout), so the one-shot PRG flash is surfaced here. */}
-            <FlashBanner compact />
+                top-level Layout), so the one-shot PRG flash is surfaced here
+                when the shell is the response root. On a document render the
+                top-level Layout owns it instead (the shell is then inlined in
+                that Layout, either directly on a POST re-render or through the
+                blocking self-relay frame), so render it only for a frame
+                response — see `currentRequestIsInlinedFrame()`. */}
+            {isFrameRequest() ? <FlashBanner compact /> : null}
             <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>

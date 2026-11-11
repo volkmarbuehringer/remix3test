@@ -19,8 +19,16 @@
 Surface `session.get('error' | 'success')` in whichever fragment path renders the content. All fragment paths use the shared `FlashBanner` (`app/ui/flash-banner.tsx`, which owns the module-scope styles):
 
 - **Document layout** (`app/ui/layout.tsx`): `<FlashBanner />`.
-- **Sidebar shell** (`app/ui/sidebar-layout.tsx`): `<FlashBanner compact />` above the breadcrumbs.
+- **Sidebar shell** (`app/ui/sidebar-layout.tsx`): `<FlashBanner compact />` above the breadcrumbs, **only when the shell is the response root** (`isFrameRequest()`) — a POST re-render embeds the shell in `Layout`, which owns the flash there.
 - **Dual-render page fragment branches**: `<FlashBanner compact />` **only in the `isFrame` branch** (`app/ui/verwaltung-layout.tsx`, `SettingsView`'s isFrame branch, `renderAppointmentsNewPage`'s frame branch) so the two render paths never double-consume it.
+
+### 1a. An inlined (SSR-resolved) frame must not repeat the document flash
+
+Since preview build `3273a048` (#12153) `render()` waits for the **shell** chunk before its middleware returns. The blocking self-relay `<Frame>` therefore resolves its internal subrequest *before* the outer session middleware saves — and clears — the flash, so the inlined fragment reads it too and a full-document GET rendered the banner twice: once in the document `Layout`, once inside the shell (`/admin/users`, `/appointments/new`).
+
+The renderer marks its own frame subrequests with `X-Remix-Top-Frame-Src` (the enclosing document URL); a browser frame navigation sends `X-Remix-Frame`/`X-Remix-Target` but never that header. `FlashBanner` skips the banner when `currentRequestIsInlinedFrame()` (`app/utils/frame-target.ts`) is true, so exactly one banner survives per response regardless of stream timing: a document render (any method; blocking or streaming shell) surfaces it through the document `Layout` and keeps inlined fragments silent, while a browser frame navigation surfaces it through the fragment renderer. The sidebar shell's own compact banner is gated on `isFrameRequest()` for the same reason (see above).
+
+Guards: `app/ui/sidebar-layout.test.ts` (full document exactly once; the renderer's internal header set renders no banner; POST re-render exactly once) and `app/actions/appointments-new/controller.test.ts` (full document exactly once with a blocking page frame).
 
 ### 1b. The in-frame PRG follow must run outside the session middleware
 
@@ -54,3 +62,4 @@ assert.ok(err?.includes('...'), 'flash error should be set')
 - Writing a test that asserts a `session.flash` value — unwrap the signed cookie with `readSessionId` first.
 - Debugging an assertion like `flash error should be set` failing with `session.get('error') === undefined`.
 - An in-frame PRG flash never renders after a redirect: check `frameRedirects()` sits outside `session()` (and that the follow inherits the redirect's `Set-Cookie`).
+- A full-document GET shows the flash twice (once in the page chrome, once inside a blocking shell): the fragment the renderer inlined must skip it — check `FlashBanner`'s `currentRequestIsInlinedFrame()` guard and the shell's `isFrameRequest()` gate on its own banner.

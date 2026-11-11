@@ -699,6 +699,25 @@ describe('Appointments new frame navigation', () => {
     )
   })
 
+  it('renders a full-document flash exactly once with the blocking page frame', async () => {
+    let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    assert.ok(auth, 'user session must be created')
+    let sid = await readSessionId(auth.cookie)
+    assert.ok(sid, 'the session cookie must carry a raw id')
+    let session = await sessionStorage.read(sid)
+    session.flash('success', 'Full document appointment flash')
+    await sessionStorage.save(session)
+
+    let response = await router.fetch(APPT_URL, { headers: { Cookie: auth.cookie } })
+    assert.equal(response.status, 200, 'full-document GET should render')
+    let html = await response.text()
+    assert.equal(
+      html.split('Full document appointment flash').length - 1,
+      1,
+      'the document Layout owns the flash; the inlined frame fragment must not repeat it',
+    )
+  })
+
   it('renders the PRG flash inside the frame fragment and consumes it', async () => {
     let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
     assert.ok(auth, 'user session must be created')

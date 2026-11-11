@@ -1,5 +1,6 @@
 import { css, type Handle } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
+import { currentRequestIsInlinedFrame } from '../utils/frame-target.ts'
 import { theme } from './theme/theme.ts'
 
 type FlashState = { error?: string; success?: string }
@@ -10,7 +11,9 @@ type FlashState = { error?: string; success?: string }
  * A flash is surfaced by exactly one layout/component per response: the
  * top-level `Layout` on document renders, or the fragment renderer (sidebar
  * shell, verwaltung fragment branch, settings/appointments-new frame branch)
- * on frame renders. Do not render two of them in one response.
+ * on frame renders. A frame the renderer resolves *inside* another response is
+ * part of that document, so the document `Layout` surfaces the flash there and
+ * the inlined fragment must not — see `currentRequestIsInlinedFrame()`.
  */
 function readFlash(): FlashState {
   let flash: FlashState = {}
@@ -34,6 +37,10 @@ function readFlash(): FlashState {
  */
 export function FlashBanner(handle: Handle<{ compact?: boolean }>) {
   return () => {
+    // A self-relay shell resolves its frame inside the document render, so a
+    // full page load would otherwise render the same one-shot flash twice: once
+    // here and once in the document `Layout`. The document owns it.
+    if (currentRequestIsInlinedFrame()) return null
     let { error, success } = readFlash()
     if (!error && !success) return null
     let compactMix = handle.props.compact ? [compactCss] : []
