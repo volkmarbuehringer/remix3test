@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-26
 
-**Re-validated (2026-11-11):** against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`remix` `3.2.0` / `@remix-run/fetch-router` as installed). #12190 added the HEAD GET-fallback body strip after router middleware; the HEAD bullet and its app guard were refreshed in the same pass.
+**Re-validated (2026-11-11):** against preview release `v0.20261111.171719-main-0cab1903` / source `0cab1903` (`remix` `3.2.0` / `@remix-run/fetch-router` as installed). #12190 added the HEAD GET-fallback body strip after router middleware; the HEAD bullet and its app guard were refreshed in the same pass.
 
 **Context:** Adding or registering a route or controller in this app: picking resource-helper options, wiring a nested route map, reading the built-in action context (`context.has`, `context.router`, `context.headers`), or inspecting an opaque `RoutePattern` without reaching into its internals.
 

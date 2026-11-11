@@ -1,11 +1,11 @@
 # `s.defaulted` Returns Its Default Without Running The Wrapped Schema
 
 **Discovered:** 2026-10-17 — agent-events prompt schema (`85a552c` fix for review on `154acc3`)
-**Revalidated:** 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`@remix-run/data-schema` 1.0.0; `defaulted` at `src/lib/schema.ts:667`).
+**Revalidated:** 2026-11-11 against preview release `v0.20261111.171719-main-0cab1903` / source `0cab1903` (`@remix-run/data-schema` 1.0.0; `defaulted` at `src/lib/schema.ts:667`).
 
 ## Vendor fact (version-pinned)
 
-`@remix-run/data-schema` at preview release `v0.20261111.313-main-3273a048` / source `3273a048` (the current install):
+`@remix-run/data-schema` at preview release `v0.20261111.171719-main-0cab1903` / source `0cab1903` (the current install):
 
 - `src/lib/schema.ts:667` — `export function defaulted<input, output>(...)`
 - `src/lib/schema.ts:671-685` — when the input is `undefined`, `defaulted` resolves the

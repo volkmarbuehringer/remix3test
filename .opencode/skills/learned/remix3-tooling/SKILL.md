@@ -34,7 +34,7 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Running `remix new` / `test` / `doctor` / `routes` / `version` / `completion`, programmatic `runRemix`, wiring `node --import remix/node-tsx` or `loadModule`, the `node-tsx` tsconfig, `remix test` filters, `NODE_ENV=test`, or mocking frozen ES-module exports | `references/remix3-build-and-tooling/cli-devops.md` |
 | Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, or `trustProxy` | `references/remix3-build-and-tooling/hmr-dev-server.md` |
 | Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/remix3-build-and-tooling/self-hosted-fonts.md` |
-| A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently preview release `v0.20261111.313-main-3273a048`: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
+| A preview-pinned dependency may have upstream changes, you must judge whether to update, or you are pinning versions across the post-#11948 split lines (currently preview release `v0.20261111.171719-main-0cab1903`: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1) | `references/remix3-build-and-tooling/upstream-dependency-analysis.md` |
 | Re-auditing the app against an installed guide chapter: chapter authored/renamed, a pin bump changed `node_modules/remix/guides`, or a learned delta looks stale | `docs/guide-chapter-audit.md` |
 | `pnpm install` on the preview-pinned remix deps fails or crawls (`EROFS` store, `ERR_PNPM_UNEXPECTED_STORE`, or historical `ERR_PNPM_PREPARE_PACKAGE`/codeload 429 storms), or you need the current preview-release update flow | `docs/pnpm-remix-preview-installs.md` (old `github:` recipes: `docs/history/pnpm-git-hosted-installs.md`) |
 
@@ -98,7 +98,7 @@ _(formerly `remix3-bun-runtime` — references live under `references/remix3-bun
 
 **Consolidated from:** the seven former `remix3-bun-runtime` notes (entrypoint, MIME, pnpm shim, runner, SSR signal, TypeScript scoping, validation)
 
-**Extracted:** 2026-09-19; last vendor re-check 2026-11-11 against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (Bun 1.4.4)
+**Extracted:** 2026-09-19; last vendor re-check 2026-11-11 against preview release `v0.20261111.171719-main-0cab1903` / source `0cab1903` (Bun 1.4.4)
 **Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (currently `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0; Bun 1.4.4). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun — the current line refs and pass/fail result live in `references/remix3-bun-runtime/gotchas.md`.
 
 This skill is the **index** for running this Remix 3 + pnpm app under Bun. For the runtime APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
