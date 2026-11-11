@@ -55,13 +55,55 @@ export function errorToText(error: unknown): string {
 }
 
 /**
+ * A stream scope that follows the request signal and can also be aborted from
+ * the stream itself (a cancelled response body disposes its producer).
+ *
+ * `abort()` and `cleanup()` are idempotent and both drop the request listener,
+ * so a disconnect and a body cancel can race without leaking either.
+ */
+export interface AbortScope {
+  signal: AbortSignal
+  abort(reason?: unknown): void
+  cleanup(): void
+}
+
+export function createAbortScope(requestSignal: AbortSignal | undefined): AbortScope {
+  let controller = new AbortController()
+  let linked = false
+  let onRequestAbort = () => controller.abort(requestSignal?.reason)
+
+  if (requestSignal?.aborted) {
+    controller.abort(requestSignal.reason)
+  } else if (requestSignal) {
+    requestSignal.addEventListener('abort', onRequestAbort, { once: true })
+    linked = true
+  }
+
+  function unlink() {
+    if (!linked || !requestSignal) return
+    linked = false
+    requestSignal.removeEventListener('abort', onRequestAbort)
+  }
+
+  return {
+    signal: controller.signal,
+    abort(reason?: unknown) {
+      unlink()
+      controller.abort(reason)
+    },
+    cleanup: unlink,
+  }
+}
+
+/**
  * Builds the abort signal for a single agent run.
  *
  * Links the request signal (a browser Cancel or disconnect aborts the fetch, and
  * that must abort the server-side model run too) with a whole-run timeout, and
- * returns a `cleanup` that clears both. Centralizing this keeps every SSE path
- * — message, approve/decline, answer — from drifting into "timeout but no
- * disconnect" or "disconnect but no timeout".
+ * returns an `abort` for a cancelled response body plus a `cleanup` that clears
+ * both. Centralizing this keeps every SSE path — message, approve/decline,
+ * answer — from drifting into "timeout but no disconnect" or "disconnect but no
+ * timeout".
  *
  * The signal must be handed to the agent call (as `abortSignal`) *and* to
  * `pipeStream`, and `cleanup` must run once the run settles.
@@ -69,22 +111,16 @@ export function errorToText(error: unknown): string {
 export function createRunSignal(
   requestSignal: AbortSignal | undefined,
   timeoutMs: number,
-): { signal: AbortSignal; cleanup: () => void } {
-  let controller = new AbortController()
-  let timeout = setTimeout(() => controller.abort(), timeoutMs)
-  let onRequestAbort = () => controller.abort()
-
-  if (requestSignal?.aborted) {
-    controller.abort()
-  } else {
-    requestSignal?.addEventListener('abort', onRequestAbort, { once: true })
-  }
+): { signal: AbortSignal; abort: (reason?: unknown) => void; cleanup: () => void } {
+  let scope = createAbortScope(requestSignal)
+  let timeout = setTimeout(() => scope.abort(), timeoutMs)
 
   return {
-    signal: controller.signal,
+    signal: scope.signal,
+    abort: (reason?: unknown) => scope.abort(reason),
     cleanup() {
       clearTimeout(timeout)
-      requestSignal?.removeEventListener('abort', onRequestAbort)
+      scope.cleanup()
     },
   }
 }

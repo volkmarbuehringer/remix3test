@@ -281,9 +281,12 @@ export function createAgentChat(config: AgentChatConfig) {
     onSettled?: ((info: { runId: string; threadId: string }) => void) | undefined
   }): Response {
     let { context, actorId, message, threadId } = options
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
+        let startedRunId: string | undefined
         try {
           let agent = config.resolveAgent()
           let output = await agent.stream(message, {
@@ -292,6 +295,7 @@ export function createAgentChat(config: AgentChatConfig) {
             memory: { thread: threadId, resource: String(actorId) },
             requestContext: createActorRequestContext(actorId),
           })
+          startedRunId = output.runId
 
           await config.recordRun?.({ ownerId: actorId, runId: output.runId, threadId })
           await store.upsert(actorId, { runId: output.runId, threadId })
@@ -311,6 +315,13 @@ export function createAgentChat(config: AgentChatConfig) {
           log('stream completed')
         } catch (err) {
           log('error:', sanitizeLog(err instanceof Error ? err.message : String(err)))
+          // A cancelled body closes the controller, so the start/pipe writes
+          // throw. Settle the durable pointers the same way pipeRun would: an
+          // abort keeps the pointer only on a surface configured to survive it.
+          if (startedRunId && shouldClear(run.signal.aborted ? 'aborted' : 'error')) {
+            await clearGate(actorId, startedRunId)
+            await clearRun(startedRunId)
+          }
           try {
             controller.enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
           } catch {
@@ -320,6 +331,12 @@ export function createAgentChat(config: AgentChatConfig) {
         } finally {
           run.cleanup()
         }
+      },
+      // A cancelled body (client disconnect, router teardown) must stop the
+      // model run and drop the timer/listener, not leave them running.
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
       },
     })
     return new Response(body, { headers: sseHeaders() })
@@ -363,9 +380,11 @@ export function createAgentChat(config: AgentChatConfig) {
     let confirmedRunId = runId
 
     let gateThreadId = threadId ?? ''
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
         let contRunId = confirmedRunId
         try {
           controller.enqueue(sseEvent('start', { runId: confirmedRunId, threadId }))
@@ -440,6 +459,10 @@ export function createAgentChat(config: AgentChatConfig) {
           run.cleanup()
         }
       },
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
+      },
     })
     return new Response(body, { headers: sseHeaders() })
   }
@@ -498,9 +521,11 @@ export function createAgentChat(config: AgentChatConfig) {
     }
 
     let gateThreadId = threadId ?? ''
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
         let contRunId = confirmedRunId
         try {
           let agent = config.resolveAgent()
@@ -550,6 +575,10 @@ export function createAgentChat(config: AgentChatConfig) {
         } finally {
           run.cleanup()
         }
+      },
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
       },
     })
     return new Response(body, { headers: sseHeaders() })

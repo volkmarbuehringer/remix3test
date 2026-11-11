@@ -54,6 +54,10 @@ async action(context) {
 }
 ```
 
+### `cancel()` is the disconnect hook (remix #12190)
+
+The request-signal `abort` listener is not the only teardown path. Since remix #12190 `remix/fetch-router` cancels the body of a response abandoned by an aborted request, and `createRequestListener` cancels the response reader when the HTTP connection closes. In this single-request pattern the response body owns the agent call, so the `ReadableStream` needs an underlying `cancel()` that aborts the run signal (stop the model call) and clears any timer/listener. The app's `createAbortScope()` / `createRunSignal().abort()` (`app/utils/agent-sse.ts`) make that idempotent with the abort handler; `app/utils/agent-chat.ts` and `app/utils/agent-chat-durable.ts` wire it into all six SSE streams, and `app/utils/agent-chat-cancel.test.ts` cancels the body and asserts the abort signal plus the settled pointers. Without the hook, "stream dies with request" is false: the HTTP write stops but the agent run keeps executing.
+
 ### pipeStream helper
 
 ```typescript
@@ -406,5 +410,5 @@ Suspect this issue when approval works on the first tool call but is silently by
 | Client protocol | fetch + EventSource             | `fetch()` + reader             |
 | Error handling  | JSON for errors, SSE for stream | SSE for everything             |
 | Auth checks     | Separate check on each endpoint | Single check in action         |
-| Orphan cleanup  | TTL timers, memory pressure     | Stream dies with request       |
+| Orphan cleanup  | TTL timers, memory pressure     | Request abort + body `cancel()` stop the producer |
 | Proxy timeout   | SSE open indefinitely           | Same — open for agent duration |

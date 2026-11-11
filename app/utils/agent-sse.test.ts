@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { createRunSignal, errorToText, pipeStream } from './agent-sse.ts'
+import { createAbortScope, createRunSignal, errorToText, pipeStream } from './agent-sse.ts'
 import { delay } from './async.ts'
 
 describe('createRunSignal', () => {
@@ -42,6 +42,43 @@ describe('createRunSignal', () => {
 
     await delay(60)
     assert.equal(run.signal.aborted, false)
+  })
+
+  it('abort() aborts the run signal on demand', () => {
+    let run = createRunSignal(undefined, 60_000)
+    run.abort()
+    assert.equal(run.signal.aborted, true)
+    run.cleanup()
+  })
+})
+
+describe('createAbortScope', () => {
+  it('follows the request signal', () => {
+    let request = new AbortController()
+    let scope = createAbortScope(request.signal)
+
+    request.abort()
+    assert.equal(scope.signal.aborted, true)
+  })
+
+  it('aborts on demand, then stops following the request', () => {
+    let request = new AbortController()
+    let scope = createAbortScope(request.signal)
+
+    scope.abort()
+    assert.equal(scope.signal.aborted, true)
+    request.abort()
+    assert.equal(scope.signal.aborted, true)
+    scope.cleanup()
+  })
+
+  it('cleanup unlinks from the request signal', () => {
+    let request = new AbortController()
+    let scope = createAbortScope(request.signal)
+
+    scope.cleanup()
+    request.abort()
+    assert.equal(scope.signal.aborted, false)
   })
 })
 

@@ -3,7 +3,13 @@ import { css, type Handle } from 'remix/component'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { requireAdmin } from '../../middleware/admin.ts'
-import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
+import {
+  createAbortScope,
+  safeClose,
+  sseErrorResponse,
+  sseEvent,
+  sseHeaders,
+} from '../../utils/agent-sse.ts'
 import {
   completeNativeForm,
   createNativeTurnGuard,
@@ -293,6 +299,9 @@ export default createController(routes.admin.agentEvents, {
       let message = parsed.value.message
 
       let user = getCurrentUser()
+      // The stream owns a scope so a cancelled body stops the event pipeline
+      // and the underlying workflow instead of leaving it running.
+      let scope = createAbortScope(context.request.signal)
       let body = new ReadableStream({
         start: async (controller) => {
           let bus = new EventBus()
@@ -305,7 +314,7 @@ export default createController(routes.admin.agentEvents, {
           }
 
           for await (let event of bus.run(initialEvent)) {
-            if (context.request.signal.aborted) break
+            if (scope.signal.aborted) break
 
             switch (event.type) {
               case 'request.validated':
@@ -384,7 +393,7 @@ export default createController(routes.admin.agentEvents, {
                     status: 'running',
                   })
                   controller.enqueue(sseEvent('start', { runId, workflowId: event.workflowId }))
-                  await pipeWorkflowStream(fullStream, controller, context.request.signal, {
+                  await pipeWorkflowStream(fullStream, controller, scope.signal, {
                     includeReport: false,
                     runId,
                     workflowId: event.workflowId,
@@ -437,6 +446,10 @@ export default createController(routes.admin.agentEvents, {
           controller.enqueue(sseEvent('complete', {}))
           safeClose(controller)
         },
+        cancel() {
+          scope.abort()
+          scope.cleanup()
+        },
       })
 
       let run = () => new Response(body, { headers: sseHeaders() })
@@ -487,6 +500,7 @@ export default createController(routes.admin.agentEvents, {
         return sseErrorResponse('Unknown runId: cannot determine workflow to resume', 400)
       }
 
+      let scope = createAbortScope(context.request.signal)
       let body = new ReadableStream({
         start: async (controller) => {
           try {
@@ -495,7 +509,7 @@ export default createController(routes.admin.agentEvents, {
               resumeData: { confirmed },
             })
             controller.enqueue(sseEvent('start', { runId: outRunId, workflowId }))
-            await pipeWorkflowStream(fullStream, controller, context.request.signal, {
+            await pipeWorkflowStream(fullStream, controller, scope.signal, {
               includeReport: false,
               runId,
               workflowId,
@@ -522,6 +536,10 @@ export default createController(routes.admin.agentEvents, {
             }
             safeClose(controller)
           }
+        },
+        cancel() {
+          scope.abort()
+          scope.cleanup()
         },
       })
 

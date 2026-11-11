@@ -970,6 +970,47 @@ describe('AgentEvents route (POST validation)', () => {
     assert.ok(text.includes('data:'), 'should have data')
   })
 
+  it('cancelling the response body aborts the workflow stream', async () => {
+    let streamCancelled = false
+    let fullStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue({ type: 'workflow-step-start', payload: { id: 'step-1' } })
+        // Leave the workflow open: only the response-body cancel can end it.
+      },
+      cancel() {
+        streamCancelled = true
+      },
+    })
+    __setRunFactory(async () => ({ runId: 'run-cancel-1', fullStream }))
+    try {
+      let response = await postForm(AGENT_EVENTS_URL, adminCookie, {
+        message: 'cancel admin@newapp.com',
+      })
+      assert.equal(response.status, 200)
+
+      let reader = response.body!.getReader()
+      let text = ''
+      while (!text.includes('event: start')) {
+        let { done, value } = await reader.read()
+        if (done) break
+        if (value) text += new TextDecoder().decode(value)
+      }
+      assert.ok(text.includes('event: start'), 'the workflow should start before the disconnect')
+
+      await reader.cancel()
+
+      // pipeWorkflowStream cancels its reader from the stream's abort scope;
+      // poll because the cancel callback may run on a later microtask.
+      let start = Date.now()
+      while (!streamCancelled && Date.now() - start < 2000) {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      assert.equal(streamCancelled, true, 'a cancelled body must cancel the workflow stream')
+    } finally {
+      __setRunFactory(undefined)
+    }
+  })
+
   it('without X-Sse-Request drains the run and 303s with a success flash', async () => {
     let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     if (!session) throw new Error('Failed to create auth session')

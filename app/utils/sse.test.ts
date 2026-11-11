@@ -197,6 +197,26 @@ describe('createChannel', () => {
   })
 
   describe('cleanup', () => {
+    it('cancelling the body clears the heartbeat and drops the subscriber', async (t) => {
+      let setSpy = t.mock.method(globalThis, 'setInterval')
+      let clearSpy = t.mock.method(globalThis, 'clearInterval')
+      let channel = createChannel<{ e: void }>({ heartbeatMs: 60_000 })
+      let controller = new AbortController()
+      let response = channel.subscribe(
+        new Request('http://localhost/test', { signal: controller.signal }),
+      )
+      let intervalId = setSpy.mock.calls.at(-1)?.result
+
+      await response.body!.cancel()
+
+      assert.ok(
+        clearSpy.mock.calls.some((call) => call.arguments[0] === intervalId),
+        'cancel must clear the heartbeat interval',
+      )
+      // A broadcast after cancel must not throw: the subscriber was dropped.
+      channel.broadcast('e')
+    })
+
     it('stops heartbeat on disconnect', async () => {
       let channel = createChannel<{ e: void }>({ heartbeatMs: 20 })
       let controller = new AbortController()

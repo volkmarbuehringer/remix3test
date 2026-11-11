@@ -4,6 +4,8 @@
 
 **Extracted:** 2026-09-26
 
+**Re-validated (2026-11-11):** against preview release `v0.20261111.313-main-3273a048` / source `3273a048` (`remix` `3.2.0` / `@remix-run/fetch-router` + `@remix-run/node-fetch-server` as installed). #12190 adds the abandoned-response-body cancel (`fetch-router/src/lib/request-abort.ts`) and the HEAD body strip; the cancellation anchors below were added in the same pass.
+
 **Context:** Changing the Node/Bun server entry, the root middleware chain (`app/middleware/root.ts`), or anything that reads `request.body` / `request.signal` or the typed `AppContext`.
 
 ## Problem
@@ -57,7 +59,8 @@ Guide 03 describes the portable path and the middleware contract, but this app a
 - Guide §"The Web Request/Response contract": bodies stay Web streams, actions can read `request.body`, return a `Response` backed by a `ReadableStream`, and observe cancellation through `request.signal`.
 - App seams:
   - Stream body with a cap: `app/middleware/json-body.ts` reads `context.request.body?.getReader()`, accumulates chunks, and calls `reader.cancel()` when the byte cap would be exceeded (chunked or unknown-length requests); it uses `Content-Length`/`Transfer-Encoding` to choose the cheap path.
-  - Cancellation: `app/utils/sse.ts:136` registers `request.signal.addEventListener('abort', ...)` to drop the subscriber and close the stream when the client disconnects; `app/actions/agent-events/controller.tsx:308` checks `context.request.signal.aborted` inside a stream loop; `app/middleware/frame-redirect.ts:94-107` forwards `signal: context.request.signal` into the internal `context.router.fetch`.
+  - Cancellation: `app/utils/sse.ts:136` registers `request.signal.addEventListener('abort', ...)` to drop the subscriber and close the stream when the client disconnects; `app/actions/agent-events/controller.tsx:317` checks the stream scope's `signal.aborted` inside a stream loop; `app/middleware/frame-redirect.ts:94-107` forwards `signal: context.request.signal` into the internal `context.router.fetch`.
+  - **A cancelled response body is a second cleanup path, not only an abort.** Since remix #12190 `remix/fetch-router` cancels the body of a response abandoned by an aborted request (`raceRequestAbort()` → `response.body?.cancel(reason)` in `fetch-router/src/lib/request-abort.ts:32-34`), and `createRequestListener` cancels the reader when the HTTP response closes (`reader.cancel()` in `node-fetch-server/src/lib/request-listener.ts:748-753`). A server `ReadableStream` needs an underlying `cancel()` hook for this: `createAbortScope()` (`app/utils/agent-sse.ts:70`) links the request signal to a stream-local controller whose `abort()`/`cleanup()` are idempotent, and `createRunSignal()` (`:111`) adds the whole-run timeout and the same `abort()`. The app wires it into every SSE source: `app/utils/sse.ts:146` (heartbeat + subscriber), `app/utils/agent-chat.ts:337,462,579` and `app/utils/agent-chat-durable.ts:305,399,497` (abort the agent run, clear the timeout/listener; a cancelled durable stream must not record an ownership row), and `app/actions/agent-events/controller.tsx:449,540` (abort the workflow/bus scope). `cancel()` must tolerate a racing abort: closing an already-cancelled controller throws (use `safeClose`) and a second `clearInterval`/`removeEventListener` must be harmless. Guards: `app/utils/sse.test.ts`, `app/utils/agent-sse.test.ts`, `app/utils/agent-chat-cancel.test.ts`, `app/actions/agent-events/controller.test.ts`.
   - Use `context.request.signal` (the original request), not a fresh `AbortController`, for disconnect-driven cleanup. An abort during a handler surfaces as a `router.fetch` rejection whose reason is the signal reason. `server.bun.ts`'s `fetch` catch suppresses logging for exactly `request.signal.aborted && error === request.signal.reason`; the Node entry logs every `onError`.
 
 ## When to Use
@@ -66,7 +69,7 @@ Guide 03 describes the portable path and the middleware contract, but this app a
 - Changing the root middleware order in `app/middleware/root.ts`, especially `compression()` vs `staticFiles()`, or adding a provider/consumer pair.
 - Reading `context.logger` in a controller, or wiring and altering the logger.
 - Deriving or augmenting `AppContext` and deciding between `RouterContext` and `MiddlewareContext`.
-- Handling a streaming response or client disconnects through `request.body` / `request.signal`.
+- Handling a streaming response or client disconnects through `request.body` / `request.signal`, or returning a server `ReadableStream` (SSE): add a `cancel()` hook that aborts the producer and clears timers/listeners, and prove it by cancelling the response body in a test (aborting the request alone does not exercise `cancel()`).
 
 ## Reference
 

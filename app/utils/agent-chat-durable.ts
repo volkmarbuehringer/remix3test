@@ -238,9 +238,11 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
     onSettled?: ((info: { runId: string; threadId: string }) => void) | undefined
   }): Response {
     let { context, actorId, message, threadId } = options
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
         let runId: string | undefined
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
@@ -260,6 +262,13 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           })
           runId = result.runId
           cleanup = result.cleanup
+
+          // A cancelled body must not create an ownership row for a run no
+          // client can observe; only dispose the handle.
+          if (run.signal.aborted) {
+            endReason = 'aborted'
+            return
+          }
 
           await config.recordRun({ ownerId: actorId, runId: result.runId, threadId })
           controller.enqueue(sseEvent('start', { runId: result.runId, threadId }))
@@ -290,6 +299,13 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           run.cleanup()
         }
       },
+      // A cancelled body disposes the durable run the same way a settle does:
+      // abort the signal, clear the timer/request listener, and let the
+      // stream's finally clear the ownership row and run handle.
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
+      },
     })
     return new Response(body, { headers: sseHeaders() })
   }
@@ -315,9 +331,11 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
     threadId = threadId ?? owner.threadId
     let gateThreadId = threadId
 
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
         let contRunId = runId
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
@@ -337,6 +355,12 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           cleanup = result.cleanup
           options.onDecision?.(runId)
           contRunId = result.runId || runId
+
+          // Cancelled while resuming: do not record a continuation pointer.
+          if (run.signal.aborted) {
+            endReason = 'aborted'
+            return
+          }
 
           if (contRunId !== runId) {
             await config.recordRun({ ownerId: actorId, runId: contRunId, threadId: gateThreadId })
@@ -371,6 +395,10 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           }
           run.cleanup()
         }
+      },
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
       },
     })
     return new Response(body, { headers: sseHeaders() })
@@ -410,9 +438,11 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
       }
     }
 
+    let runHandle: ReturnType<typeof createRunSignal> | undefined
     let body = new ReadableStream({
       start: async (controller) => {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
+        runHandle = run
         let contRunId = runId
         let cleanup: (() => void) | undefined
         let endReason: StreamEndReason = 'error'
@@ -425,6 +455,12 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           })
           cleanup = result.cleanup
           contRunId = result.runId || runId
+
+          // Cancelled while resuming: do not record a continuation pointer.
+          if (run.signal.aborted) {
+            endReason = 'aborted'
+            return
+          }
 
           controller.enqueue(sseEvent('start', { runId: contRunId, threadId: gateThreadId }))
 
@@ -457,6 +493,10 @@ export function createDurableAgentChat(config: DurableAgentChatConfig) {
           }
           run.cleanup()
         }
+      },
+      cancel() {
+        runHandle?.abort()
+        runHandle?.cleanup()
       },
     })
     return new Response(body, { headers: sseHeaders() })
