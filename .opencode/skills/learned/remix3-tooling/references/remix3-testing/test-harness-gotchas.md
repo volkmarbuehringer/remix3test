@@ -178,6 +178,16 @@ Vendor reference: `node_modules/remix/src/test/README.md` § "Mocks and Spies"
 (the "defaults to the next call" wording means the current call index). Pair it
 with `callCount()` to prove every queued request ran.
 
+## `t.useFakeTimers()` fakes `Date`, not just timers
+
+Since remix #12203 (pin `0cab1903`) `t.useFakeTimers()` also fakes `Date`, `performance.now()`, `setImmediate()`/`clearImmediate()` and `AbortSignal.timeout()`, and it clears real timers on restore. Fake time starts at the Unix epoch (`0`), so a test that reads `Date.now()`/`new Date()` while the clock is active sees 1970 rather than the wall clock. Pass a start time when the code under test stamps or compares dates:
+
+```ts
+let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
+```
+
+App call sites: `app/actions/lists/public/lists-autosave.test.browser.tsx` (item stamps) and `app/ui/toast.test.browser.ts` both pass that `now`; the toast itself only uses `setTimeout`.
+
 ## Run coverage in one `remix test` invocation
 
 `npm test -- --coverage` is broken twice over. npm appends script arguments to the end of the whole

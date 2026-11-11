@@ -3,6 +3,8 @@ import * as assert from 'remix/assert'
 
 import { showToast } from './toast.ts'
 
+const FAKE_NOW = new Date('2026-11-11T12:00:00Z')
+
 // The app keeps its own imperative toast (see the remix3-ui
 // first-party-ui-blocks delta for the vendor comparison). These tests pin the
 // contract the two clientEntries rely on: one shared root, append-order
@@ -19,7 +21,7 @@ afterEach(() => {
 
 describe('showToast', () => {
   it('reuses one root and stacks messages in call order', (t) => {
-    t.useFakeTimers()
+    t.useFakeTimers({ now: FAKE_NOW })
     showToast('Fehler beim Speichern.')
     showToast('Erfolg', 'success')
 
@@ -32,7 +34,7 @@ describe('showToast', () => {
   })
 
   it('styles error and success toasts with different theme tones', (t) => {
-    t.useFakeTimers()
+    t.useFakeTimers({ now: FAKE_NOW })
     showToast('Fehler', 'error')
     showToast('Erfolg', 'success')
 
@@ -45,7 +47,7 @@ describe('showToast', () => {
   })
 
   it('removes a toast after the display timeout', (t) => {
-    let timers = t.useFakeTimers()
+    let timers = t.useFakeTimers({ now: FAKE_NOW })
     showToast('Fehler beim Speichern.')
     let container = root()!
     assert.equal(container.children.length, 1)
