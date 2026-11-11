@@ -2,7 +2,15 @@ import { theme } from '../ui/theme/theme.ts'
 
 const TOAST_DURATION = 3500
 
-const surface = theme.surface as Record<string, string>
+/**
+ * The fill/ink/border triple for a toast tone. These are the action/success
+ * theme groups, not `theme.surface` (which only holds lvl0–lvl4): an earlier
+ * `theme.surface as Record<string, string>` cast resolved every tone key to
+ * undefined, so toasts rendered with no background, ink or border at all.
+ */
+function toastTone(type: 'error' | 'success') {
+  return type === 'error' ? theme.colors.action.danger : theme.colors.success
+}
 
 function getContainer(): HTMLDivElement {
   let el = document.getElementById('__toast-root')
@@ -25,9 +33,10 @@ function getContainer(): HTMLDivElement {
 export function showToast(message: string, type: 'error' | 'success' = 'error') {
   let container = getContainer()
   let toast = document.createElement('div')
+  let tone = toastTone(type)
   toast.textContent = message
-  toast.style.backgroundColor = type === 'error' ? surface.dangerBg! : surface.successBg!
-  toast.style.color = type === 'error' ? surface.dangerText! : surface.successText!
+  toast.style.backgroundColor = tone.background
+  toast.style.color = tone.foreground
   toast.style.padding = `${theme.space.sm} ${theme.space.lg}`
   toast.style.borderRadius = theme.radius.md
   toast.style.fontSize = theme.fontSize.sm
@@ -35,7 +44,7 @@ export function showToast(message: string, type: 'error' | 'success' = 'error') 
   toast.style.boxShadow = theme.shadow.md
   toast.style.pointerEvents = 'auto'
   toast.style.textAlign = 'center'
-  toast.style.border = `1px solid ${type === 'error' ? surface.dangerBorder : surface.successBorder}`
+  toast.style.border = `1px solid ${tone.border}`
   toast.style.opacity = '0'
   toast.style.transform = 'translateY(-4px)'
   toast.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out'
