@@ -1098,6 +1098,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     activeStatus,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                   aria-label="Vorherige Seite"
                 >
@@ -1120,6 +1121,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     activeStatus,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                   aria-label="Nächste Seite"
                 >

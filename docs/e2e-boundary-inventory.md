@@ -12,7 +12,8 @@ per boundary below.
 Current shape after the 2026-11-12 audit:
 
 - e2e: 44 files / 48 suites / 224 tests (224 pass, ~720 s) → 42 / 46 / 220
-  (220 pass, ~702 s).
+  (220 pass, ~702 s) → 43 / 47 / 224 (224 pass, ~716 s) after the viewport-pager
+  additions (`clients-prefetch` plus the lists pager case; one test per project).
 - browser: 65 files / 108 suites / 1,030 tests (1,028 pass, 2 skipped, ~62 s) →
   66 / 109 / 1,034 (1,032 pass, 2 skipped, ~64 s).
 
@@ -37,6 +38,7 @@ Current shape after the 2026-11-12 audit:
 | `app/actions/admin/admin-grids-responsive.test.e2e.ts`                | Real routes at 390px and viewport cookie                          | Browser fixtures cannot resize the suite iframe.                                                                      |
 | `app/actions/admin/admin-lists-owner.test.e2e.ts`                     | Real DB join/filter into the users grid                           | Owner drill-down is server data.                                                                                      |
 | `app/actions/admin/admin-lists-prefetch.test.e2e.ts`                  | Real runtime prefetch/claim HTTP                                  | `render()` never boots the prefetch wiring.                                                                           |
+| `app/actions/client/clients-prefetch.test.e2e.ts`                     | Real runtime prefetch/claim HTTP on the clients grid pager        | Covers the separate `client/grid-page.tsx` pager; `render()` never boots prefetch.                                    |
 | `app/actions/admin/admin-users-pdf.test.e2e.ts`                       | Real PDF download through the frame                               | Binary response and `Content-Disposition`.                                                                            |
 | `app/actions/admin/fragments/lazy-frames.test.e2e.ts`                 | Real dashboard fragment + frame route requests                    | The entry half is browser-tested; this proves the shipped fragment wiring.                                            |
 | `app/actions/admin/frame-form-detached-submitter.test.e2e.ts`         | Real navigation listener/frame form path                          | Only `run()` installs the document submit + Navigation API listeners.                                                 |

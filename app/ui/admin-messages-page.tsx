@@ -600,6 +600,7 @@ function MessagesPagination(handle: Handle<MessagesPaginationProps>) {
               <a
                 href={pageHref(previousOffset)}
                 data-rmx-target={getSelfFrameTarget()}
+                data-rmx-prefetch="viewport"
                 mix={table.pageLink}
                 aria-label="Vorherige Seite"
               >
@@ -635,6 +636,7 @@ function MessagesPagination(handle: Handle<MessagesPaginationProps>) {
               <a
                 href={pageHref(offset + pageSize)}
                 data-rmx-target={getSelfFrameTarget()}
+                data-rmx-prefetch="viewport"
                 mix={table.pageLink}
                 aria-label="Nächste Seite"
               >

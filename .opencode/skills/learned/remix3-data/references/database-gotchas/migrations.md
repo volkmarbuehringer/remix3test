@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `ddl-migration-dedicated-client` and `data-table-migration-drift-recovery`.
 **Extracted:** 2026-07-17 … 2026-08-18
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.4624-main-d4a24d56` / source `d4a24d56` (`@remix-run/data-table` 1.0.0).
+**Revalidated:** 2026-11-11 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392` (`@remix-run/data-table` 1.0.0).
 **Context:** DDL/migrations in a `remix/data-table` app: the runner's journal/checksums, startup drift/orphan errors, boot and test-time DDL races, and the config-backed pool tradeoff.
 
 ## Current app state (2026-11)

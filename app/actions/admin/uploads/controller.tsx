@@ -1193,6 +1193,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <a
                       href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter, kind)}
                       data-rmx-target={getSelfFrameTarget()}
+                      data-rmx-prefetch="viewport"
                       mix={table.pageLink}
                       aria-label="Vorherige Seite"
                     >
@@ -1233,6 +1234,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <a
                       href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter, kind)}
                       data-rmx-target={getSelfFrameTarget()}
+                      data-rmx-prefetch="viewport"
                       mix={table.pageLink}
                       aria-label="Nächste Seite"
                     >

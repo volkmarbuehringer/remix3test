@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `remix3-svg-attributes`, `remix3-jsx-attribute-rename-blind-spot`
 
-**Validated:** 2026-11-11 against preview release `v0.20261112.4624-main-d4a24d56` / source `d4a24d56` (`remix` 3.2.0, `component` 1.2.0, `ui` 0.13.1); the boolean `aria-*`/`data-*` and `data-rmx-*` reads below were re-pinned in the same pass.
+**Validated:** 2026-11-11 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392` (`remix` 3.2.0, `component` 1.2.0, `ui` 0.13.1); the boolean `aria-*`/`data-*` and `data-rmx-*` reads below were re-pinned in the same pass.
 **Context:** Attributes in `remix/component` JSX — SVG naming, boolean `aria-*`/`data-*` serialization, and runtime-renamed `data-rmx-*` props.
 
 ## SVG attributes use kebab-case
@@ -47,7 +47,7 @@ When a runtime contract changes, verify at the runtime layer:
 3. **Add a focused render test** asserting the new attribute name is emitted.
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
-Current reads (preview release `d4a24d56`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:848`/`:855` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:874-881` (`dist/runtime/navigation.js:709-715`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:74`.
+Current reads (preview release `17a9e392`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:848`/`:855` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:874-881` (`dist/runtime/navigation.js:709-715`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:74`.
 
 ## Boolean `aria-*` / `data-*` values
 

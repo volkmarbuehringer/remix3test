@@ -1324,6 +1324,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               {pageInfo}
             </span>
             <div mix={paginationControlsStyle}>
+              {/* Prev/next are viewport-prefetched because they only enter view
+                  once the user reaches the grid footer; the runtime's scroll
+                  settle avoids warming the links a fast scroll passes over.
+                  Page numbers stay intent-only so a visible pager does not warm
+                  every page in its window. */}
               <nav mix={pageNavStyle} aria-label="Seitennavigation">
                 {offset > 0 ? (
                   <a
@@ -1337,7 +1342,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       activeItemFilter,
                     )}
                     data-rmx-target={getSelfFrameTarget()}
-                    data-rmx-prefetch="intent"
+                    data-rmx-prefetch="viewport"
                     aria-label="Vorherige Seite"
                     mix={table.pageLink}
                   >
@@ -1391,7 +1396,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       activeItemFilter,
                     )}
                     data-rmx-target={getSelfFrameTarget()}
-                    data-rmx-prefetch="intent"
+                    data-rmx-prefetch="viewport"
                     aria-label="Nächste Seite"
                     mix={table.pageLink}
                   >

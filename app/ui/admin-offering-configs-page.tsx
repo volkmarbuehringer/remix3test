@@ -439,6 +439,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     filter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} />{' '}
@@ -460,6 +461,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     filter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

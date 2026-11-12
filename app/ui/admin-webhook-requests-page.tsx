@@ -353,6 +353,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                     filter: curFilter || undefined,
                   })}
                   data-rmx-target={frameTarget}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                 >
                   Zurück
@@ -369,6 +370,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                     filter: curFilter || undefined,
                   })}
                   data-rmx-target={frameTarget}
+                  data-rmx-prefetch="viewport"
                   mix={table.pageLink}
                 >
                   Vor
