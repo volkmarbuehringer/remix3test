@@ -85,10 +85,11 @@ const nestedFrameContainer = css({
 })
 
 // Rendered by the built-in lazy frame as its server-side fallback. It must
-// render an element so the runtime can observe when the disclosure opens.
+// render an element so the runtime can observe when the disclosure opens; the
+// reserved height keeps the row from shifting when the detail loads.
 const placeholderStyle = css({
   display: 'inline-block',
-  minHeight: '1rem',
+  minHeight: '2.75rem',
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,
 })

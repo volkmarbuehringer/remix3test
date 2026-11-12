@@ -62,7 +62,14 @@ describe('admin dashboard: lazy user-detail frames', () => {
     await page.getByText('Alice Johnson').first().waitFor({ timeout: 15_000 })
 
     assert.equal(userDetailRequests, 1, 'opening a disclosure loads exactly one frame')
-    // Reopen retention (no refetch, content survives collapse) is the built-in
-    // lazy frame's behavior; the vendor frame tests cover it directly.
+
+    // Retention: closing and reopening must not refetch or remount the loaded
+    // frame. The built-in lazy runtime keeps content mounted after the initial
+    // load; this is the user-visible contract of the disclosure widget.
+    await disclosure.locator('summary').click()
+    await disclosure.locator('summary').click()
+    await page.getByText('Alice Johnson').first().waitFor({ timeout: 15_000 })
+
+    assert.equal(userDetailRequests, 1, 'reopening must not refetch the mounted frame')
   })
 })

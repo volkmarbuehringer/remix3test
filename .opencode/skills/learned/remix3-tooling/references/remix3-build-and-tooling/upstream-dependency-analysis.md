@@ -48,6 +48,10 @@ Trace the chain from upstream changes to project impact:
 
     Overrides can be **partial**. `run({ prefetch })` replaces only the fetch function; `startPrefetching(signal, override)` still installs the intent/viewport listeners and calls that override. That is why #12256/#12286's viewport scroll-settle and hidden-tab pause reached this app even though it shadows the default prefetcher. Map the listener/observer half separately from the overridden function. Observer behavior must be verified against the real `run()` — `render()` never boots the prefetch listeners, so it needs an e2e case (`app/actions/admin/admin-lists-prefetch.test.e2e.ts`, `app/actions/client/clients-prefetch.test.e2e.ts`).
 
+4c. **Prefer a new vendor built-in over an app-owned workaround — but audit the gaps.** When a bump adds a first-party implementation of something the app built itself, grep production call sites before keeping the workaround. Custom options exercised only by the workaround's own tests are not requirements. Compare the remaining gaps — observer margins, event semantics, fallback requirements, named-frame behavior — migrate only the production usage, then delete the workaround and its unit/browser tests, keeping one app-level integration e2e for the wiring. This removes the old client entry/import map/serialized-props cost instead of layering two implementations.
+
+    Example: #12229's `<Frame loading="lazy">` replaced `app/ui/lazy-frame.browser.tsx`. The custom `rootMargin`/`pauseAnimationsWhenInactive` options had no production call sites, so the 204-line entry and its 331-line browser suite were deleted; `lazy-frames.test.e2e.ts` still guards the deferral contract. Preserve app-specific traps the built-in does not encode — here `name` remains load-bearing for the sub-frame 401 path.
+
 5. **Verify with typecheck + tests:**
    ```bash
    npm run typecheck
