@@ -150,7 +150,13 @@ describe('admin lists: UX', () => {
     await page.setViewportSize(MOBILE_VIEWPORT)
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.locator('[data-lists-table]').waitFor({ timeout: 15_000 })
-    await page.waitForTimeout(300)
+    // Visual settling: two animation frames let the resized layout commit.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
 
     let layout = await page.evaluate(() => {
       let scroller = document.querySelector('[data-page-scroller]') as HTMLElement

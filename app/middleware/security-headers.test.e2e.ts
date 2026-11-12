@@ -31,6 +31,13 @@ import { installCspViolationCollector } from '../../test/csp.ts'
 // Firefox.
 // ---------------------------------------------------------------------------
 
+// CSP violations are reported asynchronously by deferred client entries and
+// asset loads; there is no completion event, so each route load needs a short
+// negative-observation window before asserting that none arrived.
+async function settleCspWindow(page: { waitForTimeout: Function }): Promise<void> {
+  await page.waitForTimeout(1_000)
+}
+
 describe('CSP enforcement', () => {
   before(async () => {
     await initializeAppDatabase()
@@ -45,7 +52,7 @@ describe('CSP enforcement', () => {
     // shell plus both theme style elements.
     for (let path of [routes.home.href(), routes.auth.login.index.href()]) {
       await page.goto(path)
-      await page.waitForTimeout(1_000)
+      await settleCspWindow(page)
       await csp.assertNone(path)
     }
   })
@@ -71,7 +78,7 @@ describe('CSP enforcement', () => {
     await page.locator('[data-messages-table]').waitFor({ timeout: 15_000 })
     await hydrated
     // Let deferred client entries load through the polyfill (Firefox).
-    await page.waitForTimeout(1_000)
+    await settleCspWindow(page)
 
     await csp.assertNone(routes.admin.messages.index.href())
   })
@@ -83,7 +90,7 @@ describe('CSP enforcement', () => {
 
     for (let path of [routes.home.href(), routes.auth.login.index.href()]) {
       await page.goto(path)
-      await page.waitForTimeout(1_000)
+      await settleCspWindow(page)
       await csp.assertNone(path)
     }
 
@@ -112,7 +119,7 @@ describe('CSP enforcement', () => {
       await page.goto(path)
       await page.locator(ready).first().waitFor({ timeout: 15_000 })
       // Give deferred client entries and their `connect-src` traffic a beat.
-      await page.waitForTimeout(1_000)
+      await settleCspWindow(page)
       await csp.assertNone(path)
     }
   })
@@ -210,7 +217,7 @@ describe('CSP enforcement', () => {
       await page
         .locator('[data-list-id]', { hasText: `${title} (Kopie)` })
         .waitFor({ state: 'attached', timeout: 15_000 })
-      await page.waitForTimeout(1_000)
+      await settleCspWindow(page)
 
       assert.equal(
         documentLoads,
