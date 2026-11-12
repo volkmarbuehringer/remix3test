@@ -23,22 +23,23 @@ async function openDisplayTab(t: TestContext): Promise<Page> {
 }
 
 /**
- * The client entries attach after hydration. Retry the first coarse selection
- * until it responds, then both entries are live for the remaining assertions.
+ * The client entries attach after hydration. Wait for their client-only
+ * markers, then drive the select once and wait for the synced input.
  */
-async function selectUntil(
-  page: Page,
-  select: Locator,
-  input: Locator,
-  value: string,
-  expected: string,
-) {
-  let deadline = Date.now() + 15_000
-  while (Date.now() < deadline) {
-    await select.selectOption(value)
-    if ((await input.inputValue()) === expected) return
-    await page.waitForTimeout(50)
-  }
+async function selectOnce(page: Page, select: Locator, value: string, expected: string) {
+  await page
+    .locator('#page-size-select[data-page-size-sync-ready="true"]')
+    .waitFor({ state: 'attached', timeout: 15_000 })
+  await page
+    .locator('#page-size-custom[data-page-size-keys-ready="true"]')
+    .waitFor({ state: 'attached', timeout: 15_000 })
+  await select.selectOption(value)
+  await page.waitForFunction(
+    (want: string) =>
+      (document.querySelector('#page-size-custom') as HTMLInputElement | null)?.value === want,
+    expected,
+    { timeout: 15_000 },
+  )
 }
 
 describe('settings: page-size keyboard stepping', () => {
@@ -52,7 +53,7 @@ describe('settings: page-size keyboard stepping', () => {
     let input = page.locator('#page-size-custom')
     await input.waitFor({ timeout: 15_000 })
 
-    await selectUntil(page, select, input, '50', '50')
+    await selectOnce(page, select, '50', '50')
     assert.equal(await input.inputValue(), '50', 'selecting a preset must fill the custom input')
 
     await input.press('ArrowUp')

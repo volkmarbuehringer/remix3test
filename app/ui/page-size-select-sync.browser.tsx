@@ -49,6 +49,12 @@ export const PageSizeSelectSync = clientEntry(
         },
         { signal: handle.signal },
       )
+
+      // Hydration marker for e2e: a select before this listener attaches is a
+      // silent no-op, so tests wait for the marker instead of retrying clicks.
+      for (let select of Array.from(document.querySelectorAll<HTMLSelectElement>(SELECT))) {
+        select.setAttribute('data-page-size-sync-ready', 'true')
+      }
     })
 
     return () => null

@@ -59,6 +59,13 @@ export const PageSizeCustomKeys = clientEntry(
         },
         { signal: handle.signal },
       )
+
+      // Hydration marker for e2e; the keydown listener above is delegated.
+      for (let input of Array.from(
+        document.querySelectorAll<HTMLInputElement>('input[type="number"][data-page-size-custom]'),
+      )) {
+        input.setAttribute('data-page-size-keys-ready', 'true')
+      }
     })
 
     return () => null

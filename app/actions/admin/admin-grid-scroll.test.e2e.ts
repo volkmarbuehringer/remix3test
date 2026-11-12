@@ -41,8 +41,10 @@ describe('admin grid paging scroll reset', () => {
 
       await page.goto(routes.admin.messages.index.href())
       await page.locator('[data-messages-table]').waitFor({ timeout: 15_000 })
-      // Wait for PageScrollReset to hydrate before navigating.
-      await page.waitForTimeout(1_000)
+      // Wait for PageScrollReset to install its navigation listeners.
+      await page
+        .locator('html[data-page-scroll-reset-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
 
       let layout = await page.evaluate(() => {
         let pageEl = document.querySelector('[data-page-scroller]') as HTMLElement
@@ -64,11 +66,19 @@ describe('admin grid paging scroll reset', () => {
       )
       assert.ok(beforeScroll > 0, `the row region should be scrolled, got ${beforeScroll}`)
 
+      let beforeSearch = await page.evaluate(() => location.search)
       await page
         .getByRole('link', { name: /Nächste Seite/ })
         .first()
         .click()
-      await page.waitForTimeout(1_500)
+      await page.waitForFunction((search: string) => location.search !== search, beforeSearch, {
+        timeout: 15_000,
+      })
+      await page.waitForFunction(
+        () => (document.querySelector('[data-grid-scroll]') as HTMLElement).scrollTop === 0,
+        undefined,
+        { timeout: 15_000 },
+      )
 
       let afterScroll = await page.evaluate(
         () => (document.querySelector('[data-grid-scroll]') as HTMLElement).scrollTop,
@@ -90,7 +100,13 @@ describe('admin grid paging scroll reset', () => {
 
     await page.goto(routes.admin.clients.index.href())
     await page.locator('[data-clients-table]').waitFor({ timeout: 15_000 })
-    await page.waitForTimeout(500)
+    // Visual settling: two animation frames let the grid layout commit.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    )
 
     let layout = await page.evaluate(() => {
       let pageEl = document.querySelector('[data-page-scroller]') as HTMLElement

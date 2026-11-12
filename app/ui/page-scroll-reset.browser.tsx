@@ -88,6 +88,14 @@ export const PageScrollReset = clientEntry(
           },
           { signal: handle.signal },
         )
+
+        // Hydration marker for e2e: only installed listeners reset the nested
+        // scroller on a frame navigation. Removed with the entry so a later
+        // document (or a remounted runtime) cannot inherit a stale marker.
+        document.documentElement.setAttribute('data-page-scroll-reset-ready', 'true')
+        handle.signal.addEventListener('abort', () => {
+          document.documentElement.removeAttribute('data-page-scroll-reset-ready')
+        })
       })
 
       return null
