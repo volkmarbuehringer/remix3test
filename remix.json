@@ -38,7 +38,9 @@
       "echo": false,
       "open": false,
       "configFile": "./playwright.config.ts",
-      "projects": ["chromium", "firefox"]
+      // `webkit` is defined only when PLAYWRIGHT_WEBKIT=1; the default run
+      // resolves the two projects above.
+      "projects": ["chromium", "firefox", "webkit"]
     },
     "reporter": "spec",
     "setup": "./test/setup.ts",
