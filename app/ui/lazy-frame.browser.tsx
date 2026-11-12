@@ -45,7 +45,7 @@ const defaultRootMargin = '320px 0px'
  * LazyFrame instances with the same `rootMargin` share one observer, registering
  * their host for its element lifetime (as the upstream lazy-frames demo does).
  *
- * Three app-specific constraints, all verified against the pinned runtime:
+ * Four app-specific constraints, all verified against the pinned runtime:
  *
  * - `children` and `fallback` cross the client-entry boundary by serialization.
  *   Since remix #12067, JSX fragments and string/number keys survive that
@@ -55,6 +55,10 @@ const defaultRootMargin = '320px 0px'
  *   `ref()`, custom `createMixin()`) still cannot cross the boundary and now
  *   report an explicit error. The recent-activity fragment passes a
  *   `css()`-styled placeholder, so the serialized-prop path is exercised here.
+ * - A mounted frame whose `src` prop changes now reloads in place (since remix
+ *   #12274) and keeps its current content while nested frames/client entries
+ *   settle. Previously it remounted and could flash the `fallback`; do not add
+ *   a fallback-flash workaround around a mutable `src`.
  * - The host needs a non-zero box for `IntersectionObserver` to report it once
  *   it becomes visible (a closed `<details>` is not rendered). The placeholder
  *   children give it height; `minHeight` only guards the empty case.

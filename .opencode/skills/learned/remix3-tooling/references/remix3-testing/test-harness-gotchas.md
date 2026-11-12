@@ -140,6 +140,37 @@ after(async () => {
 
 Verify the forward by its side effect (query the DB for the stored response status), not by a mock-side assertion alone.
 
+## Deterministic waits: markers, MutationObserver, fake timers
+
+The #12198 pattern is: synchronize on the event that means the work finished, not on an
+elapsed duration. This repo's app-side surfaces:
+
+- **Browser tests:** `test/dom.ts` exports `waitForDom(predicate)` (MutationObserver,
+  re-checks after each DOM mutation) and `nextDomMutation()`. Use it instead of a
+  `setTimeout(resolve, 25)` polling helper when the predicate reads DOM state. Keep a
+  timeout only as the failure bound.
+- **E2E hydration markers:** client entries stamp a client-only `data-*-ready` attribute
+  after they install listeners (`ref()` is browser-only, so the marker never appears in
+  server HTML). Current markers: `data-lists-ready` (`lists-view.tsx`),
+  `data-lists-search-ready` (`lists-search.tsx`), `data-sidebar-toggle-ready`
+  (`sidebar-toggle.browser.tsx`), `data-page-scroll-reset-ready`
+  (`page-scroll-reset.browser.tsx`), and `data-page-size-sync-ready` /
+  `data-page-size-keys-ready` (`page-size-*.browser.tsx`). Wait for the marker, then
+  interact once; do not retry a click on a fixed interval. After a frame reload that
+  replaces the marker's element, wait for it again.
+- **Server writes:** wait for the mutation response (`page.waitForResponse` matching the
+  method/path, or `postData().includes(marker)`) and then read the database once. Polling
+  a DB row with `waitForTimeout` hides which request actually committed it.
+- **Debounce assertions:** use `t.useFakeTimers()` and advance past the window instead of
+  sleeping. Fetch continuations that read `Response.json()` still need real macrotask
+  turns; the lists autosave suite captures `realSetTimeout` before installing fake timers
+  and flushes with `act(() => realSetTimeout(resolve, 0))`.
+
+Retained time-based waits are negative observations with no completion event: a CSP
+violation window, a view-only sort proving no PUT after the debounce, a promise contract
+that must never settle, and animation/WAAPI settling loops. Give each one a comment
+saying why no observable signal exists.
+
 ## Pick the reproduction browser from the error message
 
 `DOMException` messages are engine-specific. A report without a browser name still tells you where to reproduce:
