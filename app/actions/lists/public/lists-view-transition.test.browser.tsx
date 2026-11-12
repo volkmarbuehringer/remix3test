@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
+import { waitForDom } from '../../../../test/dom.ts'
 import { ListsClient } from './lists-client.tsx'
 import { applyListReorder } from './lists-view-transition.ts'
 
@@ -361,6 +362,55 @@ describe('ListsClient reorder View Transition', () => {
       await finished.promise
     })
     assert.deepEqual(transitionNames(result.container), ['', '', ''])
+
+    // Let the fast autosave flush against the stub so no timer leaks.
+    await settle(350)
+  })
+
+  it('runs inside the platform startViewTransition when the API exists', async () => {
+    stubFetch()
+    let doc = document as ViewTransitionDocument
+    let original = doc.startViewTransition
+    let calls = 0
+    let transitions: ViewTransitionLike[] = []
+
+    if (typeof original === 'function') {
+      installViewTransition((update) => {
+        calls++
+        let transition = original.call(document, update)
+        transitions.push(transition)
+        return transition
+      })
+    } else {
+      installViewTransition(undefined)
+    }
+
+    let result = renderEditor()
+    await result.act(() => moveDownButton(result.container, 'a').click())
+
+    await waitForDom(() => rowIds(result.container).join(',') === 'b,a,c', {
+      root: result.container,
+      description: 'the platform transition to apply the reorder',
+    })
+
+    // Moved from lists-reorder-transition.test.e2e.ts: the platform path must
+    // start exactly one transition when the API exists and fall back to an
+    // instant reorder when it does not. Chromium and Firefox both implement
+    // same-document transitions; the branch keeps the contract honest.
+    assert.equal(
+      calls,
+      typeof original === 'function' ? 1 : 0,
+      typeof original === 'function'
+        ? 'the reorder must run in exactly one same-document view transition'
+        : 'an unsupported platform must fall back to an instant reorder',
+    )
+
+    if (transitions[0]) {
+      await result.act(async () => {
+        await transitions[0]!.finished
+      })
+      assert.deepEqual(transitionNames(result.container), ['', '', ''])
+    }
 
     // Let the fast autosave flush against the stub so no timer leaks.
     await settle(350)
