@@ -56,81 +56,48 @@ async function waitForRows(page: { waitForFunction: Function }, expected: number
 
 /**
  * Status buttons are server-rendered but their click handlers attach with the
- * deferred ListsClient entry. A click in the hydration gap is a silent no-op,
- * so retry until the expected row count lands (same hazard as the sort e2e).
+ * deferred ListsClient entry. Wait for the client-only readiness marker, then
+ * click once and wait for the row count the filter produces.
  */
+async function waitForListsReady(page: { locator: Function }) {
+  await page.locator('[data-lists-ready="true"]').waitFor({ state: 'attached', timeout: 15_000 })
+}
+
 async function clickStatus(
-  page: { locator: Function; waitForFunction: Function; waitForTimeout: Function },
+  page: { locator: Function; waitForFunction: Function },
   status: string,
   expected: number,
-  timeout = 15_000,
 ) {
-  let deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    try {
-      await waitForRows(page, expected, 250)
-      return
-    } catch {
-      // not there yet — click and retry
-    }
-    await page.locator(`[data-status-filter="${status}"]`).click()
-    try {
-      await waitForRows(page, expected, 500)
-      return
-    } catch {
-      // hydration gap or another render still pending
-    }
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`status "${status}" did not produce ${expected} rows`)
+  await waitForListsReady(page)
+  await page.locator(`[data-status-filter="${status}"]`).click()
+  await waitForRows(page, expected, 15_000)
 }
 
 /**
  * The hide-done checkbox can toggle natively before hydration without running
- * its change handler. Ensure it is checked and re-dispatch `change` on every
- * attempt so the handler repairs the state once the entry is live.
+ * its change handler. Wait for the entry marker, then click/cross the state and
+ * wait for the row count it produces.
  */
 async function checkHideDone(
-  page: { evaluate: Function; waitForFunction: Function; waitForTimeout: Function },
+  page: { evaluate: Function; waitForFunction: Function; locator: Function },
   expected: number,
-  timeout = 15_000,
 ) {
-  let deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    let state = (await page.evaluate(() => {
+  await waitForListsReady(page)
+  await page.evaluate(() => {
+    let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
+    if (checkbox && !checkbox.checked) checkbox.click()
+    checkbox?.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await page.waitForFunction(
+    (count: number) => {
       let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
-      return {
-        checked: checkbox?.checked ?? false,
-        rows: document.querySelectorAll('[data-item-id]').length,
-      }
-    })) as { checked: boolean; rows: number }
-    if (state.checked && state.rows === expected) return
-
-    await page.evaluate(() => {
-      let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
-      if (checkbox && !checkbox.checked) checkbox.click()
-      checkbox?.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-
-    try {
-      await page.waitForFunction(
-        (count: number) => {
-          let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
-          return (
-            checkbox?.checked === true &&
-            document.querySelectorAll('[data-item-id]').length === count
-          )
-        },
-        expected,
-        { timeout: 500 },
+      return (
+        checkbox?.checked === true && document.querySelectorAll('[data-item-id]').length === count
       )
-      return
-    } catch {
-      // retry after hydration
-    }
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`hide-done did not produce ${expected} rows`)
+    },
+    expected,
+    { timeout: 15_000 },
+  )
 }
 
 function assertGeometry(metrics: Awaited<ReturnType<typeof readGeometry>>) {

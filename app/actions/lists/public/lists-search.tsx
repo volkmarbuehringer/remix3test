@@ -98,6 +98,10 @@ export const ListsSearch = clientEntry(
       ac.signal.addEventListener('abort', () => {
         if (timer) clearTimeout(timer)
       })
+
+      // Hydration marker for e2e: the form is server-rendered, so only this
+      // client-side attribute proves the change listeners are attached.
+      form.setAttribute('data-lists-search-ready', 'true')
     }
 
     function mount() {

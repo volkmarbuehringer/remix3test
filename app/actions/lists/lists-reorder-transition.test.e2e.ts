@@ -76,34 +76,25 @@ describe('lists reorder view transition', () => {
 
       await page.goto(`/lists?load=${listId}`)
       await page.locator('[data-item-id="vt-a"]').waitFor({ timeout: 15_000 })
+      await page
+        .locator('[data-lists-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
 
-      // The ↑/↓ click handlers attach with the deferred ListsClient entry; a
-      // click in the hydration gap is a silent no-op, so retry until the order
-      // lands (same hazard as the sort/status e2e helpers).
-      let deadline = Date.now() + 15_000
-      let moved = false
-      while (Date.now() < deadline) {
-        await page.evaluate(() => {
-          let row = document.querySelector('[data-item-id="vt-a"]')
-          let button = row?.querySelector<HTMLButtonElement>('button[aria-label="Nach unten"]')
-          button?.click()
-        })
-        try {
-          await page.waitForFunction(
-            () =>
-              [...document.querySelectorAll('[data-item-id]')]
-                .map((el) => el.getAttribute('data-item-id'))
-                .join(',') === 'vt-b,vt-a,vt-c',
-            undefined,
-            { timeout: 500 },
-          )
-          moved = true
-          break
-        } catch {
-          await page.waitForTimeout(100)
-        }
-      }
-      assert.equal(moved, true, 'the row must reorder')
+      // The ↑/↓ click handlers attach with the deferred ListsClient entry;
+      // wait for its marker, then click once and wait for the reordered rows.
+      await page.evaluate(() => {
+        let row = document.querySelector('[data-item-id="vt-a"]')
+        let button = row?.querySelector<HTMLButtonElement>('button[aria-label="Nach unten"]')
+        button?.click()
+      })
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll('[data-item-id]')]
+            .map((el) => el.getAttribute('data-item-id'))
+            .join(',') === 'vt-b,vt-a,vt-c',
+        undefined,
+        { timeout: 15_000 },
+      )
 
       let calls = (await page.evaluate(() =>
         (window as unknown as { __listVtCalls: () => number }).__listVtCalls(),

@@ -58,6 +58,7 @@ describe('lists row toolbar reordering', () => {
   async function openList(page: { goto: Function; locator: Function }, listId: number) {
     await page.goto(`/lists?load=${listId}`)
     await page.locator('[data-item-id="move-a"]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-lists-ready="true"]').waitFor({ state: 'attached', timeout: 15_000 })
   }
 
   it('keeps one toolbar visible after a pointer moves a row down', async (t) => {
@@ -74,28 +75,16 @@ describe('lists row toolbar reordering', () => {
       let down = row.locator('[data-item-actions] button[aria-label="Nach unten"]')
 
       // The hover reveal is server-rendered CSS, but the click handler attaches
-      // with the deferred client entry: retry through the hydration gap until
-      // the row actually moves.
-      let deadline = Date.now() + 15_000
-      let moved = false
-      while (Date.now() < deadline && !moved) {
-        await row.hover()
-        await down.hover()
-        await down.click()
-        try {
-          await page.waitForFunction(
-            (id: string) =>
-              [...document.querySelectorAll<HTMLElement>('[data-item-id]')][2]?.dataset.itemId ===
-              id,
-            'move-b',
-            { timeout: 800 },
-          )
-          moved = true
-        } catch {
-          // hydration gap — try again
-        }
-      }
-      assert.ok(moved, 'the down button must reorder the row once hydrated')
+      // with the deferred client entry; openList waited for its marker.
+      await row.hover()
+      await down.hover()
+      await down.click()
+      await page.waitForFunction(
+        (id: string) =>
+          [...document.querySelectorAll<HTMLElement>('[data-item-id]')][2]?.dataset.itemId === id,
+        'move-b',
+        { timeout: 15_000 },
+      )
 
       // The reorder runs inside a same-document View Transition. Hover
       // hit-testing is suspended while the transition snapshot overlays the
@@ -168,27 +157,29 @@ describe('lists row toolbar reordering', () => {
       let up = page.locator(
         '[data-item-id="move-c"] [data-item-actions] button[aria-label="Nach oben"]',
       )
-      let deadline = Date.now() + 15_000
-      let moved = false
-      while (Date.now() < deadline && !moved) {
-        await up.focus()
-        await page.keyboard.press('Enter')
-        try {
-          await page.waitForFunction(
-            () =>
-              [...document.querySelectorAll<HTMLElement>('[data-item-id]')][1]?.dataset.itemId ===
-              'move-c',
-            undefined,
-            { timeout: 800 },
-          )
-          moved = true
-        } catch {
-          // hydration gap — try again
-        }
-      }
-      assert.ok(moved, 'the up button must reorder the row once hydrated')
+      await up.focus()
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll<HTMLElement>('[data-item-id]')][1]?.dataset.itemId ===
+          'move-c',
+        undefined,
+        { timeout: 15_000 },
+      )
 
-      await page.waitForTimeout(250)
+      // The reorder runs in a View Transition; wait for focus and the moved
+      // row's toolbar reveal instead of assuming a fixed post-transition frame.
+      await page.waitForFunction(
+        () => {
+          let active = document.activeElement
+          let activeRow = active?.closest<HTMLElement>('[data-item-id]')
+          if (activeRow?.dataset.itemId !== 'move-c') return false
+          let cluster = activeRow.querySelector<HTMLElement>('[data-item-actions]')
+          return cluster !== null && Number(getComputedStyle(cluster).opacity) > 0.99
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
 
       let state = (await page.evaluate(() => {
         let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]

@@ -1,6 +1,7 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createTestServer } from 'remix/node-fetch-server/test'
+import type { Locator, Page } from 'playwright'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
@@ -59,12 +60,8 @@ async function readItemIds(page: { evaluate: Function }): Promise<string[]> {
 // e2e environment, so the value must be typed with real keystrokes to mark the
 // editor dirty (see lists-client-nav.test.e2e.ts).
 async function typeInto(
-  field: {
-    click: () => Promise<void>
-    press: (key: string) => Promise<void>
-    pressSequentially: (text: string, options: { delay: number }) => Promise<void>
-    inputValue: () => Promise<string>
-  },
+  page: Pick<Page, 'locator' | 'waitForFunction'>,
+  selector: string,
   value: string,
   opts: { delay?: number; retries?: number; settleMs?: number } = {},
 ) {
@@ -72,20 +69,23 @@ async function typeInto(
   let retries = opts.retries ?? 2
   let settleMs = opts.settleMs ?? 1500
 
-  async function attempt(fill: () => Promise<void>) {
+  async function attempt(fill: (field: Locator) => Promise<void>) {
+    let field = page.locator(selector)
     await field.click()
     await field.press('Control+a')
-    await fill()
-    let deadline = Date.now() + settleMs
-    while (Date.now() < deadline) {
-      try {
-        if ((await field.inputValue()) === value) return true
-      } catch {
-        break // node replaced mid-settle — retry below
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50))
+    await fill(field)
+    try {
+      await page.waitForFunction(
+        ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
+          (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value ===
+          wantedValue,
+        { selector, value },
+        { timeout: settleMs },
+      )
+      return true
+    } catch {
+      return false // node replaced mid-settle or keystrokes swallowed — retry below
     }
-    return false
   }
 
   // Under full-suite load the client-entry mount/patch pipeline can swallow
@@ -96,9 +96,9 @@ async function typeInto(
   // use real keystrokes: Playwright `fill()` does not fire the remix
   // on('input') handler, so it would fix the DOM without fixing app state.
   for (let round = 0; round <= retries; round++) {
-    if (await attempt(() => field.pressSequentially(value, { delay }))) return
+    if (await attempt((field) => field.pressSequentially(value, { delay }))) return
   }
-  throw new Error(`typeInto could not settle ${JSON.stringify(value)} into the field`)
+  throw new Error(`typeInto could not settle ${JSON.stringify(value)} into ${selector}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ describe('lists new-list creation', () => {
     )
 
     let title = `Erstellt ${Date.now()}`
-    await typeInto(page.locator('#lists-title'), title)
+    await typeInto(page, '#lists-title', title)
 
     // The create button is only valid once a name exists; the helper hint
     // flips to the ready state.
@@ -200,7 +200,7 @@ describe('lists new-list creation', () => {
       await page.locator('#lists-title').waitFor({ timeout: 15_000 })
 
       let draftTitle = `Entwurf ${Date.now()}`
-      await typeInto(page.locator('#lists-title'), draftTitle)
+      await typeInto(page, '#lists-title', draftTitle)
 
       // Leave the draft behind by opening a real list. Scope to the row's
       // title link: the same row also carries the PDF-export link in its
@@ -220,12 +220,17 @@ describe('lists new-list creation', () => {
       })
 
       // The restored title must be pushed into the uncontrolled title input.
-      let restored = ''
-      for (let attempt = 0; attempt < 60 && restored !== draftTitle; attempt++) {
-        restored = await page.inputValue('#lists-title')
-        if (restored !== draftTitle) await page.waitForTimeout(250)
-      }
-      assert.equal(restored, draftTitle, 'the unsaved draft title must be restored')
+      await page.waitForFunction(
+        (expected) =>
+          (document.querySelector('#lists-title') as HTMLInputElement)?.value === expected,
+        draftTitle,
+        { timeout: 15_000 },
+      )
+      assert.equal(
+        await page.inputValue('#lists-title'),
+        draftTitle,
+        'the unsaved draft title must be restored',
+      )
 
       // Discarding resets the editor to a clean empty new list.
       await page.locator('button:has-text("Entwurf verwerfen")').click()
@@ -295,9 +300,16 @@ describe('lists autosave persistence', () => {
       )
 
       let marker = `Autosave ${Date.now()}`
-      await typeInto(page.locator('#lists-title'), marker)
-
       let label = `autosave item ${Date.now()}`
+      let saved = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PUT' &&
+          new URL(response.url()).pathname === `/lists/${listId}` &&
+          (response.request().postData() ?? '').includes(label),
+        { timeout: 15_000 },
+      )
+      await typeInto(page, '#lists-title', marker)
+
       let newItem = page.locator('textarea[placeholder="Neues Element eingeben…"]')
       await newItem.waitFor({ timeout: 15_000 })
       await newItem.click()
@@ -305,18 +317,13 @@ describe('lists autosave persistence', () => {
       await newItem.press('Enter')
       await page.locator('[data-item-id]', { hasText: label }).waitFor({ timeout: 15_000 })
 
-      let persistedTitle: string | null = null
+      await saved
+      assert.equal(
+        await readListTitle(listId),
+        marker,
+        'the typed title must autosave after the debounce',
+      )
       let items = await listItems(listId)
-      for (
-        let attempt = 0;
-        attempt < 40 && (persistedTitle !== marker || items.length !== 1);
-        attempt++
-      ) {
-        await page.waitForTimeout(250)
-        persistedTitle = await readListTitle(listId)
-        items = await listItems(listId)
-      }
-      assert.equal(persistedTitle, marker, 'the typed title must autosave after the debounce')
       assert.equal(items.length, 1, 'the added item must autosave into the database')
       assert.equal(items[0]!.label, label)
     } finally {
@@ -391,24 +398,22 @@ describe('lists sort control', () => {
         assert.ok((await page.locator('select[aria-label="Sortieren"]').count()) === 1)
         return
       }
+      await page
+        .locator('[data-lists-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
       await page.selectOption('select[aria-label="Sortieren"]', 'az')
 
-      // The client reorders only the rendered view. Retry the interaction until
-      // it registers — the change listener is attached by the client entry's
-      // render pass, and a selectOption that lands in the hydration gap is a
-      // silent no-op (see `selectItems`).
+      // The client reorders only the rendered view; wait for the DOM order it
+      // produces instead of retrying the interaction.
+      await page.waitForFunction(
+        () =>
+          [...document.querySelectorAll('[data-item-id]')]
+            .map((el) => el.getAttribute('data-item-id'))
+            .join(',') === 'sort-a,sort-b,sort-c',
+        undefined,
+        { timeout: 15_000 },
+      )
       let domIds = await readItemIds(page)
-      for (
-        let attempt = 0;
-        attempt < 60 && domIds.join(',') !== 'sort-a,sort-b,sort-c';
-        attempt++
-      ) {
-        await page.waitForTimeout(250)
-        domIds = await readItemIds(page)
-        if (domIds.join(',') !== 'sort-a,sort-b,sort-c') {
-          await page.selectOption('select[aria-label="Sortieren"]', 'az')
-        }
-      }
       assert.deepEqual(domIds, ['sort-a', 'sort-b', 'sort-c'], 'A–Z must reorder the view by label')
       assert.equal(await page.locator('[data-view-only-hint]').count(), 1)
       assert.equal(

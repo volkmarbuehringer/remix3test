@@ -430,7 +430,15 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
 
   return (
     <div
-      mix={cardStyle}
+      mix={[
+        cardStyle,
+        // Hydration marker for e2e: refs are browser-only, so the attribute
+        // never appears in server HTML. Wait for it before driving a click that
+        // only works after the client entry installs its listeners.
+        ref((el: HTMLDivElement) => {
+          el.setAttribute('data-lists-ready', 'true')
+        }),
+      ]}
       data-lists-active-id={loadedListId === null ? undefined : String(loadedListId)}
     >
       {/* Card header: editable title + primary action + save status */}

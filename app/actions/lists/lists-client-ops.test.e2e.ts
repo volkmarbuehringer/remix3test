@@ -33,10 +33,13 @@ import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 // events are unreliable for these rows.
 //
 // The drag handlers only exist after the client entry hydrates (deferred import
-// map, notably slow in some browsers) and the SSR markup looks identical before
-// and after, so these tests drive the gesture until the confirmation prompt is
-// observed — that is the signal that the handler ran. See `dragUntilPrompted`.
+// map, notably slow in some browsers), so wait for the client-only marker before
+// dispatching, then wait for the confirmation prompt it produces.
 // ---------------------------------------------------------------------------
+
+async function waitForListsReady(page: { locator: Function }) {
+  await page.locator('[data-lists-ready="true"]').waitFor({ state: 'attached', timeout: 15_000 })
+}
 
 describe('lists merge via sidebar drag', () => {
   let adminCookie: string
@@ -133,22 +136,19 @@ describe('lists merge via sidebar drag', () => {
     )
   }
 
-  // Retry the gesture until the drop handler runs, which is observable as the
-  // styled confirmation dialog. Pre-hydration attempts are no-ops, so the loop
-  // exits on its first live dispatch; the merge tests stop there, so a merge is
-  // issued exactly once and can never be double-applied by a retry.
+  // The drag handler only exists after the client entry hydrates (deferred
+  // import map, notably slow in some browsers). Wait for the client-only
+  // marker, then dispatch the gesture once; the confirmation dialog is the
+  // signal that the drop handler ran.
   async function dragUntilPrompted(
-    page: { evaluate: Function; waitForTimeout: Function; locator: Function },
+    page: { evaluate: Function; locator: Function },
     fromId: number,
     toId: number,
     options?: { dirtyTitle?: string },
   ) {
-    for (let attempt = 0; attempt < 60; attempt++) {
-      await dragList(page, fromId, toId, options)
-      await page.waitForTimeout(250)
-      if ((await page.locator('[data-confirm-dialog]').count()) > 0) return
-    }
-    assert.ok(false, 'the drag must open the confirmation dialog')
+    await waitForListsReady(page)
+    await dragList(page, fromId, toId, options)
+    await page.locator('[data-confirm-dialog]').waitFor({ timeout: 5_000 })
   }
 
   it('merges a dragged list into another after confirming and reloads the editor', async (t) => {
@@ -167,6 +167,12 @@ describe('lists merge via sidebar drag', () => {
       // The list merge uses the shared styled confirmation dialog now. Accept
       // it through a real click so the awaited decision resolves.
       await dragUntilPrompted(page, sourceId, targetId)
+      let merged = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === `/lists/${sourceId}/merge`,
+        { timeout: 15_000 },
+      )
       await page.locator('[data-confirm-accept]').click()
       await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
@@ -176,6 +182,7 @@ describe('lists merge via sidebar drag', () => {
         3,
         { timeout: 15_000 },
       )
+      await merged
       assert.equal(await page.locator('[data-item-id]').count(), 3)
       assert.equal(
         await targetItemCount(targetId),
@@ -210,17 +217,23 @@ describe('lists merge via sidebar drag', () => {
       await dragUntilPrompted(page, sourceId, targetId, {
         dirtyTitle: 'Quelle mit ungespeicherten Änderungen',
       })
+      let merged = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === `/lists/${sourceId}/merge`,
+        { timeout: 15_000 },
+      )
       await page.locator('[data-confirm-accept]').click()
       await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
       // The frame reloads onto the SOURCE list, so assert on the target's row:
       // one seeded target item plus both seeded source items, exactly once.
-      let targetItems = await targetItemCount(targetId)
-      for (let attempt = 0; attempt < 40 && targetItems !== 3; attempt++) {
-        await page.waitForTimeout(250)
-        targetItems = await targetItemCount(targetId)
-      }
-      assert.equal(targetItems, 3, 'a merge from a dirty open list must still append its items')
+      await merged
+      assert.equal(
+        await targetItemCount(targetId),
+        3,
+        'a merge from a dirty open list must still append its items',
+      )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
       await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
@@ -284,39 +297,30 @@ describe('lists copy selected items into another list', () => {
     return row.rows[0]!.list as Array<{ id: string; label: string }>
   }
 
-  // Drive the selection checkboxes until the rendered bulk count matches. Each
-  // attempt first clears any stale native checkbox state, then checks the wanted
-  // ids; before hydration the dispatches are no-ops, so the loop retries.
+  // Drive the selection checkboxes once the client entry has hydrated. The
+  // client-only bulk bar appearing with the expected count is the observable
+  // result of the selection store update.
   async function selectItems(
-    page: { evaluate: Function; waitForTimeout: Function },
+    page: { evaluate: Function; waitForFunction: Function; locator: Function },
     ids: string[],
   ) {
-    for (let attempt = 0; attempt < 60; attempt++) {
-      await page.evaluate((wanted: string[]) => {
-        for (let box of Array.from(
-          document.querySelectorAll<HTMLInputElement>('[data-select-item]'),
-        )) {
-          if (box.checked) {
-            box.checked = false
-            box.dispatchEvent(new Event('change', { bubbles: true }))
-          }
-        }
-        for (let id of wanted) {
-          let box = document.querySelector<HTMLInputElement>(`[data-select-item="${id}"]`)
-          if (box && !box.checked) {
-            box.checked = true
-            box.dispatchEvent(new Event('change', { bubbles: true }))
-          }
-        }
-      }, ids)
-
-      let count = (await page.evaluate(
-        () => document.querySelector('[data-bulk-count]')?.getAttribute('data-bulk-count') ?? '0',
-      )) as string
-      if (Number(count) === ids.length) return
-      await page.waitForTimeout(250)
-    }
-    assert.ok(false, 'the selection must register once the client entry hydrates')
+    await waitForListsReady(page)
+    await page.evaluate((wanted: string[]) => {
+      for (let box of Array.from(
+        document.querySelectorAll<HTMLInputElement>('[data-select-item]'),
+      )) {
+        let shouldCheck = wanted.includes(box.getAttribute('data-select-item') ?? '')
+        if (box.checked !== shouldCheck) box.click()
+      }
+    }, ids)
+    await page.waitForFunction(
+      (count: number) =>
+        Number(
+          document.querySelector('[data-bulk-count]')?.getAttribute('data-bulk-count') ?? '0',
+        ) === count,
+      ids.length,
+      { timeout: 15_000 },
+    )
   }
 
   it('copies only the selected items into the target and leaves the source intact', async (t) => {
@@ -372,14 +376,17 @@ describe('lists copy selected items into another list', () => {
         'the open picker must not overflow horizontally',
       )
 
+      let copied = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname.endsWith('/copy-items'),
+        { timeout: 15_000 },
+      )
       await page.locator(`[data-target-option="${targetId}"]`).click()
 
       // The server appends the two selected copies to the target.
+      await copied
       let targetItems = await listItems(targetId)
-      for (let attempt = 0; attempt < 40 && targetItems.length !== 3; attempt++) {
-        await page.waitForTimeout(250)
-        targetItems = await listItems(targetId)
-      }
       assert.equal(targetItems.length, 3, 'exactly the two selected items must be appended')
       assert.equal(targetItems[0]!.label, 'Ziel Eintrag', 'existing target item stays first')
       assert.equal(targetItems[1]!.label, 'Quell Eintrag 1')
@@ -490,19 +497,21 @@ describe('lists cross-list move via item drag', () => {
       await page.locator('[data-item-id="move-src-1"]').waitFor({ timeout: 15_000 })
       await page.locator(`[data-list-id="${targetId}"]`).waitFor({ timeout: 15_000 })
 
-      // Hydration marker: the row-selection bulk bar is client-only, so a
-      // synthetic drag before it appears would be a silent no-op.
-      for (let attempt = 0; attempt < 60; attempt++) {
-        await page.evaluate(() => {
-          let box = document.querySelector<HTMLInputElement>('[data-select-item="move-src-1"]')
-          if (box && !box.checked) {
-            box.checked = true
-            box.dispatchEvent(new Event('change', { bubbles: true }))
-          }
-        })
-        if ((await page.locator('[data-bulk-count]').count()) > 0) break
-        await page.waitForTimeout(250)
-      }
+      // Hydration marker: wait for the client entry, then select/unselect once
+      // to prove the bulk bar's selection store is live before dragging.
+      await waitForListsReady(page)
+      await page.evaluate(() => {
+        let box = document.querySelector<HTMLInputElement>('[data-select-item="move-src-1"]')
+        if (box && !box.checked) {
+          box.checked = true
+          box.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+      })
+      await page.waitForFunction(
+        () => document.querySelector('[data-bulk-count]') !== null,
+        undefined,
+        { timeout: 15_000 },
+      )
       await page.evaluate(() => {
         let box = document.querySelector<HTMLInputElement>('[data-select-item="move-src-1"]')
         if (box && box.checked) {
@@ -511,13 +520,16 @@ describe('lists cross-list move via item drag', () => {
         }
       })
 
+      let moved = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === `/lists/${sourceId}/move`,
+        { timeout: 15_000 },
+      )
       await dragItemOntoList(page, 'move-src-1', targetId)
+      await moved
 
       let sourceItems = await listItems(sourceId)
-      for (let attempt = 0; attempt < 40 && sourceItems.length !== 0; attempt++) {
-        await page.waitForTimeout(250)
-        sourceItems = await listItems(sourceId)
-      }
       assert.equal(sourceItems.length, 0, 'moving the last item must leave the source empty')
 
       let targetItems = await listItems(targetId)

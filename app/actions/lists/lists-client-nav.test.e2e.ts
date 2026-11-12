@@ -74,32 +74,32 @@ describe('lists frame navigation', () => {
   // e2e environment (see lists-client-importmap.test.e2e.ts), so the value must
   // be typed with real keystrokes to mark the editor dirty. Under full-suite
   // load the client-entry mount/patch pipeline can also swallow the first
-  // keystrokes; verify the field settled at the intended value and re-type,
-  // bounded, when it did not (see lists-client-edit.test.e2e.ts).
+  // keystrokes; verify the field settled at the intended value (waitForFunction
+  // re-checks the live node) and re-type, bounded, when it did not.
   async function typeInto(
-    field: {
-      click: () => Promise<void>
-      press: (key: string) => Promise<void>
-      pressSequentially: (text: string, options: { delay: number }) => Promise<void>
-      inputValue: () => Promise<string>
-    },
+    page: { locator: Function; waitForFunction: Function },
+    selector: string,
     value: string,
   ) {
     for (let round = 0; round < 3; round++) {
+      let field = page.locator(selector)
       await field.click()
       await field.press('Control+a')
       await field.pressSequentially(value, { delay: 5 })
-      let deadline = Date.now() + 1500
-      while (Date.now() < deadline) {
-        try {
-          if ((await field.inputValue()) === value) return
-        } catch {
-          break // node replaced mid-settle — retype below
-        }
-        await new Promise((resolve) => setTimeout(resolve, 50))
+      try {
+        await page.waitForFunction(
+          ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
+            (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value ===
+            wantedValue,
+          { selector, value },
+          { timeout: 1500 },
+        )
+        return
+      } catch {
+        // node replaced mid-settle — retype below
       }
     }
-    throw new Error(`typeInto could not settle ${JSON.stringify(value)} into the field`)
+    throw new Error(`typeInto could not settle ${JSON.stringify(value)} into ${selector}`)
   }
 
   it('shows the opened list title/description after switching away from an edited list', async (t) => {
@@ -122,8 +122,8 @@ describe('lists frame navigation', () => {
       )
 
       // Dirty both fields so their DOM values become user-owned (the stale case).
-      await typeInto(page.locator('#lists-title'), 'Zwischenstand')
-      await typeInto(page.locator('#lists-description'), 'Zwischenstand Beschreibung')
+      await typeInto(page, '#lists-title', 'Zwischenstand')
+      await typeInto(page, '#lists-description', 'Zwischenstand Beschreibung')
 
       // Switch to B and wait for the frame to hydrate B's own state.
       await page.click(`[data-list-id="${b}"] a`)
@@ -162,23 +162,29 @@ describe('lists frame navigation', () => {
       // Type and switch immediately — well inside the 1.5s autosave debounce, so
       // only the reloadStart flush can persist this.
       let marker = `Flush ${Date.now()}`
-      await typeInto(page.locator('#lists-title'), marker)
+      await typeInto(page, '#lists-title', marker)
+      let flushed = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PUT' &&
+          new URL(response.url()).pathname === `/lists/${a}`,
+        { timeout: 15_000 },
+      )
       await page.click(`[data-list-id="${b}"] a`)
 
       // The navigation completed once B's own title is showing; the marker must
-      // then have been written to A.
+      // then have been written to A by the reloadStart keepalive flush.
       await page.waitForFunction(
         (expected) =>
           (document.querySelector('#lists-title') as HTMLInputElement)?.value === expected,
         `Nav B flush`,
         { timeout: 15_000 },
       )
-      let persisted: string | null = null
-      for (let attempt = 0; attempt < 40 && persisted !== marker; attempt++) {
-        persisted = await readTitle(a)
-        if (persisted !== marker) await page.waitForTimeout(250)
-      }
-      assert.equal(persisted, marker, 'the pending edit must be flushed to the outgoing list')
+      await flushed
+      assert.equal(
+        await readTitle(a),
+        marker,
+        'the pending edit must be flushed to the outgoing list',
+      )
     } finally {
       await cleanup(a, b)
     }

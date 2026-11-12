@@ -80,22 +80,18 @@ async function waitForSidebar(page: { locator: Function }) {
 }
 
 // The drawer toggle is a deferred client entry: a click before it hydrates is
-// a silent no-op. Click until the drawer opens, like the drag suite does.
-async function openSidebar(page: {
-  locator: Function
-  evaluate: Function
-  waitForTimeout: Function
-}) {
-  let toggle = page.locator('#sidebar-shell-toggle')
-  for (let attempt = 0; attempt < 60; attempt++) {
-    let open = (await page.evaluate(
-      () => document.getElementById('sidebar-shell-nav')?.classList.contains('is-open') ?? false,
-    )) as boolean
-    if (open) return
-    await toggle.click()
-    await page.waitForTimeout(100)
-  }
-  throw new Error('the phone sidebar drawer did not open')
+// a silent no-op. Wait for its client-only marker, then click once and wait for
+// the drawer class it toggles.
+async function openSidebar(page: { locator: Function; waitForFunction: Function }) {
+  await page
+    .locator('#sidebar-shell-toggle[data-sidebar-toggle-ready="true"]')
+    .waitFor({ state: 'attached', timeout: 15_000 })
+  await page.locator('#sidebar-shell-toggle').click()
+  await page.waitForFunction(
+    () => document.getElementById('sidebar-shell-nav')?.classList.contains('is-open') === true,
+    undefined,
+    { timeout: 5_000 },
+  )
 }
 
 function isMenuOpen(id: number) {
@@ -107,36 +103,16 @@ function isMenuOpen(id: number) {
 }
 
 // The trigger is server-rendered, but its click handler attaches with the
-// deferred ListsRowActions entry: a click in the hydration gap (or right after
-// a frame swap) is a silent no-op, exactly like the drawer toggle above. Wait
-// for the entry's readiness marker, then retry until the menu really opens
-// instead of failing the run on one lost click.
-async function openListMenu(
-  page: { locator: Function; waitForFunction: Function; waitForTimeout: Function },
-  id: number,
-) {
+// deferred ListsRowActions entry. Wait for the entry's readiness marker, then
+// click once and wait for the open attribute it sets.
+async function openListMenu(page: { locator: Function; waitForFunction: Function }, id: number) {
   await page
     .locator('[data-lists-row-actions-ready="true"]')
     .waitFor({ state: 'attached', timeout: 15_000 })
   let trigger = page.locator(`[data-list-id="${id}"] [data-list-menu-button]`)
-  let deadline = Date.now() + 15_000
-  while (Date.now() < deadline) {
-    try {
-      await page.waitForFunction(isMenuOpen, id, { timeout: 250 })
-      return trigger
-    } catch {
-      // still closed (or the row was re-rendered) — click again below
-    }
-    await trigger.click()
-    try {
-      await page.waitForFunction(isMenuOpen, id, { timeout: 500 })
-      return trigger
-    } catch {
-      // hydration gap or a frame render still pending
-    }
-    await page.waitForTimeout(100)
-  }
-  throw new Error(`the row action menu for list ${id} did not open`)
+  await trigger.click()
+  await page.waitForFunction(isMenuOpen, id, { timeout: 5_000 })
+  return trigger
 }
 
 function assertSidebarGeometry(metrics: PageMetrics) {
@@ -328,16 +304,21 @@ describe('lists sidebar row action menu', () => {
           copyDialogText.includes('Sidebar menu other list'),
         'the confirmation must name both lists',
       )
+      let copied = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname.endsWith('/merge'),
+        { timeout: 15_000 },
+      )
       await page.locator('[data-confirm-accept]').click()
       await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
-      let targetLength = 0
-      for (let attempt = 0; attempt < 40 && targetLength !== 3; attempt++) {
-        let row = await pool.query('SELECT list FROM lists WHERE id = $1', [otherId])
-        targetLength = (row.rows[0]!.list as unknown[]).length
-        if (targetLength === 3) break
-        await page.waitForTimeout(250)
-      }
-      assert.equal(targetLength, 3, 'both open-list items must be copied into the target')
+      await copied
+      let row = await pool.query('SELECT list FROM lists WHERE id = $1', [otherId])
+      assert.equal(
+        (row.rows[0]!.list as unknown[]).length,
+        3,
+        'both open-list items must be copied into the target',
+      )
 
       // Delete must open the shared styled confirm dialog. The menu closes in
       // capture phase before ConfirmDelete's handler, so this proves hiding the
@@ -372,26 +353,28 @@ describe('lists sidebar row action menu', () => {
           'Sidebar menu open list (Kopie)',
         ])
       ).rows as { id: number }[]
-      for (let row of copyRows) copiedIds.push(Number(row.id))
+      for (let copyRow of copyRows) copiedIds.push(Number(copyRow.id))
       assert.equal(copyRows.length, 1, 'the duplicate must be persisted exactly once')
       await page
         .locator(`[data-list-id="${copiedIds[0]}"]`)
         .waitFor({ state: 'attached', timeout: 15_000 })
 
       // Sidebar sort/page-size controls submit the shared GET form and keep the
-      // open list in the URL. The client entry wires the change events, so retry
-      // until hydration has landed (a pre-hydration selectOption is a no-op).
+      // open list in the URL. The client entry wires the change events; wait
+      // for its marker instead of retrying a pre-hydration selectOption.
       let activeBeforeSort = await page.evaluate(
         () =>
           document.querySelector('[data-lists-active-id]')?.getAttribute('data-lists-active-id') ??
           '',
       )
       assert.ok(activeBeforeSort, 'a list should be open before sorting')
-      for (let attempt = 0; attempt < 40; attempt++) {
-        await page.selectOption('select[name="sort"]', 'name')
-        await page.waitForTimeout(150)
-        if ((await page.evaluate(() => location.search)).includes('sort=name')) break
-      }
+      await page
+        .locator('[data-lists-search-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
+      await page.selectOption('select[name="sort"]', 'name')
+      await page.waitForFunction(() => location.search.includes('sort=name'), undefined, {
+        timeout: 15_000,
+      })
       assert.ok(
         (await page.evaluate(() => location.search)).includes('sort=name'),
         'changing the sort must navigate with sort=name',
@@ -402,11 +385,13 @@ describe('lists sidebar row action menu', () => {
       )
       assert.equal(await page.locator('select[name="sort"]').inputValue(), 'name')
 
-      for (let attempt = 0; attempt < 40; attempt++) {
-        await page.selectOption('select[name="size"]', 'all')
-        await page.waitForTimeout(150)
-        if ((await page.evaluate(() => location.search)).includes('size=all')) break
-      }
+      await page
+        .locator('[data-lists-search-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
+      await page.selectOption('select[name="size"]', 'all')
+      await page.waitForFunction(() => location.search.includes('size=all'), undefined, {
+        timeout: 15_000,
+      })
       assert.ok(
         (await page.evaluate(() => location.search)).includes('size=all'),
         'changing the page size must navigate with size=all',

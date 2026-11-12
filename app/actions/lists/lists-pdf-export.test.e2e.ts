@@ -61,20 +61,15 @@ describe('lists view PDF export', () => {
       await page.setViewportSize({ width: 1440, height: 900 })
       await page.goto(`/lists?load=${listId}`)
       await page.locator('[data-status-bar]').waitFor({ timeout: 15_000 })
+      await page
+        .locator('[data-lists-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
 
-      // The deferred ListsClient entry attaches the filter/sort handlers, so a
-      // click in the hydration gap is a silent no-op. Retry until the export
-      // link reflects the state instead of racing hydration.
+      // The deferred ListsClient entry attaches the filter/sort handlers; wait
+      // for its marker, then drive one click/select and wait for the export link
+      // it updates.
       let statusHref = `/lists/${listId}/pdf?status=open`
-      let deadline = Date.now() + 15_000
-      while (Date.now() < deadline) {
-        let href = await page.evaluate(() =>
-          document.querySelector('[data-list-pdf-view]')?.getAttribute('href'),
-        )
-        if (href === statusHref) break
-        await page.locator('[data-status-filter="open"]').click()
-        await page.waitForTimeout(100)
-      }
+      await page.locator('[data-status-filter="open"]').click()
       await page.waitForFunction(
         (want: string) =>
           document.querySelector('[data-list-pdf-view]')?.getAttribute('href') === want,
@@ -83,15 +78,7 @@ describe('lists view PDF export', () => {
       )
 
       let sortedHref = `${statusHref}&sort=az`
-      deadline = Date.now() + 15_000
-      while (Date.now() < deadline) {
-        let href = await page.evaluate(() =>
-          document.querySelector('[data-list-pdf-view]')?.getAttribute('href'),
-        )
-        if (href === sortedHref) break
-        await page.selectOption('select[aria-label="Sortieren"]', 'az')
-        await page.waitForTimeout(100)
-      }
+      await page.selectOption('select[aria-label="Sortieren"]', 'az')
       await page.waitForFunction(
         (want: string) =>
           document.querySelector('[data-list-pdf-view]')?.getAttribute('href') === want,

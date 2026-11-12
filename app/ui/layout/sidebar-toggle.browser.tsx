@@ -63,6 +63,12 @@ export const SidebarToggle = clientEntry(
         },
         { signal: handle.signal },
       )
+
+      // Hydration marker for e2e: the button is server-rendered, and a click
+      // before this delegated listener attaches is a silent no-op.
+      handle.queueTask(() => {
+        document.getElementById(TOGGLE_ID)?.setAttribute('data-sidebar-toggle-ready', 'true')
+      })
     }
 
     return () => null
