@@ -258,8 +258,33 @@ phase with `(0/59 files completed)`; that is a harness timeout, not a test failu
 collected only for Chromium (`coverageEnabled = e2e.coverage && browserType() === 'chromium'`), so a
 Firefox browser-phase timeout does not skew the report, but it still makes the command exit 1.
 
+## WebKit is opt-in and skips `rel=prefetch` hints
+
+Safari-engine coverage is opt-in: `PLAYWRIGHT_WEBKIT=1` defines the `webkit` project in
+`playwright.config.ts`, and `npm run test:webkit` runs the browser and e2e suites with
+`--project webkit`; `.github/workflows/webkit.yml` runs the same nightly/manual. The
+`--project` flag overrides the `remix.json` project allowlist, so an opt-in run does not
+require changing the default project list.
+
+- Playwright WebKit 27.2 returns `false` from
+  `document.createElement('link').relList.supports('prefetch')`; Chromium and Firefox
+  return `true`. `app/assets/frame-asset-prefetch.browser.ts` must keep the
+  `relList.supports('prefetch')` guard: a WebKit warm still serves the frame HTML, but
+  destination assets start cold. The browser tests assert that no-op path instead of
+  hint markup.
+- `prefetchFrameAssets()` returns its discovery promise so tests can await the HTML
+  parse before asserting the no-op; navigation callers may ignore it.
+- On Fedora the Playwright Ubuntu fallback build downloads but does not launch:
+  `libicudata.so.74` (then `libicui18n.so.74`, `libicuuc.so.74`, `libjpeg.so.8`) is
+  missing. Ubuntu 24.04 CI gets them from `pnpm exec playwright install --with-deps
+  webkit`. Do not install host packages just for a local spike.
+- Playwright WebKit is engine coverage, not the Safari app. A green run does not prove
+  iOS Safari scroll restoration or platform integration; the support floor stays
+  Safari/iOS 18.2+.
+
 ## When to Use
 
+- You need to run the opt-in WebKit project or diagnose a WebKit-only failure.
 - A Playwright navigation/submit hangs on a page with an SSE/EventSource channel.
 - A browser test hangs after code calls `window.location.reload()`/`assign`/`replace`/`href`.
 - A remix `on('change')` handler on a native `<select>` does not fire under Playwright.
