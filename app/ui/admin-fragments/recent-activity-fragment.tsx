@@ -1,8 +1,6 @@
-import type { Handle } from 'remix/component'
-import { css } from 'remix/component'
+import { Frame, css, type Handle } from 'remix/component'
 import { theme } from '../../ui/theme/theme.ts'
 import { routes } from '../../routes.ts'
-import { LazyFrame } from '../lazy-frame.browser.tsx'
 
 interface Activity {
   id: number
@@ -86,9 +84,11 @@ const nestedFrameContainer = css({
   borderLeft: `3px solid ${theme.colors.border.subtle}`,
 })
 
-// Passed as LazyFrame children/fallback. A css() mixin survives the client-entry
-// props boundary since remix #12125; on()/ref()/custom mixins still do not.
+// Rendered by the built-in lazy frame as its server-side fallback. It must
+// render an element so the runtime can observe when the disclosure opens.
 const placeholderStyle = css({
+  display: 'inline-block',
+  minHeight: '1rem',
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,
 })
@@ -131,14 +131,15 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                   toggles frame visibility, requires zero JS. An <a> would
                   trigger the navigation intercept and reload the top-level
                   Document frame with fragment HTML, causing
-                  Node.insertBefore DOMException. The user-detail frame is lazy:
-                  the disclosure ships collapsed, so resolving it up front
-                  fetched content nobody had asked to see. The frame mounts as
-                  soon as the open disclosure becomes visible. */}
+                  Node.insertBefore DOMException. The user-detail frame uses
+                  the runtime's built-in lazy loading: the disclosure ships
+                  collapsed, so resolving it up front fetched content nobody
+                  had asked to see. The frame loads when the open disclosure
+                  nears the viewport and stays mounted afterwards. */}
                 <details>
                   <summary mix={detailBtnStyle}>Details anzeigen</summary>
                   <div mix={nestedFrameContainer}>
-                    <LazyFrame
+                    <Frame
                       // `name` is load-bearing, not bookkeeping: it makes the
                       // request carry X-Remix-Target, which routes an expired
                       // session through requireAuth's sub-frame 401 and the
@@ -152,10 +153,9 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                       src={routes.admin.fragments.userDetail.href({
                         userId: String(activity.userId),
                       })}
+                      loading="lazy"
                       fallback={<span mix={placeholderStyle}>Benutzerdetails werden geladen…</span>}
-                    >
-                      <span mix={placeholderStyle}>Benutzerdetails werden geladen…</span>
-                    </LazyFrame>
+                    />
                   </div>
                 </details>
               </div>

@@ -15,7 +15,8 @@ Current shape after the 2026-11-12 audit:
   (220 pass, ~702 s) → 43 / 47 / 224 (224 pass, ~716 s) after the viewport-pager
   additions (`clients-prefetch` plus the lists pager case; one test per project).
 - browser: 65 files / 108 suites / 1,030 tests (1,028 pass, 2 skipped, ~62 s) →
-  66 / 109 / 1,034 (1,032 pass, 2 skipped, ~64 s).
+  66 / 109 / 1,034 (1,032 pass, 2 skipped, ~64 s) → 65 / 108 / 1,020
+  (1,018 pass, 2 skipped, ~65 s) after deleting the custom `LazyFrame` suite.
 
 ## Boundary classes
 
@@ -40,7 +41,7 @@ Current shape after the 2026-11-12 audit:
 | `app/actions/admin/admin-lists-prefetch.test.e2e.ts`                  | Real runtime prefetch/claim HTTP                                  | `render()` never boots the prefetch wiring.                                                                           |
 | `app/actions/client/clients-prefetch.test.e2e.ts`                     | Real runtime prefetch/claim HTTP on the clients grid pager        | Covers the separate `client/grid-page.tsx` pager; `render()` never boots prefetch.                                    |
 | `app/actions/admin/admin-users-pdf.test.e2e.ts`                       | Real PDF download through the frame                               | Binary response and `Content-Disposition`.                                                                            |
-| `app/actions/admin/fragments/lazy-frames.test.e2e.ts`                 | Real dashboard fragment + frame route requests                    | The entry half is browser-tested; this proves the shipped fragment wiring.                                            |
+| `app/actions/admin/fragments/lazy-frames.test.e2e.ts`                 | Real dashboard fragment + frame route requests                    | Built-in lazy frames are vendor-tested; this proves the shipped fragment wiring.                                      |
 | `app/actions/admin/frame-form-detached-submitter.test.e2e.ts`         | Real navigation listener/frame form path                          | Only `run()` installs the document submit + Navigation API listeners.                                                 |
 | `app/actions/admin/lists/lists-frame-history.test.e2e.ts`             | Real history replace contract                                     | Navigation API history entry identity.                                                                                |
 | `app/actions/admin/lists/lists-ux.test.e2e.ts`                        | Real frame search/focus, phone SSR layout, editor navigation      | Hover/focus and viewport behavior need the real page.                                                                 |

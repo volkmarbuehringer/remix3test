@@ -1,7 +1,7 @@
 # Safe Raw-SQL Sort + Filter
 
 **Extracted:** 2026-09-05
-**Revalidated:** 2026-11-12 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392` — direction compilation is vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838; #12276 added the shared clause compilers `compilePredicate()`/`compileFromClause()`/`compileWhereClause()`/`compileHavingClause()`/`compileGroupByClause()`/`compileOrderByClause()`/`compileLimitOffsetClause()`/`compileReturningClause()` for custom adapters — the app's raw-SQL grids still need only the direction helper).
+**Revalidated:** 2026-11-12 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` — direction compilation is vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838; #12276 added the shared clause compilers `compilePredicate()`/`compileFromClause()`/`compileWhereClause()`/`compileHavingClause()`/`compileGroupByClause()`/`compileOrderByClause()`/`compileLimitOffsetClause()`/`compileReturningClause()` for custom adapters — the app's raw-SQL grids still need only the direction helper).
 
 ## Problem
 A raw-SQL grid (`db.exec` + `queryRows`/`queryRow` + the `sql` tag) has no typed `orderBy`/`where` object, so sort and filter columns come straight from the URL (`?sort=`, `?filter=`). Two hazards:

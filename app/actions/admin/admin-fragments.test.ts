@@ -91,11 +91,12 @@ describe('Admin Fragments Controller', () => {
     let placeholders = html.match(/Benutzerdetails werden geladen/g)
     assert.ok(placeholders && placeholders.length >= 3, 'should render a placeholder per activity')
 
-    // The nested user-detail frames are lazy now: they ship as client-entry
-    // props (so the browser can mount them) but must not be resolved into this
-    // response. A regression here silently restores six eager frame resolutions
-    // per render. Asserted by the controller's own payload, not by frame-marker
-    // internals, so the guard cannot pass vacuously if the runtime renames them.
+    // The nested user-detail frames use the runtime's built-in lazy loading:
+    // only their fallback/metadata ships, and the browser resolves them when
+    // the disclosure opens. A regression here silently restores six eager frame
+    // resolutions per render. Asserted by the controller's own payload, not by
+    // frame-marker internals, so the guard cannot pass vacuously if the runtime
+    // renames them.
     for (let name of ['Alice Johnson', 'Bob Smith', 'Carol Williams', 'David Brown']) {
       assert.equal(html.includes(name), false, `should not inline the ${name} user detail`)
     }

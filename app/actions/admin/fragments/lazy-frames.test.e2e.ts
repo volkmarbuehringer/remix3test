@@ -11,20 +11,18 @@ import { initializeAppDatabase } from '../../../db.ts'
 // /admin dashboard lazy user-detail frames — end-to-end behavior.
 //
 // The recent-activity fragment renders one `<details>` disclosure per activity,
-// each hiding a user-detail frame. Those frames are lazy (LazyFrame): while the
-// disclosures are collapsed, no user-detail route may be requested at all, and
-// opening one must load exactly one frame.
+// each hiding a user-detail frame. Those frames use the runtime's built-in
+// `loading="lazy"`: while the disclosures are collapsed, no user-detail route
+// may be requested at all, and opening one must load exactly one frame.
 //
 // Before the lazy conversion this fragment resolved six nested frames during
 // the parent render — content hidden behind a collapsed disclosure that the
 // user never asked for.
 //
-// The pure client-entry half (mount-on-first-intersection, unobserve-after-
-// mount, reopen retention) is gated deterministically in the browser suite by
-// app/ui/lazy-frame.test.browser.tsx; what stays here is the wiring that only
-// a server proves: the real dashboard fragment ships LazyFrame hosts and the
-// real /admin/fragments/user-detail route is fetched through the frame
-// runtime.
+// The runtime's own lazy-loading behavior is vendor-tested; what stays here is
+// the wiring only a server proves: the real dashboard fragment ships lazy
+// frame hosts and the real /admin/fragments/user-detail route is fetched
+// through the frame runtime.
 // ---------------------------------------------------------------------------
 
 const USER_DETAIL_PREFIX = '/admin/fragments/user-detail/'
@@ -64,8 +62,7 @@ describe('admin dashboard: lazy user-detail frames', () => {
     await page.getByText('Alice Johnson').first().waitFor({ timeout: 15_000 })
 
     assert.equal(userDetailRequests, 1, 'opening a disclosure loads exactly one frame')
-    // The reopen-retention half (no refetch, content survives collapse) is the
-    // entry's own gating, now proven without timing dependence in
-    // app/ui/lazy-frame.test.browser.tsx.
+    // Reopen retention (no refetch, content survives collapse) is the built-in
+    // lazy frame's behavior; the vendor frame tests cover it directly.
   })
 })

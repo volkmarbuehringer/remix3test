@@ -115,7 +115,7 @@ Then drive that frame directly from the entry — `frame.reload({ src: href })` 
 1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
 2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
 
-**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-11 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392`.
+**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-11-12 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f`.
 
 Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
 
@@ -223,13 +223,13 @@ Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed w
 
 **Context:** Writing an e2e test for a frame-targeted control on a page whose body is a *blocking* frame. Server tests can assert the `data-rmx-target` attributes and the fragment/shell split, but they cannot prove the click is intercepted — that needs a browser. The test must not click before the named frame is registered, or the click falls back to a full document navigation and the test flakes.
 
-**Verified fact (re-checked 2026-11-05, `@remix-run/component` 1.2.0):** `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
+**Verified fact (re-checked 2026-11-12, `@remix-run/component` 1.2.0):** `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
 
 ```ts
 // @remix-run/component/src/runtime/frame.ts (installed 1.2.0), hydrateContainer
-let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1425
+let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1694
 for (let { marker, entry, complete } of hydrations) {
-  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1427
+  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1696
 }
 ```
 
@@ -268,4 +268,4 @@ await page
 
 See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-12 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392`: `hydrateContainer` is at `src/runtime/frame.ts:1391`, the `createSubFrames(container.childNodes, context, options)` call at `:1425`, and `scheduleHydrationMarker(...)` at `:1427`. `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**Validated:** 2026-10-04 and re-checked 2026-11-12 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f`: `hydrateContainer` is at `src/runtime/frame.ts:1660`, the `createSubFrames(container.childNodes, context, options)` call at `:1694`, and `scheduleHydrationMarker(...)` at `:1696` (definition `:1708`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

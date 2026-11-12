@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`, `remix-test-coverage-flag-forwarding`, `home-nav-hydration-e2e-flake`
 
 **Extracted:** 2026-06-23 … 2026-11-09
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392` (`@remix-run/test` 1.1.0; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
+**Revalidated:** 2026-11-12 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (`@remix-run/test` 1.1.0 adds `t.waitFor()`; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
 **Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
@@ -73,6 +73,19 @@ await waitFor(() => {
 ```
 
 If you assert on `textContent`, wait on `textContent`.
+
+## `t.waitFor()` polling assertions (#12224)
+
+`t.waitFor(condition, { interval, timeout })` retries an assertion until it stops throwing or rejecting. Defaults are 50 ms between attempts and a 1 s overall deadline; the timeout error keeps the last failure as `cause`. It uses **real timers even when `t.useFakeTimers()` is active**, and it cancels when the test aborts or finishes.
+
+```ts
+await t.waitFor(() => {
+  let status = container.querySelector('[data-save-status]')
+  assert.equal(status?.textContent, 'Gespeichert')
+})
+```
+
+The first successful return value wins — even `false` or `undefined` — so the callback must assert, not return a boolean. Do not pass an existing `waitFor(predicate)` helper's boolean predicate directly; it stops on the first `false`. The app's `test/dom.ts` `waitForDom`/`nextDomMutation` helpers remain valid for MutationObserver-driven waits, and e2e tests still use Playwright's `page.waitFor*`.
 
 ## Wait for the destination, not any matching element
 
@@ -183,7 +196,7 @@ In the source case Chromium silently tolerated the malformed diff (only a 404 co
 ## `mockImplementationOnce` indexes are absolute, not "next pending"
 
 The #12097 `.mock` controls on `t.mock.fn`/`t.mock.method` (preview release
-`v0.20261112.171030-main-17a9e392`) number one-shot overrides by absolute call index. Consecutive
+`v0.20261112.185417-main-72a7ad0f`) number one-shot overrides by absolute call index. Consecutive
 `mockImplementationOnce(impl)` calls made before any invocation both register at
 the current call index (`calls.length`, still `0`), so the second silently
 replaces the first and the next call falls through to the default. Pass the
@@ -211,7 +224,7 @@ with `callCount()` to prove every queued request ran.
 
 ## `t.useFakeTimers()` fakes `Date`, not just timers
 
-Since remix #12203 (pin `17a9e392`) `t.useFakeTimers()` also fakes `Date`, `performance.now()`, `setImmediate()`/`clearImmediate()` and `AbortSignal.timeout()`, and it clears real timers on restore. Fake time starts at the Unix epoch (`0`), so a test that reads `Date.now()`/`new Date()` while the clock is active sees 1970 rather than the wall clock. Pass a start time when the code under test stamps or compares dates:
+Since remix #12203 (pin `72a7ad0f`) `t.useFakeTimers()` also fakes `Date`, `performance.now()`, `setImmediate()`/`clearImmediate()` and `AbortSignal.timeout()`, and it clears real timers on restore. Fake time starts at the Unix epoch (`0`), so a test that reads `Date.now()`/`new Date()` while the clock is active sees 1970 rather than the wall clock. Pass a start time when the code under test stamps or compares dates:
 
 ```ts
 let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })

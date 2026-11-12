@@ -6,8 +6,8 @@ import { afterEach, describe, it } from 'remix/test'
 // Guards for the two #12274 frame behaviors the app depends on:
 //
 // - `app/assets/entry.tsx` changes a frame's `src` after an in-frame redirect
-//   (`reconcileFrameRedirect`), and LazyFrame/route frames can change their
-//   `src` prop. A frame that has already committed content must reload in
+//   (`reconcileFrameRedirect`), and route frames can change their `src` prop.
+//   A frame that has already committed content must reload in
 //   place while nested frames or client entries are still loading, instead of
 //   remounting with its fallback. This is the regression test for #12274: it
 //   fails on the previous `0cab1903` pin.

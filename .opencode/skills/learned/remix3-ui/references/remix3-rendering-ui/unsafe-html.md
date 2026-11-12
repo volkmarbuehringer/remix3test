@@ -21,13 +21,13 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-11-11 against preview release `v0.20261112.171030-main-17a9e392` / source `17a9e392` (previously `060b32a`/`56f1fb6`, `2c9e033`/`e6a63ea`). PR #11988 reworded the invariant messages and shifted the line refs; the only shift in that bump was the SSR normalization site below. The guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`). Line anchors refreshed 2026-11-05 (#12098 moved the stream normalization and resolution code).
+**Re-validated:** 2026-11-11 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (previously `060b32a`/`56f1fb6`, `2c9e033`/`e6a63ea`). PR #11988 reworded the invariant messages and shifted the line refs; the only shift in that bump was the SSR normalization site below. The guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`). Line anchors refreshed 2026-11-05 (#12098 moved the stream normalization and resolution code).
 
 Enforcement sites in the installed source:
 
 - `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/reconcile.ts:368` — `parseHostProps` calls `normalizeUnsafeHTMLProps` (`:369`), and is itself invoked at `:326`/`:336`; #12159 folded the former `to-vnode.ts` into `reconcile.ts`
 - `.../src/runtime/unsafe-html.ts:61-94` — the invariants: `Invalid innerHTML prop: expected a value created with unsafeHTML()` (`:67`), the same wording for `srcDoc` (`:73`) and `srcdoc` (`:79`), and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:84`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
-- `.../src/server/stream.ts:681` — the SSR path applies the same normalization
+- `.../src/server/stream.ts:686` — the SSR path applies the same normalization
 - `.../src/runtime/core/mix.ts:95-111` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:95`) and logged (`sanitizeReturnedMixinProps` at `:108`)
 
 ## Solution
