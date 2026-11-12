@@ -370,6 +370,14 @@ App-side clearance (2026-10-15): `npm run typecheck` clean; full `npm run test:b
 - **Runs:** targeted scroll-restoration/anchoring/view-transition/admin-prefetch e2e 6/6 in ~28 s (Chromium 6/6, ~26 s); full WebKit browser 515 tests (514 pass, 1 skipped) after the prefetch fix in ~30 s; full WebKit e2e 44 files / 48 suites / 112 tests (112 pass, ~334 s). Default runs are unchanged: `npm run test:browser` 1,030 tests (1,028 pass, 2 skipped, ~63 s) and `npm run test:e2e` 224/224 (~723 s). A WebKit third default project would put `npm test` near ~23 min, which is why it stays opt-in instead of joining the 30-minute CI job.
 - **Verification:** typecheck, lint, format check and `remix:pin:check` clean.
 
+**E2E boundary follow-up 2026-11-12.** Audited the e2e suite for cases whose failure mode is client/browser behavior; no production behavior change. The inventory and retained-boundary rationale live in `docs/e2e-boundary-inventory.md`.
+
+- **Moved:** `settings-page-size-keys.test.e2e.ts` → `app/ui/page-size-entries.test.browser.tsx` (both entries mounted together; select/focus/PageUp/PageDown/Home/End/arrow contract), and `lists-reorder-transition.test.e2e.ts` → the platform-`startViewTransition` case in `app/actions/lists/public/lists-view-transition.test.browser.tsx` (real API wrapper, one transition or instant fallback).
+- **Slimmed:** `lists-sidebar-menu.test.e2e.ts` keeps the production menu mutations and phone geometry; menu dismissal/focus/rename stay in `lists-row-actions.test.browser.tsx`. `lists-view-controls.test.e2e.ts` keeps SSR status counts and viewport geometry; status/hide-done/view-sort transitions stay in the browser suite.
+- **Retained candidates:** `appointment-sidebar-layout` and the clients bounded-grid case cannot move without splitting server-only production imports (`remix/middleware/csrf`/`async-context`); hover, real keyboard, and viewport cases need the page. All are recorded in the inventory with their boundary.
+- **Runs:** e2e 44 files / 48 suites / 224 tests (224 pass, ~720 s) → 42 files / 46 suites / 220 tests (220 pass, ~702 s); browser 64 files / 107 suites / 1,030 tests (1,028 pass, 2 skipped, ~63 s) → 66 files / 109 suites / 1,034 tests (1,032 pass, 2 skipped, ~64 s). Migrated browser cases passed 3/3 Chromium+Firefox reruns.
+- **Verification:** typecheck, lint, format check and `remix:pin:check` clean.
+
 **Pin history (newest first).** Builds are the `preview/main` tips (through 2026-11-03) or `remix-run/previews` release tags (2026-11-04+); the source commit is what the build was built from. Each dated entry above carries the full PR range and app-side clearance. The 2026-11-03 entry is also the end of the `github:…#preview/main&path:` install format.
 
 | Recorded       | Build                              | Source       | Range highlights                                                                                                                               |
