@@ -12,9 +12,9 @@ import { routes } from '../routes.ts'
 // parses it into a real @view-transition rule and that a full-document
 // navigation actually starts a transition. The app's normal navigation is
 // frame-based, so activation is also the signal that this stayed a document
-// navigation. Chromium is the reference engine; Firefox is allowed to ignore
-// the at-rule (progressive enhancement) and only the unsupported path is
-// asserted there.
+// navigation. Chromium and WebKit are the reference engines; Firefox is allowed
+// to ignore the at-rule (progressive enhancement) and only the unsupported path
+// is asserted there.
 // ---------------------------------------------------------------------------
 
 describe('document view transitions', () => {
@@ -60,7 +60,7 @@ describe('document view transitions', () => {
     if (parsed.supportsViewTransitions) {
       assert.equal(parsed.headerName, 'app-header', 'the header must be a named transition group')
     }
-    if (browserName === 'chromium') {
+    if (browserName === 'chromium' || browserName === 'webkit') {
       assert.equal(parsed.optIn, true, 'the shell must parse @view-transition { navigation: auto }')
     }
   })
@@ -110,7 +110,7 @@ describe('document view transitions', () => {
       reveal: sessionStorage.getItem('vt-pagereveal'),
     }))
 
-    if (browserName === 'chromium') {
+    if (browserName === 'chromium' || browserName === 'webkit') {
       assert.equal(probe.swap, '1', 'leaving the login document should start a swap transition')
       assert.equal(probe.reveal, '1', 'arriving at home should reveal through a transition')
     }
