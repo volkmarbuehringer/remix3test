@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { clearPrefetchedAssets, prefetchFrameAssets } from './frame-asset-prefetch.browser.ts'
-import { clearPrefetchedFrames, prefetchFrame } from './frame-prefetch.browser.ts'
+import {
+  claimPrefetchedFrame,
+  clearPrefetchedFrames,
+  prefetchFrame,
+} from './frame-prefetch.browser.ts'
 
 // ---------------------------------------------------------------------------
 // Prefetch asset discovery
@@ -19,6 +23,13 @@ import { clearPrefetchedFrames, prefetchFrame } from './frame-prefetch.browser.t
 // ---------------------------------------------------------------------------
 
 const SOURCE = new URL('/admin/lists', window.location.origin)
+
+// WebKit (Playwright 27.2) reports no support for `<link rel="prefetch">`;
+// Chromium and Firefox do. The app must skip hint creation on engines without
+// the hint type, so those tests assert the no-op path instead of timing out.
+function supportsPrefetchHints(): boolean {
+  return document.createElement('link').relList.supports('prefetch')
+}
 
 type HintRecorder = {
   hints: HTMLLinkElement[]
@@ -60,7 +71,7 @@ function htmlResponse(html: string): Response {
 }
 
 async function warm(html: string): Promise<void> {
-  prefetchFrameAssets(htmlResponse(html), SOURCE)
+  await prefetchFrameAssets(htmlResponse(html), SOURCE)
 }
 
 /**
@@ -98,6 +109,14 @@ describe('frame asset prefetch discovery', () => {
       <link rel="preload" as="image" href="app/hero.png">
       <link rel="preload" as="font" href="app/font.woff2" crossorigin>
     `)
+    if (!supportsPrefetchHints()) {
+      assert.equal(
+        recordedHints().length,
+        0,
+        'an engine without prefetch support must not receive hint elements',
+      )
+      return
+    }
     await waitFor(() => recordedHints().length === 5, 'expected five asset hints')
 
     let script = findHint('/assets/app/assets/entry.js')
@@ -134,6 +153,14 @@ describe('frame asset prefetch discovery', () => {
       <script src="/assets/repeated.js"></script>
       <script src="/assets/repeated.js"></script>
     `)
+    if (!supportsPrefetchHints()) {
+      assert.equal(
+        recordedHints().length,
+        0,
+        'an engine without prefetch support must not receive hint elements',
+      )
+      return
+    }
     await waitFor(
       () =>
         findHint('/assets/nested.css') !== undefined && findHint('/assets/deep.js') !== undefined,
@@ -148,6 +175,18 @@ describe('frame asset prefetch discovery', () => {
   })
 
   it('skips assets the current document already has', async () => {
+    if (!supportsPrefetchHints()) {
+      await warm(
+        '<link rel="stylesheet" href="/assets/existing.css"><script src="/assets/new.js"></script>',
+      )
+      assert.equal(
+        recordedHints().length,
+        0,
+        'an engine without prefetch support must not receive hint elements',
+      )
+      return
+    }
+
     let existing = document.createElement('link')
     existing.rel = 'stylesheet'
     existing.href = '/assets/existing.css'
@@ -173,6 +212,14 @@ describe('frame asset prefetch discovery', () => {
       <link rel="preload" as="image" href="/assets/responsive.png" imagesrcset="/assets/2x.png 2x">
       <link rel="preload" as="image" href="/assets/visible.png">
     `)
+    if (!supportsPrefetchHints()) {
+      assert.equal(
+        recordedHints().length,
+        0,
+        'an engine without prefetch support must not receive hint elements',
+      )
+      return
+    }
     await waitFor(() => findHint('/assets/visible.png') !== undefined, 'expected the visible hint')
 
     assert.equal(findHint('/assets/wide.png'), undefined, 'non-matching media is skipped')
@@ -183,6 +230,14 @@ describe('frame asset prefetch discovery', () => {
   it('re-creates a hint dropped by head reconciliation', async () => {
     let html = '<script src="/assets/reconciled.js"></script>'
     await warm(html)
+    if (!supportsPrefetchHints()) {
+      assert.equal(
+        recordedHints().length,
+        0,
+        'an engine without prefetch support must not receive hint elements',
+      )
+      return
+    }
     await waitFor(() => findHint('/assets/reconciled.js') !== undefined, 'expected the first hint')
 
     let first = findHint('/assets/reconciled.js')!
@@ -201,12 +256,10 @@ describe('frame asset prefetch discovery', () => {
   })
 
   it('ignores non-HTML responses', async () => {
-    prefetchFrameAssets(
+    await prefetchFrameAssets(
       new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } }),
       SOURCE,
     )
-    // One macrotask is enough for the rejected discovery path to settle.
-    await new Promise((resolve) => setTimeout(resolve, 0))
 
     assert.equal(recordedHints().length, 0)
   })
@@ -215,7 +268,7 @@ describe('frame asset prefetch discovery', () => {
     // Existing prefetch-cache tests use minimal Response-shaped stubs; discovery
     // must not turn those into failures.
     assert.doesNotThrow(() => {
-      prefetchFrameAssets({ ok: true, status: 200 } as Response, SOURCE)
+      void prefetchFrameAssets({ ok: true, status: 200 } as Response, SOURCE)
     })
   })
 
@@ -225,6 +278,21 @@ describe('frame asset prefetch discovery', () => {
       htmlResponse('<script src="/assets/wired-through-prefetch.js"></script>')) as typeof fetch
 
     try {
+      if (!supportsPrefetchHints()) {
+        prefetchFrame('/admin/lists', { target: 'admin-content' })
+        let response = await claimPrefetchedFrame(
+          new URL('/admin/lists', window.location.href),
+          'admin-content',
+        )
+        assert.ok(response, 'the frame warm must still complete without prefetch hints')
+        assert.equal(
+          recordedHints().length,
+          0,
+          'an engine without prefetch support must not receive hint elements',
+        )
+        return
+      }
+
       prefetchFrame('/admin/lists', { target: 'admin-content' })
       await waitFor(
         () => findHint('/assets/wired-through-prefetch.js') !== undefined,

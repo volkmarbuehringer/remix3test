@@ -62,7 +62,7 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
     .then((response) => {
       if (response && generation === startedIn) {
         storePrefetchedFrame(key, response)
-        prefetchFrameAssets(response, url)
+        void prefetchFrameAssets(response, url)
       }
     })
     .catch(() => {

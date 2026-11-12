@@ -29,26 +29,33 @@ type PendingAsset = {
 
 const pendingAssets = new Map<string, PendingAsset>()
 
-/** Starts asset discovery for a response that was just warmed for a frame navigation. */
-export function prefetchFrameAssets(response: Response, sourceUrl: URL): void {
-  if (typeof document === 'undefined') return
+/**
+ * Starts asset discovery for a response that was just warmed for a frame navigation.
+ *
+ * Returns the discovery promise so tests can wait for the HTML to be parsed and
+ * the hints to settle; navigation callers may ignore it.
+ */
+export function prefetchFrameAssets(response: Response, sourceUrl: URL): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve()
 
   // A JSON/plain-text error body is never a frame fragment; nothing to discover.
   // Match the vendor default: require an explicit HTML content type rather than
   // guessing from a header-less binary response.
   let contentType = response.headers?.get?.('Content-Type')
-  if (contentType == null || !contentType.toLowerCase().includes('text/html')) return
+  if (contentType == null || !contentType.toLowerCase().includes('text/html')) {
+    return Promise.resolve()
+  }
 
   let clone: Response
   try {
     clone = response.clone()
   } catch {
     // A partial/stubbed response (tests) or a locked body cannot be inspected.
-    return
+    return Promise.resolve()
   }
-  if (typeof clone.text !== 'function') return
+  if (typeof clone.text !== 'function') return Promise.resolve()
 
-  void clone
+  return clone
     .text()
     .then((html) => {
       if (html) discoverHtml(html, clone.url || sourceUrl.href)
