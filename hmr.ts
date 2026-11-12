@@ -1,7 +1,7 @@
 import * as http from 'node:http'
 
 import { createFetchProxy } from 'remix/fetch-proxy'
-import { run, type NodeHmrRunner } from 'remix/node-hmr'
+import { createHmrReadyFetch, run, type NodeHmrRunner } from 'remix/node-hmr'
 import { createRequestListener } from 'remix/node-fetch-server'
 
 const readyTimeoutMs = 30_000
@@ -36,59 +36,57 @@ const hmrRunner = run('server.ts', {
   browserHmrChannel: { port: hmrEventPort },
 })
 
-function waitForReady(runner: NodeHmrRunner): Promise<boolean> {
-  return Promise.race([
-    runner.ready().then(() => true),
-    new Promise<boolean>((resolve) => {
-      setTimeout(() => resolve(false), readyTimeoutMs)
-    }),
-  ])
-}
-
-function createReadyFetch(
-  runner: NodeHmrRunner,
-  fetch: (request: Request) => Response | Promise<Response>,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
-    while (true) {
-      let ready = await waitForReady(runner)
-      if (!ready) {
-        return new Response(
-          'HMR server is starting or failed to start. Check the `npm run hmr` terminal output for errors.',
-          { status: 503 },
-        )
-      }
-
-      let generation = runner.generation
-      try {
-        let response = await fetch(request)
-        let retryable =
-          (request.method === 'GET' || request.method === 'HEAD') &&
-          (response.status === 502 || response.status === 503 || response.status === 504)
-
-        if (!retryable) return response
-
-        let readyAfterRestart = await waitForReady(runner)
-        if (!readyAfterRestart || runner.generation === generation) return response
-      } catch (error) {
-        let readyAfterRestart = await waitForReady(runner)
-        if (runner.generation !== generation && readyAfterRestart) continue
-        throw error
-      }
-    }
+class HmrReadyTimeoutError extends Error {
+  constructor() {
+    super('HMR server did not become ready in time')
+    this.name = 'HmrReadyTimeoutError'
   }
 }
 
-const server = http.createServer(
-  createRequestListener(
-    createReadyFetch(
-      hmrRunner,
-      createFetchProxy(`http://127.0.0.1:${appPort}`, {
-        xForwardedHeaders: true,
-      }),
-    ),
-  ),
-)
+function readyWithTimeout(runner: NodeHmrRunner): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timer = setTimeout(() => reject(new HmrReadyTimeoutError()), readyTimeoutMs)
+    runner.ready().then(
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
+// `createHmrReadyFetch()` waits for `runner.ready()` without a bound. Proxy the
+// handle so a restart that never becomes ready still yields the 503 below.
+const timedRunner: NodeHmrRunner = {
+  get generation() {
+    return hmrRunner.generation
+  },
+  ready: () => readyWithTimeout(hmrRunner),
+  close: () => hmrRunner.close(),
+}
+
+const proxyFetch = createFetchProxy(`http://127.0.0.1:${appPort}`, {
+  xForwardedHeaders: true,
+})
+const fetchWhenReady = createHmrReadyFetch(timedRunner, proxyFetch)
+
+async function fetchWithReadyTimeout(request: Request): Promise<Response> {
+  try {
+    return await fetchWhenReady(request)
+  } catch (error) {
+    if (!(error instanceof HmrReadyTimeoutError)) throw error
+    return new Response(
+      'HMR server is starting or failed to start. Check the `npm run hmr` terminal output for errors.',
+      { status: 503 },
+    )
+  }
+}
+
+const server = http.createServer(createRequestListener(fetchWithReadyTimeout))
 
 server.listen(hmrProxyPort, '127.0.0.1')
 

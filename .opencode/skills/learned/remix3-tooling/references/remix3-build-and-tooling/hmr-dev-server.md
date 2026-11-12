@@ -3,7 +3,7 @@
 **Source:** `remix3-hmr-dev-server`
 
 **Extracted:** 2026-08-10
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.4624-main-d4a24d56` / source `d4a24d56` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release).
+**Revalidated:** 2026-11-12 against preview release `v0.20261112.4624-main-d4a24d56` / source `d4a24d56` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release; `hmr.ts` now delegates to `createHmrReadyFetch()`).
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
 ## Current API anchors (release `v0.20261112.4624-main-d4a24d56`)
@@ -73,7 +73,7 @@ const hmrRunner = run('server.ts', {
 
 ### 3. Readiness timeout → 503 instead of hanging, `hmr.ts`
 
-`runner.ready()` has no not-ready response path, so `hmr.ts`'s `createReadyFetch` races it against a 30s timer (covers the app's slow first boot with DB seed) and returns `503 "HMR server is starting or failed to start…"` on timeout. It then keeps the retry-on-new-generation behavior for GET/HEAD `502/503/504` and thrown errors (see `shouldRetrySafeUnavailableRequest`).
+`runner.ready()` has no not-ready response path, and vendor `createHmrReadyFetch()` waits on it without a bound. `hmr.ts` therefore wraps the runner in a `timedRunner` whose `ready()` rejects after 30s (covers the app's slow first boot with DB seed) and returns `503 "HMR server is starting or failed to start…"` on timeout. The forwarding/retry loop itself is now vendor `createHmrReadyFetch(timedRunner, proxyFetch)`: GET/HEAD `502/503/504` and thrown errors are retried only when the generation changed, and non-idempotent methods are never replayed (see `shouldRetrySafeUnavailableRequest`). The timed wrapper is what preserves the app's 503 instead of hanging on a restart that never becomes ready.
 
 ### 4. Orphan guard in the child, `server.ts`
 
