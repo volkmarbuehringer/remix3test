@@ -72,6 +72,15 @@ async function waitForEntranceAnimations() {
   assert.fail('entrance animations did not finish')
 }
 
+/** The removal observer restores focus after the dialog node is gone. */
+async function waitForFocusReturn(trigger: HTMLElement) {
+  for (let i = 0; i < 200; i++) {
+    if (document.activeElement === trigger) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.fail('focus did not return to the trigger')
+}
+
 afterEach(() => {
   result?.cleanup()
   result = null
@@ -158,9 +167,9 @@ describe('ConfirmDelete', () => {
     let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
     await result!.act(() => cancel.click())
     await waitDialogGone()
-    // The dialog is closed after animateExit removes the retained node; give
-    // the removal observer a tick to run its native focus restoration.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    // The dialog is closed after animateExit removes the retained node; the
+    // removal observer then restores focus on a later task.
+    await waitForFocusReturn(btn)
 
     assert.equal(document.activeElement, btn, 'focus returns to the trigger')
   })

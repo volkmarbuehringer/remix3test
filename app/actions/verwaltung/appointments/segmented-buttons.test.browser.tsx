@@ -133,7 +133,7 @@ describe('segmented filter groups', () => {
     ).cleanup
 
     // Let the runtime's style layer settle before reading computed styles.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
 
     let group = readSegments()
     assert.deepEqual(group.labels.slice(0, 2), ['Alle', 'Diese Woche'])

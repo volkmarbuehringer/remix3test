@@ -127,8 +127,16 @@ function key(input: HTMLInputElement, keyName: string): void {
   )
 }
 
-async function settle(ms = 80): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms))
+async function waitForTaskState(
+  predicate: () => boolean,
+  description: string,
+  turns = 100,
+): Promise<void> {
+  for (let turn = 0; turn < turns; turn++) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  assert.ok(predicate(), description)
 }
 
 afterEach(() => {
@@ -178,7 +186,7 @@ describe('AppointTypePanel', () => {
     await result!.act(() => key(input, 'Enter'))
     assert.equal(renameInput('Typnamen bearbeiten'), null, 'editing closed on commit')
 
-    await settle() // the fetch + frame reload are async
+    await waitForTaskState(() => calls.length === 1, 'the PUT request')
     assert.deepEqual(
       calls.map((c) => [c.method, c.url]),
       [['PUT', '/admin/appointment-types/1']],
@@ -224,7 +232,7 @@ describe('AppointTypePanel', () => {
     input.value = 'Blur gespeichert'
     await result!.act(() => input.blur())
 
-    await settle()
+    await waitForTaskState(() => calls.length === 1, 'the blur PUT request')
     assert.equal(calls.length, 1)
     assert.equal(calls[0]!.method, 'PUT')
   })
@@ -243,7 +251,7 @@ describe('AppointTypePanel', () => {
     await result!.act(() => key(input!, 'Enter'))
     assert.equal(renameInput('Neuer Typname'), null, 'add row closed after commit')
 
-    await settle()
+    await waitForTaskState(() => calls.length === 1, 'the POST request')
     assert.deepEqual(
       calls.map((c) => [c.method, c.url]),
       [['POST', '/admin/appointment-types']],
@@ -286,7 +294,7 @@ describe('AppointTypePanel', () => {
     input.value = 'Frisch'
     await result!.act(() => key(input, 'Enter'))
 
-    await settle()
+    await waitForTaskState(() => reloads === 1, 'the frame reload')
     assert.equal(reloads, 1, 'the panel asks its frame to reload after the write')
   })
 
@@ -300,7 +308,7 @@ describe('AppointTypePanel', () => {
     input.value = 'Kaputt'
     await result!.act(() => key(input, 'Enter'))
 
-    await settle()
+    await waitForTaskState(() => calls.length === 1, 'the failing PUT request')
     assert.equal(reloads, 0)
   })
 

@@ -59,6 +59,8 @@ async function assertNeverSettles(promise: Promise<unknown>): Promise<void> {
       settled = true
     },
   )
+  // Negative observation: the contract is that the promise never settles, so
+  // there is no completion event to await. A short window is the only proof.
   await new Promise((resolve) => setTimeout(resolve, 20))
   assert.ok(!settled, 'expected the promise to never settle (no document UI injected)')
 }

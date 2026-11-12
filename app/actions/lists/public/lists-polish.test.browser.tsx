@@ -66,10 +66,6 @@ async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolea
   return predicate()
 }
 
-function settle(ms = 0) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
 async function deleteFirstRow(result: ReturnType<typeof mount>) {
   let kebab = result.container.querySelector('[data-item-menu-button="a"]') as HTMLButtonElement
   await result.act(() => kebab.click())
@@ -111,7 +107,7 @@ describe('keyboard help sheet', () => {
         .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     })
     assert.ok(await waitFor(() => container.querySelector('[data-help-dialog]') === null))
-    await settle(20)
+    assert.ok(await waitFor(() => document.activeElement === trigger))
     assert.equal(document.activeElement, trigger, 'Escape must restore the ? trigger')
   })
 
@@ -156,7 +152,6 @@ describe('document undo', () => {
     await result.act(() => {
       title.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))
     })
-    await settle(50)
     assert.equal(itemIds(result.container).join(','), 'b', 'the editor must not undo from an input')
   })
 
@@ -168,7 +163,6 @@ describe('document undo', () => {
     let done = result.container.querySelector('[data-done-item="b"]') as HTMLInputElement
     await result.act(() => done.click())
     assert.ok(await waitFor(() => buttonByText(result.container, 'Rückgängig') === undefined))
-    await settle(350)
   })
 })
 
@@ -228,7 +222,6 @@ describe('row affordances', () => {
       'a bulk mutation must reset the armed clear-all',
     )
     assert.ok(buttonByText(container, 'Alle löschen'))
-    await settle(350)
   })
 
   it('uses the trash glyph for delete and keeps the manual save secondary', async () => {

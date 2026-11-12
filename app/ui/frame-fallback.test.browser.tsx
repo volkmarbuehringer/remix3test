@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 import { Frame } from 'remix/component'
 import { render, type RenderResult } from 'remix/component/test'
 
+import { waitForDom } from '../../test/dom.ts'
 import { FrameFallback } from './frame-fallback.browser.tsx'
 
 // ---------------------------------------------------------------------------
@@ -24,10 +25,6 @@ afterEach(() => {
   document.body.replaceChildren()
   for (let style of document.head.querySelectorAll('style[data-rmx-style]')) style.remove()
 })
-
-async function settle(ms = 30) {
-  await new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 function renderPendingFrame(retryAfterMs: number): RenderResult {
   root = render(
@@ -52,9 +49,8 @@ function renderPendingFrame(retryAfterMs: number): RenderResult {
 }
 
 describe('FrameFallback', () => {
-  it('shows the loading label before the retry delay', async () => {
+  it('shows the loading label before the retry delay', () => {
     let result = renderPendingFrame(200)
-    await settle(20)
 
     assert.ok(
       result.container.textContent?.includes('Wird geladen…'),
@@ -69,8 +65,9 @@ describe('FrameFallback', () => {
 
   it('offers a retry once the frame stays unresolved', async () => {
     let result = renderPendingFrame(20)
-    await settle(40)
-    await result.act(() => {})
+    await waitForDom(() => result.container.querySelector('button') !== null, {
+      description: 'the delayed retry button',
+    })
 
     let button = result.container.querySelector('button')
     assert.ok(button, 'the retry button appears after the delay')
@@ -85,14 +82,17 @@ describe('FrameFallback', () => {
 
   it('reloads the frame when the retry is clicked', async () => {
     let result = renderPendingFrame(20)
-    await settle(40)
-    await result.act(() => {})
+    await waitForDom(() => result.container.querySelector('button') !== null, {
+      description: 'the delayed retry button',
+    })
     let callsBefore = resolveCalls.length
 
     let button = result.container.querySelector<HTMLButtonElement>('button')
     assert.ok(button, 'retry button must be present')
     await result.act(() => button!.click())
-    await settle(20)
+    for (let turn = 0; turn < 100 && resolveCalls.length === callsBefore; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
 
     assert.ok(resolveCalls.length > callsBefore, 'clicking the retry re-resolves the frame')
     assert.equal(resolveCalls.at(-1), '/slow', 'the retry requests the frame src')

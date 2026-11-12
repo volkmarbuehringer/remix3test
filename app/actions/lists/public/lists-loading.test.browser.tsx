@@ -95,10 +95,6 @@ async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolea
   return predicate()
 }
 
-function settle(ms = 0) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
 beforeEach(() => {
   installCsrf('tok')
   window.fetch = (async () =>
@@ -279,11 +275,10 @@ describe('ListsClient loading state', () => {
     assert.deepEqual(itemIds(container), ['b1'])
 
     await mounted.result.act(() => (resolveMove as () => void)())
-    await settle(50)
-    assert.deepEqual(itemIds(container), ['b1'], 'the stale source response must not replace B')
     assert.ok(
-      container.textContent?.includes('Die Liste wurde gewechselt'),
+      await waitFor(() => container.textContent?.includes('Die Liste wurde gewechselt')),
       'the stale action should be surfaced as cancelled',
     )
+    assert.deepEqual(itemIds(container), ['b1'], 'the stale source response must not replace B')
   })
 })

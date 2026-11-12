@@ -297,7 +297,9 @@ describe('uploads bulk actions', () => {
 
     let accept = dialog.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
     await dialogResult.act(() => accept.click())
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    for (let turn = 0; turn < 50 && resubmitted === undefined; turn++) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
 
     assert.equal(
       resubmitted,

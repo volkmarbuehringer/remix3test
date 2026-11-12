@@ -2,6 +2,7 @@ import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
+import { waitForDom } from '../../../test/dom.ts'
 import button, { buttonLink } from './button.ts'
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,9 @@ describe('button mixin default attributes', () => {
     ).cleanup
 
     // Let the mixin runtime apply the host attributes before reading them.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await waitForDom(() => document.querySelector('#default')?.getAttribute('type') === 'button', {
+      description: 'the button mixin default type',
+    })
 
     let defaultButton = document.querySelector<HTMLButtonElement>('#default')
     let explicitButton = document.querySelector<HTMLButtonElement>('#explicit')

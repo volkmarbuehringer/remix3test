@@ -43,6 +43,20 @@ afterEach(() => {
   cleanup = null
 })
 
+/** Animation observation: wait for WAAPI animations to finish and opacity to land. */
+async function waitForCardSettled(card: Element): Promise<void> {
+  for (let frame = 0; frame < 120; frame++) {
+    let animations = card.getAnimations({ subtree: true })
+    let settled = animations.every(
+      (animation) => animation.playState === 'finished' || animation.playState === 'idle',
+    )
+    let opacity = Number.parseFloat(getComputedStyle(card).opacity)
+    if (settled && opacity > 0.98) return
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+  assert.fail('the card entrance animation did not settle')
+}
+
 describe('ErrorCard', () => {
   it('renders the eyebrow, title, and message the runtime supplies', () => {
     let { container } = mount({
@@ -96,9 +110,9 @@ describe('ErrorCard', () => {
     let card = container.querySelector('div')
     assert.ok(card, 'animated card mounts')
 
-    // entrance() collapses to a no-op under reduced motion; the spring lands
-    // within ~500ms otherwise — either way the card ends fully visible.
-    await new Promise((resolve) => setTimeout(resolve, 900))
+    // entrance() collapses to a no-op under reduced motion; otherwise watch the
+    // WAAPI animations and final opacity instead of waiting a wall-clock guess.
+    await waitForCardSettled(card)
     let opacity = Number.parseFloat(getComputedStyle(card).opacity)
     assert.ok(opacity > 0.98, `entrance animation must settle at full opacity, got ${opacity}`)
   })

@@ -29,8 +29,9 @@ function stubFetch(response: Partial<Response>) {
   }) as typeof window.fetch
 }
 
+/** Flush the fetch -> store -> asset-discovery promise chain (task turns, not a time window). */
 async function settlePrefetches(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 20))
+  await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 function stubDeferredFetch() {

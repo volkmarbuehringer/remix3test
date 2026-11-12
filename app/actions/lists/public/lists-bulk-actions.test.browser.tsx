@@ -144,10 +144,6 @@ async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolea
   return predicate()
 }
 
-function settle(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
 async function selectItem(result: ReturnType<typeof mount>, id: string) {
   let box = result.container.querySelector(`[data-select-item="${id}"]`) as HTMLInputElement
   await result.act(() => box.click())
@@ -228,7 +224,6 @@ describe('bulk done/open', () => {
       await waitFor(() => statusTab(container, 'done').getAttribute('data-status-count') === '0'),
       'bulk open must clear done',
     )
-    await settle(350)
   })
 })
 
@@ -260,12 +255,19 @@ describe('searchable target picker', () => {
       search.value = 'Ziel'
       search.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await settle(300)
-    assert.ok(await waitFor(() => container.querySelector('[data-target-option="8"]') !== null))
+    assert.ok(
+      await waitFor(() =>
+        calls.some(
+          (call) => call.url.includes('/lists/targets?') && call.url.includes('filter=Ziel'),
+        ),
+      ),
+      'typing must issue a debounced /lists/targets search',
+    )
     let searchCall = calls.find(
       (call) => call.url.includes('/lists/targets?') && call.url.includes('filter=Ziel'),
     )
     assert.ok(searchCall, 'typing must issue a debounced /lists/targets search')
+    assert.ok(await waitFor(() => container.querySelector('[data-target-option="8"]') !== null))
 
     await result.act(() =>
       (container.querySelector('[data-target-option="8"]') as HTMLElement).click(),
@@ -277,7 +279,6 @@ describe('searchable target picker', () => {
       await waitFor(() => container.textContent?.includes('nach „Ziel Liste" verschoben') ?? false),
     )
     assert.equal(container.querySelector('[data-bulk-count]'), null, 'the selection clears')
-    await settle(50)
   })
 
   it('shows loading, empty and error states with a retry', async () => {
@@ -329,10 +330,8 @@ describe('searchable target picker', () => {
     document
       .querySelector('[data-target-picker-search]')!
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
-    await settle(20)
-    assert.equal(
-      document.activeElement?.getAttribute('data-target-option'),
-      '8',
+    assert.ok(
+      await waitFor(() => document.activeElement?.getAttribute('data-target-option') === '8', 2000),
       'ArrowDown focuses the first target option',
     )
 
@@ -345,8 +344,10 @@ describe('searchable target picker', () => {
       await waitFor(() => container.querySelector('[data-target-picker-dialog]') === null),
       'Escape closes the picker dialog',
     )
-    await settle(20)
-    assert.equal(document.activeElement, copyButton, 'Escape must refocus the trigger')
+    assert.ok(
+      await waitFor(() => document.activeElement === copyButton, 2000),
+      'Escape must refocus the trigger',
+    )
   })
 })
 

@@ -21,6 +21,7 @@ import {
   DRAG_THRESHOLD,
 } from './appointment-grid-types.ts'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
+import { waitForDom } from '../../test/dom.ts'
 import { interactionState } from './appointment-interaction-state.ts'
 import {
   createFixtureData,
@@ -35,6 +36,19 @@ import {
   minuteToY,
   yToMinute,
 } from './appointment-grid-test-helpers.ts'
+
+/** Flush macrotasks until a non-DOM predicate is true (fetch/reload counters). */
+async function waitForTaskState(
+  predicate: () => boolean,
+  description: string,
+  turns = 200,
+): Promise<void> {
+  for (let turn = 0; turn < turns; turn++) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  assert.ok(predicate(), description)
+}
 
 // -----------------------------------------------------------------------
 // 1. Layout pure functions: move, resize, delete
@@ -407,8 +421,9 @@ describe('Mutation reload', () => {
       },
     })
     cleanup = result.cleanup
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    await result.act(() => {})
+    await waitForDom(() => result.container.querySelector('[data-block-id="1"]') !== null, {
+      description: 'the appointment grid block',
+    })
 
     let dispatchPointer = (type: string, target: EventTarget) => {
       target.dispatchEvent(
@@ -446,7 +461,14 @@ describe('Mutation reload', () => {
       )
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 30))
+    await waitForTaskState(
+      () => getCapturedMutationsByMethod('PUT').length === 1,
+      'the title edit PUT',
+    )
+    await waitForTaskState(
+      () => resolveCalls.length > callsBefore,
+      'the containing frame reload after the title edit',
+    )
 
     assert.deepEqual(
       getCapturedMutationsByMethod('PUT').map((mutation) => mutation.url),

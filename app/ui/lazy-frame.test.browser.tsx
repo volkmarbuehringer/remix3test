@@ -4,6 +4,7 @@ import { css, run, type AppRuntime, type RemixNode } from 'remix/component'
 import { renderToString } from 'remix/component/server'
 import { render, type RenderResult } from 'remix/component/test'
 
+import { waitForDom } from '../../test/dom.ts'
 import { LazyFrame, resetLazyFrameObserverPools } from './lazy-frame.browser.tsx'
 
 // ---------------------------------------------------------------------------
@@ -104,10 +105,6 @@ function activityObserver(): FakeIO {
   return observer
 }
 
-async function settle(ms = 50) {
-  await new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 afterEach(() => {
   root?.cleanup()
   root = null
@@ -154,7 +151,6 @@ describe('LazyFrame deferral', () => {
     let host = load.observed[0]!
     assert.ok(host, 'the entry must observe its host element')
     await result.act(() => load.fire(host, false))
-    await settle()
 
     assert.equal(resolveCalls.length, 0, 'a hidden host must not resolve the frame')
     assert.ok(
@@ -170,11 +166,15 @@ describe('LazyFrame deferral', () => {
     let host = load.observed[0]!
 
     await result.act(() => load.fire(host, true))
-    await settle()
+    await waitForDom(() => resolveCalls.length === 1, {
+      description: 'the intersecting frame request',
+    })
     assert.equal(resolveCalls.length, 1, 'intersecting must mount the Frame and resolve once')
-    // Resolution is async (resolveFrame returns a promise), so let the resolved
-    // fragment land before asserting on the mounted content.
-    await settle()
+    // Resolution is async (resolveFrame returns a promise); wait for the
+    // fragment itself rather than assuming a fixed settle time.
+    await waitForDom(() => result.container.querySelector('#lazy-detail-content') !== null, {
+      description: 'the resolved fragment',
+    })
     assert.equal(resolveCalls[0], '/admin/fragments/user-detail/1')
     assert.ok(
       result.container.querySelector('#lazy-detail-content'),
@@ -197,12 +197,14 @@ describe('LazyFrame deferral', () => {
     let host = load.observed[0]!
 
     await result.act(() => load.fire(host, true))
+    await waitForDom(() => result.container.querySelector('#lazy-detail-content') !== null, {
+      description: 'the mounted lazy frame content',
+    })
     assert.equal(resolveCalls.length, 1)
 
     // Even if a stale/duplicate report reaches the callback, the mounted frame
     // must not be requested again.
     await result.act(() => load.fire(host, true))
-    await settle()
     assert.equal(resolveCalls.length, 1, 'a second intersecting report must not refetch')
   })
 
@@ -213,10 +215,12 @@ describe('LazyFrame deferral', () => {
     let host = load.observed[0]!
 
     await result.act(() => load.fire(host, true))
+    await waitForDom(() => result.container.querySelector('#lazy-detail-content') !== null, {
+      description: 'the mounted lazy frame content',
+    })
     assert.equal(resolveCalls.length, 1)
 
     await result.act(() => load.fire(host, false)) // e.g. the disclosure closes
-    await settle()
     assert.ok(
       result.container.querySelector('#lazy-detail-content'),
       'a mounted frame survives the host going non-intersecting',
@@ -316,7 +320,9 @@ describe('LazyFrame deferral', () => {
     let host = load.observed[0]!
     load.fire(host, true)
     hydrationRuntime.flush()
-    await settle()
+    await waitForDom(() => document.querySelector('#styled-fallback') !== null, {
+      description: 'the hydrated fallback element',
+    })
 
     let fallback = document.querySelector<HTMLElement>('#styled-fallback')
     assert.ok(fallback, 'the serialized fallback element must hydrate once the frame mounts')

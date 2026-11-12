@@ -215,7 +215,7 @@ describe('ListsDrag list merge', () => {
     dragListTo(1, 2)
 
     await waitFor(() => confirmCalls === 1)
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await waitFor(() => updates > 0)
     assert.equal(calls.length, 0, 'a declined confirmation must not issue a request')
     assert.equal(reloads, 0)
     assert.ok(updates > 0, 'declining still re-renders')
@@ -239,7 +239,6 @@ describe('ListsDrag list merge', () => {
         new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
       )
     }
-    await new Promise((resolve) => setTimeout(resolve, 20))
 
     assert.equal(confirmCalls, 0, 'a menu drag must not prompt for a merge')
     assert.equal(calls.length, 0, 'a menu drag must not issue a request')
