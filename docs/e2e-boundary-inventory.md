@@ -13,7 +13,7 @@ Current shape after the 2026-11-12 audit:
 
 - e2e: 44 files / 48 suites / 224 tests (224 pass, ~720 s) → 42 / 46 / 220
   (220 pass, ~702 s).
-- browser: 64 files / 107 suites / 1,030 tests (1,028 pass, 2 skipped, ~63 s) →
+- browser: 65 files / 108 suites / 1,030 tests (1,028 pass, 2 skipped, ~62 s) →
   66 / 109 / 1,034 (1,032 pass, 2 skipped, ~64 s).
 
 ## Boundary classes
