@@ -210,6 +210,11 @@ describe('frame reload behavior', () => {
   })
 
   it('pairs child reload events when a top-frame reload takes over', async () => {
+    // Ported from the vendor frame test at d4a24d56. The reload-pair state
+    // machine landed in #12200, so this also passes on the previous 0cab1903
+    // pin; it pins the one-pair contract against future regressions. The
+    // #12274 regression guard is the src-change case above (it fails on
+    // 0cab1903).
     let childReloadStartEvents = 0
     let childReloadCompleteEvents = 0
     let [childReloadCompleted, markChildReloadCompleted] = withResolvers<void>()
