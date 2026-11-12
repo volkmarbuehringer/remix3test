@@ -46,59 +46,9 @@ async function readGeometry(page: { evaluate: Function }) {
   }
 }
 
-async function waitForRows(page: { waitForFunction: Function }, expected: number, timeout = 500) {
-  await page.waitForFunction(
-    (count: number) => document.querySelectorAll('[data-item-id]').length === count,
-    expected,
-    { timeout },
-  )
-}
-
-/**
- * Status buttons are server-rendered but their click handlers attach with the
- * deferred ListsClient entry. Wait for the client-only readiness marker, then
- * click once and wait for the row count the filter produces.
- */
-async function waitForListsReady(page: { locator: Function }) {
-  await page.locator('[data-lists-ready="true"]').waitFor({ state: 'attached', timeout: 15_000 })
-}
-
-async function clickStatus(
-  page: { locator: Function; waitForFunction: Function },
-  status: string,
-  expected: number,
-) {
-  await waitForListsReady(page)
-  await page.locator(`[data-status-filter="${status}"]`).click()
-  await waitForRows(page, expected, 15_000)
-}
-
-/**
- * The hide-done checkbox can toggle natively before hydration without running
- * its change handler. Wait for the entry marker, then click/cross the state and
- * wait for the row count it produces.
- */
-async function checkHideDone(
-  page: { evaluate: Function; waitForFunction: Function; locator: Function },
-  expected: number,
-) {
-  await waitForListsReady(page)
-  await page.evaluate(() => {
-    let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
-    if (checkbox && !checkbox.checked) checkbox.click()
-    checkbox?.dispatchEvent(new Event('change', { bubbles: true }))
-  })
-  await page.waitForFunction(
-    (count: number) => {
-      let checkbox = document.querySelector<HTMLInputElement>('[data-hide-done]')
-      return (
-        checkbox?.checked === true && document.querySelectorAll('[data-item-id]').length === count
-      )
-    },
-    expected,
-    { timeout: 15_000 },
-  )
-}
+// Filter transitions (status tabs, hide-done, view-only sort) are covered by
+// public/lists-view-controls.test.browser.tsx. This e2e keeps the server-side
+// counts and the real SSR/CSS strip geometry at both viewports.
 
 function assertGeometry(metrics: Awaited<ReturnType<typeof readGeometry>>) {
   assert.ok(
@@ -149,7 +99,7 @@ describe('lists status filter strip', () => {
     listId = Number(result.rows[0]!.id as number)
   }
 
-  it('filters by status and stays overflow-free at 1440 and 390', async (t) => {
+  it('renders SSR status counts and stays overflow-free at 1440 and 390', async (t) => {
     await seedList()
     try {
       let server = await createTestServer((request) => router.fetch(request))
@@ -191,16 +141,6 @@ describe('lists status filter strip', () => {
         ),
         'none',
         'desktop keeps the ? toolbar control visible',
-      )
-
-      await clickStatus(page, 'open', 2)
-      await clickStatus(page, 'overdue', 1)
-      await clickStatus(page, 'all', 3)
-
-      await checkHideDone(page, 2)
-      assert.equal(
-        await page.locator('[data-status-filter="all"]').getAttribute('data-status-count'),
-        '2',
       )
 
       // Phone: the strip may wrap, but it must not overflow the page or itself.

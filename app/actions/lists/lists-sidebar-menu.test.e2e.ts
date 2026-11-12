@@ -203,7 +203,7 @@ describe('lists sidebar row action menu', () => {
     copiedIds = []
   }
 
-  it('keeps one visible trigger per row at desktop width and restores focus', async (t) => {
+  it('renders one visible trigger per row and runs the menu actions at desktop width', async (t) => {
     await seedLists()
     try {
       let server = await createTestServer((request) => router.fetch(request))
@@ -217,74 +217,11 @@ describe('lists sidebar row action menu', () => {
 
       assertSidebarGeometry(await readMetrics(page))
 
-      let trigger = await openListMenu(page, openId)
-
-      assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
-      assert.equal(
-        await page.evaluate(() => document.activeElement?.textContent?.trim()),
-        'Umbenennen',
-        'opening the menu must focus its first action',
-      )
-      let openMetrics = await readMetrics(page)
-      let openRow = openMetrics.rows.find((row) => row.id === String(openId))
-      assert.ok(openRow?.menuVisible, 'the open menu must be rendered inline')
-      assert.equal(
-        openRow?.countVisible,
-        true,
-        'the count badge must stay visible while the menu is open',
-      )
-
-      await page.keyboard.press('Escape')
-      await page.waitForFunction(
-        (id) =>
-          document
-            .querySelector(`[data-list-id="${id}"] [data-list-menu]`)
-            ?.hasAttribute('data-list-menu-open') === false,
-        openId,
-        { timeout: 5_000 },
-      )
-      assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
-      // A bare `data-*` boolean renders as "true" since remix #12152; the
-      // attribute is a presence marker, not an empty-string marker.
-      assert.equal(
-        await page.evaluate(() => document.activeElement?.hasAttribute('data-list-menu-button')),
-        true,
-        'Escape must return focus to the trigger',
-      )
-
-      // Re-open, then dismiss with an outside pointer down.
-      await openListMenu(page, openId)
-      await page.locator('#lists-title').click()
-      await page.waitForFunction(
-        (id) =>
-          document
-            .querySelector(`[data-list-id="${id}"] [data-list-menu]`)
-            ?.hasAttribute('data-list-menu-open') === false,
-        openId,
-        { timeout: 5_000 },
-      )
-
-      // Rename starts the inline name editor (outside the menu), and closing the
-      // menu must not steal focus from the freshly inserted input.
-      await openListMenu(page, openId)
-      await page
-        .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
-        .filter({ hasText: 'Umbenennen' })
-        .click()
-      let renameInput = page.locator(`[data-list-id="${openId}"] input[type="text"]`)
-      await renameInput.waitFor({ timeout: 5_000 })
-      assert.equal(await renameInput.inputValue(), 'Sidebar menu open list')
-      assert.equal(
-        await page.evaluate(() => document.activeElement?.tagName),
-        'INPUT',
-        'the rename action must focus the inline name editor',
-      )
-      await page.keyboard.press('Escape')
-      await page.waitForFunction(
-        (id) => document.querySelector(`[data-list-id="${id}"] input[type="text"]`) === null,
-        openId,
-        { timeout: 5_000 },
-      )
+      // Menu open/close, focus return, outside dismissal and rename focus are
+      // covered by public/lists-row-actions.test.browser.tsx. This e2e keeps
+      // the production wiring: the real menu actions reach their mutation
+      // endpoints through the frame, and the sidebar controls submit the GET
+      // form with the open list preserved.
 
       // Non-drag alternative to the list-to-list drag: copy the open list's
       // items into the clicked sidebar list through the shared confirm dialog.
