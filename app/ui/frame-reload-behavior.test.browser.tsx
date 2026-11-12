@@ -29,6 +29,39 @@ async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
   return await new Response(stream).text()
 }
 
+async function* readChunks(stream: ReadableStream<Uint8Array>): AsyncGenerator<string, void, void> {
+  let reader = stream.getReader()
+  let decoder = new TextDecoder()
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+    yield decoder.decode(value)
+  }
+}
+
+function streamFromChunks(chunks: Array<string | Promise<string>>): ReadableStream<Uint8Array> {
+  let encoder = new TextEncoder()
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      for (let chunk of chunks) {
+        controller.enqueue(encoder.encode(typeof chunk === 'string' ? chunk : await chunk))
+      }
+      controller.close()
+    },
+  })
+}
+
+function frameMarkerId(chunk: string): string {
+  let match = chunk.match(/<!--\s*rmx:f:([^ ]+)\s*-->/)
+  if (!match) throw new Error('Expected a frame marker in the streamed chunk')
+  return match[1]!
+}
+
+async function waitForFrameMarker(chunk: string): Promise<void> {
+  let marker = new RegExp(`<!--\\s*rmx:f:${frameMarkerId(chunk)}\\s*-->`)
+  await waitFor(() => marker.test(document.documentElement.innerHTML), 'the frame marker')
+}
+
 async function waitFor(check: () => boolean, message: string): Promise<void> {
   let deadline = Date.now() + 2_000
   while (Date.now() < deadline) {
@@ -174,5 +207,132 @@ describe('frame reload behavior', () => {
     await secondReloadPromise
     assert.deepEqual(events, ['start', 'complete'], 'one pair for the re-entered reload')
     assert.equal(document.querySelector('#reload-value')?.textContent, 'Fresh')
+  })
+
+  it('pairs child reload events when a top-frame reload takes over', async () => {
+    let childReloadStartEvents = 0
+    let childReloadCompleteEvents = 0
+    let [childReloadCompleted, markChildReloadCompleted] = withResolvers<void>()
+    let reloadTopFromChild: undefined | (() => Promise<unknown>)
+
+    let ChildReloadObserver = clientEntry(
+      '/assets/child-reload-observer.js#ChildReloadObserver',
+      function ChildReloadObserver(handle: Handle) {
+        reloadTopFromChild = async () => {
+          handle.frame.addEventListener(
+            'reloadStart',
+            () => {
+              childReloadStartEvents++
+            },
+            { once: true },
+          )
+          handle.frame.addEventListener(
+            'reloadComplete',
+            () => {
+              childReloadCompleteEvents++
+              markChildReloadCompleted()
+            },
+            { once: true },
+          )
+          return await handle.frames.top.reload()
+        }
+
+        return () => <button id="reload-top-from-child">Reload top</button>
+      },
+    )
+
+    async function renderChildFrame(label: string) {
+      return await drain(
+        renderToStream(
+          <section id="event-child-frame-content">
+            <p id="event-child-frame-label">{label}</p>
+            <ChildReloadObserver />
+          </section>,
+        ),
+      )
+    }
+
+    function renderDocument(childContent: string | Promise<string>) {
+      return renderToStream(
+        <html>
+          <head />
+          <body>
+            <main>
+              <p id="event-top-frame-label">Top frame</p>
+              <Frame
+                name="event-child"
+                src="/event-child"
+                fallback={<span id="event-child-frame-fallback">Loading child...</span>}
+              />
+            </main>
+          </body>
+        </html>,
+        {
+          resolveFrame(src: string) {
+            if (src === '/event-child') return childContent
+            throw new Error(`Unexpected frame src: ${src}`)
+          },
+        },
+      )
+    }
+
+    let initialDocument = new DOMParser().parseFromString(
+      await drain(renderDocument(renderChildFrame('Initial child'))),
+      'text/html',
+    )
+    document.documentElement.innerHTML = initialDocument.documentElement.innerHTML
+
+    let [childReloadPromise, resolveChildReload] = withResolvers<string>()
+    let streamedReload = renderDocument(childReloadPromise)
+    let streamedChunks = readChunks(streamedReload)
+    let firstChunk = await streamedChunks.next()
+    if (firstChunk.done) throw new Error('the top-frame shell must stream first')
+    resolveChildReload(await renderChildFrame('Reloaded child'))
+    let secondChunk = await streamedChunks.next()
+    if (secondChunk.done) throw new Error('the child frame must stream next')
+    let [secondChunkPromise, releaseSecondChunk] = withResolvers<string>()
+
+    let app = run({
+      loadModule(moduleUrl, exportName) {
+        if (
+          moduleUrl === '/assets/child-reload-observer.js' &&
+          exportName === 'ChildReloadObserver'
+        ) {
+          return ChildReloadObserver
+        }
+        throw new Error(`Unexpected module: ${moduleUrl}#${exportName}`)
+      },
+      resolveFrame(src) {
+        if (src === document.location.href) {
+          return streamFromChunks(['<!DOCTYPE html>', firstChunk.value, secondChunkPromise])
+        }
+        throw new Error(`Unexpected frame src: ${src}`)
+      },
+    })
+    dispose = () => app.dispose()
+    await app.ready()
+
+    assert.equal(document.getElementById('event-child-frame-label')?.textContent, 'Initial child')
+
+    assert.ok(reloadTopFromChild, 'the child entry must expose the top-frame reload')
+    let reloadPromise = reloadTopFromChild()
+    await waitForFrameMarker(firstChunk.value)
+
+    assert.equal(childReloadStartEvents, 1)
+    assert.equal(childReloadCompleteEvents, 0)
+    assert.equal(document.getElementById('event-child-frame-fallback'), null)
+    assert.equal(
+      document.getElementById('event-child-frame-label')?.textContent,
+      'Initial child',
+      'the old child content stays visible while the top reload is in flight',
+    )
+
+    releaseSecondChunk(secondChunk.value)
+    await Promise.all([reloadPromise, childReloadCompleted])
+
+    assert.equal(childReloadStartEvents, 1)
+    assert.equal(childReloadCompleteEvents, 1, 'exactly one reloadComplete for the child')
+    assert.equal(document.getElementById('event-child-frame-fallback'), null)
+    assert.equal(document.getElementById('event-child-frame-label')?.textContent, 'Reloaded child')
   })
 })
