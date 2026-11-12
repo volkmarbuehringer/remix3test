@@ -18,6 +18,9 @@ import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
 
 const FORM_SELECTOR = 'form[data-messages-filter]'
 
+/** Mirrors `filter-autosubmit.browser.tsx`'s debounce window. */
+const SEARCH_DEBOUNCE_MS = 350
+
 const FIXTURE_HTML = `
   <form data-messages-filter action="/admin/messages" method="GET">
     <input type="search" name="filter" value="" />
@@ -95,36 +98,36 @@ function replaceInputWithServerValue(value: string): void {
   mounted!.input = next
 }
 
-async function waitForDebounce(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 450))
-}
-
 afterEach(() => {
   mounted?.dispose()
   mounted = null
 })
 
 describe('FilterAutoSubmit', () => {
-  it('coalesces rapid typing into one submit', async () => {
+  it('coalesces rapid typing into one submit', (t) => {
+    let timers = t.useFakeTimers()
     mount()
 
     type('a')
     type('al')
     type('alpha')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS - 1)
+    assert.equal(mounted!.submits(), 0, 'the submit waits for the full debounce')
+    timers.advance(1)
 
     assert.equal(mounted!.submits(), 1, 'one debounced submit for the whole burst')
   })
 
-  it('does not resubmit an unchanged value', async () => {
+  it('does not resubmit an unchanged value', (t) => {
+    let timers = t.useFakeTimers()
     mount()
 
     type('alpha')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 1)
 
     type('alpha')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 1, 'the same filter must not loop the frame')
   })
 
@@ -140,13 +143,14 @@ describe('FilterAutoSubmit', () => {
     assert.equal(mounted!.submits(), 1, 'Escape bypasses the debounce')
   })
 
-  it('restores focus and the caret after reloadComplete when it submitted', async () => {
+  it('restores focus and the caret after reloadComplete when it submitted', (t) => {
+    let timers = t.useFakeTimers()
     mount()
 
     mounted!.input.focus()
     mounted!.input.setSelectionRange(0, 0)
     type('alpha')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 1)
 
     mounted!.frame.dispatchEvent(new Event('reloadComplete'))
@@ -159,12 +163,13 @@ describe('FilterAutoSubmit', () => {
     assert.equal(mounted!.input.selectionStart, mounted!.input.value.length)
   })
 
-  it('keeps text typed while the reload is in flight and submits it after the swap', async () => {
+  it('keeps text typed while the reload is in flight and submits it after the swap', (t) => {
+    let timers = t.useFakeTimers()
     mount()
     mounted!.input.focus()
 
     type('alpha')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 1)
 
     // The user keeps typing while the first request is still being applied;
@@ -184,11 +189,12 @@ describe('FilterAutoSubmit', () => {
       'focus should return to the restored field',
     )
 
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 2, 'the restored value must be searched again')
   })
 
-  it('lets an external filter change win over text typed before the reload', async () => {
+  it('lets an external filter change win over text typed before the reload', (t) => {
+    let timers = t.useFakeTimers()
     mount('alpha')
 
     type('alphabet')
@@ -197,7 +203,7 @@ describe('FilterAutoSubmit', () => {
     mounted!.frame.dispatchEvent(new Event('reloadComplete'))
 
     assert.equal(mounted!.input.value, '', 'the reset navigation should win')
-    await waitForDebounce()
+    timers.advance(SEARCH_DEBOUNCE_MS)
     assert.equal(mounted!.submits(), 0, 'discarded text must not be submitted')
   })
 })

@@ -97,7 +97,8 @@ describe('ListsSearch', () => {
     assert.equal(submits(), 1, 'a select change resubmits the shared GET form')
   })
 
-  it('debounces typing into a single form submit', async () => {
+  it('debounces typing into a single form submit', async (t) => {
+    let timers = t.useFakeTimers()
     mount(FORM)
     renderEntry()
 
@@ -109,7 +110,9 @@ describe('ListsSearch', () => {
     input.dispatchEvent(new InputEvent('input', { bubbles: true }))
 
     assert.equal(submits(), 0, 'the submit waits for the debounce')
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    timers.advance(399)
+    assert.equal(submits(), 0, 'the submit waits for the full debounce')
+    timers.advance(1)
     assert.equal(submits(), 1, 'the last value is submitted once')
   })
 })

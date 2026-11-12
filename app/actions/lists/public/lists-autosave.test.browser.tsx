@@ -104,19 +104,6 @@ function typeTitle(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolean> {
-  let deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    if (predicate()) return true
-    await new Promise((resolve) => setTimeout(resolve, 25))
-  }
-  return predicate()
-}
-
-function settle(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 beforeEach(() => {
   calls = []
   installCsrf('tok')
@@ -132,7 +119,8 @@ afterEach(() => {
 })
 
 describe('ListsClient autosave', () => {
-  it('autosaves a title edit only after the debounce window', async () => {
+  it('autosaves a title edit only after the debounce window', async (t) => {
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
       title: 'Alt',
@@ -143,10 +131,13 @@ describe('ListsClient autosave', () => {
 
     typeTitle(titleInputOf(result.container), 'Neu')
 
-    await settle(500)
+    timers.advance(500)
+    await flushAsyncWork(result)
     assert.equal(calls.length, 0, 'nothing is sent before the 1.5s debounce')
 
-    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the edit should autosave')
+    timers.advance(1000)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 1, 'the edit should autosave')
     assert.equal(calls[0]!.url, '/lists/7')
     assert.equal(calls[0]!.init.method, 'PUT')
     let headers = calls[0]!.init.headers as Record<string, string>
@@ -156,7 +147,8 @@ describe('ListsClient autosave', () => {
     assert.equal(calls[0]!.init.body, JSON.stringify({ title: 'Neu' }))
   })
 
-  it('coalesces rapid edits into a single PUT', async () => {
+  it('coalesces rapid edits into a single PUT', async (t) => {
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
       title: 'Alt',
@@ -170,13 +162,17 @@ describe('ListsClient autosave', () => {
     typeTitle(input, 'Ne')
     typeTitle(input, 'Neu')
 
-    assert.ok(await waitFor(() => calls.length === 1, 8000))
-    await settle(300)
+    timers.advance(1500)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 1, 'only the final value should be sent')
+    timers.advance(300)
+    await flushAsyncWork(result)
     assert.equal(calls.length, 1, 'only the final value should be sent')
     assert.equal(calls[0]!.init.body, JSON.stringify({ title: 'Neu' }))
   })
 
-  it('does not save when the value is unchanged', async () => {
+  it('does not save when the value is unchanged', async (t) => {
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
       title: 'Alt',
@@ -187,11 +183,13 @@ describe('ListsClient autosave', () => {
 
     typeTitle(titleInputOf(result.container), 'Alt')
 
-    await settle(1800)
+    timers.advance(1800)
+    await flushAsyncWork(result)
     assert.equal(calls.length, 0)
   })
 
-  it('adds an item via Enter and autosaves it', async () => {
+  it('adds an item via Enter and autosaves it', async (t) => {
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
       title: 'Alt',
@@ -214,7 +212,9 @@ describe('ListsClient autosave', () => {
     })
 
     assert.equal(itemIdsOf(result.container).length, 1, 'Enter must add the item to the list')
-    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the added item should autosave')
+    timers.advance(1500)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 1, 'the added item should autosave')
     let payload = JSON.parse(String(calls[0]!.init.body)) as {
       items: Array<{ id: string; label: string }>
     }
@@ -222,7 +222,8 @@ describe('ListsClient autosave', () => {
     assert.equal(payload.items[0]!.label, 'Neues Element')
   })
 
-  it('deletes exactly the selected items and autosaves the survivors', async () => {
+  it('deletes exactly the selected items and autosaves the survivors', async (t) => {
+    let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
       title: 'L',
@@ -248,7 +249,9 @@ describe('ListsClient autosave', () => {
     await result.act(() => deleteSelected!.click())
 
     assert.deepEqual(itemIdsOf(result.container), ['keep'])
-    assert.ok(await waitFor(() => calls.length === 1, 8000), 'the deletion should autosave')
+    timers.advance(1500)
+    await flushAsyncWork(result)
+    assert.equal(calls.length, 1, 'the deletion should autosave')
     let payload = JSON.parse(String(calls[0]!.init.body)) as { items: Array<{ id: string }> }
     assert.deepEqual(
       payload.items.map((item) => item.id),
