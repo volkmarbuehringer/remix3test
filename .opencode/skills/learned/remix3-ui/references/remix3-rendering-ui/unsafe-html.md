@@ -21,7 +21,7 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-11-11 against preview release `v0.20261111.171719-main-0cab1903` / source `0cab1903` (previously `060b32a`/`56f1fb6`, `2c9e033`/`e6a63ea`). PR #11988 reworded the invariant messages and shifted the line refs; the only shift in that bump was the SSR normalization site below. The guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`). Line anchors refreshed 2026-11-05 (#12098 moved the stream normalization and resolution code).
+**Re-validated:** 2026-11-11 against preview release `v0.20261112.4624-main-d4a24d56` / source `d4a24d56` (previously `060b32a`/`56f1fb6`, `2c9e033`/`e6a63ea`). PR #11988 reworded the invariant messages and shifted the line refs; the only shift in that bump was the SSR normalization site below. The guidance is now also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`). Line anchors refreshed 2026-11-05 (#12098 moved the stream normalization and resolution code).
 
 Enforcement sites in the installed source:
 
