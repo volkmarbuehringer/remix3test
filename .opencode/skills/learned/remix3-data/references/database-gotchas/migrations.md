@@ -11,7 +11,7 @@ newapp runs SQL-file migrations from `db/migrations/` through the `remix/data-ta
 
 - `app/db.ts` builds a caller-owned `pg.Pool`, attaches an `'error'` listener, then calls `db.migrate(await loadMigrations('../db/migrations'), { journalTable: 'app_migrations' })` and `seed(db)`. `remix.json` records the same journal under `db.migrations.journalTable`.
 - `db/migrations/20261101000000_baseline/up.sql` is the full, idempotent schema. An existing database runs it once and the journal records it; fresh databases create everything from it.
-- The runner holds a Postgres advisory lock for the whole run (`withMigrationLock`), so parallel test workers and concurrent cold boots serialize instead of racing `pg_extension_name_index`. The old single-retry workaround is no longer needed.
+- The runner holds a Postgres advisory lock for the whole run (`withMigrationLock`), so parallel test workers and concurrent cold boots serialize instead of racing `pg_extension_name_index`; no retry wrapper is needed.
 - Applied migrations are immutable: the runner checksums `up.sql` and fails the next boot on drift or a missing journal entry (below).
 - `test/setup.ts` creates a fresh test database, drops `public` through a throwaway pool, then calls `initializeAppDatabase()`; every run therefore exercises the same migrations as production.
 - Migrations inherit the pool `statement_timeout: 30000`; `db.exec(sql, [])` cannot run multi-statement DDL (parameterized extended protocol rejects it), while the runner's `executeScript` uses the simple-query path (`database.ts:426`).
@@ -87,7 +87,6 @@ Config-backed construction makes the driver own the pool internally (`this.#clie
 ## Gotchas (verified against vendor source)
 
 - **`db.exec(sql, [])` cannot run multi-statement DDL.** It routes through the parameterized extended protocol, which rejects multi-statement scripts. Use `db.executeScript(sql)` (`database.ts:426`) — the simple-query path migrations use.
-- **The runner's advisory lock replaces the old single-retry workaround.** `CREATE EXTENSION IF NOT EXISTS` in the retired `db/schema.sql` bootstrap was not serialized and could race on `pg_extension_name_index`; the runner's `withMigrationLock` now serializes concurrent boots and test workers, so no retry is needed.
 - **A dry run and a rollback can disagree about an orphan** — down runs skip orphaned journal rows, forward runs abort on them. Prefer fixing the file or adopting a new journal over toggling between the two.
 
 ## When to Use

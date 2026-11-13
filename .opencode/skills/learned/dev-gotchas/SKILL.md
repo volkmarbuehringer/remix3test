@@ -7,7 +7,7 @@ origin: consolidated
 
 # Dev Gotchas: TypeScript, Rate Limiter & Format Triage
 
-Consolidated from 3 former learned skills (`typescript-gotchas`, `rate-limiter-pitfalls`, `format-fix-diff-triage`) on 2026-10-17. Reference files are namespaced under `references/<former-skill>/`. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
+Consolidated from 3 former learned skills (`typescript-gotchas`, `rate-limiter-pitfalls`, `format-fix-diff-triage`) on 2026-10-17. TypeScript/rate-limiter references are namespaced under `references/<former-skill>/`; the format-triage guide is inline below. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
 
 ## Load Only The Sections You Need
 
@@ -15,7 +15,7 @@ Consolidated from 3 former learned skills (`typescript-gotchas`, `rate-limiter-p
 | --- | --- | --- |
 | A TS/JS pattern behaves unexpectedly — async void, TS7 assignability, exactOptionalPropertyTypes, spread overflow, env snapshots, lost narrowing, lint rules | § TypeScript | `references/typescript-gotchas/` |
 | A rate limiter blocks unexpectedly — maxAttempts=1 default, windowMs=0 same-ms trap | § Rate Limiter | `references/rate-limiter-pitfalls/` |
-| format:fix rewrote files you never edited — classify format-only vs content by whitespace-stripped hash before reverting | § Format Triage | `references/format-fix-diff-triage/` |
+| format:fix rewrote files you never edited — classify format-only vs content by whitespace-stripped hash before reverting | § Format Triage | this file |
 
 ## TypeScript
 
@@ -177,7 +177,7 @@ Covers two common traps when using `createRateLimiter` from `app/utils/rate-limi
 
 ## Format Triage
 
-_(formerly `format-fix-diff-triage` — references live under `references/format-fix-diff-triage/`)_
+_(formerly `format-fix-diff-triage` — content is inline below)_
 
 **Extracted:** 2026-10-05
 

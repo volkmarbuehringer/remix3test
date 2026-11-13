@@ -21,11 +21,7 @@ signal on frame swap. Commit `b7b878f`. Mechanism re-checked on the current pin 
   the ref callback never runs during SSR, so sessionStorage/localStorage access
   inside it is browser-only. Server markup and client markup must match
   (pass server state like `defaultValue` as serializable props).
-- **Server markup cannot carry mixins through entry props.** `createHydrationPropsReplacer`
-  serializes children as `{$rmx: true, type, props}` without mixin objects — so
-  you cannot keep a server-rendered input and attach a `ref` to it from a
-  wrapping entry. The entry must *render* the element it enhances. (This is why
-  the old code scanned: the enhancer didn't own the node.)
+- **Behavior mixins cannot cross entry props; render the element you enhance.** `createHydrationPropsReplacer` serializes children as `{$rmx: true, type, props}`; only `css()` mixins survive serialization (since #12125), while `ref`/`on`/custom mixins do not. So you cannot keep a server-rendered input and attach a `ref` to it from a wrapping entry — the entry must *render* the element it enhances. (This is why the old code scanned: the enhancer didn't own the node.)
 - **Styles move with the markup.** Page-local `css()` objects used only by the
   converted block move into the browser module (imports of shared mixins like
   `ui/mixins/input.ts` are fine — the module is already in the server graph

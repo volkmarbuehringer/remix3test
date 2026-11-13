@@ -4,7 +4,7 @@
 
 DOM mutation and CSS patterns that live inside (or around) a `clientEntry`. Read this when the task involves:
 
-- Styling children of a `clientEntry` component when mixins can't cross the serializable prop boundary
+- Styling children of a `clientEntry` component (`css()` mixins cross serialized props since #12125; `on()`/`ref()`/custom mixins do not)
 - Building a joined button group with 2 or 3+ buttons
 - Inline-editing server-rendered table cells with a single entry
 - An `on(...)` handler that compiles but never fires
@@ -15,11 +15,9 @@ For event listeners re-attaching after frame reload, see `cliententry-lifecycle.
 
 ## CSS Child Selectors for clientEntry
 
-**Context:** Creating a joined "Edit | Del" button group where the parent needs to style child Button components inside a `clientEntry` component.
+**Context:** Creating a joined "Edit | Del" button group where the parent needs to style child Button components, one of which is a `clientEntry`.
 
-`clientEntry` props must be JSON-serializable — a plain `interface` type-checks, but functions and non-serializable objects are rejected at the type level. CSS `MixinDescriptor` objects (produced by `css()`) are **not** serializable, so you cannot pass `btnMix` or similar styling props to a `clientEntry` component. This blocks the common joined "Edit | Del" button group.
-
-Use **parent-container CSS with child selectors** instead of passing mixins as props:
+`clientEntry` props must be JSON-serializable. Since #12125 `css()` mixins (including arrays) serialize with their styles and hydrate, so passing a style prop is no longer blocked; `on()`, `ref()`, and custom mixins still cannot cross. Parent-container child selectors remain the compact choice when the container owns the group geometry and the children should not each carry a styling prop:
 
 ```tsx
 const actionBtnGroup = css({
@@ -36,7 +34,7 @@ const actionBtnGroup = css({
 </div>
 ```
 
-The CSS targets the known DOM structure: Edit is the direct `<a>` → `& > a`; Del is inside `<form><button/></form>` → `& > form > button`. `remix/component` scopes `&` to the generated class, so child combinators reach nested elements without passing CSS objects through serializable prop boundaries.
+The CSS targets the known DOM structure: Edit is the direct `<a>` → `& > a`; Del is inside `<form><button/></form>` → `& > form > button`. `remix/component` scopes `&` to the generated class, so child combinators reach nested elements without threading a style prop through the group.
 
 ### Never nest a button inside a link
 
@@ -60,7 +58,7 @@ import { buttonLink } from '../ui/theme/button.ts'
 
 For a grid row action this also keeps the action cell narrow: use an icon-only `buttonLink` with `aria-label` + `title`.
 
-Use when creating joined button groups where one button is a `clientEntry` component, styling children of a container that wraps `clientEntry` components, or any pattern where you'd pass a CSS mixin as a prop but the child is a `clientEntry`.
+Use when creating joined button groups, styling children of a container that wraps `clientEntry` components, or choosing between a container child-selector rule and passing a `css()` mixin as a prop.
 
 ## Joining a Button Group with 3+ Buttons (per-button styles)
 
@@ -149,7 +147,7 @@ Use when adding inline editing to an existing server-rendered table, admin CRUD 
 
 Using the `on` event mixin from `remix/component` in a server-rendered component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors. The `on` mixin's handler code only gets hydrated when the component is a `clientEntry` — otherwise the mixin output is static HTML with no client-side JS.
 
-Wrap the interactive element in a `clientEntry` component. Props must be serializable (strings, numbers, booleans, null, and plain objects/arrays of those — no functions, no `css()` mixin descriptors); `extends SerializableProps` is **not** required since #11918, so use a plain `interface`. The entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (the deleted `admin-action-button.tsx` was replaced by server-rendered submit buttons; current examples are `app/actions/client/public/grid-refresh-button.tsx` and `app/actions/lists/public/list-name-edit.tsx` — app re-checked 2026-10-14).
+Wrap the interactive element in a `clientEntry` component. Props must be serializable (strings, numbers, booleans, null, plain objects/arrays of those, and `css()` mixins since #12125; `on()`/`ref()`/custom mixins cannot cross). `extends SerializableProps` is **not** required since #11918, so use a plain `interface`. The entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (server-rendered submit buttons are the default; current examples are `app/actions/client/public/grid-refresh-button.tsx` and `app/actions/lists/public/list-name-edit.tsx` — app re-checked 2026-11-13).
 
 #### Where to Mount Global clientEntry Behaviors
 

@@ -94,7 +94,7 @@ Delta index for styling/layout failures that look like "the CSS did nothing": ca
 - A `hidden` toggle or a hover/focus reveal does not appear/disappear as intended, or two toolbars show after a reorder.
 - Flex/scroll geometry is wrong: panels collapse, lists clip instead of scrolling, or a page in the sidebar shell overflows.
 - Adding a hand-rolled icon link, a `<select>` in a flex row, a content-sized panel in a bounded shell, a data grid / two-column edit panel, or floating row actions on a wide admin grid.
-- Before trusting a computed style or a `css()` override: use these references' CDP / recursive-rule-walk recipes, and drive the assertions with `remix3-tooling § Testing` (`references/remix3-testing/cliententry-browser-tests.md`).
+- Before trusting a computed style or a `css()` override: use these references' CDP / recursive-rule-walk recipes, and drive the assertions with `remix3-tooling § Testing` → `references/remix3-testing/cliententry-browser-tests.md`.
 
 ---
 

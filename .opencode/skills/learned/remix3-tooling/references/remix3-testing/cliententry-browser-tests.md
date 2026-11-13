@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `remix3-cliententry-browser-test-stubs`, the document-scoped full-page pattern (session 2026-10-04), and the frame-event synthetic-handle pattern.
 **Extracted:** 2026-09-13 … 2026-10-04
-**Revalidated:** 2026-11-05 against the current test harness (`remix/component/test` `render`/`act`/`cleanup`).
+**Revalidated:** 2026-11-13 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/test` 1.1.0 property/accessor mocks; `remix/component/test` `render`/`act`/`cleanup`).
 **Context:** Three shapes of `*.test.browser.tsx` coverage for a `clientEntry`: geometry/media-driven side effects, full-page document-scoped enhancers, and frame-event state machines (`reloadStart`/`reloadComplete`). The vendor guide `node_modules/remix/guides/13-testing.md` owns the generic `render`/`act`/`cleanup` API; this reference is the app delta.
 
 ## 1. Geometry and media stubs
@@ -15,13 +15,13 @@
 
 Reading `element.scrollHeight`/`clientHeight`, or overriding `scrollTo`, also trips TypeScript: `scrollTo` is overloaded and read-only DOM getters resist plain assignment.
 
-Build a controlled DOM fixture the entry will query, stub the geometry/measurement APIs it reads with `Object.defineProperty(..., { configurable: true })`, render, and flush with `result.act(() => {})`; then observe the side-effect call.
+Build a controlled DOM fixture the entry will query, stub the geometry/measurement APIs it reads with `t.mock.getter`/`t.mock.setter` (accessors) or `t.mock.method` (methods) — automatically restored at test end — render, and flush with `result.act(() => {})`; then observe the side-effect call.
 
 Reference implementation: `app/ui/appointments-new.test.browser.tsx` (`domRect`, `stubMatchMedia`, positive/negative fixture test). It covers:
 
 - a panel whose `getBoundingClientRect().top < 0` (force a `DOMRect` stub),
-- a scroll parent with forced `scrollHeight`/`clientHeight`,
-- `scrollTo` replaced by a recording stub,
+- a scroll parent with forced `scrollHeight`/`clientHeight` (`t.mock.getter`),
+- `scrollTo` replaced by a recording stub (`t.mock.method`),
 - `matchMedia` stubbed per test and restored in `afterEach`.
 
 For a delegated listener entry, drive the DOM event and flush with `act`:
@@ -128,7 +128,7 @@ assert.ok(mounted.result.container.querySelector('#lists-title'))
 - **A stub that is never called makes an "assert zero calls" test pass vacuously.** Pair the not-called case with a positive case that proves the entry ran.
 - **Module-scoped delegated listeners outlive a test.** Scope queries to `result.container` (self-contained entries) or the fixture (document-scoped entries), and remove fixtures in `afterEach` even when an assertion throws.
 - **`matchMedia` must be stubbed per test and restored.** The Playwright project viewport decides the responsive branch, so `(max-width: 768px)` is not stable across projects.
-- **Prefer `Object.defineProperty(el, 'scrollTo'|'scrollHeight'|'clientHeight', { configurable: true })`** over assigning the property: these are inherited, some read-only, and `scrollTo` is overloaded, so a plain assignment needs an `as unknown as` cast.
+- **Prefer `t.mock.getter(el, 'scrollHeight'|'clientHeight', () => …)` / `t.mock.method(el, 'scrollTo', …)`** over `Object.defineProperty`: these are inherited, some read-only, and `scrollTo` is overloaded, so a plain assignment needs an `as unknown as` cast. `t.mock` restores the original automatically at test end.
 - **Don't scope document-scoped assertions to `result.container`.** The rendered marker is `display:none` and contains none of the UI; assert on the fixture host.
 - **Reset the hash in `beforeEach`, not after.** Anchor clicks and `history.replaceState` mutate the iframe URL, and the next `init()` reads it.
 - **Synthesise only what the frame-event factory touches at construction.** With `initialState` supplied the entry takes its initial branch and never reads `document.getElementById('lists-initial-state')` on mount; `reloadComplete` does, so add the marker to `document.body` (and remove it in `afterEach`) before firing that event.

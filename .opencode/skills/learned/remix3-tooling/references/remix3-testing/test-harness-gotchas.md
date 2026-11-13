@@ -85,7 +85,7 @@ await t.waitFor(() => {
 })
 ```
 
-The first successful return value wins — even `false` or `undefined` — so the callback must assert, not return a boolean. Do not pass an existing `waitFor(predicate)` helper's boolean predicate directly; it stops on the first `false`. Every app `waitForDom` call site has been converted to `t.waitFor`, with an explicit `{ timeout: 3000 }` where the old helper's 3 s default was the failure bound: `waitForDom` re-checked on each DOM mutation, while `t.waitFor` polls every 50 ms against a 1 s default deadline. `waitForDom` has since been retired; `nextDomMutation()` has no polling equivalent and stays in `test/dom.ts` for order-sensitive waits. E2E tests still use Playwright's `page.waitFor*`.
+The first successful return value wins — even `false` or `undefined` — so the callback must assert, not return a boolean. Do not pass an existing `waitFor(predicate)` helper's boolean predicate directly; it stops on the first `false`. Use `t.waitFor` for polling DOM assertions (`waitForDom` is retired); `nextDomMutation()` remains in `test/dom.ts` only for order-sensitive waits. E2E tests still use Playwright's `page.waitFor*`.
 
 ## Wait for the destination, not any matching element
 

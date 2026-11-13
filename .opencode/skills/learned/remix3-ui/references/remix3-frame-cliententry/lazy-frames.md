@@ -2,7 +2,7 @@
 
 ## What This Covers
 
-Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed after the 5af14d52 bump.
+Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed when that landed.
 
 ## Which Frames Are Deferred (verified, pin `5af14d52`)
 
@@ -13,7 +13,7 @@ General rule before adding one: a frame may be deferred only when nothing needs 
 Verified adoption points:
 
 - **`/admin` section cards** (`app/ui/admin-page.tsx`): `admin-stats` and `admin-recent-activity` sit below the admin page scroller's fold at 1280×720. A fresh render ships reserved-height (15.5rem) `FrameFallback` slots; scrolling `System & Aktivität` into view requests each fragment exactly once, and further scrolling requests nothing more. `app/actions/admin/fragments/lazy-frames.test.e2e.ts` counts both routes — 0 before the scroll, 1 each afterwards. Trade-off: these two cards are JS-only; without JS they show the fallback's noscript copy.
-- **`/admin` recent-activity user details** (`app/ui/admin-fragments/recent-activity-fragment.tsx`): one nested frame per activity inside a collapsed `<details>`; zero user-detail requests while collapsed, one on open, retained on reopen. This was the original 72a7ad0f adoption. Every dashboard render used to resolve six of them — six `requireAuth`/`requireAdmin` passes, six `db.find(users, …)` session lookups, six renders — and inlined content hidden behind a collapsed disclosure.
+- **`/admin` recent-activity user details** (`app/ui/admin-fragments/recent-activity-fragment.tsx`): one nested frame per activity inside a collapsed `<details>`; zero user-detail requests while collapsed, one on open, retained on reopen. This was the first lazy adoption: every dashboard render used to resolve six of them — six `requireAuth`/`requireAdmin` passes, six `db.find(users, …)` session lookups, six renders — and inlined content hidden behind a collapsed disclosure.
 - **`/admin/chatlog` detail pane** (`app/ui/admin-chatlog-page.tsx`): hidden (`display: none`) until a row is selected, so the empty `none` transcript is no longer resolved into every page render (nor fetched by the browser). Selecting a row still loads the transcript in place through `handle.frames.get(DETAIL_FRAME)`, the post-reload remembered selection is restored the same way, and a server-rendered `?detail=` document carries `data-chatlog-selected-id` so the entry keeps that pane open instead of collapsing it for empty sessionStorage. `app/actions/admin/chatlog/chatlog-detail-frame.test.e2e.ts` asserts one request per selection, a stable `/admin/chatlog` URL, a list that stays mounted, and the direct `?detail=` load; `app/actions/admin/admin-chatlog.test.ts` pins the server side (fallback shipped, no inlined transcript, no nested `<template>`).
 
 Must stay eager:
@@ -41,7 +41,7 @@ Must stay eager:
 - Ancestor reloads refresh loaded lazy frames in the background while keeping their content visible; changing `loading` to `'eager'` starts a deferred load immediately.
 - An unresolved lazy load cancelled by navigation resumes viewport observation; the fallback stays mounted until replacement content starts rendering.
 
-The removed app-owned `LazyFrame` also supported a custom `rootMargin` and `pauseAnimationsWhenInactive` (observer pooling plus a host-level CSS animation pause). Neither had a production call site after the recent-activity migration; do not reintroduce them without a concrete need. A paused-animation or custom-boundary use case would need a new app observer around the built-in frame, not a second frame implementation.
+The old app-owned `LazyFrame` (custom `rootMargin`, `pauseAnimationsWhenInactive`) is gone; do not reintroduce a second lazy-frame implementation. A custom boundary or paused-animation case would wrap the built-in frame in a new app observer.
 
 ## Trap: `name` Is Load-Bearing For Auth Failure
 
@@ -54,7 +54,7 @@ Nothing else addresses these names, so `name` reads as removable. Comment it.
 
 ## No Client-Entry Boundary
 
-The built-in lazy fallback is server-rendered and never crosses a client-entry props boundary, so a `css()` mixin on it is safe and hydrates normally. The former `LazyFrame` `children`/`fallback` serialization constraint no longer applies to this path; the general clientEntry serialization rules still live in `references/remix3-frame-cliententry/cliententry-lifecycle.md` constraint 5.
+The built-in lazy fallback is server-rendered and never crosses a client-entry props boundary, so a `css()` mixin on it hydrates normally. The general clientEntry serialization rules live in `references/remix3-frame-cliententry/cliententry-lifecycle.md` constraint 5.
 
 ## Measuring Frame Fan-Out Server-Side
 
@@ -76,4 +76,4 @@ The built-in lazy-loading behavior itself is covered by the vendor `@remix-run/c
 
 ## Cost
 
-A server-only fragment avoids the former client entry/import map and per-row serialized props (the recent-activity fragment previously carried `LazyFrame` solely for deferral). The server sends only the fallback plus frame metadata; nested user-detail work starts when the disclosure opens. The built-in fallback is server-rendered too: `/admin` ships two reserved-height slots instead of two resolved cards, and `/admin/chatlog` ships a hidden pane whose fallback is never observed until the pane opens. Keep the fallback element large enough to represent the pending content and avoid layout shifts.
+A server-only fragment avoids a client entry, import map, and per-row serialized props. The server sends only the fallback plus frame metadata; nested user-detail work starts when the disclosure opens. The built-in fallback is server-rendered too: `/admin` ships two reserved-height slots instead of two resolved cards, and `/admin/chatlog` ships a hidden pane whose fallback is never observed until the pane opens. Keep the fallback element large enough to represent the pending content and avoid layout shifts.

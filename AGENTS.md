@@ -62,7 +62,7 @@ Learned deltas encode hard-won, often **version-pinned** facts (file/line refere
 - API claims: check the package README or source for the named function/operator (e.g. an `inList()` operator may now exist where a raw-SQL workaround was recorded)
 - Release milestones: treat "as of beta.N" / "since vX" statements as stale unless re-confirmed against the current version
 
-When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Highest-drift-risk sections: `remix3-data` (§ Data-Table, § Database), `remix3-server` (§ Security, § Controllers — incl. `references/remix-controllers/route-contract-and-controllers.md`), `remix3-ui` (§ Frames).
+When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact). When the delta exists only to work around an upstream bug that the current pin fixes, delete the workaround guidance — and any matching app code — instead of keeping it as history; at most keep a one-line "do not reintroduce" guard. Do not delete a delta merely because the vendor now covers the same topic if the app seam is still load-bearing. Highest-drift-risk sections: `remix3-data` (§ Data-Table, § Database), `remix3-server` (§ Security, § Controllers — incl. `references/remix-controllers/route-contract-and-controllers.md`), `remix3-ui` (§ Frames).
 
 Re-audit workflow: `docs/guide-chapter-audit.md`. Per-bump pin history: `docs/remix-pin-history.md`.
 
