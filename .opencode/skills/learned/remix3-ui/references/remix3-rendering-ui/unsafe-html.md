@@ -27,7 +27,7 @@ Enforcement sites in the installed source:
 
 - `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/reconcile.ts:368` — `parseHostProps` calls `normalizeUnsafeHTMLProps` (`:369`), and is itself invoked at `:326`/`:336`; #12159 folded the former `to-vnode.ts` into `reconcile.ts`
 - `.../src/runtime/unsafe-html.ts:61-94` — the invariants: `Invalid innerHTML prop: expected a value created with unsafeHTML()` (`:67`), the same wording for `srcDoc` (`:73`) and `srcdoc` (`:79`), and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:84`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
-- `.../src/server/stream.ts:686` — the SSR path applies the same normalization
+- `.../src/server/stream.ts:688` — the SSR path applies the same normalization
 - `.../src/runtime/core/mix.ts:95-111` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:95`) and logged (`sanitizeReturnedMixinProps` at `:108`)
 
 ## Solution

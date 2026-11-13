@@ -149,6 +149,61 @@ describe('frame prefetch cache', () => {
     )
   })
 
+  it('keeps a warmed response readable after its prefetch caller aborts', async () => {
+    originalFetch ??= window.fetch
+    fetchCalls = 0
+    let closeBody!: () => void
+    let encoder = new TextEncoder()
+    window.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls += 1
+      let body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('<p>warmed</p>'))
+          closeBody = () => {
+            try {
+              controller.close()
+            } catch {
+              // An aborted fetch already errored this stream.
+            }
+          }
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), {
+            once: true,
+          })
+        },
+      })
+      return new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      })
+    }) as typeof window.fetch
+
+    let url = new URL('/admin/lists?week=47', window.location.origin)
+    let caller = new AbortController()
+
+    prefetchFrame(url.href, { target: 'admin-content', signal: caller.signal })
+    await settlePrefetches()
+    let claimed = takePrefetchedFrame(url, 'admin-content')
+    assert.ok(claimed, 'the warm must be stored before the caller aborts')
+
+    // A frame navigation claims the warm and then unmounts the anchor that started
+    // it, so the runtime cancels this caller while the frame is still reading the body.
+    caller.abort(new DOMException('anchor removed', 'AbortError'))
+    closeBody()
+
+    assert.equal(await claimed.text(), '<p>warmed</p>')
+  })
+
+  it('does not warm a source for a caller that already aborted', async () => {
+    stubFetch(okResponse())
+    let caller = new AbortController()
+    caller.abort(new DOMException('anchor removed', 'AbortError'))
+
+    prefetchFrame('/admin/lists', { target: 'admin-content', signal: caller.signal })
+    await settlePrefetches()
+
+    assert.equal(fetchCalls, 0)
+  })
+
   it('rejects a claim when the navigation aborts while waiting for the warm', async () => {
     let deferred = stubDeferredFetch()
     let url = new URL('/admin/lists?status=empty', window.location.origin)

@@ -4,7 +4,7 @@
 
 Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed when that landed.
 
-## Which Frames Are Deferred (verified, pin `9ceaeb82`)
+## Which Frames Are Deferred (verified, pin `b4a0aa9a`)
 
 Built-in lazy frames server-render only their fallback and frame metadata; `run()` resolves them when the fallback nears the viewport. The loaded content stays mounted, so scrolling back or reopening a disclosure never refetches.
 
@@ -32,7 +32,7 @@ Must stay eager:
 
 `FrameFallback`'s retry wait starts when the slot first intersects the viewport, not when it mounts. That is deliberately a one-shot visibility gate for the retry copy only; it is not a second lazy loader, and it must be removed if the frame runtime ever exposes "load started" to the fallback.
 
-## Built-in `loading="lazy"` behavior (pin `9ceaeb82`)
+## Built-in `loading="lazy"` behavior (pin `b4a0aa9a`)
 
 - Eager is the default. `loading="lazy"` requires a fallback that renders at least one DOM element; a text-only or empty fallback logs a warning and loads immediately (the runtime does not insert a placeholder).
 - Without `run()` or `IntersectionObserver`, lazy frames load immediately. Deferred frames do not delay `app.ready()` or ancestor navigation completion.

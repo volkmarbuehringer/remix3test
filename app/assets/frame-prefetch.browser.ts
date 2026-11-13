@@ -53,12 +53,19 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
     return
   }
   if (url.origin !== window.location.origin) return
+  // A caller that already lost interest cannot be followed by a navigation to this URL.
+  if (options?.signal?.aborted) return
 
   let key = cacheKey(url, options?.target)
   if (frames.has(key) || inFlight.has(key)) return
 
   let startedIn = generation
-  let warm = prefetchFrameResponse(url, options)
+  // Do not forward the caller's signal (remix #12277): it is the anchor's lifetime, and the
+  // navigation claims this response *before* the anchor is removed. Aborting the shared fetch
+  // with it would error the cached body while the frame is still reading it, turning a warm
+  // hit into "signal is aborted without reason". The runtime's default prefetcher likewise
+  // aborts its request only when every owner is gone, never on one caller's cancellation.
+  let warm = prefetchFrameResponse(url, options?.target ? { target: options.target } : undefined)
     .then((response) => {
       if (response && generation === startedIn) {
         storePrefetchedFrame(key, response)

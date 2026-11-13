@@ -92,11 +92,11 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261113.174821-main-9ceaeb82` (source `9ceaeb82`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261113.180701-main-b4a0aa9a` (source `b4a0aa9a`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
-Current range (#12297, #12249): `@remix-run/headers` unifies `Accept`/`AcceptEncoding`/`AcceptLanguage` on an internal `WeightedHeaderValue` base and `getWeight()` picks the most specific matching range; `@remix-run/response` `compressResponse()` honors `identity;q=0` and falls back to uncompressed for an unlisted identity; `@remix-run/component` exports `defaultResolveFrame(src, options?, { fetch, commit })` and the `FrameCommit` types, adds `transition?: NavigationTransition` to `ResolveFrameOptions`, and threads it through frame/navigation/prefetch. `packages/ui`, the CLI/template, and all 15 guides are byte-identical.
+Current range (#12277): `@remix-run/component` exports `defaultPrefetch(src, options, { fetch, processFrame })` plus `PrefetchFrameOptions.element`, `PrefetchFrameReference`, `PrefetchReferences`, and `ProcessFrameContext`; `prefetch(anchor)` accepts connected anchors and cancels callers on disconnection, source/target change, navigation ineligibility, or runtime disposal; default prefetch requests carry `X-Remix-Prefetch: true`. `server/stream.ts` adds `fallback` metadata to serialized lazy-frame data. `packages/ui`, the CLI/template, and all 15 guides are byte-identical.
 
-App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. The #12249 commit hook is not adopted — `app/assets/entry.tsx` still owns a full custom `resolveFrame` for the one-shot prefill/warm cache. Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
+App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. The #12249 commit hook is not adopted — `app/assets/entry.tsx` still owns a full custom `resolveFrame` for the one-shot prefill/warm cache. The #12277 `defaultPrefetch` hook is also not adopted: `run({ prefetch })` still calls the app's `prefetchFrame`, which owns both the request and `prefetchFrameAssets` discovery. #12277's per-caller `options.signal` is deliberately not forwarded to the shared warm fetch: the navigation claims the response before unmounting the anchor, so aborting the fetch with the caller's signal errors the cached body mid-render (fixed after a week-nav e2e regression; see `remix3-ui` → `frame-prefetch-cache.md`). Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -140,8 +140,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261113.174821-main-9ceaeb82/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261113.174821-main-9ceaeb82/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261113.180701-main-b4a0aa9a/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261113.180701-main-b4a0aa9a/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

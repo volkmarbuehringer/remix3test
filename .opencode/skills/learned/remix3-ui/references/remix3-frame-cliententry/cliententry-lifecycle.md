@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261113.174821-main-9ceaeb82`: `completeReload` is defined at `:1150` and dispatches at `:1154`; the inherited-reload variant dispatches at `:1196`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:796`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261113.180701-main-b4a0aa9a`: `completeReload` is defined at `:1150` and dispatches at `:1154`; the inherited-reload variant dispatches at `:1196`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:796`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -251,7 +251,7 @@ First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/upl
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261113.174821-main-9ceaeb82`: `startLoad` at `:1080` enters `transitionLoad` at `:796`, whose `start` case dispatches the direct event at `:893`; inherited reloads start at `:1157` and dispatch at `:1183`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261113.180701-main-b4a0aa9a`: `startLoad` at `:1080` enters `transitionLoad` at `:796`, whose `start` case dispatches the direct event at `:893`; inherited reloads start at `:1157` and dispatch at `:1183`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
@@ -354,7 +354,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1474-1511` at preview release `9ceaeb82`). The factory closure
+   (`runtime/reconcile.ts:1474-1511` at preview release `b4a0aa9a`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
