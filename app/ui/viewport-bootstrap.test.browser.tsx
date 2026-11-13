@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'remix/test'
+import { afterEach, describe, it, type TestContext } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { viewportBootstrapScript } from './viewport-bootstrap.ts'
@@ -10,30 +10,21 @@ import { VIEWPORT_COOKIE } from '../utils/viewport-class.ts'
 // and keeps it in sync when the viewport changes.
 
 let restoreMatchMedia: (() => void) | null = null
-let restoreCookie: (() => void) | null = null
 let changeListener: ((event: { matches: boolean }) => void) | null = null
 
 /**
  * Replaces `document.cookie` with a recording stub so the test can observe the
  * writes the bootstrap makes (a rewrite of an unchanged value is invisible on
- * the real cookie jar).
+ * the real cookie jar). `t.mock` restores the accessor after the test.
  */
-function stubCookie(initial = ''): string[] {
+function stubCookie(t: TestContext, initial = ''): string[] {
   let writes: string[] = []
   let jar = initial
-  let original = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')
-  Object.defineProperty(document, 'cookie', {
-    configurable: true,
-    get: () => jar,
-    set: (value: string) => {
-      writes.push(value)
-      jar = value
-    },
+  t.mock.getter(Document.prototype, 'cookie', () => jar)
+  t.mock.setter(Document.prototype, 'cookie', (value: string) => {
+    writes.push(value)
+    jar = value
   })
-  restoreCookie = () => {
-    if (original) Object.defineProperty(Document.prototype, 'cookie', original)
-    delete (document as unknown as Record<string, unknown>).cookie
-  }
   return writes
 }
 
@@ -68,15 +59,13 @@ function runBootstrap(): void {
 afterEach(() => {
   restoreMatchMedia?.()
   restoreMatchMedia = null
-  restoreCookie?.()
-  restoreCookie = null
   changeListener = null
 })
 
 describe('viewport bootstrap', () => {
-  it('writes the mobile class when the viewport is below the breakpoint', () => {
+  it('writes the mobile class when the viewport is below the breakpoint', (t) => {
     stubMatchMedia(true)
-    let writes = stubCookie()
+    let writes = stubCookie(t)
 
     runBootstrap()
 
@@ -87,9 +76,9 @@ describe('viewport bootstrap', () => {
     )
   })
 
-  it('writes the desktop class on a wide viewport', () => {
+  it('writes the desktop class on a wide viewport', (t) => {
     stubMatchMedia(false)
-    let writes = stubCookie()
+    let writes = stubCookie(t)
 
     runBootstrap()
 
@@ -100,7 +89,7 @@ describe('viewport bootstrap', () => {
     )
   })
 
-  it('queries the breakpoint the mobile card layout uses', () => {
+  it('queries the breakpoint the mobile card layout uses', (t) => {
     let queries: string[] = []
     let original = window.matchMedia
     window.matchMedia = ((query: string) => {
@@ -119,25 +108,25 @@ describe('viewport bootstrap', () => {
     restoreMatchMedia = () => {
       window.matchMedia = original
     }
-    stubCookie()
+    stubCookie(t)
 
     runBootstrap()
 
     assert.deepEqual(queries, ['(max-width: 768px)'])
   })
 
-  it('leaves an unchanged cookie alone', () => {
+  it('leaves an unchanged cookie alone', (t) => {
     stubMatchMedia(true)
-    let writes = stubCookie(`${VIEWPORT_COOKIE}=mobile`)
+    let writes = stubCookie(t, `${VIEWPORT_COOKIE}=mobile`)
 
     runBootstrap()
 
     assert.equal(writes.length, 0, 'a matching cookie must not be rewritten')
   })
 
-  it('rewrites a stale cookie', () => {
+  it('rewrites a stale cookie', (t) => {
     stubMatchMedia(true)
-    let writes = stubCookie(`${VIEWPORT_COOKIE}=desktop`)
+    let writes = stubCookie(t, `${VIEWPORT_COOKIE}=desktop`)
 
     runBootstrap()
 
@@ -145,9 +134,9 @@ describe('viewport bootstrap', () => {
     assert.ok(writes[0]!.startsWith(`${VIEWPORT_COOKIE}=mobile;`))
   })
 
-  it('follows the viewport when it changes', () => {
+  it('follows the viewport when it changes', (t) => {
     stubMatchMedia(true)
-    let writes = stubCookie()
+    let writes = stubCookie(t)
 
     runBootstrap()
     assert.ok(changeListener, 'the bootstrap must listen for breakpoint changes')
@@ -160,9 +149,9 @@ describe('viewport bootstrap', () => {
     )
   })
 
-  it('follows the viewport when only legacy listeners are available', () => {
+  it('follows the viewport when only legacy listeners are available', (t) => {
     stubMatchMedia(true, true)
-    let writes = stubCookie()
+    let writes = stubCookie(t)
 
     runBootstrap()
     assert.ok(changeListener, 'the bootstrap must use the legacy change listener')
@@ -172,14 +161,14 @@ describe('viewport bootstrap', () => {
     assert.ok(writes[1]!.startsWith(`${VIEWPORT_COOKIE}=desktop;`))
   })
 
-  it('does nothing when matchMedia is unavailable', () => {
+  it('does nothing when matchMedia is unavailable', (t) => {
     let original = window.matchMedia
     // @ts-expect-error -- simulate a browser without matchMedia
     window.matchMedia = undefined
     restoreMatchMedia = () => {
       window.matchMedia = original
     }
-    let writes = stubCookie()
+    let writes = stubCookie(t)
 
     runBootstrap()
 

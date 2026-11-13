@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from 'remix/test'
+import { describe, it, afterEach, type TestContext } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
@@ -129,11 +129,11 @@ describe('Appointments new create panel reveal', () => {
     scroller = undefined
   })
 
-  function buildScroller(): { outer: HTMLElement; panel: HTMLElement } {
+  function buildScroller(t: TestContext): { outer: HTMLElement; panel: HTMLElement } {
     let outer = document.createElement('div')
     outer.style.overflowY = 'auto'
-    Object.defineProperty(outer, 'scrollHeight', { value: 1000, configurable: true })
-    Object.defineProperty(outer, 'clientHeight', { value: 200, configurable: true })
+    t.mock.getter(outer, 'scrollHeight', () => 1000)
+    t.mock.getter(outer, 'clientHeight', () => 200)
     let panel = document.createElement('div')
     panel.setAttribute('data-create-panel', 'true')
     panel.setAttribute('data-panel-step', 'create:2')
@@ -142,22 +142,19 @@ describe('Appointments new create panel reveal', () => {
     return { outer, panel }
   }
 
-  function stubScrollTo(outer: HTMLElement, calls: ScrollToOptions[]): void {
-    Object.defineProperty(outer, 'scrollTo', {
-      configurable: true,
-      value: (options?: ScrollToOptions | number) => {
-        if (typeof options === 'object') calls.push(options)
-      },
-    })
+  function stubScrollTo(t: TestContext, outer: HTMLElement, calls: ScrollToOptions[]): void {
+    t.mock.method(outer, 'scrollTo', ((options?: ScrollToOptions | number) => {
+      if (typeof options === 'object') calls.push(options)
+    }) as typeof outer.scrollTo)
   }
 
-  it('resets the scroll container to the top when the panel header is above the fold', async () => {
+  it('resets the scroll container to the top when the panel header is above the fold', async (t) => {
     restoreMatchMedia = stubMatchMedia(false)
-    let built = buildScroller()
+    let built = buildScroller(t)
     scroller = built.outer
     built.panel.getBoundingClientRect = () => domRect(-120)
     let scrollCalls: ScrollToOptions[] = []
-    stubScrollTo(built.outer, scrollCalls)
+    stubScrollTo(t, built.outer, scrollCalls)
 
     let result = render(<CreatePanelScrollLive />)
     cleanup = result.cleanup
@@ -167,13 +164,13 @@ describe('Appointments new create panel reveal', () => {
     assert.equal(scrollCalls[0]?.top, 0)
   })
 
-  it('leaves the scroll position alone when the panel is already visible', async () => {
+  it('leaves the scroll position alone when the panel is already visible', async (t) => {
     restoreMatchMedia = stubMatchMedia(false)
-    let built = buildScroller()
+    let built = buildScroller(t)
     scroller = built.outer
     built.panel.getBoundingClientRect = () => domRect(24)
     let scrollCalls: ScrollToOptions[] = []
-    stubScrollTo(built.outer, scrollCalls)
+    stubScrollTo(t, built.outer, scrollCalls)
 
     let result = render(<CreatePanelScrollLive />)
     cleanup = result.cleanup

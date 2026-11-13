@@ -18,9 +18,10 @@ type PinDocsResult = {
 const LEARNED_DIR = path.join('.opencode', 'skills', 'learned')
 const AGENTS_FILE = 'AGENTS.md'
 
-// Lines such as "Since preview build `3273a048` (#12153)" describe when a
-// behavior landed; bumping the pin must not rewrite that history.
-const HISTORICAL_LINE = /\bSince\s+(?:preview\s+)?(?:build|release)\b/i
+// Lines such as "Since preview build `3273a048` (#12153)" or
+// "Since remix #12203 (pin `0cab1903`)" describe when a behavior landed;
+// bumping the pin must not rewrite that history.
+const HISTORICAL_LINE = /\bSince\s+(?:(?:preview\s+)?(?:build|release)|remix\s+#\d+)\b/i
 
 function source8(source: string): string {
   return /^[0-9a-f]{8,}$/i.test(source) ? source.slice(0, 8) : source

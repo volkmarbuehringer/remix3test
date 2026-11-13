@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from 'remix/test'
+import { afterEach, describe, it, type MockProperty, type TestContext } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import {
@@ -27,12 +27,20 @@ interface Fixture {
 }
 
 let restores: Array<() => void> = []
-let navigations: string[] = []
+let hrefMock: MockProperty<{ href: string }, 'href'> | null = null
 let confirmations: Array<string | undefined> = []
 let submits: string[] = []
 
-function setup(fixture: Fixture) {
-  navigations = []
+/** The URLs `safeNavigate` wrote through the mocked `location.href` setter. */
+function recordedNavigations(): string[] {
+  return (
+    hrefMock?.mock.accesses
+      .filter((access) => access.type === 'set')
+      .map((access) => access.value) ?? []
+  )
+}
+
+function setup(t: TestContext, fixture: Fixture) {
   confirmations = []
   submits = []
 
@@ -41,6 +49,7 @@ function setup(fixture: Fixture) {
   let originalConfirm = globalThis.confirm
 
   let location = { href: '' }
+  hrefMock = t.mock.property(location, 'href', '')
   let forms = fixture.forms ?? {}
 
   globalThis.document = {
@@ -60,19 +69,11 @@ function setup(fixture: Fixture) {
       return true
     },
   } as unknown as typeof globalThis.document
-  globalThis.window = { location } as unknown as typeof globalThis.window
+  globalThis.window = { location: hrefMock } as unknown as typeof globalThis.window
   globalThis.confirm = ((message?: string) => {
     confirmations.push(message)
     return fixture.confirm ? fixture.confirm(message) : true
   }) as typeof globalThis.confirm
-
-  // `safeNavigate` falls back to a full-page load and records it here.
-  Object.defineProperty(location, 'href', {
-    get: () => '',
-    set: (value: string) => {
-      navigations.push(value)
-    },
-  })
 
   restores.push(() => {
     globalThis.document = originalDocument
@@ -97,11 +98,12 @@ function form(selector: string, dataConfirm: string | null = null): Record<strin
 afterEach(() => {
   for (let restore of restores) restore()
   restores = []
+  hrefMock = null
 })
 
 describe('navigateGridParam', () => {
-  it('preserves the grid state and puts the navigation param first', () => {
-    setup({
+  it('preserves the grid state and puts the navigation param first', (t) => {
+    setup(t, {
       blob: JSON.stringify({
         offset: '15',
         sort: 'name',
@@ -115,47 +117,47 @@ describe('navigateGridParam', () => {
 
     navigateGridParam({} as never, navigation, 'editing', '5')
 
-    assert.deepEqual(navigations, [
+    assert.deepEqual(recordedNavigations(), [
       '/admin/users?editing=5&offset=15&sort=name&order=desc&filter=ada&period=week&status=active',
     ])
   })
 
-  it('falls back to the default sort/order and drops empty values', () => {
-    setup({ blob: JSON.stringify({ baseHref: '/b' }) })
+  it('falls back to the default sort/order and drops empty values', (t) => {
+    setup(t, { blob: JSON.stringify({ baseHref: '/b' }) })
 
     navigateGridParam({} as never, navigation, 'config', '9')
 
-    assert.deepEqual(navigations, ['/b?config=9&sort=x.id&order=asc'])
+    assert.deepEqual(recordedNavigations(), ['/b?config=9&sort=x.id&order=asc'])
   })
 
-  it('does nothing when the grid-state blob is absent', () => {
-    setup({ blob: null })
+  it('does nothing when the grid-state blob is absent', (t) => {
+    setup(t, { blob: null })
 
     navigateGridParam({} as never, navigation, 'editing', '5')
 
-    assert.deepEqual(navigations, [])
+    assert.deepEqual(recordedNavigations(), [])
   })
 
-  it('falls back to the bare URL when the blob is malformed', () => {
-    setup({ blob: 'not json' })
+  it('falls back to the bare URL when the blob is malformed', (t) => {
+    setup(t, { blob: 'not json' })
 
     navigateGridParam({} as never, navigation, 'editing', '5')
 
-    assert.deepEqual(navigations, ['/fallback?editing=5'])
+    assert.deepEqual(recordedNavigations(), ['/fallback?editing=5'])
   })
 })
 
 describe('submitRowForm', () => {
-  it('submits the form identified by the data attribute', () => {
-    setup({ blob: null, forms: form('form[data-toggle-form="5"]') })
+  it('submits the form identified by the data attribute', (t) => {
+    setup(t, { blob: null, forms: form('form[data-toggle-form="5"]') })
 
     submitRowForm('5', 'data-toggle-form')
 
     assert.deepEqual(submits, ['form[data-toggle-form="5"]'])
   })
 
-  it('does nothing when the form is absent', () => {
-    setup({ blob: null })
+  it('does nothing when the form is absent', (t) => {
+    setup(t, { blob: null })
 
     submitRowForm('5', 'data-toggle-form')
 
@@ -164,8 +166,8 @@ describe('submitRowForm', () => {
 })
 
 describe('confirmAndSubmitRowForm', () => {
-  it('confirms then submits', () => {
-    setup({ blob: null, forms: form('form[data-delete-form="5"]') })
+  it('confirms then submits', (t) => {
+    setup(t, { blob: null, forms: form('form[data-delete-form="5"]') })
 
     confirmAndSubmitRowForm('5', 'Wirklich löschen?')
 
@@ -173,8 +175,8 @@ describe('confirmAndSubmitRowForm', () => {
     assert.deepEqual(submits, ['form[data-delete-form="5"]'])
   })
 
-  it('does not submit when declined', () => {
-    setup({ blob: null, forms: form('form[data-delete-form="5"]'), confirm: () => false })
+  it('does not submit when declined', (t) => {
+    setup(t, { blob: null, forms: form('form[data-delete-form="5"]'), confirm: () => false })
 
     confirmAndSubmitRowForm('5', 'Wirklich löschen?')
 
@@ -184,8 +186,8 @@ describe('confirmAndSubmitRowForm', () => {
 })
 
 describe('confirmFromFormAndSubmit', () => {
-  it("prefers the form's own data-confirm message", () => {
-    setup({
+  it("prefers the form's own data-confirm message", (t) => {
+    setup(t, {
       blob: null,
       forms: form('form[data-delete-form="5"]', 'Termin wirklich löschen?'),
     })
@@ -196,8 +198,8 @@ describe('confirmFromFormAndSubmit', () => {
     assert.deepEqual(submits, ['form[data-delete-form="5"]'])
   })
 
-  it('does not prompt or submit when the form is absent', () => {
-    setup({ blob: null })
+  it('does not prompt or submit when the form is absent', (t) => {
+    setup(t, { blob: null })
 
     confirmFromFormAndSubmit('5', 'Wirklich löschen?')
 

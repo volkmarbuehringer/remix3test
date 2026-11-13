@@ -232,7 +232,7 @@ with `callCount()` to prove every queued request ran.
 - `process.env` is not a `property()` target — Node rejects the accessor descriptor. Assign `process.env` directly and register restoration (e.g. `t.after`).
 - Reading `.mock` on the returned proxy always returns the context, even if the target has a field with that name; read the original field from the original object.
 
-None are used by the app yet; prefer them over manual descriptor save/restore when a test must flip a feature flag or spy on a getter.
+App call sites: `app/ui/viewport-bootstrap.test.browser.tsx` (cookie getter/setter), `app/ui/appointments-new.test.browser.tsx` (scrollHeight/clientHeight getters + scrollTo method), and `app/ui/row-context-menu.test.ts` (fake `location.href` data property). Prefer them over manual descriptor save/restore when a test must flip a feature flag or spy on a getter.
 
 ## `t.useFakeTimers()` fakes `Date`, not just timers
 
