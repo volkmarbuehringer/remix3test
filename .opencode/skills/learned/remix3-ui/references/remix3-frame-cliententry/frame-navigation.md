@@ -162,25 +162,28 @@ Key facts:
 
 Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build, writing a custom client `resolveFrame`, debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data), or when the resolver's encoding drifts from the runtime default after a pin bump.
 
-## Same-Document View Transitions Around Frame Reloads — No Pre-Commit Hook
+## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-12 against the installed preview release `v0.20261113.33720-main-5af14d52` (source `5af14d52`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-13 against the installed preview release `v0.20261113.174821-main-9ceaeb82` (source `9ceaeb82`; `@remix-run/component` 1.2.0).
 
-The public `FrameHandle` surface exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
+The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:856`); inherited reloads dispatch in `startInheritedReload` at `:1108` (defined at `:1082`).
-- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:1079`, inherited at `:1120`).
+- `reloadStart` — dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:893`); inherited reloads dispatch in `startInheritedReload` at `:1183` (defined at `:1157`).
+- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:1154`, inherited at `:1196`).
 
 Initial lazy-frame viewport loads and viewport retries do **not** dispatch a `reloadStart`/`reloadComplete` pair; only explicit and ancestor-driven reloads do (see `references/remix3-frame-cliententry/lazy-frames.md`).
 
-There is no pre-commit/before-reconcile event and no `onCommit` option on the public API, so app code cannot bracket the DOM commit:
+Lifecycle events still cannot bracket the DOM commit, but since **#12249** there is a supported commit hook — on `defaultResolveFrame`, not on `FrameHandle`/`reload()`:
 
-- Starting the transition on `reloadStart` snapshots the old DOM, but its update callback runs before the response arrives; the later frame swap is not part of that transition.
-- `startViewTransition(async () => { await frame.reload() })` is technically valid (the new snapshot waits for the promise) but holds the transition's update phase for the entire request, freezing the page until the response lands — not acceptable for navigation.
-- The internal `render()` call inside `resolveAndRenderReload()` does receive an `onCommit` callback (`frame.ts:1047`), but it is not exported through `remix/component`; do not reach into `@remix-run/component` internals for it.
-- A `MutationObserver` that starts a transition when the frame subtree changes is rejected: it re-enters for unrelated mutations, has no ordering guarantee against the runtime's reconcile, and produces duplicate/partial snapshots.
+- `defaultResolveFrame(src, options?, overrides?)` is exported from `remix/component`; `overrides.commit(commitFrame, { to, response, signal })` wraps rendering. `commitFrame()` starts the default commit once and resolves after the update, including history URL, scroll, focus, and followed redirects. Wrap it in `document.startViewTransition(commitFrame)` for a same-document transition.
+- `to` is the resolved destination after redirects; `options.transition` still describes the original navigation. The callback's `signal` covers cancellation/supersession; a callback that returns or throws without calling `commitFrame()` falls back to the default commit, and callback errors reach the runtime's error channel.
+- Return the response directly from the resolver: the callback is keyed by that `Response` identity, so cloning or replacing it loses the callback. The body stays streamed; navigation may finish while the wrapper awaits an animation.
+- Starting the transition on `reloadStart` is still wrong (the snapshot predates the response), and `startViewTransition(async () => { await frame.reload() })` still holds the update phase for the whole request.
+- A `MutationObserver` around the frame subtree remains rejected: it re-enters for unrelated mutations, has no ordering guarantee against reconcile, and produces duplicate/partial snapshots.
 
-Status: frame swaps stay without a View Transition. Revisit when upstream exposes a pre-commit/commit hook (or a `startViewTransition` option on `reload()`); the receipt is one transition around the reconcile, not a page-wide observer.
+**App note:** `app/assets/entry.tsx` supplies a custom `resolveFrame` that bypasses `defaultResolveFrame` (it owns the one-shot prefill/warm cache in `frame-response.browser.tsx`). To use the commit hook, migrate the resolver to `defaultResolveFrame(...{ fetch })` — the `fetch` override can keep the cache/`X-Agent-Prefill` behavior — rather than reaching into the internal `onCommit` (`frame.ts:1116`), which is not exported.
+
+Status: frame swaps stay without a View Transition in the app; the commit hook is now the supported path when that changes.
 
 ## data-rmx-document: Binary Downloads & Cross-Section Links
 
@@ -273,7 +276,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 **Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered. When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
-**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:552`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
+**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:634`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 

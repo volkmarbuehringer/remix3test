@@ -24,7 +24,7 @@ const AGENTS_FILE = 'AGENTS.md'
 // "Revalidated: … against preview release `…`" headers: they record when a
 // skill was last checked, so a later bump is not a revalidation.
 const HISTORICAL_LINE =
-  /\b(?:Since\s+(?:(?:preview\s+)?(?:build|release)|remix\s+#\d+)|Revalidated)\b/i
+  /\b(?:Since\s+(?:(?:preview\s+)?(?:build|release)|remix\s+#\d+)|Re-?validated|Validated)\b/i
 
 function source8(source: string): string {
   return /^[0-9a-f]{8,}$/i.test(source) ? source.slice(0, 8) : source

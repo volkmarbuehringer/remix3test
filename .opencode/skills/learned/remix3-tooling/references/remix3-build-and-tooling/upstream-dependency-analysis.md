@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-13 (current pin is preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-13 (current pin is preview release `v0.20261113.174821-main-9ceaeb82` / source `9ceaeb82`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -44,7 +44,7 @@ Trace the chain from upstream changes to project impact:
    grep -r "affectedApi|changedFunction" app/
    ```
 
-4b. **Audit code that shadows a changed vendor default.** If the app replaces a default the changed package exports (`run({ resolveFrame })` shadows `defaultResolveFrame`), the upstream fix never reaches it — diff the override against the new default and port the change. #11938 changed `getRequestBody` in `packages/component/src/runtime/run.ts` and `packages/spa/src/lib/spa.ts`; `app/assets/frame-response.browser.tsx` had to be re-synced by hand.
+4b. **Audit code that shadows a changed vendor default.** If the app replaces a default the changed package exports (`run({ resolveFrame })` shadows `defaultResolveFrame`), the upstream fix never reaches it — diff the override against the new default and port the change. #11938 changed `getRequestBody` in `packages/component/src/runtime/run.ts` and `packages/spa/src/lib/spa.ts`; `app/assets/frame-response.browser.tsx` had to be re-synced by hand. Since #12249 the default itself is exported: prefer `defaultResolveFrame(src, options, { fetch, commit })` over copying its request/redirect/stream logic. The `fetch` callback can return a cached `Response` (the one-shot warm-cache case) and `commit` wraps rendering for view transitions; the callback is keyed by response identity, so return that response unchanged.
 
     Overrides can be **partial**. `run({ prefetch })` replaces only the fetch function; `startPrefetching(signal, override)` still installs the intent/viewport listeners and calls that override. That is why #12256/#12286's viewport scroll-settle and hidden-tab pause reached this app even though it shadows the default prefetcher. Map the listener/observer half separately from the overridden function. Observer behavior must be verified against the real `run()` — `render()` never boots the prefetch listeners, so it needs an e2e case (`app/actions/admin/admin-lists-prefetch.test.e2e.ts`, `app/actions/client/clients-prefetch.test.e2e.ts`).
 
@@ -92,11 +92,11 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261113.33720-main-5af14d52` (source `5af14d52`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261113.174821-main-9ceaeb82` (source `9ceaeb82`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
-Current range (#12225, #12290, #12296): `@remix-run/test` adds property/accessor mocks (`t.mock.property`/`getter`/`setter`); `component-hmr` rewrites nested-closure references against all setup variables (`deferredStateNames`); the asset server's barrel optimizer no longer retains a whole barrel import that a nested import bypassed. `packages/component`, `packages/ui`, the CLI/template, and all 15 guides are byte-identical, so component/UI line anchors stand.
+Current range (#12297, #12249): `@remix-run/headers` unifies `Accept`/`AcceptEncoding`/`AcceptLanguage` on an internal `WeightedHeaderValue` base and `getWeight()` picks the most specific matching range; `@remix-run/response` `compressResponse()` honors `identity;q=0` and falls back to uncompressed for an unlisted identity; `@remix-run/component` exports `defaultResolveFrame(src, options?, { fetch, commit })` and the `FrameCommit` types, adds `transition?: NavigationTransition` to `ResolveFrameOptions`, and threads it through frame/navigation/prefetch. `packages/ui`, the CLI/template, and all 15 guides are byte-identical.
 
-App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
+App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. The #12249 commit hook is not adopted — `app/assets/entry.tsx` still owns a full custom `resolveFrame` for the one-shot prefill/warm cache. Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
 
 Full per-bump records (build/source pairs, PR ranges, runtime deltas, app-clearance notes, verification) live in [`docs/remix-pin-history.md`](../../../../../../docs/remix-pin-history.md). The chapter-to-skill registry is [`docs/guide-skill-coverage.md`](../../../../../../docs/guide-skill-coverage.md). Operational pnpm recipes are in [`docs/pnpm-remix-preview-installs.md`](../../../../../../docs/pnpm-remix-preview-installs.md) (current release-asset flow); old `github:…#path:` recipes are in [`docs/history/pnpm-git-hosted-installs.md`](../../../../../../docs/history/pnpm-git-hosted-installs.md).
 
@@ -140,8 +140,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261113.33720-main-5af14d52/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261113.33720-main-5af14d52/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261113.174821-main-9ceaeb82/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261113.174821-main-9ceaeb82/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

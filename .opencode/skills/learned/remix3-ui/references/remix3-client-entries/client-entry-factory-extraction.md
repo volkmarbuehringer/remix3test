@@ -25,7 +25,7 @@ component function.
 `src/runtime/client-entries.ts:103-120`). At render the server resolves the id:
 `resolveDefaultClientEntry` splits on the last `#` into `{ exportName, href }`,
 and the browser imports `href` and looks up `exportName`
-(`src/server/stream.ts:1283-1311` at preview release `5af14d52`). Function identity is never compared.
+(`src/server/stream.ts:1283-1309` at preview release `9ceaeb82`). Function identity is never compared.
 
 Build the shared **component factory**, but keep `clientEntry(...)` at each call site:
 

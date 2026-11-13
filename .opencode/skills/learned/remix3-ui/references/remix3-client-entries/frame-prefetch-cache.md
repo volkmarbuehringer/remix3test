@@ -1,6 +1,6 @@
 # Frame prefetching with a one-shot response cache
 
-**Extracted:** 2026-10-23 · **Updated:** 2026-11-12 · **Pin:** remix 3.2.0 (preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52`)
+**Extracted:** 2026-10-23 · **Updated:** 2026-11-12 · **Pin:** remix 3.2.0 (preview release `v0.20261113.174821-main-9ceaeb82` / source `9ceaeb82`)
 **Vendor:** `@remix-run/component/src/runtime/prefetch.ts` (`startPrefetching`, `startViewportPrefetching`, `getIntentAnchor`), `run.ts` (`prefetch` option), installed guide `node_modules/remix/guides/05-interactivity.md` §"Prefetch links before navigation".
 
 ## Why the default prefetcher is not enough here
@@ -9,6 +9,7 @@
 - The default prefetcher (`createDefaultPrefetch`) fetches HTML on its own and discovers JavaScript/CSS/image/font `<link rel="prefetch">` hints. It never goes through the custom resolver, and the navigation resolves again — so its HTML is discarded and the app pays a second SSR per hovered link.
 - Replacing it also drops the asset-hint half. `app/assets/frame-asset-prefetch.browser.ts` restores it: after a successful warm, a clone of the HTML is parsed inertly and destination assets get low-priority hints.
 - The 3.1 answer is the `prefetch` hook: the runtime calls it on intent, the app stores the response the navigation *would* have fetched, and `resolveFrame` claims it. `run.ts` documents exactly this pairing ("use it with `resolveFrame` to reuse uncacheable HTML").
+- Since #12249 the vendor documents the same pairing with `defaultResolveFrame` (`packages/component/README.md` §"Reuse uncacheable HTML in memory"): `resolveFrame` can delegate request encoding, redirects, and streaming to `defaultResolveFrame` and keep only the cache lookup. The app still owns TTL, single-use invalidation, prefill deletion, and its 4xx/5xx/401 policy — `defaultResolveFrame` rejects 5xx (and non-HTML 3xx/4xx) before the app's ErrorCard/redirect handling would run, so a migration must port that policy deliberately; do not port the cache into vendor code.
 
 ## Wiring
 

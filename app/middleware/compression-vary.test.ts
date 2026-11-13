@@ -20,6 +20,12 @@ function response(vary: string): Response {
   })
 }
 
+function requestWith(acceptEncoding: string): Request {
+  return new Request('http://localhost/assets/app.js', {
+    headers: { 'Accept-Encoding': acceptEncoding },
+  })
+}
+
 describe('compression Vary header', () => {
   it('preserves the spelling of an existing Vary name', async () => {
     let compressed = await compressResponse(response('Cookie'), request())
@@ -29,5 +35,32 @@ describe('compression Vary header', () => {
   it('serializes a wildcard Vary as *', async () => {
     let compressed = await compressResponse(response('*'), request())
     assert.equal(compressed.headers.get('Vary'), '*')
+  })
+
+  // Since remix #12297 the most specific range wins, so a wildcard with a
+  // higher quality no longer overrides an explicit `gzip;q=0`.
+  it('does not compress when gzip is explicitly refused behind a wildcard', async () => {
+    let compressed = await compressResponse(
+      response('Accept-Encoding'),
+      requestWith('gzip;q=0, *'),
+      {
+        encodings: ['gzip'],
+      },
+    )
+    assert.equal(compressed.status, 200)
+    assert.equal(compressed.headers.get('Content-Encoding'), null)
+    assert.equal(await compressed.text(), 'x'.repeat(2048))
+  })
+
+  // #12297 also fixed the identity fallback: an Accept-Encoding that omits
+  // identity is not a refusal, so the response stays uncompressed instead of
+  // returning 406 when the server supports no matching encoding.
+  it('falls back to an uncompressed response when identity is unlisted', async () => {
+    let compressed = await compressResponse(response('Accept-Encoding'), requestWith('gzip'), {
+      encodings: ['br'],
+    })
+    assert.equal(compressed.status, 200)
+    assert.equal(compressed.headers.get('Content-Encoding'), null)
+    assert.equal(await compressed.text(), 'x'.repeat(2048))
   })
 })

@@ -223,13 +223,13 @@ Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed w
 
 **Context:** Writing an e2e test for a frame-targeted control on a page whose body is a *blocking* frame. Server tests can assert the `data-rmx-target` attributes and the fragment/shell split, but they cannot prove the click is intercepted — that needs a browser. The test must not click before the named frame is registered, or the click falls back to a full document navigation and the test flakes.
 
-**Verified fact (re-checked 2026-11-12, `@remix-run/component` 1.2.0):** `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
+**Verified fact (re-checked 2026-11-13, `@remix-run/component` 1.2.0):** `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
 
 ```ts
 // @remix-run/component/src/runtime/frame.ts (installed 1.2.0), hydrateContainer
-let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1694
+let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1785
 for (let { marker, entry, complete } of hydrations) {
-  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1696
+  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1787
 }
 ```
 
@@ -268,4 +268,4 @@ await page
 
 See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-12 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52`: `hydrateContainer` is at `src/runtime/frame.ts:1660`, the `createSubFrames(container.childNodes, context, options)` call at `:1694`, and `scheduleHydrationMarker(...)` at `:1696` (definition `:1708`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**Validated:** 2026-10-04 and re-checked 2026-11-13 against preview release `v0.20261113.174821-main-9ceaeb82` / source `9ceaeb82`: `hydrateContainer` is at `src/runtime/frame.ts:1751`, the `createSubFrames(container.childNodes, context, options)` call at `:1785`, and `scheduleHydrationMarker(...)` at `:1787` (definition `:1799`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

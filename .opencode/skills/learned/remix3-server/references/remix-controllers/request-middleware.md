@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-26
 
-**Re-validated (2026-11-11):** against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`remix` `3.2.0` / `@remix-run/fetch-router` + `@remix-run/node-fetch-server` as installed). #12190 adds the abandoned-response-body cancel (`fetch-router/src/lib/request-abort.ts`) and the HEAD body strip; the cancellation anchors below were added in the same pass.
+**Re-validated (2026-11-11):** against preview release `v0.20261113.174821-main-9ceaeb82` / source `9ceaeb82` (`remix` `3.2.0` / `@remix-run/fetch-router` + `@remix-run/node-fetch-server` as installed). #12190 adds the abandoned-response-body cancel (`fetch-router/src/lib/request-abort.ts`) and the HEAD body strip; the cancellation anchors below were added in the same pass.
 
 **Context:** Changing the Node/Bun server entry, the root middleware chain (`app/middleware/root.ts`), or anything that reads `request.body` / `request.signal` or the typed `AppContext`.
 

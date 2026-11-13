@@ -44,6 +44,8 @@ describe('refreshPinDocs', () => {
         'The example URL uses ' + OLD_TAG + '.',
         'Current pin: ' + OLD_TAG + ' / source `aaaaaaaa`.',
         'Since remix #12203 (pin `aaaaaaaa`) stays put.',
+        'Re-validated (2026-11-12): against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
+        '**Validated:** re-checked against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
       ].join('\n'),
       'AGENTS.md':
         'The pin is release `' +
@@ -54,7 +56,13 @@ describe('refreshPinDocs', () => {
     let result = refreshPinDocs(root, change)
 
     assert.deepEqual(result.updated, [learned, 'AGENTS.md'])
-    assert.deepEqual(result.skipped, [learned + ':1', learned + ':2', learned + ':5'])
+    assert.deepEqual(result.skipped, [
+      learned + ':1',
+      learned + ':2',
+      learned + ':5',
+      learned + ':6',
+      learned + ':7',
+    ])
 
     let learnedText = fs.readFileSync(path.join(root, learned), 'utf8')
     assert.ok(learnedText.includes(NEW_TAG), 'tag refreshed')
@@ -70,6 +78,18 @@ describe('refreshPinDocs', () => {
     assert.ok(
       learnedText.includes('Since remix #12203 (pin `aaaaaaaa`) stays put.'),
       'issue history kept',
+    )
+    assert.ok(
+      learnedText.includes(
+        'Re-validated (2026-11-12): against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
+      ),
+      'hyphenated revalidation history kept',
+    )
+    assert.ok(
+      learnedText.includes(
+        '**Validated:** re-checked against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
+      ),
+      'validated header history kept',
     )
 
     let agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
