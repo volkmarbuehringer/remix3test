@@ -183,16 +183,33 @@ describe('HEAD requests served by the GET fallback', () => {
   })
 
   it('returns the GET status and headers with no body, running middleware once', async (t) => {
-    let logSpy = t.mock.method(console, 'log')
+    // A unique query keeps this request's log line distinct from any other
+    // `GET /` in the worker; the home route ignores it.
+    const probe = '?head-fallback-probe=1'
 
-    function logCount(method: string, path: string): number {
-      // skipAssetsLogger is the first router middleware; one log line means
-      // one pass through the whole chain. Match the arrow so "/" cannot count
-      // a later "/health" line.
-      let marker = `${method} ${path} →`
-      return logSpy.mock.calls.filter((call) =>
-        call.arguments.some((arg) => typeof arg === 'string' && arg.includes(marker)),
-      ).length
+    // Spy only for the duration of one request, so a background log from an
+    // earlier test cannot be attributed to this one.
+    async function fetchAndCount(
+      method: 'GET' | 'HEAD',
+      url: string,
+      path: string,
+    ): Promise<Response> {
+      let logSpy = t.mock.method(console, 'log')
+      try {
+        let response = await router.fetch(url, method === 'HEAD' ? { method } : undefined)
+        let marker = `${method} ${path} →`
+        let matching = logSpy.mock.calls
+          .flatMap((call) => call.arguments)
+          .filter((arg): arg is string => typeof arg === 'string' && arg.includes(marker))
+        assert.equal(
+          matching.length,
+          1,
+          `${method} ${path} should run the middleware chain once (saw ${matching.length}: ${matching.join(' | ')})`,
+        )
+        return response
+      } finally {
+        logSpy.mock.restore()
+      }
     }
 
     // A HEAD request is its own request, so the per-request session cookie and
@@ -208,14 +225,14 @@ describe('HEAD requests served by the GET fallback', () => {
     }
 
     for (let path of ['/', '/health']) {
-      let get = await router.fetch(`${BASE}${path}`)
+      let url = `${BASE}${path}${probe}`
+      let get = await fetchAndCount('GET', url, path + probe)
       assert.equal(get.status, 200, `GET ${path} should succeed`)
-      assert.equal(logCount('GET', path), 1, `GET ${path} should run the middleware chain once`)
       let getHeaders = stableHeaders(get)
       // The home document is a stream; release it before the HEAD request.
       await get.body?.cancel()
 
-      let head = await router.fetch(`${BASE}${path}`, { method: 'HEAD' })
+      let head = await fetchAndCount('HEAD', url, path + probe)
       assert.equal(head.status, get.status, `HEAD ${path} must reuse the GET status`)
       assert.deepEqual(
         stableHeaders(head),
@@ -223,7 +240,6 @@ describe('HEAD requests served by the GET fallback', () => {
         `HEAD ${path} must reuse the GET headers (router middleware sees the GET response)`,
       )
       assert.equal(head.body, null, `HEAD ${path} must have no body`)
-      assert.equal(logCount('HEAD', path), 1, `HEAD ${path} should run the middleware chain once`)
     }
   })
 })
