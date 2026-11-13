@@ -4,6 +4,7 @@ import type { FrameContent, ResolveFrameOptions } from 'remix/component'
 import { routes } from '../routes.ts'
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 import { ErrorCard, actionLinkCss } from './error-card.browser.tsx'
+import { createAdminListsPanelCommit } from './frame-transition.browser.ts'
 
 /**
  * Whether a frame source may be resolved into this document.
@@ -138,6 +139,9 @@ async function fetchFrameResponse(
   // so a rejected response can only be classified by keeping a reference to it.
   let fetched: Response | undefined
   let response: Response
+  // The commit override is keyed by the returned response identity; it must be
+  // attached before classification returns that same object.
+  let commit = createAdminListsPanelCommit(options)
   try {
     response = await defaultResolveFrame(url.href, options, {
       async fetch(fetchUrl, init) {
@@ -153,6 +157,7 @@ async function fetchFrameResponse(
         fetched = result
         return result
       },
+      ...(commit ? { commit } : {}),
     })
   } catch (error) {
     // A network/abort failure has no response to classify — surface it like the

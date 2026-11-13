@@ -122,6 +122,20 @@ export function Document(handle: Handle<DocumentProps>) {
             @media (prefers-reduced-motion: no-preference) {
               @view-transition { navigation: auto; }
             }
+            /* Scoped same-document frame transition
+               (app/assets/frame-transition.browser.ts, admin lists grid ⇄ editor).
+               Only the named region participates, so the unchanged shell keeps
+               painting instead of cross-fading the whole viewport. The attribute
+               is set immediately before startViewTransition() and removed when the
+               transition settles; reduced motion is checked in script before the
+               attribute is set. */
+            html[data-frame-transition]::view-transition-old(root),
+            html[data-frame-transition]::view-transition-new(root) {
+              display: none;
+            }
+            html[data-frame-transition]::view-transition-group(admin-lists-content) {
+              animation-duration: 180ms;
+            }
             /* Global reduced-motion guard: component-level CSS transitions
                (hover lifts, nav fades) have no local prefers-reduced-motion
                rule of their own, so kill movement in the shell. */

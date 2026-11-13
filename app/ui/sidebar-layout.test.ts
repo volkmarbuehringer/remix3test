@@ -262,6 +262,11 @@ describe('Admin sidebar shell — flash messages', () => {
       /view-transition-name:\s*app-sidebar/.test(html),
       'the sidebar must keep a stable view-transition-name across documents',
     )
+    assert.ok(
+      /html\[data-frame-transition\]::view-transition-old\(root\)/.test(html) &&
+        /html\[data-frame-transition\]::view-transition-new\(root\)/.test(html),
+      'the scoped frame transition must hide the root snapshots only while its gate is set',
+    )
   })
 })
 

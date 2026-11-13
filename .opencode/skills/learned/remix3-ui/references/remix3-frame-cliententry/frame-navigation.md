@@ -146,9 +146,19 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 - Starting the transition on `reloadStart` is still wrong (the snapshot predates the response), and `startViewTransition(async () => { await frame.reload() })` still holds the update phase for the whole request.
 - A `MutationObserver` around the frame subtree remains rejected: it re-enters for unrelated mutations, has no ordering guarantee against reconcile, and produces duplicate/partial snapshots.
 
-**App note:** `app/assets/entry.tsx` supplies a custom `resolveFrame` that bypasses `defaultResolveFrame` (it owns the one-shot prefill/warm cache in `frame-response.browser.tsx`). To use the commit hook, migrate the resolver to `defaultResolveFrame(...{ fetch })` — the `fetch` override can keep the cache/`X-Agent-Prefill` behavior — rather than reaching into the internal `onCommit` (`frame.ts:1116`), which is not exported.
+**App implementation (since the `b4a0aa9a` pin):** `app/assets/frame-response.browser.tsx` now delegates to `defaultResolveFrame(..., { fetch, commit })`, so the commit hook is live. `app/assets/frame-transition.browser.ts` owns the single animated flow:
 
-Status: frame swaps stay without a View Transition in the app; the commit hook is now the supported path when that changes.
+- **Candidate:** admin lists grid ⇄ edit/create panel (`/admin/lists`, target `admin-content`). The URL toggles an `editing`/`creating` parameter, so `shouldAnimateAdminListsPanel(options, to)` compares `options.transition.from.url` with `to`. Pagination, filter/search, reload, form saves (same panel parameter), other frame targets, and independent reloads stay instant. `createAdminListsPanelCommit` only attaches the callback for a navigation-driven `admin-content` load.
+- **Scoping:** `app/ui/admin-lists-page.tsx` marks both root branches with `data-frame-transition-region="admin-lists"` (constant contract in `app/utils/frame-transition.ts`; it is server HTML, so it exists in both snapshots). The callback sets `view-transition-name: admin-lists-content` on the one region immediately before `startViewTransition()` and re-applies it inside the update callback after `commitFrame()` (the new root is a re-created node). It removes the name when the transition settles, guarded by an `activeTransition` token so a superseded transition cannot clear a newer one's name.
+- **Scoped root:** `app/ui/document.tsx` hides `::view-transition-old(root)`/`new(root)` only under `html[data-frame-transition]`, which the callback sets immediately before starting and removes when settled. Without it the whole viewport cross-fades; with it the unchanged header/sidebar keep painting. The attribute is set only after the `prefersReducedMotion()` and API checks, so reduced-motion users never see a partially applied gate.
+- **No stall:** the update callback starts `commitFrame()` first, then awaits it before the new snapshot; the callback's trailing `await viewTransition.finished` is post-commit work the runtime does not wait for (`commitFrameResponse` races `started`). `signal` abort calls `skipTransition()`; `ready` is observed to avoid an unhandled rejection. A missing or ambiguous region (not exactly one) and a refused `startViewTransition` both fall back to a plain commit exactly once.
+- **Feature gate is the API, not the engine.** Playwright Firefox 142 reports `document.startViewTransition` and `CSS.supports('view-transition-name: root')`, so same-document frame transitions run there too; cross-document `@view-transition` remains Chromium/WebKit-only. Do not engine-gate the commit hook.
+
+Tests: `app/assets/frame-transition.test.browser.ts` (decision matrix, every fallback, name cleanup, no-stall with a never-resolving `finished`) and `app/actions/admin/lists/lists-frame-transition.test.e2e.ts` (real runtime: one transition per grid ⇄ editor swap, no document load, cleanup after settle).
+
+Never reach into the internal `onCommit` (`frame.ts:1116`), which is not exported; use the exported commit override.
+
+Status: one flow is animated; everything else stays instant by design.
 
 ## data-rmx-document: Binary Downloads & Cross-Section Links
 

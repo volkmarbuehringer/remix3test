@@ -8,6 +8,7 @@ import { input } from './mixins/input.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
+import { ADMIN_LISTS_TRANSITION_REGION } from '../utils/frame-transition.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
@@ -1421,7 +1422,10 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       return (
         // The panel shares the row with the grid; a width cap would squeeze the
         // grid back into a horizontal scroller and hide the row actions.
-        <div mix={[table.pageWide, dataGridFill]}>
+        <div
+          data-frame-transition-region={ADMIN_LISTS_TRANSITION_REGION}
+          mix={[table.pageWide, dataGridFill]}
+        >
           <h2 mix={table.title}>Gespeicherte Listen</h2>
           {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
@@ -1456,7 +1460,10 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     }
 
     return (
-      <div mix={[table.page, dataGridFill]}>
+      <div
+        data-frame-transition-region={ADMIN_LISTS_TRANSITION_REGION}
+        mix={[table.page, dataGridFill]}
+      >
         <h2 mix={table.title}>Gespeicherte Listen</h2>
         <p mix={descriptionStyle}>
           Alle Listen einsehen und Titel/Beschreibung bearbeiten. Die Elemente selbst werden im
