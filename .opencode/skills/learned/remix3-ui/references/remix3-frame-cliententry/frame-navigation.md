@@ -101,7 +101,7 @@ Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event whi
 
 **Context:** The `entry.tsx` client asset implements `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
 
-**Since the `b4a0aa9a` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`, prefetch `priority: 'low'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
+**Since the `b4a0aa9a` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
 
 | Response | Navigation outcome | Prefetch outcome |
 | --- | --- | --- |

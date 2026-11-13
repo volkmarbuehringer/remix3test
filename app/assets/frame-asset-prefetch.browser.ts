@@ -34,6 +34,11 @@ const pendingAssets = new Map<string, PendingAsset>()
  *
  * Returns the discovery promise so tests can wait for the HTML to be parsed and
  * the hints to settle; navigation callers may ignore it.
+ *
+ * Production warming uses {@link prefetchFrameAssetElements} with the vendor
+ * prefetcher's already-parsed fragment (`defaultPrefetch`'s `processFrame`), so the
+ * HTML is not parsed twice. This response-based entry remains the standalone path
+ * (tests and any caller holding only a `Response`).
  */
 export function prefetchFrameAssets(response: Response, sourceUrl: URL): Promise<void> {
   if (typeof document === 'undefined') return Promise.resolve()
@@ -57,12 +62,52 @@ export function prefetchFrameAssets(response: Response, sourceUrl: URL): Promise
 
   return clone
     .text()
-    .then((html) => {
-      if (html) discoverHtml(html, clone.url || sourceUrl.href)
+    .then(async (html) => {
+      if (!html) return
+      let template = document.createElement('template')
+      template.innerHTML = html
+      let baseUrl = frameFragmentBaseUrl(template.content, clone.url || sourceUrl.href)
+      await prefetchFrameAssetElements(collectElements(template.content), baseUrl)
     })
     .catch(() => {
       // Discovery is speculative; the navigation still fetches its own assets.
     })
+}
+
+/**
+ * Resolves the base URL of a parsed frame fragment: the response URL, or its first
+ * `<base href>`. Mirrors the vendor's `defaultPrefetch` base handling.
+ */
+export function frameFragmentBaseUrl(fragment: ParentNode, responseUrl: string): string {
+  let base = fragment.querySelector('base[href]')?.getAttribute('href')
+  if (base != null) {
+    try {
+      return new URL(base, responseUrl).href
+    } catch {
+      // An invalid base falls back to the response URL, as it would in a document.
+    }
+  }
+  return responseUrl
+}
+
+/**
+ * Emits low-priority `<link rel="prefetch">` hints for asset elements discovered in a
+ * frame fragment. The vendor `defaultPrefetch` already parsed the HTML and filtered
+ * the supported declarations, so production passes its `context.assets` here.
+ */
+export function prefetchFrameAssetElements(
+  elements: readonly Element[],
+  baseUrl: string,
+): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve()
+
+  let activeAssets = collectActiveAssets()
+  let requests: Promise<void>[] = []
+  for (let element of elements) {
+    let link = createAssetPrefetch(element, baseUrl)
+    if (link) requests.push(prefetchAsset(link, activeAssets))
+  }
+  return Promise.all(requests).then(() => {})
 }
 
 /** Drops hints that have not settled yet. Used by browser tests; navigation leaves them. */
@@ -74,22 +119,17 @@ export function clearPrefetchedAssets(): void {
   pendingAssets.clear()
 }
 
-function discoverHtml(html: string, responseUrl: string): void {
-  let template = document.createElement('template')
-  template.innerHTML = html
-
-  let baseUrl = responseUrl
-  let base = template.content.querySelector('base[href]')?.getAttribute('href')
-  if (base != null) {
-    try {
-      baseUrl = new URL(base, responseUrl).href
-    } catch {
-      // An invalid base falls back to the response URL, as it would in a document.
+function collectElements(container: ParentNode): Element[] {
+  let elements: Element[] = []
+  for (let element of container.querySelectorAll('link[href], script[src], template')) {
+    if (element.tagName === 'TEMPLATE') {
+      let content = (element as HTMLTemplateElement).content
+      if (content) elements.push(...collectElements(content))
+      continue
     }
+    elements.push(element)
   }
-
-  let activeAssets = collectActiveAssets()
-  discoverContainer(template.content, baseUrl, activeAssets)
+  return elements
 }
 
 function collectActiveAssets(): Set<string> {
@@ -103,23 +143,6 @@ function collectActiveAssets(): Set<string> {
     // An unavailable DOM means there is nothing to dedupe against.
   }
   return keys
-}
-
-function discoverContainer(
-  container: ParentNode,
-  baseUrl: string,
-  activeAssets: Set<string>,
-): void {
-  for (let element of container.querySelectorAll('link[href], script[src], template')) {
-    if (element.tagName === 'TEMPLATE') {
-      let content = (element as HTMLTemplateElement).content
-      if (content) discoverContainer(content, baseUrl, activeAssets)
-      continue
-    }
-
-    let link = createAssetPrefetch(element, baseUrl)
-    if (link) void prefetchAsset(link, activeAssets)
-  }
 }
 
 function createAssetPrefetch(element: Element, baseUrl: string): HTMLLinkElement | undefined {

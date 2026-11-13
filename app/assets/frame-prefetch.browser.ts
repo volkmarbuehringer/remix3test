@@ -1,7 +1,13 @@
-import type { PrefetchOptions } from 'remix/component'
+import { defaultPrefetch } from 'remix/component'
+import type { PrefetchFrameOptions } from 'remix/component'
 
-import { prefetchFrameAssets } from './frame-asset-prefetch.browser.ts'
-import { prefetchFrameResponse } from './frame-response.browser.tsx'
+import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
+import {
+  frameFragmentBaseUrl,
+  prefetchFrameAssetElements,
+  prefetchFrameAssets,
+} from './frame-asset-prefetch.browser.ts'
+import { classifyFrameResponse, encodeAgentPrefill } from './frame-response.browser.tsx'
 
 /**
  * One-shot cache for frame HTML warmed by `data-rmx-prefetch` / `prefetch()`.
@@ -9,13 +15,19 @@ import { prefetchFrameResponse } from './frame-response.browser.tsx'
  * The app's resolver replaces the runtime default (agent prefill, error cards, in-frame
  * redirect reconciliation), so the default prefetcher's HTML can never be reused: it
  * fetches with its own request and the navigation fetches again. Warming through
- * `prefetchFrameResponse` stores the same response the navigation would have fetched, so
- * an intent turns the follow-up click into a cache hit instead of a second SSR.
+ * `prefetchFrame` stores the same response the navigation would have fetched, so an
+ * intent turns the follow-up click into a cache hit instead of a second SSR.
  *
- * The override also replaces the default prefetcher's asset-hint discovery. After a
- * successful warm, `prefetchFrameAssets()` reads a clone of the HTML and emits low-priority
- * `<link rel="prefetch">` hints for the destination's scripts, styles, and declared image
- * and font preloads, so the navigation does not start those requests cold.
+ * Since #12277 the off-the-shelf strategy is extensible, so the hook delegates to
+ * `defaultPrefetch(src, options, { fetch, processFrame })`:
+ *
+ * - `fetch` keeps the app-only request policy (`X-Agent-Prefill`, `cache: 'no-store'`)
+ *   and stores a clone of every response a real navigation would render. The vendor
+ *   parser consumes the original.
+ * - `processFrame` feeds the vendor's already-parsed fragment into the app-owned asset
+ *   hint creator, so the HTML is not parsed twice. The app keeps the hint rules the
+ *   vendor does not encode (document dedupe, WebKit `rel=prefetch` gating, stale-hint
+ *   re-creation) — see `frame-asset-prefetch.browser.ts`.
  *
  * Entries are single use and short lived. Frame HTML carries the CSP nonce of the response
  * that rendered it, so a warmed fragment is only reusable inside the document that asked
@@ -32,8 +44,9 @@ interface PrefetchedFrame {
 }
 
 const frames = new Map<string, PrefetchedFrame>()
-// The settled warm is kept as a promise, so a navigation that runs while it is still in
-// flight can await it instead of issuing a second request for the same fragment.
+// Resolves as soon as the response is stored (or the warm is refused/fails), so a
+// navigation that runs while the warm is still in flight can await the store without
+// waiting for the vendor's idle parse and asset discovery.
 const inFlight = new Map<string, Promise<void>>()
 
 // Bumped whenever the warmed set is invalidated, so a prefetch that was already in flight
@@ -41,11 +54,21 @@ const inFlight = new Map<string, Promise<void>>()
 let generation = 0
 
 function cacheKey(url: URL, target?: string): string {
-  return (target ?? '') + ' ' + url.href
+  // Match the vendor request URL: relative sources resolve against the document base
+  // and fragments are not part of the request (a hash-only navigation never reloads).
+  let normalized = new URL(url.href)
+  normalized.hash = ''
+  return (target ?? '') + ' ' + normalized.href
 }
 
-/** Starts warming the frame response that a later navigation to `src` would render. */
-export function prefetchFrame(src: string, options?: PrefetchOptions): void {
+/**
+ * Starts warming the frame response that a later navigation to `src` would render.
+ *
+ * Delegates to `defaultPrefetch`, which owns request sharing, cancellation when every
+ * caller is gone, idle-deferred parsing, and nested-frame discovery. The app keeps the
+ * cache key, TTL, single-use invalidation, and the prefill header.
+ */
+export function prefetchFrame(src: string, options?: PrefetchFrameOptions): void {
   let url: URL
   try {
     url = new URL(src, window.location.href)
@@ -60,25 +83,75 @@ export function prefetchFrame(src: string, options?: PrefetchOptions): void {
   if (frames.has(key) || inFlight.has(key)) return
 
   let startedIn = generation
-  // Do not forward the caller's signal (remix #12277): it is the anchor's lifetime, and the
-  // navigation claims this response *before* the anchor is removed. Aborting the shared fetch
-  // with it would error the cached body while the frame is still reading it, turning a warm
-  // hit into "signal is aborted without reason". The runtime's default prefetcher likewise
-  // aborts its request only when every owner is gone, never on one caller's cancellation.
-  let warm = prefetchFrameResponse(url, options?.target ? { target: options.target } : undefined)
-    .then((response) => {
-      if (response && generation === startedIn) {
-        storePrefetchedFrame(key, response)
-        void prefetchFrameAssets(response, url)
+  let callerSignal = options?.signal
+  let { promise: stored, resolve: markStored } = Promise.withResolvers<void>()
+  inFlight.set(key, stored)
+
+  // Keys of responses this warm actually cached; asset hints only run for those, so a
+  // redirect/login bounce does not warm the destination's assets.
+  let cached = new Set<string>()
+
+  void defaultPrefetch(src, options, {
+    async fetch(preparedUrl, init) {
+      let requestUrl = new URL(preparedUrl)
+      let target = new Headers(init.headers).get('X-Remix-Target') ?? undefined
+      let requestKey = cacheKey(requestUrl, target)
+
+      let prefillKey = requestUrl.pathname + requestUrl.search
+      let prefill = agentPrefillMap.get(prefillKey)
+      let headers = new Headers(init.headers)
+      if (prefill) headers.set('X-Agent-Prefill', encodeAgentPrefill(prefill))
+
+      let requestInit: RequestInit = { ...init, headers, cache: 'no-store' }
+      // Do not forward the shared request signal: the navigation claims the stored
+      // response *before* the runtime removes the anchor that started this warm, so a
+      // cancel would error the cached body while the frame is still reading it (remix
+      // #12277 per-caller signal regression; see the learned prefetch reference). The
+      // caller's own signal still gates caching below.
+      delete requestInit.signal
+
+      let response = await fetch(preparedUrl, requestInit)
+
+      if (
+        generation === startedIn &&
+        !callerSignal?.aborted &&
+        classifyFrameResponse(response, { target, mode: 'prefetch' }).kind === 'render'
+      ) {
+        let copy = cacheCopy(response)
+        if (copy) {
+          storePrefetchedFrame(requestKey, copy)
+          cached.add(requestKey)
+          if (!response.ok) {
+            // `defaultPrefetch` only parses `ok` HTML, but a 4xx validation fragment is
+            // still a real navigation target. Keep warming its assets like the previous
+            // app-owned warmer did (rare path; the fragment is parsed once more).
+            void prefetchFrameAssets(copy, requestUrl)
+          }
+        }
       }
-    })
+
+      markStored()
+      if (inFlight.get(key) === stored) inFlight.delete(key)
+      return response
+    },
+    processFrame(_prefetchReferences, context) {
+      let requestKey = cacheKey(new URL(context.src, document.baseURI), context.target)
+      if (!cached.has(requestKey)) return
+      void prefetchFrameAssetElements(
+        context.assets,
+        frameFragmentBaseUrl(context.fragment, context.response.url || context.src),
+      )
+    },
+  })
     .catch(() => {
       // A failed prefetch is a no-op; the navigation fetches again.
     })
     .finally(() => {
-      inFlight.delete(key)
+      if (inFlight.get(key) === stored) inFlight.delete(key)
+      // A fetch failure or an all-caller cancellation never reaches the store, so release
+      // a waiting navigation instead of leaving it parked on a promise that cannot settle.
+      markStored()
     })
-  inFlight.set(key, warm)
 }
 
 /**
@@ -152,5 +225,18 @@ function storePrefetchedFrame(key: string, response: Response): void {
     let oldest = frames.keys().next()
     if (oldest.done) break
     frames.delete(oldest.value)
+  }
+}
+
+/**
+ * The vendor parser consumes the returned response, so the cache keeps a clone and the
+ * original streams into the parser. A response stub without `clone` (browser tests) is
+ * stored as-is, matching the pre-#12277 cache contract.
+ */
+function cacheCopy(response: Response): Response | undefined {
+  try {
+    return typeof response.clone === 'function' ? response.clone() : response
+  } catch {
+    return undefined
   }
 }

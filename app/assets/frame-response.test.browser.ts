@@ -5,7 +5,6 @@ import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 import {
   classifyFrameResponse,
   isSameOriginFrameSource,
-  prefetchFrameResponse,
   resolveFrameResponse,
 } from './frame-response.browser.tsx'
 
@@ -233,17 +232,6 @@ describe('resolveFrameResponse redirect handling', () => {
     assert.ok(isSameOriginFrameSource(new URL('/admin/client', window.location.origin)))
     assert.equal(isSameOriginFrameSource(new URL('https://evil.example/admin/client')), false)
   })
-
-  it('never fetches or navigates a cross-origin source while prefetching', async () => {
-    stubFetch(frameResponse())
-
-    let result = await prefetchFrameResponse(new URL('https://evil.example/admin/client'), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined)
-    assert.equal(lastFetchUrl, undefined, 'a cross-origin source is never fetched')
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -251,7 +239,7 @@ describe('resolveFrameResponse redirect handling', () => {
 //
 // The runtime's `defaultResolveFrame` owns method, form encoding, Accept, frame
 // headers, and `same-origin`; the app's `fetch` override adds only the one-shot
-// prefill, `no-store`, and the prefetch priority.
+// prefill and `no-store`.
 // ---------------------------------------------------------------------------
 
 describe('resolveFrameResponse request construction', () => {
@@ -444,130 +432,5 @@ describe('classifyFrameResponse', () => {
       'navigated',
     )
     assert.equal(outcome(frameResponse({ status: 400 }), { mode: 'prefetch' }), 'render')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// prefetchFrameResponse — warming a frame for `data-rmx-prefetch` / `prefetch()`
-//
-// A prefetch must never take over the document (redirect with a target, 401), must not
-// burn a one-shot agent prefill, and must not cache the 5xx recovery card. The entry
-// resolver stores the returned response in the one-shot prefetch cache.
-// ---------------------------------------------------------------------------
-
-function requestPriority(init: RequestInit | undefined): unknown {
-  return (init as { priority?: unknown } | undefined)?.priority
-}
-
-describe('prefetchFrameResponse', () => {
-  it('marks the warm as a low-priority request', async () => {
-    stubFetch(frameResponse())
-
-    await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-    assert.equal(requestPriority(lastFetchInit), 'low')
-
-    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-    assert.equal(
-      requestPriority(lastFetchInit),
-      undefined,
-      'a navigation keeps the default request priority',
-    )
-  })
-
-  it('resolves without navigating for a redirect with a frame target', async () => {
-    stubFetch(frameResponse({ redirected: true, url: 'https://remix.run/login' }))
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined, 'a redirected document must not be warmed for the subframe')
-  })
-
-  it('resolves without navigating for a 401', async () => {
-    stubFetch(frameResponse({ status: 401, contentType: 'application/json' }))
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined)
-  })
-
-  it('does not cache the 5xx recovery card', async () => {
-    stubFetch(frameResponse({ status: 500, text: '<div>boom</div>' }))
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined)
-  })
-
-  it('caches a 4xx validation fragment exactly like a real navigation', async () => {
-    let response = frameResponse({ status: 400, text: '<div>slot outside booking hours</div>' })
-    stubFetch(response)
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, response)
-  })
-
-  it('does not cache a non-HTML 4xx recovery card', async () => {
-    stubFetch(
-      frameResponse({
-        status: 404,
-        contentType: 'application/json',
-        text: '{"error":"not found"}',
-      }),
-    )
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined)
-  })
-
-  it('does not cache a non-HTML 2xx response', async () => {
-    stubFetch(frameResponse({ contentType: 'application/json' }))
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.equal(result, undefined)
-  })
-
-  it('keeps a one-shot agent prefill for the real navigation', async () => {
-    agentPrefillMap.set('/admin/client', { message: 'hi' })
-    stubFetch(frameResponse())
-
-    let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.ok(result, 'expected a warmed response')
-    assert.ok(
-      agentPrefillMap.has('/admin/client'),
-      'a prefetch must not consume the prefill a real navigation would use',
-    )
-  })
-
-  it('still consumes the prefill on a real navigation', async () => {
-    agentPrefillMap.set('/admin/client', { message: 'hi' })
-    stubFetch(frameResponse())
-
-    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
-      target: 'admin-content',
-    })
-
-    assert.ok(!agentPrefillMap.has('/admin/client'))
   })
 })

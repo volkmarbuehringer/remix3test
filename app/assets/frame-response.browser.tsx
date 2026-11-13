@@ -99,14 +99,12 @@ function isRenderableFrameResponse(response: Response): boolean {
 }
 
 /**
- * Fetches a frame source and classifies the outcome, so the navigation and prefetch
- * callers can share one request path while applying different side effects.
+ * Fetches a frame source for a real navigation and classifies the outcome.
  *
  * Request construction (method, form encoding, `Accept`, `X-Remix-Frame`,
  * `X-Remix-Target`, `Content-Type`, `same-origin`) is delegated to the runtime's
  * `defaultResolveFrame` (remix #12249/#11938). The `fetch` override keeps the app-only
- * policy: the one-shot `X-Agent-Prefill` payload, `cache: 'no-store'`, and low priority
- * for a hover warm.
+ * policy: the one-shot `X-Agent-Prefill` payload and `cache: 'no-store'`.
  *
  * `defaultResolveFrame` rejects every `5xx` and every non-HTML `3xx`/`4xx` with a plain
  * `Error` before returning the response, so those outcomes are reclassified here from the
@@ -115,25 +113,17 @@ function isRenderableFrameResponse(response: Response): boolean {
 async function fetchFrameResponse(
   url: URL,
   options?: ResolveFrameOptions,
-  mode: FrameMode = 'navigate',
 ): Promise<FrameFetchResult> {
-  let prefetching = mode === 'prefetch'
-
   if (!isSameOriginFrameSource(url)) {
     // Cross-origin sources fall back to document navigation, matching the runtime's
     // behavior for invalid/cross-origin frame navigation sources. Never fetched.
-    if (!prefetching) window.location.assign(url.href)
+    window.location.assign(url.href)
     return { kind: 'navigated' }
   }
 
   let prefillKey = url.pathname + url.search
   let prefill = agentPrefillMap.get(prefillKey)
-  let prefillHeader: string | undefined
-  if (prefill) {
-    let encoded = new TextEncoder().encode(JSON.stringify(prefill))
-    let binary = String.fromCharCode(...new Uint8Array(encoded))
-    prefillHeader = btoa(binary)
-  }
+  let prefillHeader = prefill ? encodeAgentPrefill(prefill) : undefined
 
   // `defaultResolveFrame` validates the response *after* the fetch override returns,
   // so a rejected response can only be classified by keeping a reference to it.
@@ -151,8 +141,6 @@ async function fetchFrameResponse(
           ...init,
           headers,
           cache: 'no-store',
-          // A hover warm must not compete with the navigation it is meant to accelerate.
-          ...(prefetching ? { priority: 'low' as const } : {}),
         })
         fetched = result
         return result
@@ -166,13 +154,13 @@ async function fetchFrameResponse(
     response = fetched
   }
 
-  // A prefetch only warms this URL; keep a one-shot prefill available for a real
-  // navigation that misses the cache (a cache hit deletes it in the entry resolver).
-  if (prefill && response.ok && !prefetching) {
+  // The prefill is one-shot for a real navigation. A warmed copy is claimed (and the
+  // entry deleted) by the entry resolver; an accepted navigation consumes it here.
+  if (prefill && response.ok) {
     agentPrefillMap.delete(prefillKey)
   }
 
-  let outcome = classifyFrameResponse(response, { target: options?.target, mode })
+  let outcome = classifyFrameResponse(response, { target: options?.target })
 
   let result: FrameFetchResult
   switch (outcome.kind) {
@@ -234,14 +222,11 @@ export async function resolveFrameResponse(
 }
 
 /**
- * Warms a frame response for the runtime's prefetch hook. Returns the response only when a
- * real navigation would render it; the paths that navigate the document, show the recovery
- * card, or must not be reused (redirect with a target, 401, 5xx) yield undefined.
+ * Encodes the one-shot agent prefill for the `X-Agent-Prefill` request header.
+ * The server decodes the same base64 JSON (`app/utils/agent-prefill.ts`).
  */
-export async function prefetchFrameResponse(
-  url: URL,
-  options?: ResolveFrameOptions,
-): Promise<Response | undefined> {
-  let result = await fetchFrameResponse(url, options, 'prefetch')
-  return result.kind === 'response' ? result.response : undefined
+export function encodeAgentPrefill(prefill: Record<string, string>): string {
+  let encoded = new TextEncoder().encode(JSON.stringify(prefill))
+  let binary = String.fromCharCode(...new Uint8Array(encoded))
+  return btoa(binary)
 }
