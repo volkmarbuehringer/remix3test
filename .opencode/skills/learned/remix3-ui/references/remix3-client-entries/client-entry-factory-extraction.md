@@ -3,7 +3,7 @@
 **Source:** `remix3-client-entry-factory-extraction`
 
 **Extracted:** 2026-10-08
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (`@remix-run/component` 1.2.0; `clientEntry()` tagging and `resolveDefaultClientEntry`).
+**Revalidated:** 2026-11-11 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/component` 1.2.0; `clientEntry()` tagging and `resolveDefaultClientEntry`).
 **Context:** Seven admin/client grid row context menus were 116–163 near-identical
 lines each. Extracting the shared machinery into one factory
 (`app/ui/row-context-menu.tsx`) collapsed them to 45–66-line configs — 7×~150
@@ -25,7 +25,7 @@ component function.
 `src/runtime/client-entries.ts:103-120`). At render the server resolves the id:
 `resolveDefaultClientEntry` splits on the last `#` into `{ exportName, href }`,
 and the browser imports `href` and looks up `exportName`
-(`src/server/stream.ts:1283-1311` at preview release `72a7ad0f`). Function identity is never compared.
+(`src/server/stream.ts:1283-1311` at preview release `5af14d52`). Function identity is never compared.
 
 Build the shared **component factory**, but keep `clientEntry(...)` at each call site:
 

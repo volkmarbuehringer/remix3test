@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `session-flash-routing` and `session-value-persistence`.
 **Extracted:** 2026-10-09 … 2026-10-10
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (`@remix-run/session` 1.0.1).
+**Revalidated:** 2026-11-11 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/session` 1.0.1).
 **Context:** Two sides of the same session API: one-shot post-action UI state that must self-clear (flash), and mutating a stored container that silently fails to persist (dirty tracking).
 
 ## One-shot UI state: `session.flash()`, not `session.set()`

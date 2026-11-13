@@ -1,12 +1,12 @@
 # Partial Writes vs Table Hooks (`beforeWrite` → `validate`)
 
 **Extracted:** 2026-10-31
-**Revalidated:** 2026-11-11 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (`@remix-run/data-table` 1.0.0; `src/lib/database/write-lifecycle.ts:278-318`).
+**Revalidated:** 2026-11-11 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/data-table` 1.0.0; `src/lib/database/write-lifecycle.ts:278-318`).
 **Context:** A `table()` definition combines a `beforeWrite` normalizer with a `validate` hook, and callers issue partial updates (`db.update`, PATCH/PUT bodies). Extracted while reviewing guide ch. 8 against `app/data/schema.ts` (`appointments`, `appointofferings`).
 
 ## Problem
 
-`validate` does not receive the caller's payload. The driver runs `beforeWrite`, re-normalizes its returned `{ value }`, and only then calls `validate` with that normalized payload (`@remix-run/data-table` at preview release `v0.20261112.185417-main-72a7ad0f`, `src/lib/database/write-lifecycle.ts:278-318`; vendor README: `Write order is beforeWrite -> validate ...` and `Write payloads are partial objects`). Hooks are synchronous and cannot read the stored row, so a partial payload is all `validate` sees.
+`validate` does not receive the caller's payload. The driver runs `beforeWrite`, re-normalizes its returned `{ value }`, and only then calls `validate` with that normalized payload (`@remix-run/data-table` at preview release `v0.20261113.33720-main-5af14d52`, `src/lib/database/write-lifecycle.ts:278-318`; vendor README: `Write order is beforeWrite -> validate ...` and `Write payloads are partial objects`). Hooks are synchronous and cannot read the stored row, so a partial payload is all `validate` sees.
 
 Three failure modes:
 

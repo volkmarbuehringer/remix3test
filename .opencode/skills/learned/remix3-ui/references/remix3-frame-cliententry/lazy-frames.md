@@ -2,7 +2,7 @@
 
 ## What This Covers
 
-Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed after the 72a7ad0f bump.
+Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed after the 5af14d52 bump.
 
 ## Which Frames May Be Deferred
 
@@ -24,7 +24,7 @@ Verified example: `/admin`'s recent-activity fragment renders one nested user-de
 
 The counter-example in the same app is the chatlog detail pane (`app/ui/admin-chatlog-page.tsx`): it is hidden until a row is selected, but `app/ui/admin-chatlog-detail.browser.tsx` drives it with `handle.frames.get(DETAIL_FRAME)`. Leave it eager; verify named-frame registration before making an addressed pane lazy.
 
-## Built-in `loading="lazy"` behavior (pin `72a7ad0f`)
+## Built-in `loading="lazy"` behavior (pin `5af14d52`)
 
 - Eager is the default. `loading="lazy"` requires a fallback that renders at least one DOM element; a text-only or empty fallback logs a warning and loads immediately (the runtime does not insert a placeholder).
 - Without `run()` or `IntersectionObserver`, lazy frames load immediately. Deferred frames do not delay `app.ready()` or ancestor navigation completion.

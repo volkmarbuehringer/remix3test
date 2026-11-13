@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`, `remix-test-coverage-flag-forwarding`, `home-nav-hydration-e2e-flake`
 
 **Extracted:** 2026-06-23 … 2026-11-09
-**Revalidated:** 2026-11-12 against preview release `v0.20261112.185417-main-72a7ad0f` / source `72a7ad0f` (`@remix-run/test` 1.1.0 adds `t.waitFor()`; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
+**Revalidated:** 2026-11-13 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/test` 1.1.0 adds `t.waitFor()` and property/accessor mocking; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
 **Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
@@ -196,7 +196,7 @@ In the source case Chromium silently tolerated the malformed diff (only a 404 co
 ## `mockImplementationOnce` indexes are absolute, not "next pending"
 
 The #12097 `.mock` controls on `t.mock.fn`/`t.mock.method` (preview release
-`v0.20261112.185417-main-72a7ad0f`) number one-shot overrides by absolute call index. Consecutive
+`v0.20261113.33720-main-5af14d52`) number one-shot overrides by absolute call index. Consecutive
 `mockImplementationOnce(impl)` calls made before any invocation both register at
 the current call index (`calls.length`, still `0`), so the second silently
 replaces the first and the next call falls through to the default. Pass the
@@ -222,9 +222,21 @@ Vendor reference: `node_modules/remix/src/test/README.md` § "Mocks and Spies"
 (the "defaults to the next call" wording means the current call index). Pair it
 with `callCount()` to prove every queued request ran.
 
+## `t.mock.property()` and accessor spies (#12225)
+
+`@remix-run/test` 1.1.0 adds Node-shaped property/accessor mocking:
+
+- `t.mock.property(object, key, value?)` proxies a **configurable own data property** on a non-array object and tracks reads/writes (`accesses`, `accessCount()`, `mockImplementation(value)`, `mockImplementationOnce(value, onAccess?)`, `resetAccesses()`, `restore()`). Omitting `value` keeps the original; explicitly passing `undefined` replaces it with `undefined`. Functions are not supported.
+- `t.mock.getter(object, key, getter?)` / `t.mock.setter(object, key, setter?)` replace one half of an accessor and preserve the paired half. The method forms are `t.mock.method(object, key, impl, { getter: true })` / `{ setter: true }`; the two flags cannot be combined.
+- Target the prototype that owns a browser property's descriptor (e.g. `Navigator.prototype.onLine`), not the instance.
+- `process.env` is not a `property()` target — Node rejects the accessor descriptor. Assign `process.env` directly and register restoration (e.g. `t.after`).
+- Reading `.mock` on the returned proxy always returns the context, even if the target has a field with that name; read the original field from the original object.
+
+None are used by the app yet; prefer them over manual descriptor save/restore when a test must flip a feature flag or spy on a getter.
+
 ## `t.useFakeTimers()` fakes `Date`, not just timers
 
-Since remix #12203 (pin `72a7ad0f`) `t.useFakeTimers()` also fakes `Date`, `performance.now()`, `setImmediate()`/`clearImmediate()` and `AbortSignal.timeout()`, and it clears real timers on restore. Fake time starts at the Unix epoch (`0`), so a test that reads `Date.now()`/`new Date()` while the clock is active sees 1970 rather than the wall clock. Pass a start time when the code under test stamps or compares dates:
+Since preview release `0cab1903` (remix #12203) `t.useFakeTimers()` also fakes `Date`, `performance.now()`, `setImmediate()`/`clearImmediate()` and `AbortSignal.timeout()`, and it clears real timers on restore. Fake time starts at the Unix epoch (`0`), so a test that reads `Date.now()`/`new Date()` while the clock is active sees 1970 rather than the wall clock. Pass a start time when the code under test stamps or compares dates:
 
 ```ts
 let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
