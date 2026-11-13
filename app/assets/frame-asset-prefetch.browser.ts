@@ -1,16 +1,23 @@
 /**
  * Destination asset discovery for warmed frame HTML.
  *
- * `run({ prefetch })` replaces the runtime default, including its asset-prefetch half:
- * the vendor's `createDefaultPrefetch()` reads the HTML inertly and adds
- * `<link rel="prefetch">` hints for the destination's JavaScript, CSS, and declared
- * image/font preloads. Without this module the app warms the HTML but still pays for
- * every destination asset only when the navigation starts.
+ * `run({ prefetch })` delegates to `defaultPrefetch`, which parses the warmed HTML
+ * inertly and exposes the supported declarations as `context.assets`. This module turns
+ * those elements into `<link rel="prefetch">` hints for the destination's JavaScript,
+ * CSS, and declared image/font preloads. Without it the app warms the HTML but still
+ * pays for every destination asset only when the navigation starts.
  *
- * This mirrors the vendor discovery rules (remix `57ecca4cba` /
- * `@remix-run/component/src/runtime/prefetch.ts` `createDefaultPrefetch`):
+ * The vendor's own `prefetchReferences()` is deliberately not delegated: its hints live
+ * in the internal `pendingPrefetchLinks` set, while this module keeps the app rules that
+ * are load-bearing here (a hint dropped by a head diff is re-created instead of
+ * suppressing the asset forever; WebKit's missing `rel=prefetch` support is a no-op).
+ * `processFrame` passes the vendor's already-parsed `assets`, so production parses the
+ * HTML once; `prefetchFrameAssets(response, sourceUrl)` is the standalone
+ * response-based entry used by tests.
  *
- * - discover `link[href]`, `script[src]`, and nested `<template>` content
+ * Discovery rules:
+ *
+ * - `link[href]`, `script[src]`, and nested `<template>` content
  * - honor a `<base href>` in the response
  * - skip assets the current document already has
  * - keep one hint per asset (`href` + `as` + `crossorigin` + `integrity` +

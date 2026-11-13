@@ -36,9 +36,9 @@ app = run({
   async resolveFrame(src, options) {
     let url = new URL(src, window.location.href)
 
-    // `data-rmx-prefetch` / `prefetch()` warmed this exact GET through the app
-    // resolver; claim it instead of paying for a second SSR. A warm still in
-    // flight (the runtime starts it on pointerdown) is awaited, not duplicated.
+    // `data-rmx-prefetch` / `prefetch()` warmed this exact GET through the app's
+    // `defaultPrefetch` overrides; claim it instead of paying for a second SSR. A warm
+    // still in flight (the runtime starts it on pointerdown) is awaited, not duplicated.
     if (isPlainGet(options)) {
       let cached = await claimPrefetchedFrame(url, options?.target, options?.signal)
       if (cached) {
