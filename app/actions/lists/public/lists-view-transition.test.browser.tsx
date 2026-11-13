@@ -2,7 +2,6 @@ import { afterEach, describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
-import { waitForDom } from '../../../../test/dom.ts'
 import { ListsClient } from './lists-client.tsx'
 import { applyListReorder } from './lists-view-transition.ts'
 
@@ -367,7 +366,7 @@ describe('ListsClient reorder View Transition', () => {
     await settle(350)
   })
 
-  it('runs inside the platform startViewTransition when the API exists', async () => {
+  it('runs inside the platform startViewTransition when the API exists', async (t) => {
     stubFetch()
     let doc = document as ViewTransitionDocument
     let original = doc.startViewTransition
@@ -388,10 +387,12 @@ describe('ListsClient reorder View Transition', () => {
     let result = renderEditor()
     await result.act(() => moveDownButton(result.container, 'a').click())
 
-    await waitForDom(() => rowIds(result.container).join(',') === 'b,a,c', {
-      root: result.container,
-      description: 'the platform transition to apply the reorder',
-    })
+    await t.waitFor(
+      () => {
+        assert.equal(rowIds(result.container).join(','), 'b,a,c')
+      },
+      { timeout: 3000 },
+    )
 
     // Moved from lists-reorder-transition.test.e2e.ts: the platform path must
     // start exactly one transition when the API exists and fall back to an

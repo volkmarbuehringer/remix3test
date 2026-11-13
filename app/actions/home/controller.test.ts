@@ -185,7 +185,7 @@ describe('HEAD requests served by the GET fallback', () => {
   it('returns the GET status and headers with no body, running middleware once', async (t) => {
     // A unique query keeps this request's log line distinct from any other
     // `GET /` in the worker; the home route ignores it.
-    const probe = '?head-fallback-probe=1'
+    let probe = '?head-fallback-probe=1'
 
     // Spy only for the duration of one request, so a background log from an
     // earlier test cannot be attributed to this one.

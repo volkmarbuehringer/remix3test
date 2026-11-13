@@ -1,50 +1,14 @@
-// Browser-test DOM waits built on MutationObserver instead of polling with a
-// wall-clock timer. Mirrors the vendor helper in
-// `@remix-run/component` `src/test/utils.ts` (#12198) and keeps remix-specific
-// knowledge out of the app: a predicate that reads DOM state resolves on the
-// next mutation that makes it true.
+// Browser-test DOM helpers that need MutationObserver rather than polling.
+// Predicate waits now use `t.waitFor()` from `remix/test`; `nextDomMutation()`
+// remains for waits that depend on mutation ordering, which polling cannot
+// express. Mirrors the vendor helper in `@remix-run/component`
+// `src/test/utils.ts` (#12198).
 
 const domMutations: MutationObserverInit = {
   attributes: true,
   characterData: true,
   childList: true,
   subtree: true,
-}
-
-export interface WaitForDomOptions {
-  /** Node whose subtree is observed. Defaults to `document`. */
-  root?: Node
-  /** Failure bound, not a synchronization delay. */
-  timeout?: number
-  /** Included in the timeout error. */
-  description?: string
-}
-
-/** Resolves once `predicate` is true, re-checking after each DOM mutation. */
-export function waitForDom(
-  predicate: () => boolean,
-  options: WaitForDomOptions = {},
-): Promise<void> {
-  if (predicate()) return Promise.resolve()
-
-  let root = options.root ?? document
-  let timeout = options.timeout ?? 3000
-  let description = options.description ?? 'DOM condition'
-
-  return new Promise((resolve, reject) => {
-    let timer = setTimeout(() => {
-      observer.disconnect()
-      reject(new Error(`Timed out waiting for ${description}`))
-    }, timeout)
-
-    let observer = new MutationObserver(() => {
-      if (!predicate()) return
-      observer.disconnect()
-      clearTimeout(timer)
-      resolve()
-    })
-    observer.observe(root, domMutations)
-  })
 }
 
 /**

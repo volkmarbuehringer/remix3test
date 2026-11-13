@@ -85,7 +85,7 @@ await t.waitFor(() => {
 })
 ```
 
-The first successful return value wins — even `false` or `undefined` — so the callback must assert, not return a boolean. Do not pass an existing `waitFor(predicate)` helper's boolean predicate directly; it stops on the first `false`. The app's `test/dom.ts` `waitForDom`/`nextDomMutation` helpers remain valid for MutationObserver-driven waits, and e2e tests still use Playwright's `page.waitFor*`.
+The first successful return value wins — even `false` or `undefined` — so the callback must assert, not return a boolean. Do not pass an existing `waitFor(predicate)` helper's boolean predicate directly; it stops on the first `false`. Every app `waitForDom` call site has been converted to `t.waitFor`, with an explicit `{ timeout: 3000 }` where the old helper's 3 s default was the failure bound: `waitForDom` re-checked on each DOM mutation, while `t.waitFor` polls every 50 ms against a 1 s default deadline. `waitForDom` has since been retired; `nextDomMutation()` has no polling equivalent and stays in `test/dom.ts` for order-sensitive waits. E2E tests still use Playwright's `page.waitFor*`.
 
 ## Wait for the destination, not any matching element
 
@@ -158,10 +158,10 @@ Verify the forward by its side effect (query the DB for the stored response stat
 The #12198 pattern is: synchronize on the event that means the work finished, not on an
 elapsed duration. This repo's app-side surfaces:
 
-- **Browser tests:** `test/dom.ts` exports `waitForDom(predicate)` (MutationObserver,
-  re-checks after each DOM mutation) and `nextDomMutation()`. Use it instead of a
-  `setTimeout(resolve, 25)` polling helper when the predicate reads DOM state. Keep a
-  timeout only as the failure bound.
+- **Browser tests:** prefer `t.waitFor(() => assert…)` (real timers, cancels with the test).
+  `test/dom.ts` keeps `nextDomMutation()` for order-sensitive waits; it has no polling
+  equivalent. Do not reintroduce a `setTimeout(resolve, 25)` polling helper when the
+  predicate reads DOM state; keep a timeout only as the failure bound.
 - **E2E hydration markers:** client entries stamp a client-only `data-*-ready` attribute
   after they install listeners (`ref()` is browser-only, so the marker never appears in
   server HTML). Current markers: `data-lists-ready` (`lists-view.tsx`),

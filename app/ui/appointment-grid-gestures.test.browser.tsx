@@ -21,7 +21,6 @@ import {
   DRAG_THRESHOLD,
 } from './appointment-grid-types.ts'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
-import { waitForDom } from '../../test/dom.ts'
 import { interactionState } from './appointment-interaction-state.ts'
 import {
   createFixtureData,
@@ -405,7 +404,7 @@ describe('Mutation reload', () => {
     uninstallFetchCapture()
   })
 
-  it('reloads the containing frame after a saved title edit', async () => {
+  it('reloads the containing frame after a saved title edit', async (t) => {
     installFetchCapture()
     let frameSrc = '/appointment?year=2026&week=31'
     let resolveCalls: string[] = []
@@ -421,9 +420,15 @@ describe('Mutation reload', () => {
       },
     })
     cleanup = result.cleanup
-    await waitForDom(() => result.container.querySelector('[data-block-id="1"]') !== null, {
-      description: 'the appointment grid block',
-    })
+    await t.waitFor(
+      () => {
+        assert.ok(
+          result.container.querySelector('[data-block-id="1"]'),
+          'the appointment grid block',
+        )
+      },
+      { timeout: 3000 },
+    )
 
     let dispatchPointer = (type: string, target: EventTarget) => {
       target.dispatchEvent(

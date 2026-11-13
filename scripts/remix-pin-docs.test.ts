@@ -42,6 +42,7 @@ describe('refreshPinDocs', () => {
         'Revalidated: preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
         'Since preview build `aaaaaaaa` (#1) stays put.',
         'The example URL uses ' + OLD_TAG + '.',
+        'Current pin: ' + OLD_TAG + ' / source `aaaaaaaa`.',
         'Since remix #12203 (pin `aaaaaaaa`) stays put.',
       ].join('\n'),
       'AGENTS.md':
@@ -53,11 +54,15 @@ describe('refreshPinDocs', () => {
     let result = refreshPinDocs(root, change)
 
     assert.deepEqual(result.updated, [learned, 'AGENTS.md'])
-    assert.deepEqual(result.skipped, [learned + ':2', learned + ':4'])
+    assert.deepEqual(result.skipped, [learned + ':1', learned + ':2', learned + ':5'])
 
     let learnedText = fs.readFileSync(path.join(root, learned), 'utf8')
     assert.ok(learnedText.includes(NEW_TAG), 'tag refreshed')
     assert.ok(learnedText.includes('source `bbbbbbbb`'), 'source refreshed')
+    assert.ok(
+      learnedText.includes('Revalidated: preview release `' + OLD_TAG + '` / source `aaaaaaaa`.'),
+      'revalidation history kept',
+    )
     assert.ok(
       learnedText.includes('Since preview build `aaaaaaaa` (#1) stays put.'),
       'history kept',

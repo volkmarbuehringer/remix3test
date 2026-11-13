@@ -3,7 +3,6 @@ import * as assert from 'remix/assert'
 import { Frame } from 'remix/component'
 import { render, type RenderResult } from 'remix/component/test'
 
-import { waitForDom } from '../../test/dom.ts'
 import { FrameFallback } from './frame-fallback.browser.tsx'
 
 // ---------------------------------------------------------------------------
@@ -63,14 +62,15 @@ describe('FrameFallback', () => {
     )
   })
 
-  it('offers a retry once the frame stays unresolved', async () => {
+  it('offers a retry once the frame stays unresolved', async (t) => {
     let result = renderPendingFrame(20)
-    await waitForDom(() => result.container.querySelector('button') !== null, {
-      description: 'the delayed retry button',
-    })
 
-    let button = result.container.querySelector('button')
-    assert.ok(button, 'the retry button appears after the delay')
+    await t.waitFor(() =>
+      assert.ok(
+        result.container.querySelector('button'),
+        'the retry button appears after the delay',
+      ),
+    )
     assert.ok(
       result.container.textContent?.includes('Das dauert länger als erwartet.'),
       'the fallback explains the delay',
@@ -80,16 +80,16 @@ describe('FrameFallback', () => {
     assert.ok(status!.textContent?.includes('Das dauert länger als erwartet.'))
   })
 
-  it('reloads the frame when the retry is clicked', async () => {
+  it('reloads the frame when the retry is clicked', async (t) => {
     let result = renderPendingFrame(20)
-    await waitForDom(() => result.container.querySelector('button') !== null, {
-      description: 'the delayed retry button',
+    let retry = await t.waitFor(() => {
+      let button = result.container.querySelector<HTMLButtonElement>('button')
+      assert.ok(button, 'retry button must be present')
+      return button
     })
     let callsBefore = resolveCalls.length
 
-    let button = result.container.querySelector<HTMLButtonElement>('button')
-    assert.ok(button, 'retry button must be present')
-    await result.act(() => button!.click())
+    await result.act(() => retry.click())
     for (let turn = 0; turn < 100 && resolveCalls.length === callsBefore; turn++) {
       await new Promise((resolve) => setTimeout(resolve, 0))
     }

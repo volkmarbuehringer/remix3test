@@ -1,8 +1,7 @@
-import { describe, it, beforeEach, afterEach } from 'remix/test'
+import { describe, it, beforeEach, afterEach, type TestContext } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
-import { waitForDom } from '../../../../test/dom.ts'
 import { ListNameEdit } from './list-name-edit.tsx'
 
 // ListNameEdit turns a sidebar row into an inline rename field: clicking the
@@ -72,9 +71,9 @@ function installCsrf(token: string) {
   removeCsrf = () => meta.remove()
 }
 
-async function waitForEditorToClose(host: HTMLElement) {
-  await waitForDom(() => inputOf(host) === null, {
-    description: 'the inline rename editor to close',
+async function waitForEditorToClose(t: TestContext, host: HTMLElement) {
+  await t.waitFor(() => {
+    assert.equal(inputOf(host), null, 'the inline rename editor must close')
   })
 }
 
@@ -156,7 +155,7 @@ describe('ListNameEdit', () => {
     assert.equal(calls.length, 0)
   })
 
-  it('PUTs a changed title exactly once with CSRF + If-Match', async () => {
+  it('PUTs a changed title exactly once with CSRF + If-Match', async (t) => {
     let host = mount()
     mountEntry()
     stubFetch(200)
@@ -165,7 +164,7 @@ describe('ListNameEdit', () => {
     let input = inputOf(host)!
     input.value = 'Neu'
     press(input, 'Enter')
-    await waitForEditorToClose(host)
+    await waitForEditorToClose(t, host)
 
     assert.equal(calls.length, 1, 'removing the input must not re-submit')
     assert.equal(calls[0]!.url, '/lists/7')
@@ -180,7 +179,7 @@ describe('ListNameEdit', () => {
     assert.equal(nameSpanOf(host).style.display, '')
   })
 
-  it('submits a changed title on blur', async () => {
+  it('submits a changed title on blur', async (t) => {
     let host = mount()
     mountEntry()
     stubFetch(200)
@@ -189,13 +188,13 @@ describe('ListNameEdit', () => {
     let input = inputOf(host)!
     input.value = 'Per Blur'
     input.dispatchEvent(new Event('blur'))
-    await waitForEditorToClose(host)
+    await waitForEditorToClose(t, host)
 
     assert.equal(calls.length, 1)
     assert.equal(calls[0]!.init.body, JSON.stringify({ title: 'Per Blur' }))
   })
 
-  it('flashes the name on a 409 conflict and closes the editor', async () => {
+  it('flashes the name on a 409 conflict and closes the editor', async (t) => {
     let host = mount()
     mountEntry()
     stubFetch(409)
@@ -204,7 +203,7 @@ describe('ListNameEdit', () => {
     let input = inputOf(host)!
     input.value = 'Konflikt'
     press(input, 'Enter')
-    await waitForEditorToClose(host)
+    await waitForEditorToClose(t, host)
 
     assert.ok(nameSpanOf(host).style.color, 'the conflicted name should be flashed')
     assert.equal(inputOf(host), null)

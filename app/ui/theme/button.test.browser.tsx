@@ -2,7 +2,6 @@ import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
-import { waitForDom } from '../../../test/dom.ts'
 import button, { buttonLink } from './button.ts'
 
 // ---------------------------------------------------------------------------
@@ -22,7 +21,7 @@ describe('button mixin default attributes', () => {
     cleanup = undefined
   })
 
-  it('defaults a native button to type="button", preserves explicit types, and leaves anchors alone', async () => {
+  it('defaults a native button to type="button", preserves explicit types, and leaves anchors alone', async (t) => {
     cleanup = render(
       <div>
         <button id="default" mix={[button()]}>
@@ -38,9 +37,12 @@ describe('button mixin default attributes', () => {
     ).cleanup
 
     // Let the mixin runtime apply the host attributes before reading them.
-    await waitForDom(() => document.querySelector('#default')?.getAttribute('type') === 'button', {
-      description: 'the button mixin default type',
-    })
+    await t.waitFor(
+      () => {
+        assert.equal(document.querySelector('#default')?.getAttribute('type'), 'button')
+      },
+      { timeout: 3000 },
+    )
 
     let defaultButton = document.querySelector<HTMLButtonElement>('#default')
     let explicitButton = document.querySelector<HTMLButtonElement>('#explicit')
