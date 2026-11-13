@@ -62,7 +62,10 @@ function okResponse(): Response {
     ok: true,
     redirected: false,
     status: 200,
+    statusText: '',
     url: 'https://remix.run/admin/lists',
+    headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
+    text: async () => '<div>Lists</div>',
   } as Response
 }
 
@@ -226,7 +229,14 @@ describe('frame prefetch cache', () => {
   })
 
   it('does not cache a response the resolver refused', async () => {
-    stubFetch({ ok: true, redirected: true, status: 200, url: 'https://remix.run/login' })
+    stubFetch({
+      ok: true,
+      redirected: true,
+      status: 200,
+      statusText: '',
+      url: 'https://remix.run/login',
+      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
+    })
 
     prefetchFrame('/admin/client', { target: 'admin-content' })
     await settlePrefetches()

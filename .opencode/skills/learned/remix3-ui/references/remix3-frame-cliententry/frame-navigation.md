@@ -99,66 +99,31 @@ Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event whi
 
 ## Client resolveFrame Signature (ResolveFrameOptions)
 
-**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails. Because the app **shadows the runtime's `defaultResolveFrame`**, upstream changes to the default's request encoding do not reach `app/assets/frame-response.browser.tsx`; re-sync it after every pin bump (see `docs/remix-pin-history.md`).
+**Context:** The `entry.tsx` client asset implements `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
 
-Use the options-object signature and build the request body from `options.formData` yourself. As of #11938 (installable build `044d8372`) the runtime default is: GET/HEAD send no body, POST defaults to `application/x-www-form-urlencoded`, `multipart/form-data` stays raw `FormData`, `text/plain` becomes a text blob, field names are normalized, and the matching `Content-Type` is set explicitly:
+**Since the `b4a0aa9a` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`, prefetch `priority: 'low'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
 
-```tsx
-import type { FrameContent, ResolveFrameOptions } from 'remix/component'
-
-async resolveFrame(src, options) {
-  return resolveFrameResponse(new URL(src, window.location.href), options)
-}
-
-async function resolveFrameResponse(
-  url: URL,
-  options?: ResolveFrameOptions,
-): Promise<FrameContent | Response> {
-  let headers: Record<string, string> = { 'X-Remix-Frame': 'true' }
-  if (options?.target) headers['X-Remix-Target'] = options.target
-  let { body, encType } = getRequestBody(options)
-  if (encType) headers['Content-Type'] = encType
-  // fetch(url, { headers, method: options?.method, body, signal: options?.signal })
-  //   → return content fragment or Response (e.g. stream)
-}
-
-function getRequestBody(options?: ResolveFrameOptions): { body?: BodyInit; encType?: string } {
-  let formData = options?.formData
-  if (!formData) return {}
-  if (['get', 'head'].includes((options?.method ?? 'get').toLowerCase())) return {}
-
-  let encType = options?.encType?.toLowerCase()
-
-  if (encType === 'multipart/form-data') return { body: formData }
-
-  if (encType === 'text/plain') {
-    let body = ''
-    for (let [name, value] of formData) {
-      name = normalizeLineBreaks(name)
-      value = normalizeLineBreaks(typeof value === 'string' ? value : value.name)
-      body += `${name}=${value}\r\n`
-    }
-    return { body: new Blob([body], { type: 'text/plain' }), encType: 'text/plain' }
-  }
-
-  let body = new URLSearchParams()
-  for (let [name, value] of formData) {
-    body.append(
-      normalizeLineBreaks(name),
-      normalizeLineBreaks(typeof value === 'string' ? value : value.name),
-    )
-  }
-  return { body, encType: 'application/x-www-form-urlencoded' }
-}
-```
+| Response | Navigation outcome | Prefetch outcome |
+| --- | --- | --- |
+| `redirected` + target | `document-navigation` (`window.location.assign(response.url)`) | `navigated` (no side effect) |
+| `401` (any body) | `login` | `navigated` |
+| `5xx` (any body) | `recovery-card` | `navigated` (never warmed) |
+| HTML `3xx`/`4xx` | `render` | `render` (validation fragments are warmable) |
+| 2xx non-HTML, or non-HTML `3xx`/`4xx` | `non-html-error` (console report + card) | `navigated` |
+| 2xx HTML / missing Content-Type | `render` | `render` |
 
 Key facts:
 
-- `ResolveFrameOptions` exposes `target`, `formData`, `method`, `encType`, and `signal` — no positional args.
+- **`defaultResolveFrame` rejects before the app policy can see the response.** It throws a plain `Error` for every `5xx` and every non-HTML `3xx`/`4xx`, carrying only status/statusText. The app's `fetch` override keeps a reference to the response it returned, and the `catch` calls `classifyFrameResponse` on that captured response. Fixing this by parsing the error message would be fragile; keep the capture.
+- **A rejecting response is already fetched but not consumed.** Returning the recovery card or error card discards it; do not return that `Response` as frame content.
+- **Prefill consumption stays app-owned.** The header is injected in the `fetch` override (base64 JSON). It is deleted after an accepted `response.ok` navigation only; a prefetch and every 4xx/5xx keep it for the real navigation.
+- **Cross-origin *sources* still document-navigate** via `isSameOriginFrameSource` before delegation. Cross-origin *redirects* are now rejected by the vendor's `same-origin` fetch mode (a network error surfaced on the runtime error channel) instead of being followed when CORS allowed it. No app route redirects a frame cross-origin; the redirects that matter (`/auth/login`, cross-section PRG) stay same-origin and still hit the `response.redirected` bail.
+- `ResolveFrameOptions` exposes `target`, `formData`, `method`, `encType`, `signal`, and `transition` — no positional args.
 - The runtime does **not** decode `_method`; the `methodOverride()` middleware in `app/middleware/root.ts` stays responsible for that. (Since upstream #11607 the app's hand-rolled `app/middleware/render.tsx` was replaced by the conventional `render({ assets })` from `remix/middleware/render`.)
-- `multipart/form-data` passes the raw `FormData` with **no** explicit `Content-Type` (the browser adds the boundary); every other POST is flattened to `URLSearchParams` and carries `application/x-www-form-urlencoded`. An omitted/unknown `encType` now defaults to urlencoded — the pre-#11938 copy sent raw multipart here, so a stale resolver silently changes which body the server parses.
-- Returning a `Response` directly (instead of a `FrameContent` fragment) is the supported path for streaming SSE/agent frames.
+- Returning a `Response` directly (instead of a `FrameContent` fragment) remains the supported path for streaming SSE/agent frames; the error-card outcomes still return `FrameContent`.
 - Since #11607 the server `resolveFrame` lives in the conventional render middleware (`@remix-run/render-middleware/dist/lib/render-ui.js`): it forwards `X-Remix-Frame`/`X-Remix-Target`/`X-Remix-Top-Frame-Src`, strips hop-by-hop and `sec-fetch-*` headers, and always re-fetches the frame src with **GET** — `formData`/`method`/`encType` remain client-side `ResolveFrameOptions` concerns only.
+
+Tests: `app/assets/frame-response.test.browser.ts` covers delegation (headers/mode/URL), encoding parity, the 401/5xx/4xx/prefetch table on `classifyFrameResponse`, prefill injection/consumption, and the never-settling navigated outcomes.
 
 Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build, writing a custom client `resolveFrame`, debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data), or when the resolver's encoding drifts from the runtime default after a pin bump.
 

@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 import {
+  classifyFrameResponse,
   isSameOriginFrameSource,
   prefetchFrameResponse,
   resolveFrameResponse,
@@ -26,15 +27,22 @@ import {
 // `window.location.assign` itself is a non-configurable own property of the
 // Location object, so it cannot be stubbed in the harness; the never-settling
 // promise is the observable proof that the redirect-bail branch ran.
+//
+// The request is built by the runtime's `defaultResolveFrame` since the #12249
+// migration; the response policy (4xx renders, 5xx recovery card, 401 login,
+// non-HTML error card) stays app-owned in `classifyFrameResponse`.
 // ---------------------------------------------------------------------------
 
 let originalFetch: typeof window.fetch | undefined
 let lastFetchInit: RequestInit | undefined
+let lastFetchUrl: string | undefined
 
 function stubFetch(response: Partial<Response>) {
   originalFetch = window.fetch
   lastFetchInit = undefined
-  window.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  lastFetchUrl = undefined
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    lastFetchUrl = String(input)
     lastFetchInit = init
     return response
   }) as typeof window.fetch
@@ -46,8 +54,38 @@ afterEach(() => {
     originalFetch = undefined
   }
   lastFetchInit = undefined
+  lastFetchUrl = undefined
   agentPrefillMap.clear()
 })
+
+/**
+ * A Response-shaped stub. `defaultResolveFrame` reads `status`, `statusText`, and
+ * `headers` before the app policy runs, so a production-shaped header bag is required.
+ */
+function frameResponse(
+  init: {
+    status?: number
+    contentType?: string | null
+    redirected?: boolean
+    url?: string
+    text?: string
+  } = {},
+): Response {
+  let status = init.status ?? 200
+  let headers = new Headers()
+  if (init.contentType !== null) {
+    headers.set('Content-Type', init.contentType ?? 'text/html; charset=utf-8')
+  }
+  return {
+    ok: status >= 200 && status < 300,
+    redirected: init.redirected ?? false,
+    url: init.url ?? 'https://remix.run/admin/client',
+    status,
+    statusText: '',
+    headers,
+    text: async () => init.text ?? '<div>Grid content</div>',
+  } as Response
+}
 
 async function assertNeverSettles(promise: Promise<unknown>): Promise<void> {
   let settled = false
@@ -67,7 +105,7 @@ async function assertNeverSettles(promise: Promise<unknown>): Promise<void> {
 
 describe('resolveFrameResponse redirect handling', () => {
   it('never settles when a frame reload response redirects with a target', async () => {
-    stubFetch({ redirected: true, ok: true, url: 'https://remix.run/login', status: 200 })
+    stubFetch(frameResponse({ redirected: true, url: 'https://remix.run/login' }))
 
     let result = resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -77,13 +115,13 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('does not return the redirected document for the subframe', async () => {
-    stubFetch({
-      redirected: true,
-      ok: true,
-      url: 'https://remix.run/login',
-      status: 200,
-      text: async () => '<html><body>Login page</body></html>',
-    })
+    stubFetch(
+      frameResponse({
+        redirected: true,
+        url: 'https://remix.run/login',
+        text: '<html><body>Login page</body></html>',
+      }),
+    )
 
     let result = resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -93,12 +131,7 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('returns the response for a redirect without a frame target', async () => {
-    let response = {
-      redirected: true,
-      ok: true,
-      url: 'https://remix.run/elsewhere',
-      status: 200,
-    } as Response
+    let response = frameResponse({ redirected: true, url: 'https://remix.run/elsewhere' })
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin))
@@ -107,13 +140,7 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('returns a normal 200 response inside the subframe', async () => {
-    let response = {
-      redirected: false,
-      ok: true,
-      url: 'https://remix.run/admin/client',
-      status: 200,
-      text: async () => '<div>Grid content</div>',
-    } as Response
+    let response = frameResponse()
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -124,14 +151,7 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('returns a 2xx HTML response inside the subframe', async () => {
-    let response = {
-      redirected: false,
-      ok: true,
-      url: 'https://remix.run/admin/client',
-      status: 200,
-      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
-      text: async () => '<div>Grid content</div>',
-    } as Response
+    let response = frameResponse()
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -143,13 +163,7 @@ describe('resolveFrameResponse redirect handling', () => {
 
   it('shows the reload card for a non-HTML 2xx body and reports it', async (t) => {
     let errorSpy = t.mock.method(console, 'error')
-    let response = {
-      redirected: false,
-      ok: true,
-      url: 'https://remix.run/admin/client',
-      status: 200,
-      headers: new Headers({ 'Content-Type': 'application/pdf' }),
-    } as Response
+    let response = frameResponse({ contentType: 'application/pdf' })
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -161,14 +175,10 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('renders a 4xx response body so validation errors show in the frame', async () => {
-    let response = {
-      redirected: false,
-      ok: false,
-      url: 'https://remix.run/admin/client',
+    let response = frameResponse({
       status: 400,
-      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
-      text: async () => '<div>slot outside booking hours</div>',
-    } as Response
+      text: '<div>slot outside booking hours</div>',
+    })
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -182,14 +192,11 @@ describe('resolveFrameResponse redirect handling', () => {
 
   it('shows the reload card for a non-HTML 4xx body and reports it', async (t) => {
     let errorSpy = t.mock.method(console, 'error')
-    let response = {
-      redirected: false,
-      ok: false,
-      url: 'https://remix.run/admin/client',
+    let response = frameResponse({
       status: 404,
-      headers: new Headers({ 'Content-Type': 'application/json' }),
-      text: async () => '{"error":"not found"}',
-    } as Response
+      contentType: 'application/json',
+      text: '{"error":"not found"}',
+    })
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -203,13 +210,9 @@ describe('resolveFrameResponse redirect handling', () => {
   })
 
   it('shows the reload card for a 5xx server error', async () => {
-    let response = {
-      redirected: false,
-      ok: false,
-      url: 'https://remix.run/admin/client',
-      status: 500,
-      text: async () => '<div>boom</div>',
-    } as Response
+    // `defaultResolveFrame` throws on every 5xx before the app policy runs; the
+    // captured response is reclassified onto the recovery card.
+    let response = frameResponse({ status: 500, text: '<div>boom</div>' })
     stubFetch(response)
 
     let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -230,20 +233,78 @@ describe('resolveFrameResponse redirect handling', () => {
     assert.ok(isSameOriginFrameSource(new URL('/admin/client', window.location.origin)))
     assert.equal(isSameOriginFrameSource(new URL('https://evil.example/admin/client')), false)
   })
+
+  it('never fetches or navigates a cross-origin source while prefetching', async () => {
+    stubFetch(frameResponse())
+
+    let result = await prefetchFrameResponse(new URL('https://evil.example/admin/client'), {
+      target: 'admin-content',
+    })
+
+    assert.equal(result, undefined)
+    assert.equal(lastFetchUrl, undefined, 'a cross-origin source is never fetched')
+  })
 })
 
 // ---------------------------------------------------------------------------
-// resolveFrameResponse — request body encoding (remix #11938)
+// resolveFrameResponse — delegated request construction (remix #12249/#11938)
 //
-// The custom resolver replaces the runtime's default, so its encoding must match:
-// GET/HEAD carry no body, POST defaults to URL encoding, and the matching
-// Content-Type is set explicitly (multipart stays a FormData body so the browser
-// adds the boundary).
+// The runtime's `defaultResolveFrame` owns method, form encoding, Accept, frame
+// headers, and `same-origin`; the app's `fetch` override adds only the one-shot
+// prefill, `no-store`, and the prefetch priority.
 // ---------------------------------------------------------------------------
 
-describe('resolveFrameResponse request encoding', () => {
+describe('resolveFrameResponse request construction', () => {
+  it('sends the runtime frame headers and same-origin mode', async () => {
+    stubFetch(frameResponse())
+
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    let headers = new Headers(lastFetchInit?.headers)
+    assert.equal(headers.get('Accept'), 'text/html')
+    assert.equal(headers.get('X-Remix-Frame'), 'true')
+    assert.equal(headers.get('X-Remix-Target'), 'admin-content')
+    assert.equal(lastFetchInit?.mode, 'same-origin')
+    assert.equal(lastFetchUrl, `${window.location.origin}/admin/client`)
+  })
+
+  it('omits X-Remix-Target for an unnamed frame and strips the source hash', async () => {
+    stubFetch(frameResponse())
+
+    await resolveFrameResponse(new URL('/admin/client#section', window.location.origin))
+
+    let headers = new Headers(lastFetchInit?.headers)
+    assert.equal(headers.get('X-Remix-Target'), null)
+    assert.equal(lastFetchUrl, `${window.location.origin}/admin/client`)
+  })
+
+  it('rides the one-shot agent prefill on the request', async () => {
+    agentPrefillMap.set('/admin/client', { message: 'hi' })
+    stubFetch(frameResponse())
+
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    let raw = new Headers(lastFetchInit?.headers).get('X-Agent-Prefill')
+    assert.ok(raw, 'expected the prefill header')
+    assert.deepEqual(JSON.parse(atob(raw)), { message: 'hi' })
+  })
+
+  it('sets no-store on every frame request', async () => {
+    stubFetch(frameResponse())
+
+    await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
+      target: 'admin-content',
+    })
+
+    assert.equal(lastFetchInit?.cache, 'no-store')
+  })
+
   it('defaults POST form data to URL encoding and sets the Content-Type', async () => {
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     let formData = new FormData()
     formData.append('name', 'a b')
@@ -263,7 +324,7 @@ describe('resolveFrameResponse request encoding', () => {
   })
 
   it('sends no body for a GET reload carrying form data', async () => {
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     let formData = new FormData()
     formData.append('name', 'a b')
@@ -278,7 +339,7 @@ describe('resolveFrameResponse request encoding', () => {
   })
 
   it('forwards multipart form data untouched with no explicit Content-Type', async () => {
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     let formData = new FormData()
     formData.append('file', 'contents')
@@ -294,7 +355,7 @@ describe('resolveFrameResponse request encoding', () => {
   })
 
   it('encodes text/plain bodies and sets the matching Content-Type', async () => {
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     let formData = new FormData()
     formData.append('name', 'a b')
@@ -313,6 +374,80 @@ describe('resolveFrameResponse request encoding', () => {
 })
 
 // ---------------------------------------------------------------------------
+// classifyFrameResponse — the full 4xx/5xx/401 policy
+//
+// The classifier is pure, so 401/login and cross-section redirect outcomes are
+// asserted without calling `window.location.assign` (unforgeable in a browser).
+// ---------------------------------------------------------------------------
+
+function outcome(
+  response: Response,
+  options?: { target?: string; mode?: 'navigate' | 'prefetch' },
+) {
+  return classifyFrameResponse(response, options).kind
+}
+
+describe('classifyFrameResponse', () => {
+  it('renders HTML 4xx validation and not-found fragments', () => {
+    assert.equal(outcome(frameResponse({ status: 400 })), 'render')
+    assert.equal(outcome(frameResponse({ status: 404 })), 'render')
+  })
+
+  it('renders 2xx responses with HTML or a missing content type', () => {
+    assert.equal(outcome(frameResponse()), 'render')
+    assert.equal(outcome(frameResponse({ contentType: null })), 'render')
+  })
+
+  it('maps a 5xx response to the recovery card even when it declares HTML', () => {
+    assert.equal(outcome(frameResponse({ status: 500 })), 'recovery-card')
+    assert.equal(outcome(frameResponse({ status: 503 })), 'recovery-card')
+  })
+
+  it('maps non-HTML 2xx and 4xx bodies to a reported error card', () => {
+    assert.equal(outcome(frameResponse({ contentType: 'application/json' })), 'non-html-error')
+    assert.equal(
+      outcome(frameResponse({ status: 404, contentType: 'text/plain' })),
+      'non-html-error',
+    )
+  })
+
+  it('sends 401 responses to the login page with either body type', () => {
+    assert.equal(outcome(frameResponse({ status: 401 })), 'login')
+    assert.equal(outcome(frameResponse({ status: 401, contentType: 'application/json' })), 'login')
+  })
+
+  it('leaves the document for a followed redirect that carries a frame target', () => {
+    let response = frameResponse({ redirected: true, url: 'https://remix.run/auth/login' })
+    assert.deepEqual(classifyFrameResponse(response, { target: 'admin-content' }), {
+      kind: 'document-navigation',
+      url: 'https://remix.run/auth/login',
+    })
+    assert.equal(
+      outcome(response),
+      'render',
+      'a top-frame redirect keeps the subframe flow and renders the destination document',
+    )
+  })
+
+  it('never navigates or caches while prefetching', () => {
+    assert.equal(outcome(frameResponse({ status: 500 }), { mode: 'prefetch' }), 'navigated')
+    assert.equal(outcome(frameResponse({ status: 401 }), { mode: 'prefetch' }), 'navigated')
+    assert.equal(
+      outcome(frameResponse({ redirected: true, url: 'https://remix.run/login' }), {
+        target: 'admin-content',
+        mode: 'prefetch',
+      }),
+      'navigated',
+    )
+    assert.equal(
+      outcome(frameResponse({ contentType: 'application/json' }), { mode: 'prefetch' }),
+      'navigated',
+    )
+    assert.equal(outcome(frameResponse({ status: 400 }), { mode: 'prefetch' }), 'render')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // prefetchFrameResponse — warming a frame for `data-rmx-prefetch` / `prefetch()`
 //
 // A prefetch must never take over the document (redirect with a target, 401), must not
@@ -326,7 +461,7 @@ function requestPriority(init: RequestInit | undefined): unknown {
 
 describe('prefetchFrameResponse', () => {
   it('marks the warm as a low-priority request', async () => {
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -344,7 +479,7 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('resolves without navigating for a redirect with a frame target', async () => {
-    stubFetch({ redirected: true, ok: true, url: 'https://remix.run/login', status: 200 })
+    stubFetch(frameResponse({ redirected: true, url: 'https://remix.run/login' }))
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -354,7 +489,7 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('resolves without navigating for a 401', async () => {
-    stubFetch({ redirected: false, ok: false, url: 'https://remix.run/admin/client', status: 401 })
+    stubFetch(frameResponse({ status: 401, contentType: 'application/json' }))
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -364,7 +499,7 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('does not cache the 5xx recovery card', async () => {
-    stubFetch({ redirected: false, ok: false, url: 'https://remix.run/admin/client', status: 500 })
+    stubFetch(frameResponse({ status: 500, text: '<div>boom</div>' }))
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -374,14 +509,7 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('caches a 4xx validation fragment exactly like a real navigation', async () => {
-    let response = {
-      redirected: false,
-      ok: false,
-      url: 'https://remix.run/admin/client',
-      status: 400,
-      headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8' }),
-      text: async () => '<div>slot outside booking hours</div>',
-    } as Response
+    let response = frameResponse({ status: 400, text: '<div>slot outside booking hours</div>' })
     stubFetch(response)
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
@@ -392,15 +520,13 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('does not cache a non-HTML 4xx recovery card', async () => {
-    let response = {
-      redirected: false,
-      ok: false,
-      url: 'https://remix.run/admin/client',
-      status: 404,
-      headers: new Headers({ 'Content-Type': 'application/json' }),
-      text: async () => '{"error":"not found"}',
-    } as Response
-    stubFetch(response)
+    stubFetch(
+      frameResponse({
+        status: 404,
+        contentType: 'application/json',
+        text: '{"error":"not found"}',
+      }),
+    )
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -410,14 +536,7 @@ describe('prefetchFrameResponse', () => {
   })
 
   it('does not cache a non-HTML 2xx response', async () => {
-    let response = {
-      redirected: false,
-      ok: true,
-      url: 'https://remix.run/admin/client',
-      status: 200,
-      headers: new Headers({ 'Content-Type': 'application/json' }),
-    } as Response
-    stubFetch(response)
+    stubFetch(frameResponse({ contentType: 'application/json' }))
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -428,7 +547,7 @@ describe('prefetchFrameResponse', () => {
 
   it('keeps a one-shot agent prefill for the real navigation', async () => {
     agentPrefillMap.set('/admin/client', { message: 'hi' })
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     let result = await prefetchFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
@@ -443,7 +562,7 @@ describe('prefetchFrameResponse', () => {
 
   it('still consumes the prefill on a real navigation', async () => {
     agentPrefillMap.set('/admin/client', { message: 'hi' })
-    stubFetch({ redirected: false, ok: true, url: 'https://remix.run/admin/client', status: 200 })
+    stubFetch(frameResponse())
 
     await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',

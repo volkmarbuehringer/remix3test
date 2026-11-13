@@ -1,5 +1,5 @@
+import { defaultResolveFrame } from 'remix/component'
 import type { FrameContent, ResolveFrameOptions } from 'remix/component'
-import { Accept, SuperHeaders } from 'remix/headers'
 
 import { routes } from '../routes.ts'
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
@@ -18,29 +18,105 @@ export function isSameOriginFrameSource(url: URL): boolean {
   return url.origin === window.location.origin
 }
 
+type FrameMode = 'navigate' | 'prefetch'
+
 type FrameFetchResult =
   | { kind: 'response'; response: Response }
   | { kind: 'navigated' }
   | { kind: 'error-card'; content: FrameContent }
 
-interface FrameFetchOptions extends ResolveFrameOptions {
-  /**
-   * Prefetches only warm the cache from a hover/focus intent: they must not navigate the
-   * document, must not consume a one-shot agent prefill, and must not cache the recovery
-   * card for a 5xx.
-   */
-  mode?: 'navigate' | 'prefetch'
+/**
+ * What the app should do with a frame response.
+ *
+ * Kept separate from the side effects so the 4xx/5xx/401 policy is directly testable:
+ * `window.location.assign` cannot be stubbed in a real browser test.
+ */
+export type FrameOutcome =
+  /** Render the response body inside the frame. */
+  | { kind: 'render' }
+  /** Do nothing; a real navigation must not happen (prefetch) or already bailed. */
+  | { kind: 'navigated' }
+  /** Leave the frame document for `url` (a redirect that crossed sections). */
+  | { kind: 'document-navigation'; url: string }
+  /** The frame target is unauthenticated; the document must go to the login page. */
+  | { kind: 'login' }
+  /** Show the reload recovery card (5xx / non-HTML body). */
+  | { kind: 'recovery-card' }
+  /** A 4xx with a non-HTML body is a routing mistake; report it and show the card. */
+  | { kind: 'non-html-error' }
+
+/**
+ * Classifies a fetched frame response with the app's policy. Total over every response the
+ * runtime can produce, including the ones `defaultResolveFrame` rejects before returning.
+ */
+export function classifyFrameResponse(
+  response: Response,
+  options?: { target?: string | undefined; mode?: FrameMode | undefined },
+): FrameOutcome {
+  let prefetching = options?.mode === 'prefetch'
+
+  // A redirected response may contain document UI that is not valid for the requested subframe.
+  // The server's frameRedirects() already follows the same-section destinations that render
+  // a fragment, so a redirect still visible here crossed a section or left the in-frame set:
+  // perform a document navigation instead of injecting the destination document into the frame.
+  if (response.redirected && options?.target) {
+    return prefetching ? { kind: 'navigated' } : { kind: 'document-navigation', url: response.url }
+  }
+
+  if (response.status === 401) {
+    return prefetching ? { kind: 'navigated' } : { kind: 'login' }
+  }
+
+  if (prefetching) {
+    // Only a response a real navigation would render may be warmed: never the recovery
+    // card for a 5xx, a redirect, a login bounce, or a non-HTML body.
+    return isRenderableFrameResponse(response) ? { kind: 'render' } : { kind: 'navigated' }
+  }
+
+  if (response.status >= 500) return { kind: 'recovery-card' }
+
+  if (isRenderableFrameResponse(response)) return { kind: 'render' }
+
+  // A 4xx with a non-HTML body is a routing mistake, not a validation re-render; a 2xx
+  // that declares a non-HTML body (a download or API endpoint) is equally unreconcilable.
+  return response.status < 500 ? { kind: 'non-html-error' } : { kind: 'recovery-card' }
+}
+
+function isRenderableFrameResponse(response: Response): boolean {
+  // 5xx is a genuine server error: its body is never a reusable fragment, even when
+  // the server declares HTML for it.
+  if (response.status >= 500) return false
+
+  let contentType = response.headers?.get('Content-Type')
+  let isHtml = contentType != null && contentType.toLowerCase().includes('text/html')
+
+  // A 2xx frame target that omits Content-Type stays allowed so header-less responses
+  // (tests, hand-built fragments) keep working. A non-2xx body must declare HTML:
+  // a form validation re-render (400) or a not-found page (404) is an intended
+  // fragment, while a JSON/plain-text error body is not.
+  return response.ok ? contentType == null || isHtml : isHtml
 }
 
 /**
  * Fetches a frame source and classifies the outcome, so the navigation and prefetch
  * callers can share one request path while applying different side effects.
+ *
+ * Request construction (method, form encoding, `Accept`, `X-Remix-Frame`,
+ * `X-Remix-Target`, `Content-Type`, `same-origin`) is delegated to the runtime's
+ * `defaultResolveFrame` (remix #12249/#11938). The `fetch` override keeps the app-only
+ * policy: the one-shot `X-Agent-Prefill` payload, `cache: 'no-store'`, and low priority
+ * for a hover warm.
+ *
+ * `defaultResolveFrame` rejects every `5xx` and every non-HTML `3xx`/`4xx` with a plain
+ * `Error` before returning the response, so those outcomes are reclassified here from the
+ * response captured by the override.
  */
 async function fetchFrameResponse(
   url: URL,
-  options?: FrameFetchOptions,
+  options?: ResolveFrameOptions,
+  mode: FrameMode = 'navigate',
 ): Promise<FrameFetchResult> {
-  let prefetching = options?.mode === 'prefetch'
+  let prefetching = mode === 'prefetch'
 
   if (!isSameOriginFrameSource(url)) {
     // Cross-origin sources fall back to document navigation, matching the runtime's
@@ -49,33 +125,41 @@ async function fetchFrameResponse(
     return { kind: 'navigated' }
   }
 
-  let headers = new SuperHeaders()
-  headers.accept = new Accept('text/html')
-  headers.set('X-Remix-Frame', 'true')
-
-  if (options?.target) {
-    headers.set('X-Remix-Target', options.target)
-  }
-
   let prefillKey = url.pathname + url.search
   let prefill = agentPrefillMap.get(prefillKey)
+  let prefillHeader: string | undefined
   if (prefill) {
     let encoded = new TextEncoder().encode(JSON.stringify(prefill))
     let binary = String.fromCharCode(...new Uint8Array(encoded))
-    headers.set('X-Agent-Prefill', btoa(binary))
+    prefillHeader = btoa(binary)
   }
 
-  let { body, encType } = getRequestBody(options)
-  if (encType) headers.set('Content-Type', encType)
-  let response = await fetch(url, {
-    cache: 'no-store',
-    headers,
-    // A hover warm must not compete with the navigation it is meant to accelerate.
-    ...(prefetching ? { priority: 'low' as const } : {}),
-    ...(options?.method !== undefined ? { method: options.method } : {}),
-    ...(body !== undefined ? { body } : {}),
-    ...(options?.signal !== undefined ? { signal: options.signal } : {}),
-  })
+  // `defaultResolveFrame` validates the response *after* the fetch override returns,
+  // so a rejected response can only be classified by keeping a reference to it.
+  let fetched: Response | undefined
+  let response: Response
+  try {
+    response = await defaultResolveFrame(url.href, options, {
+      async fetch(fetchUrl, init) {
+        let headers = new Headers(init.headers)
+        if (prefillHeader !== undefined) headers.set('X-Agent-Prefill', prefillHeader)
+        let result = await fetch(fetchUrl, {
+          ...init,
+          headers,
+          cache: 'no-store',
+          // A hover warm must not compete with the navigation it is meant to accelerate.
+          ...(prefetching ? { priority: 'low' as const } : {}),
+        })
+        fetched = result
+        return result
+      },
+    })
+  } catch (error) {
+    // A network/abort failure has no response to classify — surface it like the
+    // previous hand-rolled resolver did, so the runtime's error channel reports it.
+    if (!fetched) throw error
+    response = fetched
+  }
 
   // A prefetch only warms this URL; keep a one-shot prefill available for a real
   // navigation that misses the cache (a cache hit deletes it in the entry resolver).
@@ -83,52 +167,32 @@ async function fetchFrameResponse(
     agentPrefillMap.delete(prefillKey)
   }
 
-  // A redirected response may contain document UI that is not valid for the requested subframe.
-  // The server's frameRedirects() already follows the same-section destinations that render
-  // a fragment, so a redirect still visible here crossed a section or left the in-frame set:
-  // perform a document navigation instead of injecting the destination document into the frame.
-  if (response.redirected && options?.target) {
-    if (!prefetching) window.location.assign(response.url)
-    return { kind: 'navigated' }
+  let outcome = classifyFrameResponse(response, { target: options?.target, mode })
+
+  let result: FrameFetchResult
+  switch (outcome.kind) {
+    case 'render':
+      result = { kind: 'response', response }
+      break
+    case 'document-navigation':
+      window.location.assign(outcome.url)
+      result = { kind: 'navigated' }
+      break
+    case 'login':
+      window.location.assign(routes.auth.login.index.href())
+      result = { kind: 'navigated' }
+      break
+    case 'navigated':
+      result = { kind: 'navigated' }
+      break
+    case 'non-html-error':
+      result = nonHtmlFrameError(url, response)
+      break
+    case 'recovery-card':
+      result = { kind: 'error-card', content: recoveryCard() }
+      break
   }
-
-  if (response.status === 401) {
-    if (!prefetching) window.location.assign(routes.auth.login.index.href())
-    return { kind: 'navigated' }
-  }
-
-  if (!response.ok) {
-    // The server may return a meaningful fragment for a non-2xx outcome such as
-    // a form validation re-render (400) or a not-found page (404). Render the
-    // response body only when it is HTML — a JSON/plain-text error body is not a
-    // usable fragment. Treat 5xx as a genuine server error, where the body is
-    // not a usable fragment and a reload is the right recovery.
-    if (response.status < 500 && isHtmlResponse(response)) {
-      return { kind: 'response', response }
-    }
-
-    if (prefetching) return { kind: 'navigated' }
-
-    if (response.status < 500) {
-      // A frame target that answers a 4xx with a non-HTML body is a routing
-      // mistake, not a validation re-render. Show the recovery card and report
-      // it; do not reconcile a JSON/plain-text body as frame HTML.
-      return nonHtmlFrameError(url, response)
-    }
-
-    return { kind: 'error-card', content: recoveryCard() }
-  }
-
-  // A 2xx frame target that declares a non-HTML body (a download or API
-  // endpoint) is equally unreconcilable. Missing Content-Type stays allowed so
-  // header-less responses (tests, hand-built fragments) keep working.
-  let contentType = response.headers?.get('Content-Type')
-  if (contentType != null && !contentType.toLowerCase().includes('text/html')) {
-    if (prefetching) return { kind: 'navigated' }
-    return nonHtmlFrameError(url, response)
-  }
-
-  return { kind: 'response', response }
+  return result
 }
 
 function nonHtmlFrameError(url: URL, response: Response): FrameFetchResult {
@@ -173,53 +237,6 @@ export async function prefetchFrameResponse(
   url: URL,
   options?: ResolveFrameOptions,
 ): Promise<Response | undefined> {
-  let result = await fetchFrameResponse(url, { ...options, mode: 'prefetch' })
+  let result = await fetchFrameResponse(url, options, 'prefetch')
   return result.kind === 'response' ? result.response : undefined
-}
-
-function isHtmlResponse(response: Response): boolean {
-  let contentType = response.headers?.get('Content-Type')
-  return contentType != null && contentType.toLowerCase().includes('text/html')
-}
-
-/**
- * Encode a frame request body the same way the runtime's default `resolveFrame`
- * does (remix #11938): GET/HEAD carry no body, POST defaults to URL encoding,
- * and the matching `Content-Type` is returned so it can be set explicitly.
- * This resolver replaces the runtime default, so it must mirror it.
- */
-function getRequestBody(options?: ResolveFrameOptions): {
-  body?: BodyInit
-  encType?: string
-} {
-  let formData = options?.formData
-  if (!formData) return {}
-  if (['get', 'head'].includes((options?.method ?? 'get').toLowerCase())) return {}
-
-  let encType = options?.encType?.toLowerCase()
-
-  if (encType === 'multipart/form-data') return { body: formData }
-
-  if (encType === 'text/plain') {
-    let body = ''
-    for (let [name, value] of formData) {
-      name = normalizeLineBreaks(name)
-      value = normalizeLineBreaks(typeof value === 'string' ? value : value.name)
-      body += `${name}=${value}\r\n`
-    }
-    return { body: new Blob([body], { type: 'text/plain' }), encType: 'text/plain' }
-  }
-
-  let body = new URLSearchParams()
-  for (let [name, value] of formData) {
-    body.append(
-      normalizeLineBreaks(name),
-      normalizeLineBreaks(typeof value === 'string' ? value : value.name),
-    )
-  }
-  return { body, encType: 'application/x-www-form-urlencoded' }
-}
-
-function normalizeLineBreaks(value: string): string {
-  return value.replace(/\r\n|\r|\n/g, '\r\n')
 }
