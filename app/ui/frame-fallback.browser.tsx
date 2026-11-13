@@ -1,4 +1,4 @@
-import { clientEntry, css, on, type Handle } from 'remix/component'
+import { clientEntry, css, on, ref, type Handle } from 'remix/component'
 import { theme } from './theme/theme.ts'
 
 type FrameFallbackProps = {
@@ -19,6 +19,12 @@ type FrameFallbackProps = {
  * wait looks abnormal; the retry reloads the named frame (or the containing
  * frame, or the page) and the normal reconciliation replaces the slot.
  *
+ * The wait starts when the slot is actually on screen, not when it mounts: a
+ * lazy frame below the fold (or inside a hidden pane) is intentionally waiting
+ * for the viewport, and flipping to "taking longer than expected" before it has
+ * even been requested would be wrong. A visible fallback that stays pending for
+ * the whole delay still offers the retry.
+ *
  * Mounted as the `fallback` prop of a server-rendered frame, so it must not
  * depend on parent props beyond the serializable ones above.
  */
@@ -27,20 +33,58 @@ export const FrameFallback = clientEntry(
   function FrameFallbackEntry(handle: Handle<FrameFallbackProps>) {
     let showRetry = false
     let timerStarted = false
+    let rootElement: HTMLElement | undefined
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    let observer: IntersectionObserver | undefined
 
     handle.queueTask(() => {
       if (timerStarted) return
       timerStarted = true
-      let delay = handle.props.retryAfterMs ?? 10_000
-      let timer = setTimeout(() => {
-        showRetry = true
-        void handle.update()
-      }, delay)
-      handle.signal.addEventListener('abort', () => clearTimeout(timer), { once: true })
+
+      let startTimer = () => {
+        if (retryTimer !== undefined) return
+        let delay = handle.props.retryAfterMs ?? 10_000
+        retryTimer = setTimeout(() => {
+          showRetry = true
+          void handle.update()
+        }, delay)
+      }
+
+      // Without an observer (no run(), old browser, test harness) keep the
+      // previous behavior: the fallback is presumed to be in view.
+      if (typeof IntersectionObserver === 'undefined' || !rootElement) {
+        startTimer()
+      } else {
+        observer = new IntersectionObserver((entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return
+          observer?.disconnect()
+          observer = undefined
+          startTimer()
+        })
+        observer.observe(rootElement)
+      }
+
+      handle.signal.addEventListener(
+        'abort',
+        () => {
+          observer?.disconnect()
+          observer = undefined
+          if (retryTimer !== undefined) clearTimeout(retryTimer)
+          retryTimer = undefined
+        },
+        { once: true },
+      )
     })
 
     return () => (
-      <div mix={fallbackCss}>
+      <div
+        mix={[
+          fallbackCss,
+          ref((node) => {
+            rootElement = node
+          }),
+        ]}
+      >
         <span mix={labelCss}>{handle.props.label}</span>
         <noscript>Diese Ansicht benötigt JavaScript.</noscript>
         {showRetry ? (

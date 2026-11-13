@@ -126,11 +126,29 @@ function paneHtml(): string {
 }
 
 /**
+ * The server-selected thread, when this document was rendered with `?detail=`.
+ *
+ * The page carries it as a data attribute because a deep link has no
+ * sessionStorage entry yet, and the lazy pane's frame may not have loaded the
+ * close link the entry could otherwise read the id from.
+ */
+function serverSelectedId(): string {
+  return (
+    document.querySelector<HTMLElement>(PAGE_SELECTOR)?.getAttribute('data-chatlog-selected-id') ??
+    ''
+  )
+}
+
+/**
  * Re-opens the remembered transcript after a frame reload.
  *
  * The server only renders a transcript when the request carried `?detail=`, so
  * after a delete redirect or an SSE invalidate the pane comes back collapsed.
  * The selection is restored here as a frame reload — never a page one.
+ *
+ * A `?detail=` document is the other direction: the server opens the pane, so
+ * that explicit selection overrides (and refreshes) the remembered one instead
+ * of being collapsed on hydration.
  *
  * The settle check runs once the reload commits rather than from the mutation
  * observer: a pane already showing the same "not found" fragment (the remembered
@@ -140,6 +158,11 @@ function paneHtml(): string {
 async function restoreSelection(handle: Handle): Promise<void> {
   let frame = detailFrame(handle)
   let remembered = readOpenId()
+  let serverSelected = serverSelectedId()
+  if (serverSelected) {
+    remembered = serverSelected
+    rememberOpenId(serverSelected)
+  }
 
   setOpenState(remembered)
   if (!remembered || !frame) return

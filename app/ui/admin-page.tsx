@@ -171,6 +171,20 @@ const frameGridStyle = css({
   gap: theme.space.xl,
 })
 
+/**
+ * Reserves the height of a deferred dashboard card.
+ *
+ * Both frames below the fold use the runtime's built-in lazy loading, so the
+ * server ships this slot instead of the resolved card. 15.5rem is the measured
+ * card height in the dashboard's two-column desktop layout (1280×720) — enough
+ * to keep the section from collapsing and reflowing the page when the frame
+ * lands. Wider cards with wrapped stat tiles can still exceed it; this is a
+ * floor, not a fixed height.
+ */
+const deferredSlotStyle = css({
+  minHeight: '15.5rem',
+})
+
 /** A single navigation destination rendered as a fully clickable card. */
 function NavCard(handle: Handle<NavCardProps>) {
   return () => {
@@ -275,18 +289,27 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
           ))}
         </div>
 
-        {/* Frame-based dashboard sections — load independently */}
+        {/* Frame-based dashboard sections. Both are below the fold, so they use
+            the runtime's built-in lazy loading: only the reserved-height
+            fallback ships, and each fragment is fetched once when the section
+            enters the page scroller's viewport. They stay eager-under-lazy — an
+            ancestor reload still refreshes them and the loaded content stays
+            mounted. Trade-off: without JS these two cards show the fallback's
+            noscript copy; every other dashboard figure is server-rendered. */}
         <p mix={sectionTitleStyle}>System & Aktivität</p>
         <div mix={frameGridStyle}>
           <div>
             <Frame
               name={frames.adminStats}
               src={routes.admin.fragments.stats.href()}
+              loading="lazy"
               fallback={
-                <FrameFallback
-                  label="Server-Statistiken werden geladen…"
-                  name={frames.adminStats}
-                />
+                <div mix={deferredSlotStyle}>
+                  <FrameFallback
+                    label="Server-Statistiken werden geladen…"
+                    name={frames.adminStats}
+                  />
+                </div>
               }
             />
           </div>
@@ -295,11 +318,14 @@ export function AdminDashboardContent(handle: Handle<AdminDashboardContentProps>
             <Frame
               name={frames.adminRecentActivity}
               src={routes.admin.fragments.recentActivity.href()}
+              loading="lazy"
               fallback={
-                <FrameFallback
-                  label="Letzte Aktivitäten werden geladen…"
-                  name={frames.adminRecentActivity}
-                />
+                <div mix={deferredSlotStyle}>
+                  <FrameFallback
+                    label="Letzte Aktivitäten werden geladen…"
+                    name={frames.adminRecentActivity}
+                  />
+                </div>
               }
             />
           </div>

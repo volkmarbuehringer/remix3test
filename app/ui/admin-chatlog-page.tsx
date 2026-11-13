@@ -200,7 +200,11 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
     let pageQuery = chatlogQuery(offset, source)
 
     return (
-      <div mix={table.page} data-chatlog-page="true">
+      <div
+        mix={table.page}
+        data-chatlog-page="true"
+        {...(selectedId ? { 'data-chatlog-selected-id': selectedId } : {})}
+      >
         <ConfirmDelete />
         <AdminChatlogDetail />
         <h2 mix={table.title}>Chat-Konversationen</h2>
@@ -396,6 +400,15 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                 routes.admin.chatlog.fragments.detail.href({ id: selectedId ?? NO_DETAIL_ID }) +
                 pageQuery
               }
+              // The pane starts hidden (`display: none`) until a row is picked,
+              // so its content is never on screen at first paint. Lazy keeps the
+              // empty `none` transcript out of the page load; the named handle is
+              // still registered before content loads, so the master–detail entry
+              // can `reload({ src })` it in place on selection and after a parent
+              // frame reload. For a server-rendered `?detail=` document the page
+              // carries `data-chatlog-selected-id`, the entry keeps the pane open,
+              // and the fallback is what the runtime observes until it loads.
+              loading="lazy"
               fallback={<FrameFallback label="Konversation wird geladen…" name={DETAIL_FRAME} />}
             />
           </div>

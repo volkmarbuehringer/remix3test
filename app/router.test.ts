@@ -101,7 +101,7 @@ describe('Admin page — blocking shell, streamed regions', () => {
     )
   })
 
-  it('streams the nested fallbacks before the nested frames resolve', async () => {
+  it('ships both deferred fallbacks and resolves neither section frame server-side', async () => {
     let response = await router.fetch(`${BASE}/admin`, {
       headers: { Cookie: adminCookie },
     })
@@ -109,7 +109,8 @@ describe('Admin page — blocking shell, streamed regions', () => {
     assert.ok(response.body)
     let chunks = readChunks(response.body)
 
-    // Both nested skeletons ship in the first (blocking-shell) chunk.
+    // Both nested skeletons ship in the first (blocking-shell) chunk, while the
+    // shell itself renders inline (no fallback, no resolved nested template).
     let fallbackChunk = await readUntil(chunks, (html) =>
       html.includes('Server-Statistiken werden geladen'),
     )
@@ -117,40 +118,23 @@ describe('Admin page — blocking shell, streamed regions', () => {
       fallbackChunk.includes('Letzte Aktivitäten werden geladen'),
       'both nested fallbacks are in the first chunk',
     )
+    assert.ok(fallbackChunk.includes('Chat-Protokolle'), 'the dashboard shell content is inline')
     assert.equal(countTemplates(fallbackChunk), 0, 'no nested frame has resolved yet')
 
-    // The resolved stats frame still arrives later as a <template>.
-    let resolved = await readUntil(chunks, (html) => html.includes('Betriebszeit'))
+    // Both section frames are `loading="lazy"`: the server emits the fallback
+    // and frame metadata only, and `run()` fetches each fragment when it nears
+    // the viewport. Resolving them here would restore the two eager fragment
+    // renders the lazy adoption removed (request counts are pinned in
+    // app/actions/admin/fragments/lazy-frames.test.e2e.ts).
+    let html = fallbackChunk
+    for await (let chunk of chunks) html += chunk
+
+    assert.ok(html.includes('System &amp; Aktivität'), 'the frame section heading should render')
+    assert.equal(countTemplates(html), 0, 'lazy frames are resolved by run(), not the server')
+    assert.ok(!html.includes('Betriebszeit'), 'the stats payload must not be inlined')
     assert.ok(
-      countTemplates(resolved) >= 1,
-      'Should have at least one <template> tag when a nested frame resolves',
-    )
-    assert.ok(resolved.includes('Server'), 'Stats frame should contain server info')
-    assert.ok(resolved.includes('Betriebszeit'), 'Stats frame should contain Betriebszeit')
-  })
-
-  it('eventually renders all framed content', async () => {
-    let response = await router.fetch(`${BASE}/admin`, {
-      headers: { Cookie: adminCookie },
-    })
-
-    assert.ok(response.body)
-    let chunks = readChunks(response.body)
-
-    // Consume the entire stream
-    let html = ''
-    for await (let chunk of chunks) {
-      html += chunk
-    }
-
-    // Verify framed content all resolved
-    assert.ok(html.includes('Chat-Protokolle'), 'Admin dashboard cards should render')
-    assert.ok(html.includes('Server'), 'Stats fragment should resolve')
-    assert.ok(html.includes('Betriebszeit'), 'Stats fragment should include Betriebszeit')
-    assert.ok(html.includes('Letzte Aktivitäten'), 'Activity fragment should resolve')
-    assert.ok(
-      countTemplates(html) >= 2,
-      'Should have at least 2 template tags for stats + activity frames',
+      !html.includes('Created a new chat conversation'),
+      'the recent-activity payload must not be inlined',
     )
   })
 

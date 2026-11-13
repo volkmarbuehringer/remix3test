@@ -229,6 +229,31 @@ describe('Admin Chatlog controller', () => {
     )
   })
 
+  // The pane is hidden until a row is picked. Its frame is lazy, so the page
+  // render must not resolve the empty "none" transcript server-side (the old
+  // eager fallback streamed a <template> with that fragment into every page).
+  it('defers the hidden detail pane instead of resolving the none transcript', async () => {
+    let response = await adminChatlogGet()
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(
+      html.includes('Konversation wird geladen…'),
+      'the pane should ship its fallback so the runtime can observe it',
+    )
+    assert.equal(
+      html.includes('data-chatlog-detail="true"'),
+      false,
+      'the none transcript must not be inlined into the list page',
+    )
+    assert.equal(
+      (html.match(/<template\b/g) ?? []).length,
+      0,
+      'a lazy nested frame must not resolve during the page response',
+    )
+  })
+
   // Regression guard: the transcript used to be loaded into the OUTER
   // admin-content frame, replacing the list entirely. The row links are now
   // driven into the nested detail frame by the client entry, so they must not
