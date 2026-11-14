@@ -101,7 +101,7 @@ Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event whi
 
 **Context:** The `entry.tsx` client asset implements `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
 
-**Since the `b4a0aa9a` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
+**Since the `848e2fbe` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
 
 | Response | Navigation outcome | Prefetch outcome |
 | --- | --- | --- |
@@ -129,12 +129,12 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-13 against the installed preview release `v0.20261113.180701-main-b4a0aa9a` (source `b4a0aa9a`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-13 against the installed preview release `v0.20261113.215858-main-848e2fbe` (source `848e2fbe`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:893`); inherited reloads dispatch in `startInheritedReload` at `:1183` (defined at `:1157`).
-- `reloadComplete` — dispatched after reconciliation settles, including cancellation/failure (`:1154`, inherited at `:1196`).
+- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:980`); inherited reloads dispatch in the `inherit` case at `:1106` (`startInheritedReload` at `:1398`).
+- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:1042`; inherited at `:1130`, `completeInheritedReload` at `:1410`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
 
 Initial lazy-frame viewport loads and viewport retries do **not** dispatch a `reloadStart`/`reloadComplete` pair; only explicit and ancestor-driven reloads do (see `references/remix3-frame-cliententry/lazy-frames.md`).
 
@@ -146,7 +146,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 - Starting the transition on `reloadStart` is still wrong (the snapshot predates the response), and `startViewTransition(async () => { await frame.reload() })` still holds the update phase for the whole request.
 - A `MutationObserver` around the frame subtree remains rejected: it re-enters for unrelated mutations, has no ordering guarantee against reconcile, and produces duplicate/partial snapshots.
 
-**App implementation (since the `b4a0aa9a` pin):** `app/assets/frame-response.browser.tsx` now delegates to `defaultResolveFrame(..., { fetch, commit })`, so the commit hook is live. `app/assets/frame-transition.browser.ts` owns the single animated flow:
+**App implementation (since the `848e2fbe` pin):** `app/assets/frame-response.browser.tsx` now delegates to `defaultResolveFrame(..., { fetch, commit })`, so the commit hook is live. `app/assets/frame-transition.browser.ts` owns the single animated flow:
 
 - **Candidate:** admin lists grid ⇄ edit/create panel (`/admin/lists`, target `admin-content`). The URL toggles an `editing`/`creating` parameter, so `shouldAnimateAdminListsPanel(options, to)` compares `options.transition.from.url` with `to`. Pagination, filter/search, reload, form saves (same panel parameter), other frame targets, and independent reloads stay instant. `createAdminListsPanelCommit` only attaches the callback for a navigation-driven `admin-content` load.
 - **Scoping:** `app/ui/admin-lists-page.tsx` marks both root branches with `data-frame-transition-region="admin-lists"` (constant contract in `app/utils/frame-transition.ts`; it is server HTML, so it exists in both snapshots). The callback sets `view-transition-name: admin-lists-content` on the one region immediately before `startViewTransition()` and re-applies it inside the update callback after `commitFrame()` (the new root is a re-created node). It removes the name when the transition settles, guarded by an `activeTransition` token so a superseded transition cannot clear a newer one's name.
@@ -156,7 +156,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 
 Tests: `app/assets/frame-transition.test.browser.ts` (decision matrix, every fallback, name cleanup, no-stall with a never-resolving `finished`) and `app/actions/admin/lists/lists-frame-transition.test.e2e.ts` (real runtime: one transition per grid ⇄ editor swap, no document load, cleanup after settle).
 
-Never reach into the internal `onCommit` (`frame.ts:1116`), which is not exported; use the exported commit override.
+Never reach into the internal `onCommit` (`frame.ts:1358`), which is not exported; use the exported commit override.
 
 Status: one flow is animated; everything else stays instant by design.
 
@@ -251,7 +251,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 **Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered. When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
-**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:634`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
+**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:667`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 

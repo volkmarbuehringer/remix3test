@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261113.180701-main-b4a0aa9a`: `completeReload` is defined at `:1150` and dispatches at `:1154`; the inherited-reload variant dispatches at `:1196`). Since #12200 the reload lifecycle is an explicit state machine and each frame dispatches exactly one `reloadComplete` per `reloadStart`, including re-entered `frame.reload()` and ancestor-inherited reloads. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:796`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires after the frame's active reload settles (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261113.215858-main-848e2fbe`: `completeLoad` is defined at `:1390` and dispatches at `:1042`; the inherited-reload variant is `completeInheritedReload` at `:1410`, dispatching at `:1130`). Since #12183 (pin `848e2fbe`) `reloadStart` is a `FrameReloadStartEvent` carrying the request details and a `finished` promise. Each direct `frame.reload()` announces its own `reloadStart`; a superseded reload finishes aborted and gets **no** `reloadComplete`, while the active reload completes. Ancestor-inherited reloads continue that active event pair. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:854`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -251,10 +251,10 @@ First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/upl
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261113.180701-main-b4a0aa9a`: `startLoad` at `:1080` enters `transitionLoad` at `:796`, whose `start` case dispatches the direct event at `:893`; inherited reloads start at `:1157` and dispatch at `:1183`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261113.215858-main-848e2fbe`: `startLoad` at `:1310` enters `transitionLoad` at `:854`, whose `start` case dispatches the direct event at `:980`; inherited reloads start with `startInheritedReload` at `:1398` and dispatch in the `inherit` case at `:1106`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
-- **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler.
+- **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
 
 Both events fire on the entry's `handle.frame`, and the factory closure survives the reload, so the flag round-trips:
 
@@ -354,7 +354,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1474-1511` at preview release `b4a0aa9a`). The factory closure
+   (`runtime/reconcile.ts:1465-1503` at preview release `848e2fbe`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -398,8 +398,8 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
 - `ref()` is driven by the mixin `insert` event (`@remix-run/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:950`, `:1131`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1298`, `:2123`) for mixin-persisted nodes — not for plain hydration.
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:951`, `:1132`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1299`, `:2154`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 
@@ -480,7 +480,7 @@ This applies whenever a hide-after-hydration change touches an element that carr
 
 ## HMR Entry Identity (timestamped hrefs)
 
-**Dev-only.** Under HMR a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` retain the HMR timestamp, remix #11980). The runtime compares client-entry identity with exactly **one** 13-digit `t=` query segment ignored — `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN = /^t=\d{13}$/` at `@remix-run/component` `src/runtime/diff-dom.ts:9` (compiled to `dist/runtime/diff-dom.js`), applied by `getHmrTimestampQuerySegmentIndex` at `:15-24` and stripped at `:40` — so the existing entry keeps its state instead of remounting. Two `t` segments means nothing is ignored and the entries are treated as different. Production hrefs are fingerprinted, not timestamped, so this never fires in a build.
+**Dev-only.** Under HMR a frame response can carry a client-entry href newer than the live one (`getScriptEntry`/`getHref` retain the HMR timestamp, remix #11980). The runtime compares client-entry identity with exactly **one** 13-digit `t=` query segment ignored — `HMR_TIMESTAMP_QUERY_SEGMENT_PATTERN = /^t=\d{13}$/` at `@remix-run/component` `src/runtime/diff-dom.ts:18` (compiled to `dist/runtime/diff-dom.js`), applied by `getHmrTimestampQuerySegmentIndex` at `:24-35` and stripped at `:48` — so the existing entry keeps its state instead of remounting. Two `t` segments means nothing is ignored and the entries are treated as different. Production hrefs are fingerprinted, not timestamped, so this never fires in a build.
 
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 

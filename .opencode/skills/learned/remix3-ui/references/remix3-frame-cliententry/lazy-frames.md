@@ -4,7 +4,7 @@
 
 Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. The app uses the runtime's built-in `Frame loading="lazy"` (since #12229); its old app-owned `LazyFrame` client entry was removed when that landed.
 
-## Which Frames Are Deferred (verified, pin `b4a0aa9a`)
+## Which Frames Are Deferred (verified, pin `848e2fbe`)
 
 Built-in lazy frames server-render only their fallback and frame metadata; `run()` resolves them when the fallback nears the viewport. The loaded content stays mounted, so scrolling back or reopening a disclosure never refetches.
 
@@ -25,14 +25,14 @@ Must stay eager:
 
 ## Proving a Named Frame Before Deferring It
 
-`createFrame` registers `name` with the runtime's named-frame registry before `hydrateInitial()` can defer the load (`frame.ts:501-504` in the installed `@remix-run/component`), so `handle.frames.get(name)` resolves while the frame is still pending. Two guards keep that honest:
+`createFrame` registers `name` with the runtime's named-frame registry before `hydrateInitial()` can defer the load (`frame.ts:552-554` in the installed `@remix-run/component`), so `handle.frames.get(name)` resolves while the frame is still pending. Two guards keep that honest:
 
 - `app/ui/frame-fallback.test.browser.tsx` covers both fallback states. A hidden lazy frame makes zero requests and offers no retry (a deferred slot is not a stalled one); a visible lazy frame starts loading, shows the retry once it stays pending, and the click reloads the *named* frame (`/deferred`, not the containing `/`) before the response replaces the fallback.
 - The chatlog e2e reloads the document with a remembered selection. `restoreSelection()` runs from the entry's `queueTask` before the lazy frame has loaded and still resolves the handle to reopen the transcript — the app-level check of the same ordering.
 
 `FrameFallback`'s retry wait starts when the slot first intersects the viewport, not when it mounts. That is deliberately a one-shot visibility gate for the retry copy only; it is not a second lazy loader, and it must be removed if the frame runtime ever exposes "load started" to the fallback.
 
-## Built-in `loading="lazy"` behavior (pin `b4a0aa9a`)
+## Built-in `loading="lazy"` behavior (pin `848e2fbe`)
 
 - Eager is the default. `loading="lazy"` requires a fallback that renders at least one DOM element; a text-only or empty fallback logs a warning and loads immediately (the runtime does not insert a placeholder).
 - Without `run()` or `IntersectionObserver`, lazy frames load immediately. Deferred frames do not delay `app.ready()` or ancestor navigation completion.

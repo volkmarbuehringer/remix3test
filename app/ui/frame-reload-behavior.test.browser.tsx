@@ -1,5 +1,13 @@
 import * as assert from 'remix/assert'
-import { Frame, clientEntry, createRoot, run, type FrameHandle, type Handle } from 'remix/component'
+import {
+  Frame,
+  clientEntry,
+  createRoot,
+  run,
+  type FrameHandle,
+  type FrameReloadStartEvent,
+  type Handle,
+} from 'remix/component'
 import { renderToStream } from 'remix/component/server'
 import { afterEach, describe, it } from 'remix/test'
 
@@ -12,10 +20,10 @@ import { afterEach, describe, it } from 'remix/test'
 //   remounting with its fallback. This is the regression test for #12274: it
 //   fails on the previous `0cab1903` pin.
 // - Lists/admin entries listen for `reloadStart`/`reloadComplete` to show a
-//   loading state and flush pending edits. Re-entering `frame.reload()` must
-//   still emit exactly one pair, or those listeners see unmatched/early
-//   events. That path was already correct on `0cab1903`; this pins the
-//   contract against future regressions.
+//   loading state and flush pending edits. Since #12183 (pin `848e2fbe`) each
+//   direct `frame.reload()` announces its own `reloadStart`; a superseded
+//   reload finishes aborted without a `reloadComplete`, and only the active
+//   reload completes. This pins that contract against future regressions.
 
 function withResolvers<T>() {
   let resolve!: (value: T) => void
@@ -79,6 +87,85 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
+type ReloadReentryHarness = {
+  events: string[]
+  reloadStartEvents: FrameReloadStartEvent[]
+  reload: () => Promise<AbortSignal>
+  resolveFirstReload: (content: string) => void
+  resolveSecondReload: (content: string) => void
+}
+
+async function mountReloadReentry(): Promise<ReloadReentryHarness> {
+  let frameHandle: FrameHandle | undefined
+  let events: string[] = []
+  let reloadStartEvents: FrameReloadStartEvent[] = []
+  let callCount = 0
+  let [firstReload, resolveFirstReload] = withResolvers<string>()
+  let [secondReload, resolveSecondReload] = withResolvers<string>()
+
+  let ReloadButton = clientEntry(
+    '/assets/reload-reentry.js#ReloadReentry',
+    function ReloadReentry(handle: Handle) {
+      frameHandle = handle.frame
+      return () => <button id="reload-reentry">Reload</button>
+    },
+  )
+
+  let html = await drain(
+    renderToStream(
+      <main>
+        <Frame src="/reload-reentry" fallback={<div id="reload-fallback">Loading…</div>} />
+      </main>,
+      {
+        resolveFrame: async () =>
+          await drain(
+            renderToStream(
+              <section>
+                <p id="reload-value">Initial</p>
+                <ReloadButton />
+              </section>,
+            ),
+          ),
+      },
+    ),
+  )
+  document.body.innerHTML = html
+
+  let app = run({
+    loadModule(moduleUrl, exportName) {
+      if (moduleUrl === '/assets/reload-reentry.js' && exportName === 'ReloadReentry') {
+        return ReloadButton
+      }
+      throw new Error(`Unexpected module: ${moduleUrl}#${exportName}`)
+    },
+    resolveFrame(src: string) {
+      if (src !== '/reload-reentry') throw new Error(`Unexpected frame src: ${src}`)
+      callCount++
+      if (callCount === 1) return firstReload
+      if (callCount === 2) return secondReload
+      throw new Error(`Unexpected reload call count: ${callCount}`)
+    },
+  })
+  dispose = () => app.dispose()
+  await app.ready()
+
+  assert.ok(frameHandle, 'the frame handle is available after hydration')
+  frameHandle.addEventListener('reloadStart', (event) => {
+    events.push('start')
+    reloadStartEvents.push(event)
+  })
+  frameHandle.addEventListener('reloadComplete', () => events.push('complete'))
+  let hydratedFrameHandle = frameHandle
+
+  return {
+    events,
+    reloadStartEvents,
+    reload: () => hydratedFrameHandle.reload(),
+    resolveFirstReload,
+    resolveSecondReload,
+  }
+}
+
 describe('frame reload behavior', () => {
   it('keeps committed content when src changes while a sub-frame client entry loads', async () => {
     let rootContainer = document.createElement('div')
@@ -139,73 +226,60 @@ describe('frame reload behavior', () => {
     resolveSlowModule(SlowEntry)
   })
 
-  it('dispatches one reloadStart and reloadComplete pair when reload is re-entered', async () => {
-    let frameHandle: FrameHandle | undefined
-    let events: string[] = []
-    let callCount = 0
-    let [firstReload, resolveFirstReload] = withResolvers<string>()
-    let [secondReload, resolveSecondReload] = withResolvers<string>()
+  it('announces each re-entered reload and completes only the active one', async () => {
+    let harness = await mountReloadReentry()
+    let firstReloadPromise = harness.reload()
+    let secondReloadPromise = harness.reload()
 
-    let ReloadButton = clientEntry(
-      '/assets/reload-reentry.js#ReloadReentry',
-      function ReloadReentry(handle: Handle) {
-        frameHandle = handle.frame
-        return () => <button id="reload-reentry">Reload</button>
-      },
-    )
-
-    let html = await drain(
-      renderToStream(
-        <main>
-          <Frame src="/reload-reentry" fallback={<div id="reload-fallback">Loading…</div>} />
-        </main>,
-        {
-          resolveFrame: async () =>
-            await drain(
-              renderToStream(
-                <section>
-                  <p id="reload-value">Initial</p>
-                  <ReloadButton />
-                </section>,
-              ),
-            ),
-        },
-      ),
-    )
-    document.body.innerHTML = html
-
-    let app = run({
-      loadModule(moduleUrl, exportName) {
-        if (moduleUrl === '/assets/reload-reentry.js' && exportName === 'ReloadReentry') {
-          return ReloadButton
-        }
-        throw new Error(`Unexpected module: ${moduleUrl}#${exportName}`)
-      },
-      resolveFrame(src: string) {
-        if (src !== '/reload-reentry') throw new Error(`Unexpected frame src: ${src}`)
-        callCount++
-        if (callCount === 1) return firstReload
-        if (callCount === 2) return secondReload
-        throw new Error(`Unexpected reload call count: ${callCount}`)
-      },
-    })
-    dispose = () => app.dispose()
-    await app.ready()
-
-    assert.ok(frameHandle, 'the frame handle is available after hydration')
-    frameHandle.addEventListener('reloadStart', () => events.push('start'))
-    frameHandle.addEventListener('reloadComplete', () => events.push('complete'))
-
-    let firstReloadPromise = frameHandle.reload()
-    let secondReloadPromise = frameHandle.reload()
-
-    resolveFirstReload('<section><p id="reload-value">Stale</p></section>')
+    harness.resolveFirstReload('<section><p id="reload-value">Stale</p></section>')
     await firstReloadPromise
-    assert.deepEqual(events, ['start'], 'the first reload has not completed')
+    assert.deepEqual(
+      harness.events,
+      ['start', 'start'],
+      'each direct reload announces its own start',
+    )
 
-    resolveSecondReload('<section><p id="reload-value">Fresh</p></section>')
+    harness.resolveSecondReload('<section><p id="reload-value">Fresh</p></section>')
     await secondReloadPromise
-    assert.deepEqual(events, ['start', 'complete'], 'one pair for the re-entered reload')
+    assert.deepEqual(
+      harness.events,
+      ['start', 'start', 'complete'],
+      'only the active reload completes',
+    )
+    assert.equal(
+      (await harness.reloadStartEvents[1]!.finished).aborted,
+      false,
+      'the active reloadStart finishes with its own signal',
+    )
+    assert.equal(document.querySelector('#reload-value')?.textContent, 'Fresh')
+  })
+
+  it('finishes a superseded reload aborted without rendering its response', async () => {
+    let harness = await mountReloadReentry()
+    let firstReloadPromise = harness.reload()
+    let secondReloadPromise = harness.reload()
+
+    harness.resolveFirstReload('<section><p id="reload-value">Stale</p></section>')
+    let firstSignal = await firstReloadPromise
+    assert.equal(firstSignal.aborted, true, 'the superseded reload finishes aborted')
+    assert.equal(
+      (await harness.reloadStartEvents[0]!.finished).aborted,
+      true,
+      'the superseded reloadStart finishes aborted',
+    )
+    assert.deepEqual(
+      harness.events,
+      ['start', 'start'],
+      'the superseded reload must not dispatch reloadComplete',
+    )
+    assert.equal(
+      document.querySelector('#reload-value')?.textContent,
+      'Initial',
+      'the superseded response must never render',
+    )
+
+    harness.resolveSecondReload('<section><p id="reload-value">Fresh</p></section>')
+    await secondReloadPromise
     assert.equal(document.querySelector('#reload-value')?.textContent, 'Fresh')
   })
 

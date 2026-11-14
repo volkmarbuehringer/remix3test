@@ -98,6 +98,13 @@ function replaceInputWithServerValue(value: string): void {
   mounted!.input = next
 }
 
+/** Simulate the frame runtime's event for a submission of the fixture form. */
+function dispatchFormSubmission(): void {
+  mounted!.form.dispatchEvent(
+    Object.assign(new Event('rmx:submission', { bubbles: true }), { form: mounted!.form }),
+  )
+}
+
 afterEach(() => {
   mounted?.dispose()
   mounted = null
@@ -161,6 +168,69 @@ describe('FilterAutoSubmit', () => {
       'the replaced search field should receive focus again',
     )
     assert.equal(mounted!.input.selectionStart, mounted!.input.value.length)
+  })
+
+  it('restores focus after an explicit submit intercepted by the frame runtime', () => {
+    mount()
+    mounted!.input.focus()
+    mounted!.input.value = 'alpha'
+
+    // Enter or the Suchen button: the native submit runs, then the runtime
+    // announces the intercepted submission before fetching the frame.
+    mounted!.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    dispatchFormSubmission()
+    replaceInputWithServerValue('alpha')
+    mounted!.frame.dispatchEvent(new Event('reloadComplete'))
+
+    assert.equal(
+      document.activeElement,
+      mounted!.input,
+      'an explicit submission should restore focus like a debounced one',
+    )
+  })
+
+  it('keeps text typed during a programmatic reload and restores focus', (t) => {
+    let timers = t.useFakeTimers()
+    mount('alpha')
+    mounted!.input.focus()
+
+    // `frame.reload()` has no initiating link or form, so it keeps the
+    // field-focused behavior even though `rmx:submission` never fires.
+    type('alphabeta')
+    mounted!.frame.dispatchEvent(new Event('reloadStart'))
+    replaceInputWithServerValue('alpha')
+    mounted!.frame.dispatchEvent(new Event('reloadComplete'))
+
+    assert.equal(mounted!.input.value, 'alphabeta', 'unsent text survives the refresh')
+    assert.equal(
+      document.activeElement,
+      mounted!.input,
+      'a background refresh must not drop the caret',
+    )
+    timers.advance(SEARCH_DEBOUNCE_MS)
+    assert.equal(mounted!.submits(), 1, 'the restored text is submitted again')
+  })
+
+  it('does not steal focus after a link-origin reload', (t) => {
+    let timers = t.useFakeTimers()
+    mount('alpha')
+    mounted!.input.focus()
+
+    type('alphabeta')
+    mounted!.frame.dispatchEvent(
+      Object.assign(new Event('reloadStart'), { element: document.createElement('a') }),
+    )
+    replaceInputWithServerValue('beta')
+    mounted!.frame.dispatchEvent(new Event('reloadComplete'))
+
+    assert.equal(mounted!.input.value, 'beta', 'the link navigation wins over unsent text')
+    assert.notEqual(
+      document.activeElement,
+      mounted!.input,
+      'an unrelated link navigation must not pull focus into the filter',
+    )
+    timers.advance(SEARCH_DEBOUNCE_MS)
+    assert.equal(mounted!.submits(), 0, 'discarded text must not be submitted')
   })
 
   it('keeps text typed while the reload is in flight and submits it after the swap', (t) => {

@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/component'
+import { clientEntry, on, type Handle } from 'remix/component'
 import button from './theme/button.ts'
 import { Glyph, type GlyphName } from './theme/glyph/glyph.tsx'
 import { table } from './mixins/admin-table.ts'
@@ -21,36 +21,16 @@ interface PendingSubmitButtonProps {
  * Primary-tone submit button with pending feedback (guide 09 "Add pending
  * feedback").
  *
- * Disables itself and swaps the label while the containing frame is reloading
- * after a native form submit. Frame reload events only fire in the browser, so
- * listeners are registered behind `typeof document` — registering during SSR
- * passes the frozen AbortSignal-shaped `handle.signal` stub to native
- * `addEventListener`, which Bun rejects (see remix3-tooling § Bun Runtime).
+ * Disables itself and swaps the label while its own form submission is
+ * pending. It listens for `rmx:submission`, which targets the actual submitter
+ * and carries the submission's `finished` promise, instead of the frame's
+ * reload events: an unrelated frame reload must not disable this button, and a
+ * superseded submission finishes aborted without a `reloadComplete` (#12183).
  */
 export const PendingSubmitButton = clientEntry(
   import.meta.url + '#PendingSubmitButton',
   function PendingSubmitButton(handle: Handle<PendingSubmitButtonProps>) {
     let pending = false
-
-    if (typeof document !== 'undefined') {
-      handle.frame.addEventListener(
-        'reloadStart',
-        () => {
-          pending = true
-          void handle.update()
-        },
-        { signal: handle.signal },
-      )
-
-      handle.frame.addEventListener(
-        'reloadComplete',
-        () => {
-          pending = false
-          void handle.update()
-        },
-        { signal: handle.signal },
-      )
-    }
 
     return () => {
       let { children, pendingLabel, icon, stretch = true } = handle.props
@@ -59,7 +39,22 @@ export const PendingSubmitButton = clientEntry(
         <button
           type="submit"
           disabled={pending}
-          mix={[button({ tone: 'primary' }), stretch ? table.spacer : undefined]}
+          mix={[
+            button({ tone: 'primary' }),
+            on('rmx:submission', async (event, signal) => {
+              pending = true
+              void handle.update()
+              try {
+                await event.finished
+              } catch {
+                // The frame runtime reports the failure; just leave pending state.
+              }
+              if (signal.aborted) return
+              pending = false
+              void handle.update()
+            }),
+            stretch ? table.spacer : undefined,
+          ]}
         >
           {icon ? (
             <>

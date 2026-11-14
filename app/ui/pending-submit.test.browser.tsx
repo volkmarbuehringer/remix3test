@@ -14,17 +14,13 @@ type PendingProps = {
 }
 
 // ---------------------------------------------------------------------------
-// PendingSubmitButton — pending feedback on frame reloads.
+// PendingSubmitButton — pending feedback for its own form submission.
 //
-// The entry swaps its label and disables itself between the containing frame's
-// `reloadStart` and `reloadComplete` events — an event vocabulary on the
-// runtime FrameHandle that is not publicly constructible, and whose real
-// trigger (a native submit intercepted by the frame runtime) is covered by the
-// uploads e2e. What is testable in isolation is the entry's state machine:
-// call the component factory with a synthetic handle whose `frame` is a plain
-// EventTarget, dispatch the two events, and assert the button's DOM (disabled
-// + label) in a real browser. The re-render is wired to the test root, so the
-// assertions observe exactly what production's handle.update() path produces.
+// The entry listens for `rmx:submission` on its button, so the test dispatches
+// that event on the rendered button with a controllable `finished` promise.
+// Unlike a frame-level `reloadStart`/`reloadComplete` pair, this must ignore
+// unrelated frame reloads and a superseded submission must not clear a newer
+// submission's pending state (#12183).
 // ---------------------------------------------------------------------------
 
 interface Mounted {
@@ -69,6 +65,24 @@ function submitButton(result: RenderResult): HTMLButtonElement {
   return btn
 }
 
+function pendingSubmission() {
+  let resolve!: (signal: AbortSignal) => void
+  let reject!: (error: unknown) => void
+  let promise = new Promise<AbortSignal>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+function dispatchSubmission(button: HTMLButtonElement, finished: Promise<AbortSignal>): void {
+  button.dispatchEvent(Object.assign(new Event('rmx:submission', { bubbles: true }), { finished }))
+}
+
+async function flush(): Promise<void> {
+  await Promise.resolve()
+}
+
 let mounted: Mounted | null = null
 
 function mountEntry(props: PendingProps): RenderResult {
@@ -90,35 +104,50 @@ describe('PendingSubmitButton', () => {
     assert.equal(btn.textContent?.trim(), 'Speichern')
   })
 
-  it('disables and appends the pending marker on reloadStart', () => {
+  it('disables and shows the pending label during its submission', () => {
     let result = mountEntry({ children: 'Speichern' })
     let btn = submitButton(result)
-    assert.equal(btn.disabled, false, 'sanity: enabled before reload')
+    assert.equal(btn.disabled, false, 'sanity: enabled before submission')
 
-    mounted!.frame.dispatchEvent(new Event('reloadStart'))
+    dispatchSubmission(btn, pendingSubmission().promise)
 
-    assert.equal(btn.disabled, true, 'submit must be disabled while the frame reloads')
+    assert.equal(btn.disabled, true, 'submit must be disabled while the request is pending')
     assert.equal(btn.textContent?.trim(), 'Speichern…', 'default pending label is children + …')
   })
 
-  it('restores the resting state on reloadComplete', () => {
+  it('restores the resting state when the submission finishes', async () => {
     let result = mountEntry({ children: 'Speichern' })
     let btn = submitButton(result)
+    let submission = pendingSubmission()
 
-    mounted!.frame.dispatchEvent(new Event('reloadStart'))
+    dispatchSubmission(btn, submission.promise)
     assert.equal(btn.disabled, true)
 
-    mounted!.frame.dispatchEvent(new Event('reloadComplete'))
+    submission.resolve(new AbortController().signal)
+    await flush()
 
-    assert.equal(btn.disabled, false, 're-enabled once the frame is back')
+    assert.equal(btn.disabled, false, 're-enabled once the submission settles')
     assert.equal(btn.textContent?.trim(), 'Speichern', 'label returns to the resting text')
+  })
+
+  it('clears pending state when the submission fails', async () => {
+    let result = mountEntry({ children: 'Speichern' })
+    let btn = submitButton(result)
+    let submission = pendingSubmission()
+
+    dispatchSubmission(btn, submission.promise)
+    submission.reject(new Error('save failed'))
+    await flush()
+
+    assert.equal(btn.disabled, false, 'a failed submission must not leave the button stuck')
+    assert.equal(btn.textContent?.trim(), 'Speichern')
   })
 
   it('uses the explicit pendingLabel when provided', () => {
     let result = mountEntry({ children: 'Löschen', pendingLabel: 'Wird gelöscht…' })
     let btn = submitButton(result)
 
-    mounted!.frame.dispatchEvent(new Event('reloadStart'))
+    dispatchSubmission(btn, pendingSubmission().promise)
 
     assert.equal(btn.textContent?.trim(), 'Wird gelöscht…')
   })
@@ -131,17 +160,35 @@ describe('PendingSubmitButton', () => {
     assert.equal(btn.textContent?.trim(), 'Senden')
   })
 
-  it('survives a duplicated reloadStart (idempotent pending)', () => {
+  it('keeps pending state when a newer submission supersedes the first', async () => {
+    let result = mountEntry({ children: 'Senden' })
+    let btn = submitButton(result)
+    let first = pendingSubmission()
+    let second = pendingSubmission()
+
+    dispatchSubmission(btn, first.promise)
+    dispatchSubmission(btn, second.promise)
+
+    let aborted = new AbortController()
+    aborted.abort()
+    first.resolve(aborted.signal)
+    await flush()
+    assert.equal(btn.disabled, true, 'the superseded submission must not clear the newer one')
+
+    second.resolve(new AbortController().signal)
+    await flush()
+    assert.equal(btn.disabled, false)
+    assert.equal(btn.textContent?.trim(), 'Senden')
+  })
+
+  it('ignores unrelated frame reloads', () => {
     let result = mountEntry({ children: 'Senden' })
     let btn = submitButton(result)
 
     mounted!.frame.dispatchEvent(new Event('reloadStart'))
-    mounted!.frame.dispatchEvent(new Event('reloadStart'))
-
-    assert.equal(btn.disabled, true)
-    assert.equal(btn.textContent?.trim(), 'Senden…')
-
     mounted!.frame.dispatchEvent(new Event('reloadComplete'))
-    assert.equal(btn.disabled, false)
+
+    assert.equal(btn.disabled, false, 'only this button’s own submission may disable it')
+    assert.equal(btn.textContent?.trim(), 'Senden')
   })
 })

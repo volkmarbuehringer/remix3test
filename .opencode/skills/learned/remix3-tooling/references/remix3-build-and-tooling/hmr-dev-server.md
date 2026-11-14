@@ -6,7 +6,7 @@
 **Revalidated:** 2026-11-13 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release; `hmr.ts` now delegates to `createHmrReadyFetch()`; #12290 fixes nested-closure forward references).
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
-## Current API anchors (release `v0.20261113.180701-main-b4a0aa9a`)
+## Current API anchors (release `v0.20261113.215858-main-848e2fbe`)
 
 - `run(entry, options)` at `@remix-run/node-hmr/dist/index.d.ts:126`; `RunOptions` at `:4` with `browserHmrChannel` at `:9`, plus `cwd`/`entryArgs`/`env`/`nodeArgs`/`watch`.
 - `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:114`; `dist/index.js:17` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.
@@ -159,5 +159,5 @@ Re-audit this on every remix bump: if upstream adds a `sourceMap` option to the 
 
 - Adding or changing the HMR / asset-server / dev-server config in this app
 - Debugging `npm run hmr` symptoms: requests hang (ready-gate), proxy returns 500 (`ECONNREFUSED` path), `EADDRINUSE` on the app port (orphan/`HOST` leak), or "Failed running server.ts. Waiting for file changes before restarting..." stalls
-- A page renders the error card with `assignment to undeclared variable <name>` on a pin older than `b4a0aa9a` (component HMR setup-state rewrite order; fixed by #12290), or the browser console reports a CSP `connect-src` block for `http://127.0.0.1:<HMR_PORT>/hmr` (browser HMR EventSource not allowed)
+- A page renders the error card with `assignment to undeclared variable <name>` on a pin older than `848e2fbe` (component HMR setup-state rewrite order; fixed by #12290), or the browser console reports a CSP `connect-src` block for `http://127.0.0.1:<HMR_PORT>/hmr` (browser HMR EventSource not allowed)
 - Writing dev-server smoke tests and wondering why a `touch`-only change doesn't restart the server

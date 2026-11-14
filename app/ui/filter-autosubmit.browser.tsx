@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/component'
+import { clientEntry, type FormSubmissionEvent, type Handle } from 'remix/component'
 
 /**
  * Quiet period after the last keystroke before the grid reloads. Long enough
@@ -33,6 +33,9 @@ interface FilterAutoSubmitProps {
  *
  * Listeners are delegated from `document` because the form is replaced on every
  * frame navigation; `handle.signal` removes them when the entry disconnects.
+ * The submission itself is observed through `rmx:submission`, which carries the
+ * owning form and is only dispatched for enhanced submissions, while
+ * `reloadStart` is used only when no link/form initiated the reload.
  */
 export const FilterAutoSubmit = clientEntry(
   import.meta.url + '#FilterAutoSubmit',
@@ -120,23 +123,21 @@ export const FilterAutoSubmit = clientEntry(
         { signal: handle.signal },
       )
 
-      // An explicit submit (Enter or the Suchen button) should restore focus the
-      // same way a debounced one does when the field was focused.
+      // A submission intercepted by the frame runtime fires `rmx:submission`
+      // on the actual submitter. Use it to remember the field state for the
+      // reload this form starts; an unrelated frame reload must not touch it.
       document.addEventListener(
-        'submit',
+        'rmx:submission',
         (event) => {
-          let form = event.target
-          if (!(form instanceof HTMLFormElement)) return
-          if (!form.matches(handle.props.formSelector)) return
-          let input = form.querySelector<HTMLInputElement>('input[name="filter"]')
+          let submission = event as FormSubmissionEvent
+          if (!submission.form.matches(handle.props.formSelector)) return
+          let input = currentInput()
           if (!input) return
           lastSubmitted = input.value
           latestValue = input.value
-          // Keep a restore requested by submitFrom() when clearing disabled the
-          // field (a disabled control is no longer the active element).
           restoreFocus = restoreFocus || document.activeElement === input
         },
-        { capture: true, signal: handle.signal },
+        { signal: handle.signal },
       )
 
       // Escape clears the search immediately — a familiar "reset this field"
@@ -156,11 +157,13 @@ export const FilterAutoSubmit = clientEntry(
         { signal: handle.signal },
       )
 
-      // A frame navigation replaces the input, so remember whether it was
-      // focused; an unrelated reload must not steal focus from elsewhere.
+      // A programmatic reload has no initiating link or form. Remember whether
+      // the field was focused so a background refresh does not drop the caret;
+      // link and form reloads carry their origin and are handled above.
       handle.frame.addEventListener(
         'reloadStart',
-        () => {
+        (event) => {
+          if (event.element || event.submitter) return
           let input = currentInput()
           focusedBeforeReload = input !== null && document.activeElement === input
         },
