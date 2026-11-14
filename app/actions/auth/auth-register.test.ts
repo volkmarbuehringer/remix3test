@@ -91,7 +91,7 @@ describe('Auth Register controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302, 'should redirect on success')
+    assert.equal(response.status, 303, 'should redirect on success')
     assert.equal(
       response.headers.get('Location'),
       routes.auth.registerSent.href(),
@@ -121,7 +121,7 @@ describe('Auth Register controller', () => {
       }),
       redirect: 'manual',
     })
-    assert.equal(createResponse.status, 302, 'first creation should succeed')
+    assert.equal(createResponse.status, 303, 'first creation should succeed')
 
     // Try to register again with the same email (reuse same cookie + token)
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {

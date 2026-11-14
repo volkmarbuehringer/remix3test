@@ -593,6 +593,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                   id="oc-resource"
                   name="resource_id"
                   aria-invalid={resourceError ? 'true' : undefined}
+                  aria-describedby={resourceError ? 'oc-resource-error' : undefined}
                   mix={[
                     input.base,
                     input.focus,
@@ -608,6 +609,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 </select>
                 {resourceError ? (
                   <div
+                    id="oc-resource-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -726,6 +728,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                   name="resource_id"
                   required
                   aria-invalid={resourceError ? 'true' : undefined}
+                  aria-describedby={resourceError ? 'oc-resource-c-error' : undefined}
                   mix={[
                     input.base,
                     input.focus,
@@ -744,6 +747,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 </select>
                 {resourceError ? (
                   <div
+                    id="oc-resource-c-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,

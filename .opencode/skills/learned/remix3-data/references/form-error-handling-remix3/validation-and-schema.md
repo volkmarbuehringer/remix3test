@@ -188,8 +188,11 @@ was before the frame re-render. Add all three:
 
 - `role="alert"` on each error element and on the form-level banner.
 - `aria-invalid="true"` plus `aria-describedby` pointing at the error element id on
-  the rejected control. Use the **string** `aria-invalid="true"`; Remix 3 renders
-  `aria-invalid={true}` as a bare `aria-invalid` attribute, which is not a valid ARIA value.
+  the rejected control. At the current pin, `aria-invalid={true}` and
+  `aria-invalid="true"` both serialize as `aria-invalid="true"` (verified with
+  `renderToString`; the string form is still used in most admin pages). What matters
+  is pairing it with `aria-describedby` and giving the error element an `id` — an
+  `aria-invalid` alone does not link the message to the field.
 - Render `FormErrorFocus` from `app/ui/form-error-focus.browser.tsx:10` inside the form; it focuses the first `[aria-invalid="true"]` within `el.closest("form")` and is a no-op on a clean page.
 
 ### Shared Utilities: `app/utils/schema-utils.ts`

@@ -231,7 +231,7 @@ describe('Admin sidebar shell — flash messages', () => {
       headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     })
-    assert.equal(response.status, 200, 'the validation error should re-render the page')
+    assert.equal(response.status, 400, 'the validation error should re-render the page')
     let html = await response.text()
     let occurrences = html.split('POST re-render flash message').length - 1
     assert.equal(

@@ -48,7 +48,7 @@ describe('Client Grid', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
   })

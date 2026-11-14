@@ -73,7 +73,7 @@ export default createController(routes.notifications, {
           }
         }
       }
-      return redirect(routes.notifications.index.href())
+      return redirect(routes.notifications.index.href(), 303)
     },
 
     events(context) {
@@ -96,14 +96,14 @@ export default createController(routes.notifications, {
         // needs an out-of-band signal to refetch its unread count.
         if (changed) broadcastNotificationRead(user.id)
       }
-      return redirect(backUrl(context.url, routes.notifications.index.href()))
+      return redirect(backUrl(context.url, routes.notifications.index.href()), 303)
     },
 
     async markAllRead(context) {
       let user = getCurrentUser()
       let changed = await markAllRead(context.db, user.id)
       if (changed > 0) broadcastNotificationRead(user.id)
-      return redirect(backUrl(context.url, routes.notifications.index.href()))
+      return redirect(backUrl(context.url, routes.notifications.index.href()), 303)
     },
   },
 })

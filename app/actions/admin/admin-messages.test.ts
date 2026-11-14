@@ -129,7 +129,7 @@ describe('Admin Messages controller', () => {
     }
   })
 
-  it('POST /admin/messages re-renders an inline error for empty content (200, not 400)', async () => {
+  it('POST /admin/messages re-renders an inline error for empty content at 400', async () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
 
@@ -142,9 +142,9 @@ describe('Admin Messages controller', () => {
       body: formData,
     })
 
-    // A non-OK response becomes an unrecoverable error card inside the frame,
-    // so validation failures must re-render the page at 200 with inline errors.
-    assert.equal(response.status, 200)
+    // Validation failures re-render the page with inline errors at 400; the
+    // frame transport renders HTML 4xx bodies, so the compose box stays intact.
+    assert.equal(response.status, 400)
     let text = await response.text()
     assert.ok(text.includes('Nachricht darf nicht leer sein.'), 'inline field error should render')
     assert.ok(text.includes('data-compose-counter'), 'the compose box should still be present')
@@ -163,7 +163,7 @@ describe('Admin Messages controller', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let text = await response.text()
     assert.ok(text.includes('Nachricht darf nicht leer sein.'), 'inline field error should render')
   })
@@ -183,7 +183,7 @@ describe('Admin Messages controller', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let text = await response.text()
     assert.ok(text.includes('value="10"'), 'the submitted offset should be preserved')
     assert.ok(text.includes('value="abc"'), 'the submitted filter should be preserved')
@@ -204,7 +204,7 @@ describe('Admin Messages controller', () => {
     })
 
     // Should redirect back to messages after creation
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/admin/messages')
   })
 
@@ -224,7 +224,7 @@ describe('Admin Messages controller', () => {
       body: formData,
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.match(response.headers.get('Location') ?? '', /\/admin\/messages$/)
   })
 
@@ -250,7 +250,7 @@ describe('Admin Messages controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/admin/messages')
 
     // Verify deleted
@@ -569,7 +569,7 @@ describe('Admin Messages controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.equal(
         response.headers.get('Location'),
         `/admin/messages?filter=${token}`,
@@ -662,7 +662,7 @@ describe('Admin Messages controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.equal(response.headers.get('Location'), '/admin/messages?offset=10')
     } finally {
       await pool.query('DELETE FROM messages WHERE id = ANY($1)', [[messageId, ...seeded]])
@@ -690,7 +690,7 @@ describe('Admin Messages controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/admin/messages?filter=filtered+term')
   })
 
@@ -719,7 +719,7 @@ describe('Admin Messages controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.equal(
         response.headers.get('Location'),
         '/admin/messages?offset=10&sort=sender_name&order=asc',

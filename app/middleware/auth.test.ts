@@ -214,8 +214,8 @@ describe('Auth + CSRF integration', () => {
       redirect: 'manual',
     })
 
-    // Assert: successful login (302) with a new session cookie
-    assert.equal(response.status, 302)
+    // Assert: successful login (303) with a new session cookie
+    assert.equal(response.status, 303)
     let newCookie = extractCookie(response)
     assert.ok(newCookie, 'should return a new session cookie')
     assert.notEqual(newCookie, cookie, 'session ID should change after regenerateId()')
@@ -248,7 +248,7 @@ describe('Auth + CSRF integration', () => {
     })
 
     // Assert: token was valid, login succeeds
-    assert.equal(response.status, 302, 'POST with valid CSRF token should succeed')
+    assert.equal(response.status, 303, 'POST with valid CSRF token should succeed')
   })
 })
 

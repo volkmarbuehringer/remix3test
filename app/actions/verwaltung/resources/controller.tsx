@@ -273,7 +273,7 @@ export default createController(routes.verwaltung.resources, {
           fieldErrors,
           ...gridStateOverrides(gridValues),
         })
-        return renderResourcePage(context, data)
+        return renderResourcePage(context, data, { status: 400 })
       }
 
       let parsed = result.value
@@ -307,7 +307,7 @@ export default createController(routes.verwaltung.resources, {
       let params = gridStateToParams(gridValues)
       params.set('editing', String(row.id))
       let baseUrl = routes.verwaltung.resources.index.href()
-      return redirect(baseUrl + '?' + params.toString())
+      return redirect(baseUrl + '?' + params.toString(), 303)
     },
 
     async update(context) {
@@ -318,7 +318,7 @@ export default createController(routes.verwaltung.resources, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(resourcesGridUrl(formData))
+        return redirect(resourcesGridUrl(formData), 303)
       }
 
       let result = s.parseSafe(resourceSaveSchema, formData)
@@ -333,7 +333,7 @@ export default createController(routes.verwaltung.resources, {
           fieldErrors,
           ...gridStateOverrides(gridValues),
         })
-        return renderResourcePage(context, data)
+        return renderResourcePage(context, data, { status: 400 })
       }
 
       let parsed = result.value
@@ -349,7 +349,7 @@ export default createController(routes.verwaltung.resources, {
       )
       if ((updateResult.affectedRows ?? 0) === 0) {
         context.session.flash('error', 'Eintrag nicht gefunden.')
-        return redirect(resourcesGridUrl(formData))
+        return redirect(resourcesGridUrl(formData), 303)
       }
 
       let authIdentity = getAdminIdentity(context.auth)
@@ -368,7 +368,7 @@ export default createController(routes.verwaltung.resources, {
         })
       }
 
-      return redirect(resourcesGridUrl(formData))
+      return redirect(resourcesGridUrl(formData), 303)
     },
 
     async destroy(context) {
@@ -378,13 +378,13 @@ export default createController(routes.verwaltung.resources, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(resourcesGridUrl(formData))
+        return redirect(resourcesGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(resources, { where: { id } })
       if (!existing) {
         context.session.flash('error', 'Eintrag nicht gefunden.')
-        return redirect(resourcesGridUrl(formData))
+        return redirect(resourcesGridUrl(formData), 303)
       }
 
       try {
@@ -400,7 +400,7 @@ export default createController(routes.verwaltung.resources, {
             'error',
             'Ressource wird noch verwendet und kann nicht gelöscht werden',
           )
-          return redirect(resourcesGridUrl(formData))
+          return redirect(resourcesGridUrl(formData), 303)
         }
         throw error
       }
@@ -416,7 +416,7 @@ export default createController(routes.verwaltung.resources, {
         })
       }
 
-      return redirect(resourcesGridUrl(formData))
+      return redirect(resourcesGridUrl(formData), 303)
     },
   },
 })

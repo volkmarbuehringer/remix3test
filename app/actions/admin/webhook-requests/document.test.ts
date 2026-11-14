@@ -104,7 +104,7 @@ describe('Admin webhook requests', () => {
     assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
   })
 
-  it('POST re-renders 200 with an inline error for an invalid payload', async () => {
+  it('POST re-renders 400 with an inline error for an invalid payload', async () => {
     let id = await insertRow('invalid-json')
     let body = new URLSearchParams({ _csrf: csrfToken, _method: 'PUT', payload: '{ not json' })
     let response = await router.fetch(BASE + routes.admin.webhookRequests.update.href({ id }), {
@@ -112,7 +112,7 @@ describe('Admin webhook requests', () => {
       headers: formHeaders(),
       body: body.toString(),
     })
-    assert.equal(response.status, 200, 'validation failure should re-render at 200')
+    assert.equal(response.status, 400, 'validation failure should re-render at 400')
     let html = await response.text()
     assert.ok(html.includes('Ungültiges JSON im Payload.'), 'should show the inline error')
   })
@@ -133,7 +133,7 @@ describe('Admin webhook requests', () => {
       headers: formHeaders(),
       body: body.toString(),
     })
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('sort=source_ip'), 'should keep the submitted sort column')
     assert.ok(html.includes('order=asc'), 'should keep the submitted sort direction')
@@ -147,7 +147,7 @@ describe('Admin webhook requests', () => {
       headers: formHeaders(),
       body: body.toString(),
     })
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(
       html.includes('Ungültiges JSON im Payload.'),
@@ -179,6 +179,35 @@ describe('Admin webhook requests', () => {
     assert.equal(await readFlash('success'), 'Webhook erstellt.')
 
     await pool.query('DELETE FROM webhook_requests WHERE id = $1', [id])
+  })
+
+  it('POST /admin/webhook-requests/create renders a 500 admin page when the insert fails', async (t) => {
+    let originalExec = db.exec.bind(db)
+    t.mock.method(db, 'exec', async (statement: unknown) => {
+      let text =
+        typeof statement === 'string'
+          ? statement
+          : statement && typeof statement === 'object' && 'text' in statement
+            ? String((statement as { text: unknown }).text)
+            : ''
+      if (text.includes('INSERT INTO webhook_requests')) throw new Error('insert failed')
+      return originalExec(statement as Parameters<typeof db.exec>[0])
+    })
+
+    let body = new URLSearchParams({
+      _csrf: csrfToken,
+      payload: JSON.stringify({ test: 'insert-failure' }),
+    })
+    let response = await router.fetch(BASE + routes.admin.webhookRequests.create.action.href(), {
+      method: 'POST',
+      headers: formHeaders(),
+      body: body.toString(),
+    })
+
+    assert.equal(response.status, 500)
+    let html = await response.text()
+    assert.ok(html.includes('Fehler beim Speichern.'), 'should render the German error message')
+    assert.ok(html.includes('Webhook erstellen'), 'should keep the admin composer shell')
   })
 
   it('PUT /admin/webhook-requests/:id updates the payload and preserves grid state', async () => {

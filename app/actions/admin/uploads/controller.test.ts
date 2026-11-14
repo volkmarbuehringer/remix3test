@@ -717,7 +717,7 @@ describe('Admin Uploads controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('kind=pdf'), 'redirect should preserve the active kind')
   })
@@ -780,7 +780,7 @@ describe('Admin Uploads controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location')
     assert.ok(
       location?.startsWith(routes.admin.uploads.index.href()),
@@ -833,7 +833,7 @@ describe('Admin Uploads controller', () => {
       body: formData,
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.ok(
       (response.headers.get('Location') ?? '').startsWith(routes.admin.uploads.index.href()),
       'delete should still redirect to the uploads list',
@@ -947,7 +947,7 @@ describe('Admin Uploads controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.admin.uploads.index.href()), 'should redirect to uploads')
     assert.ok(location.includes('page=2'), 'redirect should preserve the grid page')
@@ -1010,7 +1010,7 @@ describe('Admin Uploads controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.ok(
       (response.headers.get('Location') ?? '').startsWith(routes.admin.uploads.index.href()),
       'bulk delete should still redirect to the uploads list',
@@ -1050,7 +1050,7 @@ describe('Admin Uploads controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.admin.uploads.index.href()), 'should redirect to uploads')
     assert.ok(!location.includes('deleted='), 'no deleted count when nothing was deleted')

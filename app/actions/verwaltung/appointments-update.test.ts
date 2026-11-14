@@ -118,7 +118,7 @@ describe('Admin Appointments Controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(createResponse.status, 302, 'create should succeed')
+      assert.equal(createResponse.status, 303, 'create should succeed')
       let createLocation = createResponse.headers.get('Location') ?? ''
       let match = createLocation.match(/editing=(\d+)/)
       assert.ok(match, 'should get editing param')
@@ -147,7 +147,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(updateResponse.status, 302, 'update within offering should succeed')
+      assert.equal(updateResponse.status, 303, 'update within offering should succeed')
     })
 
     it('2.5 update fails with offering error when new slot is outside offering hours', async () => {
@@ -173,7 +173,7 @@ describe('Admin Appointments Controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(createResponse.status, 302, 'create should succeed')
+      assert.equal(createResponse.status, 303, 'create should succeed')
       let createLocation = createResponse.headers.get('Location') ?? ''
       let match = createLocation.match(/editing=(\d+)/)
       assert.ok(match, 'should get editing param')
@@ -202,7 +202,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(updateResponse.status, 200, 'update outside offering should re-render at 200')
+      assert.equal(updateResponse.status, 400, 'update outside offering should re-render at 400')
     })
 
     it('2.6 update fails with collision error when new time range overlaps another appointment', async () => {
@@ -255,7 +255,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 200, 'overlapping update should re-render at 200')
+      assert.equal(response.status, 400, 'overlapping update should re-render at 400')
     })
   })
 
@@ -304,7 +304,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'successful update should redirect')
+      assert.equal(response.status, 303, 'successful update should redirect')
       let location = response.headers.get('Location') ?? ''
       assert.ok(
         location.startsWith('/verwaltung/appointments'),
@@ -347,7 +347,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 200, 'past-date update should re-render at 200')
+      assert.equal(response.status, 400, 'past-date update should re-render at 400')
     })
 
     it('redirects with a flash error for a non-existent appointment ID', async () => {
@@ -375,7 +375,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert: no 400/404 — PRG back to the grid with a flash error
-      assert.equal(response.status, 302, 'non-existent update should PRG back to the grid')
+      assert.equal(response.status, 303, 'non-existent update should PRG back to the grid')
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
 
@@ -409,7 +409,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 200, 'validation error should re-render at 200')
+      assert.equal(response.status, 400, 'validation error should re-render at 400')
     })
 
     it('handles overlapping time range on update with error redirect', async () => {
@@ -460,7 +460,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 200, 'overlapping update should re-render at 200')
+      assert.equal(response.status, 400, 'overlapping update should re-render at 400')
     })
 
     it('preserves grid state on successful update', async () => {
@@ -493,7 +493,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'update should redirect')
+      assert.equal(response.status, 303, 'update should redirect')
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.date'), 'should preserve sort param')
       assert.ok(location.includes('order=asc'), 'should preserve order param')

@@ -193,7 +193,7 @@ describe('CSP enforcement', () => {
       await page.locator('#lists-title').waitFor({ timeout: 15_000 })
 
       // Every document load after this point is a failure: the copy POST must be
-      // intercepted by the frame runtime and its 302 followed by frameRedirects.
+      // intercepted by the frame runtime and its redirect followed by frameRedirects.
       let documentLoads = 0
       page.on('load', () => documentLoads++)
 

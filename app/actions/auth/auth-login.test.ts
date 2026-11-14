@@ -76,7 +76,7 @@ describe('Auth Login controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/')
   })
 
@@ -94,7 +94,7 @@ describe('Auth Login controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/')
   })
 

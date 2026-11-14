@@ -66,7 +66,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'successful delete should redirect')
+      assert.equal(response.status, 303, 'successful delete should redirect')
       let location = response.headers.get('Location') ?? ''
       assert.ok(
         location.startsWith('/verwaltung/appointments'),
@@ -92,7 +92,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert: no 400 — PRG back to the grid with a flash error
-      assert.equal(response.status, 302, 'non-existent ID should redirect with error')
+      assert.equal(response.status, 303, 'non-existent ID should redirect with error')
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
 
@@ -131,7 +131,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert: redirect should include grid state params
-      assert.equal(response.status, 302, 'delete should redirect')
+      assert.equal(response.status, 303, 'delete should redirect')
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to appointments')
       assert.ok(location.includes('sort=a.id'), 'should include sort param')
@@ -172,7 +172,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'delete should redirect')
+      assert.equal(response.status, 303, 'delete should redirect')
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
       assert.ok(location.includes('order=desc'), 'should preserve order param')
@@ -204,7 +204,7 @@ describe('Admin Appointments Controller', () => {
         body: new URLSearchParams().toString(),
         redirect: 'manual',
       })
-      assert.equal(deleteResponse.status, 302, 'delete should redirect')
+      assert.equal(deleteResponse.status, 303, 'delete should redirect')
 
       // Act: the frame then GETs /verwaltung/appointments/:id
       let getResponse = await router.fetch(`${ADMIN_APPT_URL}/${deleteId}`, {

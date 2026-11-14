@@ -176,7 +176,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources?editing='))
     })
@@ -200,7 +200,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
     })
 
     it('preserves grid state on create redirect', async () => {
@@ -223,7 +223,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'valid create should redirect')
+      assert.equal(response.status, 303, 'valid create should redirect')
       let location = response.headers.get('Location') || ''
       assert.ok(
         location.includes('editing='),
@@ -235,7 +235,7 @@ describe('Admin Resources Controller', () => {
       assert.ok(location.includes('filter=garten'), 'should preserve filter')
     })
 
-    it('rejects empty description with an inline-error 200 re-render', async () => {
+    it('rejects empty description with an inline-error 400 re-render', async () => {
       let body = new URLSearchParams({
         name: 'Test Raum',
         description: '',
@@ -253,9 +253,17 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'validation failure should re-render at 200, not 400')
+      assert.equal(response.status, 400, 'validation failure should re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('mindestens 8 Zeichen'))
+      assert.ok(
+        text.includes('aria-describedby="ar-desc-c-error"'),
+        'create-panel description field should reference its error id',
+      )
+      assert.ok(
+        text.includes('id="ar-desc-c-error"'),
+        'create-panel error element should carry the id',
+      )
     })
 
     it('denies create for non-admin users', async () => {
@@ -358,7 +366,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'))
 
@@ -391,7 +399,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'valid update should redirect')
+      assert.equal(response.status, 303, 'valid update should redirect')
       let location = response.headers.get('Location') || ''
       assert.ok(location.includes('offset=30'), 'should preserve offset')
       assert.ok(location.includes('sort=description'), 'should preserve sort')
@@ -399,7 +407,7 @@ describe('Admin Resources Controller', () => {
       assert.ok(location.includes('filter=raum'), 'should preserve filter')
     })
 
-    it('rejects update with empty description via an inline-error 200 re-render', async () => {
+    it('rejects update with empty description via an inline-error 400 re-render', async () => {
       let body = new URLSearchParams({
         name: 'Test Update',
         description: '',
@@ -418,9 +426,14 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'validation failure should re-render at 200, not 400')
+      assert.equal(response.status, 400, 'validation failure should re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('mindestens 8 Zeichen'))
+      assert.ok(
+        text.includes('aria-describedby="ar-desc-error"'),
+        'edit-panel description field should reference its error id',
+      )
+      assert.ok(text.includes('id="ar-desc-error"'), 'edit-panel error element should carry the id')
     })
 
     it('redirects with a flash error when updating a not-found row', async () => {
@@ -443,7 +456,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'not-found update should redirect (PRG)')
+      assert.equal(response.status, 303, 'not-found update should redirect (PRG)')
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
 
@@ -474,7 +487,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
     })
 
     it('redirects with a flash error for a non-existent resource', async () => {
@@ -494,7 +507,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'non-existent delete should redirect (PRG), not 404')
+      assert.equal(response.status, 303, 'non-existent delete should redirect (PRG), not 404')
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
 
@@ -534,7 +547,7 @@ describe('Admin Resources Controller', () => {
       })
 
       // Assert: PRG back to the grid with a flash error, preserving grid state
-      assert.equal(response.status, 302, 'FK-blocked delete should redirect (PRG)')
+      assert.equal(response.status, 303, 'FK-blocked delete should redirect (PRG)')
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
       assert.ok(location.includes('offset=7'), 'should preserve offset')
@@ -574,7 +587,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'delete should redirect')
+      assert.equal(response.status, 303, 'delete should redirect')
       let location = response.headers.get('Location') || ''
       assert.ok(location.includes('offset=12'), 'should preserve offset')
       assert.ok(location.includes('sort=updated_at'), 'should preserve sort')
@@ -602,7 +615,7 @@ describe('Admin Resources Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(deleteResponse.status, 302, 'delete should redirect')
+      assert.equal(deleteResponse.status, 303, 'delete should redirect')
 
       // The frame then GETs /verwaltung/resources/:id
       let getResponse = await router.fetch(`${BASE}/verwaltung/resources/${id}`, {

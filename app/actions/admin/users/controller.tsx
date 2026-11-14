@@ -141,9 +141,9 @@ type UsersRenderContext = {
  * Re-render the full admin page with a validation error (Pattern 1 direct re-render).
  *
  * A thin per-page adapter: the shared `renderGridFormError` loads the grid rows and
- * returns the fragment at status 200 (so the frame transport shows the inline errors
- * and preserved values rather than an error card). This adapter only binds the
- * users-specific page component and the create/edit distinction.
+ * returns the fragment at status 400 (with the inline errors and preserved values)
+ * rather than an error card. This adapter only binds the users-specific page
+ * component and the create/edit distinction.
  */
 async function renderUsersError(
   context: UsersRenderContext,
@@ -415,7 +415,7 @@ export default createController(routes.admin.users, {
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + '?' + params.toString())
+      return redirect(baseUrl + '?' + params.toString(), 303)
     },
 
     async update(context) {
@@ -542,7 +542,7 @@ export default createController(routes.admin.users, {
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
 
     async destroy(context) {
@@ -621,7 +621,7 @@ export default createController(routes.admin.users, {
       let params = gridStateToParams(gridStateFromFormData(formData))
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
 
     async toggleDisabled(context) {
@@ -634,7 +634,7 @@ export default createController(routes.admin.users, {
       let fail = (message: string): Response => {
         context.session.flash('error', message)
         let qs = params.toString()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
+        return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }
 
       if (id === undefined || id < 1) {
@@ -678,7 +678,7 @@ export default createController(routes.admin.users, {
       }
 
       let qs = params.toString()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
   },
 })

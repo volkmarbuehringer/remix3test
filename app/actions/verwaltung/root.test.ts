@@ -230,7 +230,7 @@ describe('Verwaltung Dashboard', () => {
         returnTo: '/verwaltung/offerings?sort=ao.day&order=asc&offset=24',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.equal(
         response.headers.get('Location'),
         '/verwaltung/offerings?sort=ao.day&order=asc',
@@ -256,7 +256,7 @@ describe('Verwaltung Dashboard', () => {
         pageKey: 'verwaltung.offerings',
         returnTo: '/verwaltung/offerings',
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
 
       let sid = await readSessionId(auth.cookie)
       let session = await sessionStorage.read(sid)
@@ -273,7 +273,7 @@ describe('Verwaltung Dashboard', () => {
         returnTo: 'https://evil.example/steal',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.equal(
         response.headers.get('Location'),
         routes.verwaltung.index.href(),
@@ -290,7 +290,7 @@ describe('Verwaltung Dashboard', () => {
         pageSize: '25',
         returnTo: '/verwaltung/offerings',
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
 
       let sid = await readSessionId(auth.cookie)
       let session = await sessionStorage.read(sid)

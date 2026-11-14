@@ -429,7 +429,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
 
@@ -461,7 +461,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.includes('editing=21'), 'should return to the edit panel')
     assert.ok(location.includes('status=inactive'), 'should keep the status tab')
@@ -475,7 +475,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
 
@@ -505,7 +505,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
 
@@ -531,7 +531,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Kunde bearbeiten'), 'should show edit form')
     assert.ok(html.includes('Ed'), 'should preserve submitted name value')
@@ -559,7 +559,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('name="_status" value="active"'), 'should round-trip the status tab')
     assert.ok(
@@ -584,7 +584,7 @@ describe('Client lab controller', () => {
       redirect: 'manual',
       headers: authHeaders(),
     })
-    assert.equal(create.status, 302)
+    assert.equal(create.status, 303)
 
     let id = Number(new URL(create.headers.get('Location') || '', BASE).searchParams.get('editing'))
     assert.ok(id > 0, 'create should return an id')
@@ -602,7 +602,7 @@ describe('Client lab controller', () => {
         headers: authHeaders(),
       })
 
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('value="Ed"'), 'should preserve the invalid name')
       assert.ok(html.includes('<option value="Admin" selected>'), 'should keep the row role')
@@ -631,7 +631,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
     assert.ok(location.includes('offset=0'), 'should preserve grid offset')
@@ -657,7 +657,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
 
@@ -681,7 +681,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should return to the grid')
 
@@ -709,7 +709,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(
       location.startsWith('/admin/clients?editing='),
@@ -730,7 +730,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Neuer Kunde'), 'should re-render create form')
     assert.ok(html.includes('Anlegen'), 'should show Create Record button')
@@ -750,7 +750,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Neuer Kunde'), 'should show create form')
     assert.ok(
@@ -774,7 +774,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Bitte ein gültiges Datum aus 2026 angeben.'))
     assert.ok(html.includes('aria-invalid="true"'), 'the date field should be marked invalid')
@@ -796,7 +796,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Ungültige Rolle.'), 'should show a role validation error')
     assert.ok(html.includes('Ungültiger Status.'), 'should show a status validation error')
@@ -816,7 +816,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(
       html.includes('Der Name darf höchstens 100 Zeichen enthalten.'),
@@ -841,7 +841,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(
       html.includes('Bitte eine gültige E-Mail-Adresse eingeben.'),
@@ -865,7 +865,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Der Name muss mindestens 8 Zeichen enthalten.'))
     assert.ok(html.includes('role="alert"'), 'the field error should be announced')
@@ -884,7 +884,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let result = await pool.query('SELECT registered FROM clients WHERE email = $1', [email])
     assert.equal(result.rows.length, 1, 'the client should be created')
     let registered = Number(result.rows[0]!.registered)
@@ -908,7 +908,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Neuer Kunde'), 'should show create form')
     assert.ok(html.includes('value="Bob"'), 'should preserve submitted name value')
@@ -930,7 +930,7 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') || ''
     assert.ok(
       location.startsWith('/admin/clients'),
@@ -956,7 +956,7 @@ describe('Client lab controller', () => {
       redirect: 'manual',
       headers: authHeaders(),
     })
-    assert.equal(createRes.status, 302, 'create should redirect (PRG)')
+    assert.equal(createRes.status, 303, 'create should redirect (PRG)')
     let createLoc = createRes.headers.get('Location') || ''
     let id = Number(new URL(createLoc, BASE).searchParams.get('editing'))
     assert.ok(id > 0, 'create should return a valid client id')
@@ -974,7 +974,7 @@ describe('Client lab controller', () => {
       redirect: 'manual',
       headers: authHeaders(),
     })
-    assert.equal(response.status, 302, 'toggle should redirect (PRG), not return JSON')
+    assert.equal(response.status, 303, 'toggle should redirect (PRG), not return JSON')
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to the grid list')
     assert.ok(location.includes('sort=name'), 'should carry grid-state params')
@@ -1001,7 +1001,7 @@ describe('Client lab controller', () => {
       redirect: 'manual',
       headers: authHeaders(),
     })
-    assert.equal(response.status, 302, 'no JSON — PRG back to the grid')
+    assert.equal(response.status, 303, 'no JSON — PRG back to the grid')
     let location = response.headers.get('Location') || ''
     assert.ok(location.startsWith('/admin/clients'), 'should redirect to the grid list')
   })
@@ -1025,7 +1025,7 @@ describe('Client lab controller', () => {
       redirect: 'manual',
       headers: authHeaders(),
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let result = await pool.query(
       `SELECT details, action_type, target_id, target_type FROM audit_logs

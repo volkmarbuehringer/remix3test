@@ -454,7 +454,7 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
       },
     )
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.ok(
       (response.headers.get('Location') ?? '').startsWith(routes.admin.uploadnew.index.href()),
       'delete should redirect back to the upload page',

@@ -216,7 +216,7 @@ describe('Auth Forgot Password controller', () => {
         },
       )
 
-      assert.equal(response.status, 302, 'should redirect on success')
+      assert.equal(response.status, 303, 'should redirect on success')
       assert.equal(
         response.headers.get('Location'),
         routes.auth.login.index.href(),
@@ -267,7 +267,7 @@ describe('Auth Forgot Password controller', () => {
           redirect: 'manual',
         },
       )
-      assert.equal(response.status, 302, 'reset should succeed')
+      assert.equal(response.status, 303, 'reset should succeed')
 
       // The H1 invariant: a completed reset leaves no surviving API tokens and
       // bumps token_version.

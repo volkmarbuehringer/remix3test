@@ -167,7 +167,7 @@ _(formerly `remix-forms` — references live under `references/remix-forms/`)_
 
 This skill is the **index** for form/data deltas. For validation and error re-render, use § Validation Errors; for the framework API, the vendor `remix` skill references.
 
-The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) is canonical for the basics this skill does not restate: `parseSafe` re-render with preserved `values`/`issues` and status 400, `303`-after-save redirects, the frame `reloadStart`/`reloadComplete` "Saving…" pending button (§"Add pending feedback"), and `_method` override with `formMethod: "PATCH"` (§"Use other HTTP methods when the route calls for them"). The rules below stay deltas because the guide does not cover them: top-level `s.optional()`, capture-phase delete confirmation, password-form handling, and `session.flash()` soft-fork routing.
+The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) is canonical for the basics this skill does not restate: `parseSafe` re-render with preserved `values`/`issues` and status 400, `303`-after-save redirects, the `rmx:submission` "Saving…" pending button (§"Add pending feedback"; the app's `PendingSubmitButton` follows `finished` and the aborted-supersession contract), and `_method` override with `formMethod: "PATCH"` (§"Use other HTTP methods when the route calls for them"). The rules below stay deltas because the guide does not cover them: top-level `s.optional()`, capture-phase delete confirmation, password-form handling, and `session.flash()` soft-fork routing.
 
 ### Load Only The References You Need
 
@@ -208,7 +208,7 @@ Handle form validation errors with the **direct re-render** pattern (preferred):
 
 The URL-param roundtrip pattern (`fv_`/`fe_` encoding) is **deprecated** — `form-params.ts` has been removed and all forms use direct re-render. Frame-based forms that once needed URL params are handled by the `ShellOrFragment` patch in `remix3-ui § Frames`.
 
-The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) canonically shows the `parseSafe` + preserved-`values`/`issues` + status-400 pattern (§"Return validation failures with the form", §"Parse and save the submitted form") and the `readText()` display-values helper. This skill keeps the app-specific deltas the guide cannot know: admin-grid `renderGridFormError` returning **200 not 400**, `<select>` `selected` over `defaultValue`, and the `coerce.number()` empty-select trap.
+The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) canonically shows the `parseSafe` + preserved-`values`/`issues` + status-400 pattern (§"Return validation failures with the form", §"Parse and save the submitted form") and the `readText()` display-values helper. This skill keeps the app-specific deltas the guide cannot know: the shared admin-grid `renderGridFormError` helper (also 400), `<select>` `selected` over `defaultValue`, and the `coerce.number()` empty-select trap.
 
 ### When To Use This Skill
 
@@ -225,7 +225,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 | --- | --- |
 | `parseSafe` + schema, value preservation, select fields, `coerce.number()`/empty-select and Postgres `number`-vs-string traps, the empty-string `""` select fallback, multi-source field precedence (preset + custom), code-based `errorMap` localization, `role="alert"`/`aria-invalid`/focus-first-invalid wiring, cross-field and wizard checks, validation tests | `references/form-error-handling-remix3/validation-and-schema.md` |
 | `s.defaulted()` returning its default **without running the wrapped schema** — defaulted→required fields silently bypass validation; missing-field fail-fast and issue-message mapping (`promptSchema`, `promptIssueMessage`) | `references/form-error-handling-remix3/defaulted-skips-validation.md` |
-| Admin CRUD grids: a shared `loadPageData`, `grid-state.ts` hidden inputs, `renderGridFormError` returning **200 not 400**, error banners, partial updates with optional fields, open edit/create panel state | `references/form-error-handling-remix3/admin-grid-state.md` |
+| Admin CRUD grids: a shared `loadPageData`, `grid-state.ts` hidden inputs, `renderGridFormError` (status 400), error banners, partial updates with optional fields, open edit/create panel state | `references/form-error-handling-remix3/admin-grid-state.md` |
 | Adding a new URL-query-param filter that drives a SQL `WHERE` (the 8+ touchpoint checklist), or separating status tabs from text search | `references/form-error-handling-remix3/url-param-filter-checklist.md` |
 
 ### Core Rules
@@ -240,7 +240,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - `<select>` does not honor `defaultValue` in Remix 3 — use `selected` on each `<option>`.
 - A cleared select submits `""`, and `"" != null` is true: normalize the preserved id to `""` and select a disabled placeholder option when empty, or the browser shows the first option while the field error says required.
 - Server-rendered errors need `role="alert"`, `aria-invalid`/`aria-describedby` on the control, and a focus-first-invalid `clientEntry`; the markup alone is silent to screen readers.
-- Full-page/non-admin forms re-render with `{ status: 400 }`. Admin **grid** forms must render through `renderGridFormError`, which returns **200** so the frame shows inline errors (a non-OK response becomes an error card).
+- Validation re-renders use `{ status: 400 }` for full-page forms and for every admin/Verwaltung grid editor (`renderGridFormError` and the panel helpers); the frame transport renders HTML 4xx fragments, so inline errors still appear in-frame.
 - Keep `formError` (form validation) and `error` (destroy flow) strictly separate — never chain them.
 
 ### References in This Codebase
@@ -252,7 +252,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - `app/ui/page-size-control.tsx` — shared `PageSizeSelect`/`PageSizeCustomInput` used by every grid and Settings; `page-size-select-sync`/`page-size-custom-keys` client entries add coarse→fine sync and preset jumps
 - `app/utils/grid-state.ts` — `gridStateFromFormData`, `gridStateOverrides`, `gridStateToParams`
 - `app/actions/client/controller.tsx` + `controller.test.ts` — direct-re-render reference and tests
-- `app/ui/admin-grid-error.tsx` — `renderGridFormError` (status 200)
+- `app/ui/admin-grid-error.tsx` — `renderGridFormError` (status 400)
 
 ### Related
 

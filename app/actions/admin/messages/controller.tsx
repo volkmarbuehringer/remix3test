@@ -154,10 +154,9 @@ type MessagesRenderContext = {
  * Re-render the messages page with a validation/rate-limit error (Pattern 1
  * direct re-render).
  *
- * A compose failure must never be a bare 400/429: the frame transport treats a
- * non-OK response as an unrecoverable error card, losing the typed message.
- * renderGridFormError returns the fragment at status 200 with the submitted
- * text and per-field/per-form errors preserved, so the compose box stays usable.
+ * A compose failure re-renders the grid at status 400 (429 for the rate limit)
+ * with the submitted text and per-field/per-form errors preserved, so the
+ * compose box stays usable (the frame transport renders HTML 4xx fragments).
  */
 async function renderMessagesError(
   context: MessagesRenderContext,
@@ -170,6 +169,8 @@ async function renderMessagesError(
     direction: 'asc' | 'desc'
     filter?: string | undefined
     pageSize: number
+    /** 429 for the rate-limit re-render; defaults to 400 in `renderGridFormError`. */
+    status?: number | undefined
   },
 ): Promise<Response> {
   let pageKey = PAGE_SIZE_KEYS.adminMessages
@@ -214,6 +215,7 @@ async function renderMessagesError(
     formValues: opts.formValues,
     fieldErrors: opts.fieldErrors,
     formError: opts.formError,
+    status: opts.status,
     fullHeight: true,
     grid,
   })
@@ -292,7 +294,11 @@ export default createController(routes.admin.messages, {
       let user = getCurrentUser()
 
       if (!messageRateLimiter.attempt(user.id)) {
-        return renderMessagesError(context, { ...gridOpts, formError: RATE_LIMIT_ERROR })
+        return renderMessagesError(context, {
+          ...gridOpts,
+          formError: RATE_LIMIT_ERROR,
+          status: 429,
+        })
       }
 
       let now = Date.now()
@@ -318,7 +324,7 @@ export default createController(routes.admin.messages, {
       context.session.flash('success', 'Nachricht gesendet.')
       broadcastInvalidate()
 
-      return redirect(messagesGridUrl(formData))
+      return redirect(messagesGridUrl(formData), 303)
     },
 
     async destroy(context) {
@@ -358,7 +364,7 @@ export default createController(routes.admin.messages, {
           offset = Math.max(0, Math.floor(Math.max(0, remaining - 1) / pageSize) * pageSize)
         }
       }
-      return redirect(messagesGridUrl(context.formData, offset))
+      return redirect(messagesGridUrl(context.formData, offset), 303)
     },
 
     subscribe(context) {

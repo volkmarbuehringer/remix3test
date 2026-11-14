@@ -120,7 +120,7 @@ export default createController(routes.admin.uploadnew, {
         }
       }
 
-      return redirect(routes.admin.uploadnew.index.href())
+      return redirect(routes.admin.uploadnew.index.href(), 303)
     },
 
     async download(context) {

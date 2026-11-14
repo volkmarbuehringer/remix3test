@@ -57,6 +57,7 @@ export function editingRedirect(
   base: string,
   editingId: number | string | null,
   state: GridState,
+  status: 302 | 303,
 ): Response {
   let params = gridStateToParams(state)
   if (editingId != null) {
@@ -64,7 +65,7 @@ export function editingRedirect(
   }
   let qs = params.toString()
   let url = base + (qs ? '?' + qs : '')
-  return redirect(url)
+  return redirect(url, status)
 }
 
 function gridStateOffset(state: GridState): number | undefined {

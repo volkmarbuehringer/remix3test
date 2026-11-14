@@ -117,7 +117,7 @@ describe('Notifications controller', () => {
       },
     )
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let rows = await pool.query('SELECT read_at FROM notifications WHERE id = $1', [notifId])
     assert.notEqual(rows.rows[0].read_at, null, 'owned notification should be marked read')
 
@@ -140,7 +140,7 @@ describe('Notifications controller', () => {
       },
     )
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let rows = await pool.query('SELECT read_at FROM notifications WHERE id = $1', [notifId])
     assert.equal(rows.rows[0].read_at, null, 'another user must not be able to mark it read')
 
@@ -160,7 +160,7 @@ describe('Notifications controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let rows = await pool.query(
       'SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL',
       [id],
@@ -182,7 +182,7 @@ describe('Notifications controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), routes.notifications.index.href())
 
     let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
@@ -217,7 +217,7 @@ describe('Notifications controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
       headers: { Cookie: session.cookie },
@@ -275,7 +275,7 @@ describe('Notifications controller', () => {
       }),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let page = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
       headers: { Cookie: session.cookie },

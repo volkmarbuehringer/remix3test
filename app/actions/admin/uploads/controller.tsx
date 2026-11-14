@@ -606,7 +606,7 @@ export default createController(routes.admin.uploads, {
       let filter = (form.get('_filter') as string | null) || undefined
       let kind = parseUploadKind(form.get('_kind') as string | null)
 
-      return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter, kind))
+      return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter, kind), 303)
     },
 
     async destroyMany(context) {
@@ -645,6 +645,7 @@ export default createController(routes.admin.uploads, {
           kind,
           deleted > 0 ? deleted : undefined,
         ),
+        303,
       )
     },
 

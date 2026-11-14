@@ -27,7 +27,7 @@ describe('auth-logout action', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 302, 'should return 302 redirect')
+    assert.equal(response.status, 303, 'should return 303 redirect')
     assert.equal(response.headers.get('Location'), '/', 'should redirect to home')
   })
 

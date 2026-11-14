@@ -41,7 +41,7 @@ describe('Admin page-size preference', () => {
       returnTo: '/admin/users?sort=name&order=asc&offset=30',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(
       response.headers.get('Location'),
       '/admin/users?sort=name&order=asc',
@@ -63,7 +63,7 @@ describe('Admin page-size preference', () => {
       returnTo: '/admin/uploads?page=4&sort=created_at&order=desc',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(response.headers.get('Location'), '/admin/uploads?sort=created_at&order=desc')
   })
 
@@ -78,7 +78,7 @@ describe('Admin page-size preference', () => {
       returnTo: '/admin/users',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let sid = await readSessionId(auth.cookie)
     let session = await sessionStorage.read(sid)
@@ -99,7 +99,7 @@ describe('Admin page-size preference', () => {
       pageKey: 'admin.messages',
       returnTo: '/admin/messages',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let sid = await readSessionId(auth.cookie)
     let session = await sessionStorage.read(sid)
@@ -116,7 +116,7 @@ describe('Admin page-size preference', () => {
       returnTo: 'https://evil.example/steal',
     })
 
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     assert.equal(
       response.headers.get('Location'),
       routes.admin.index.href(),
@@ -133,7 +133,7 @@ describe('Admin page-size preference', () => {
       pageSize: '25',
       returnTo: '/admin/users',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
 
     let sid = await readSessionId(auth.cookie)
     let session = await sessionStorage.read(sid)
@@ -267,7 +267,7 @@ describe('Admin page size per viewport class', () => {
         pageSize: '12',
         returnTo: '/admin/clients',
       })
-      assert.equal(saved.status, 302)
+      assert.equal(saved.status, 303)
 
       let response = await router.fetch(`${BASE}${CLIENTS_PATH}`, {
         headers: { Cookie: `${auth.cookie}; viewport=mobile` },

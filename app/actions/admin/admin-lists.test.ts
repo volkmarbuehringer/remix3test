@@ -497,7 +497,7 @@ describe('Admin Lists Controller', () => {
   })
 
   describe('create (POST /admin/lists)', () => {
-    it('re-renders at 200 with inline errors when title is empty', async () => {
+    it('re-renders at 400 with inline errors when title is empty', async () => {
       let body = gridBody(adminCsrfToken, { title: '', description: 'test-admin-create' })
       let response = await router.fetch(LISTS_URL, {
         method: 'POST',
@@ -508,7 +508,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'validation failure should re-render at 200, not 400')
+      assert.equal(response.status, 400, 'validation failure should re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('Neue Liste'), 'create panel should render on validation error')
     })
@@ -531,7 +531,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/lists'), 'should redirect to the grid list')
       assert.ok(location.includes('editing='), 'create keeps editing=<newId>')
@@ -545,7 +545,7 @@ describe('Admin Lists Controller', () => {
   })
 
   describe('update (PUT /admin/lists/:id)', () => {
-    it('re-renders at 200 with inline errors when title is empty', async () => {
+    it('re-renders at 400 with inline errors when title is empty', async () => {
       let id = await insertList('Before', 'test-admin-update')
       let body = gridBody(adminCsrfToken, { title: '', description: 'x' })
       let response = await router.fetch(LISTS_URL + '/' + id, {
@@ -557,7 +557,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'validation failure should re-render at 200')
+      assert.equal(response.status, 400, 'validation failure should re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('Liste bearbeiten'), 'edit panel should render on validation error')
     })
@@ -574,7 +574,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/lists'))
       let row = await pool.query(
@@ -600,7 +600,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/lists'), 'not-found update should redirect to the grid')
       let err = await readFlash()
@@ -621,7 +621,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/lists'), 'delete should redirect to the grid')
       let row = await pool.query('SELECT id FROM lists WHERE id = $1', [id])
@@ -640,7 +640,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let err = await readFlash()
       assert.ok(err?.includes('Liste nicht gefunden'), 'flash error should be set')
     })
@@ -656,7 +656,7 @@ describe('Admin Lists Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let err = await readFlash()
       assert.ok(err?.includes('Ungültige Listen-ID'), 'flash error should be set')
     })
@@ -679,7 +679,7 @@ describe('Admin Lists Controller', () => {
         body: body.toString(),
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(
         location.includes('offset=0'),

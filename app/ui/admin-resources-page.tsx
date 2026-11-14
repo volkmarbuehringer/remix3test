@@ -516,11 +516,13 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   name="name"
                   type="text"
                   aria-invalid={nameError ? 'true' : undefined}
+                  aria-describedby={nameError ? 'ar-name-error' : undefined}
                   value={nameValue}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
                 {nameError ? (
                   <div
+                    id="ar-name-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -542,11 +544,13 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   name="description"
                   type="text"
                   aria-invalid={descError ? 'true' : undefined}
+                  aria-describedby={descError ? 'ar-desc-error' : undefined}
                   value={descValue}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
                 {descError ? (
                   <div
+                    id="ar-desc-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -568,6 +572,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   name="capabilities"
                   rows={4}
                   aria-invalid={capsError ? 'true' : undefined}
+                  aria-describedby={capsError ? 'ar-caps-error' : undefined}
                   value={capsValue}
                   mix={[
                     input.base,
@@ -578,6 +583,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 />
                 {capsError ? (
                   <div
+                    id="ar-caps-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -666,11 +672,13 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   type="text"
                   required
                   aria-invalid={nameError ? 'true' : undefined}
+                  aria-describedby={nameError ? 'ar-name-c-error' : undefined}
                   defaultValue={formValues?.name ?? ''}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
                 {nameError ? (
                   <div
+                    id="ar-name-c-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -693,11 +701,13 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   type="text"
                   required
                   aria-invalid={descError ? 'true' : undefined}
+                  aria-describedby={descError ? 'ar-desc-c-error' : undefined}
                   defaultValue={formValues?.description ?? ''}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
                 {descError ? (
                   <div
+                    id="ar-desc-c-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,
@@ -719,6 +729,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="capabilities"
                   rows={4}
                   aria-invalid={capsError ? 'true' : undefined}
+                  aria-describedby={capsError ? 'ar-caps-c-error' : undefined}
                   defaultValue={formValues?.capabilities ?? ''}
                   mix={[
                     input.base,
@@ -729,6 +740,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 />
                 {capsError ? (
                   <div
+                    id="ar-caps-c-error"
                     role="alert"
                     mix={css({
                       color: theme.colors.action.danger.background,

@@ -202,7 +202,7 @@ export function uploadFormData(): Middleware<{
           // rendered on a GET — the same path the frame reloads after a
           // submitted form action.
           let indexUrl = isUploadNewAction ? uploadNewIndexUrl : uploadsIndexUrl
-          return redirect(`${indexUrl}?uploadError=${code}`)
+          return redirect(`${indexUrl}?uploadError=${code}`, 303)
         }
       }
       throw error

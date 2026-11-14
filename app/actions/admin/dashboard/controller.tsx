@@ -44,7 +44,7 @@ export default createController(routes.admin, {
           }
         }
       }
-      return redirect(adminReturnTo(context.formData))
+      return redirect(adminReturnTo(context.formData), 303)
     },
   },
 })

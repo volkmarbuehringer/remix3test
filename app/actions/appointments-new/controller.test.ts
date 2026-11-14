@@ -211,7 +211,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams({ resource_id: String(firstResourceId) }).toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('creating=true'))
   })
@@ -257,7 +257,7 @@ describe('Appointments New Controller', () => {
       body: body.toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
     let checkResult = await pool.query(
@@ -285,7 +285,7 @@ describe('Appointments New Controller', () => {
       body: body.toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
     assert.ok(!location.includes('editing'))
@@ -358,7 +358,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams().toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
 
@@ -393,7 +393,7 @@ describe('Appointments New Controller', () => {
       body: body.toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302, 'delete should redirect')
+    assert.equal(response.status, 303, 'delete should redirect')
     let location = response.headers.get('Location') ?? ''
     assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
     assert.ok(!location.includes('period='), 'should NOT preserve period param')
@@ -433,7 +433,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams().toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('24+Stunden') || location.includes('24%20Stunden'))
   })
@@ -465,7 +465,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams().toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302, 'should succeed due to grace period')
+    assert.equal(response.status, 303, 'should succeed due to grace period')
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
 
@@ -502,7 +502,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams().toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302, 'admin should bypass 24h restriction')
+    assert.equal(response.status, 303, 'admin should bypass 24h restriction')
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
 
@@ -521,7 +521,7 @@ describe('Appointments New Controller', () => {
       body: new URLSearchParams().toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(
       location.includes('Eintrag+nicht+gefunden') ||
@@ -564,7 +564,7 @@ describe('Appointments New Controller', () => {
       body: body.toString(),
       redirect: 'manual',
     })
-    assert.equal(response.status, 302, 'create should redirect')
+    assert.equal(response.status, 303, 'create should redirect')
     let location = response.headers.get('Location') ?? ''
     assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
     assert.ok(!location.includes('period='), 'should NOT preserve period param')

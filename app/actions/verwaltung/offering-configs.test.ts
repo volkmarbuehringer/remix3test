@@ -144,7 +144,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs?editing='))
     })
@@ -169,7 +169,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('bereits eine Konfiguration'))
     })
@@ -194,7 +194,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Ressource nicht gefunden'))
     })
@@ -227,7 +227,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Mindestens ein Tag muss einen Zeitraum haben'))
     })
@@ -259,7 +259,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Mindestens ein Tag muss einen Zeitraum haben'))
     })
@@ -281,9 +281,29 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Ressource ist erforderlich'))
+    })
+
+    it('links the create-panel resource field to its error id', async () => {
+      let body = new FormData()
+      body.set('_csrf', adminCsrfToken)
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'X-Csrf-Token': adminCsrfToken },
+        body,
+      })
+      assert.equal(response.status, 400)
+      let text = await response.text()
+      assert.ok(
+        text.includes('aria-describedby="oc-resource-c-error"'),
+        'create-panel resource select should reference its error id',
+      )
+      assert.ok(
+        text.includes('id="oc-resource-c-error"'),
+        'create-panel error element should carry the id',
+      )
     })
 
     it('denies create for non-admin users', async () => {
@@ -345,9 +365,32 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
+    })
+
+    it('re-renders the edit panel with a linked resource error', async () => {
+      let body = new FormData()
+      body.set('_csrf', adminCsrfToken)
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/${testConfigId}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body,
+      })
+      assert.equal(response.status, 400)
+      let text = await response.text()
+      assert.ok(
+        text.includes('aria-describedby="oc-resource-error"'),
+        'edit-panel resource select should reference its error id',
+      )
+      assert.ok(
+        text.includes('id="oc-resource-error"'),
+        'edit-panel error element should carry the id',
+      )
     })
 
     it('redirects when updating non-existent config', async () => {
@@ -371,7 +414,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
@@ -432,7 +475,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
     })
 
     it('redirects for non-existent config', async () => {
@@ -452,7 +495,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
@@ -608,7 +651,7 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: createBody.toString(),
       })
-      assert.equal(createRes.status, 302)
+      assert.equal(createRes.status, 303)
 
       // Then try agent-mode duplicate
       let dupBody = new URLSearchParams({

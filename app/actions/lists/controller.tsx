@@ -808,7 +808,7 @@ export default createController(routes.lists, {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      return redirect(listsIndexReturnHref(context.url))
+      return redirect(listsIndexReturnHref(context.url), 303)
     },
 
     async copy(context) {
@@ -845,7 +845,7 @@ export default createController(routes.lists, {
       if (sort) params.set('sort', sort)
       let size = context.url.searchParams.get('size')
       if (size) params.set('size', size)
-      return redirect(routes.lists.index.href() + '?' + params.toString())
+      return redirect(routes.lists.index.href() + '?' + params.toString(), 303)
     },
   },
 })

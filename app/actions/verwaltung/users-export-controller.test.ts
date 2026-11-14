@@ -140,7 +140,7 @@ describe('Verwaltung Users Export Controller', () => {
     assert.ok(html.includes('Keine Benutzer mit Terminen'), 'should show the empty-state notice')
   })
 
-  it('redirects framed download requests to the marker URL (302)', async () => {
+  it('redirects framed download requests to the marker URL (303)', async () => {
     let response = await router.fetch(`${EXPORT_URL}?startDate=2026-06-01&endDate=2026-06-30`, {
       headers: { Cookie: adminCookie, 'X-Remix-Frame': 'true' },
     })
@@ -162,7 +162,7 @@ describe('Verwaltung Users Export Controller', () => {
     assert.ok(html.includes('2026-06-01'), 'form values should be preserved')
   })
 
-  it('redirects framed POST downloads to the marker URL (302)', async () => {
+  it('redirects framed POST downloads to the marker URL (303)', async () => {
     let body = new URLSearchParams({
       startDate: '2026-06-01',
       endDate: '2026-06-30',
@@ -177,7 +177,7 @@ describe('Verwaltung Users Export Controller', () => {
       },
       body: body.toString(),
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('startDate=2026-06-01'), 'location should keep the params')
     assert.ok(location.includes('frameDownload=1'), 'location should carry the marker param')

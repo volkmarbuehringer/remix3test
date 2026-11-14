@@ -152,6 +152,7 @@ interface IndexRenderOptions {
   formError?: string | undefined
   editingPayload?: string | undefined
   grid?: GridOverrides | undefined
+  status?: 400 | undefined
 }
 
 async function renderIndexPage(
@@ -194,7 +195,7 @@ async function renderIndexPage(
       editingOrder={editingOrder}
       editingFilter={editingFilter}
     />,
-    { fullHeight: !editRow && !viewRow },
+    { fullHeight: !editRow && !viewRow, ...(overrides.status ? { status: overrides.status } : {}) },
   )
 }
 
@@ -234,6 +235,7 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
           formError: parsed.message,
           editingPayload: typeof rawPayload === 'string' ? rawPayload : undefined,
           grid: gridOverridesFromForm(context.formData),
+          status: 400,
         })
       }
 

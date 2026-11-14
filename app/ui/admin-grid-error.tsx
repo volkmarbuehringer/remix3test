@@ -6,10 +6,10 @@ import type { PageSizeKey } from '../utils/get-page-size.ts'
 /**
  * Grid-state and validation-error metadata carried on a controlled-submission error re-render.
  *
- * The frame transport treats any non-OK response as an unrecoverable error card,
- * so a validation-error re-render MUST be a 200. This helper centralizes that
- * contract: it loads the grid rows, renders the page fragment with the submitted
- * values and per-field errors, and returns it as `renderAdminPage(..., { status: 200 })`.
+ * A validation failure is a client error: the helper renders the page fragment with the
+ * submitted values and per-field errors at status 400 (guide 09 "Return validation failures
+ * with the form"). The frame transport renders HTML 4xx bodies, so the fragment still swaps
+ * into the frame instead of becoming an error card.
  */
 export interface AdminGridErrorState {
   offset: number
@@ -39,8 +39,8 @@ type ActiveItem = Parameters<typeof renderAdminPage>[1]
  *
  * `loadRows` supplies the paginated grid rows for the current grid state; `buildPage`
  * turns those rows plus the error metadata into the page component. The result is
- * always rendered at status 200 so the swapped-in frame content shows the inline
- * errors and preserved values instead of an error card.
+ * rendered at status 400 so the swapped-in frame content carries the inline errors and
+ * preserved values (a no-JS submission renders the same errors in the full page).
  */
 export async function renderGridFormError<Row>(opts: {
   render: RenderFn
@@ -53,6 +53,8 @@ export async function renderGridFormError<Row>(opts: {
   /** Keep a bounded grid page full-height on the error re-render too. */
   fullHeight?: boolean | undefined
   grid: AdminGridErrorState
+  /** Response status; defaults to 400 (validation). Pass 429/409/404 when the caller knows better. */
+  status?: number | undefined
 }): Promise<Response> {
   let { render, activeItem, loadRows, buildPage, grid } = opts
   let { rows, hasMore, total } = await loadRows()
@@ -76,6 +78,6 @@ export async function renderGridFormError<Row>(opts: {
       pageKey: grid.pageKey,
       pageSizeOverride: grid.pageSizeOverride,
     }),
-    { status: 200, fullHeight: opts.fullHeight },
+    { status: opts.status ?? 400, fullHeight: opts.fullHeight },
   )
 }

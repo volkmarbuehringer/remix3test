@@ -440,7 +440,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formError: validation.formError,
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let { parsed, resourceId, rules } = validation
@@ -468,7 +468,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             formError: 'Ressource wurde gelöscht',
             ...gridStateOverrides(gridValues),
           })
-          return renderOfferingConfigPage(context, data)
+          return renderOfferingConfigPage(context, data, { status: 400 })
         }
         throw error
       }
@@ -489,7 +489,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-      return redirect(baseUrl + '?' + params.toString())
+      return redirect(baseUrl + '?' + params.toString(), 303)
     },
 
     async update(context) {
@@ -500,13 +500,13 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(offeringConfigsGridUrl(formData))
+        return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       let target = await db.findOne(offeringConfigs, { where: { id } })
       if (!target) {
         context.session.flash('error', 'Eintrag nicht gefunden.')
-        return redirect(offeringConfigsGridUrl(formData))
+        return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       let result = s.parseSafe(offeringConfigSchema, formData)
@@ -520,7 +520,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           fieldErrors,
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let parsed = result.value
@@ -534,7 +534,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           fieldErrors: { resource_id: 'Ressource ist erforderlich' },
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let resource = await db.findOne(resources, { where: { id: resourceId } })
@@ -546,7 +546,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formError: 'Ressource nicht gefunden',
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
@@ -558,7 +558,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formError: 'Diese Ressource hat bereits eine Konfiguration',
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let rules = rulesFromParsed(parsed)
@@ -570,7 +570,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formError: 'Mindestens ein Tag muss einen Zeitraum haben',
           ...gridStateOverrides(gridValues),
         })
-        return renderOfferingConfigPage(context, data)
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       try {
@@ -592,7 +592,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             formError: 'Ressource wurde gelöscht',
             ...gridStateOverrides(gridValues),
           })
-          return renderOfferingConfigPage(context, data)
+          return renderOfferingConfigPage(context, data, { status: 400 })
         }
         throw error
       }
@@ -613,7 +613,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
 
     async destroy(context) {
@@ -623,13 +623,13 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(offeringConfigsGridUrl(formData))
+        return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { id } })
       if (!existing) {
         context.session.flash('error', 'Eintrag nicht gefunden.')
-        return redirect(offeringConfigsGridUrl(formData))
+        return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       try {
@@ -645,7 +645,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             'error',
             'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
           )
-          return redirect(offeringConfigsGridUrl(formData))
+          return redirect(offeringConfigsGridUrl(formData), 303)
         }
         throw error
       }
@@ -665,7 +665,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
   },
 })

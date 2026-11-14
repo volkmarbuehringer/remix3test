@@ -12,7 +12,7 @@ import { __setRunFactory } from './controller.tsx'
 // Agent-Events panel: activating/deactivating a user must stay in-frame.
 //
 // Reproduces the "agent dialog disappears" bug: the users grid is loaded into
-// the nested agent-events-panel frame, the admin toggles a user (PRG 302), and
+// the nested agent-events-panel frame, the admin toggles a user (PRG 303), and
 // the redirect was bailing to a top-level navigation (window.location.assign)
 // that replaced the /admin/agent-events host page. The frameRedirects
 // middleware (scoped to admin targets) now re-fetches the redirect as a GET

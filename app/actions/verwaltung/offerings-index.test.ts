@@ -260,7 +260,7 @@ describe('Admin Offerings Controller', () => {
   })
 
   describe('Offerings mutations (admin base contract conformance)', () => {
-    it('re-renders the create form at 200 with preserved values on validation failure', async () => {
+    it('re-renders the create form at 400 with preserved values on validation failure', async () => {
       let body = new URLSearchParams({
         resource_id: String(resourceId),
         day: 'not-a-date',
@@ -277,13 +277,13 @@ describe('Admin Offerings Controller', () => {
         headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'validation failure must re-render at 200, not 400')
+      assert.equal(response.status, 400, 'validation failure must re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('Neues Angebot'), 'should re-render the create panel')
       assert.ok(text.includes('not-a-date'), 'should preserve the submitted day value')
     })
 
-    it('re-renders the edit form at 200 with preserved values on validation failure', async () => {
+    it('re-renders the edit form at 400 with preserved values on validation failure', async () => {
       let row = await pool.query('SELECT id FROM appointoffering WHERE resource_id = $1 LIMIT 1', [
         resourceId,
       ])
@@ -310,7 +310,7 @@ describe('Admin Offerings Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'update validation failure must re-render at 200, not 400')
+      assert.equal(response.status, 400, 'update validation failure must re-render at 400')
       let text = await response.text()
       assert.ok(text.includes('Angebot bearbeiten'), 'should re-render the edit panel')
       assert.ok(text.includes('not-a-date'), 'should preserve the submitted day value')
@@ -336,7 +336,7 @@ describe('Admin Offerings Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'no JSON 404 — PRG back to the grid')
+      assert.equal(response.status, 303, 'no JSON 404 — PRG back to the grid')
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
 
@@ -364,7 +364,7 @@ describe('Admin Offerings Controller', () => {
       })
       assert.equal(
         response.status,
-        302,
+        303,
         'config parse failure should PRG back to the grid, not JSON 400',
       )
       let location = response.headers.get('Location') || ''
@@ -394,7 +394,7 @@ describe('Admin Offerings Controller', () => {
         headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'config-save success should PRG back to the grid')
+      assert.equal(response.status, 303, 'config-save success should PRG back to the grid')
       let location = response.headers.get('Location') || ''
       assert.ok(location.includes('offset=12'), 'grid offset should be preserved')
       assert.ok(location.includes('sort=ao.day'), 'grid sort should be preserved')
@@ -421,7 +421,7 @@ describe('Admin Offerings Controller', () => {
         headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'week-generate should PRG back to the grid')
+      assert.equal(response.status, 303, 'week-generate should PRG back to the grid')
       let location = response.headers.get('Location') || ''
       assert.ok(location.includes('offset=9'), 'grid offset should be preserved')
       assert.ok(location.includes('sort=r.description'), 'grid sort should be preserved')
@@ -449,7 +449,7 @@ describe('Admin Offerings Controller', () => {
         headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'delete-past should PRG back to the grid')
+      assert.equal(response.status, 303, 'delete-past should PRG back to the grid')
       let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       assert.ok(session.get('success'), 'flash success should be set')

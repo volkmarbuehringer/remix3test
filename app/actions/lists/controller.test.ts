@@ -1879,7 +1879,7 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
     })
-    assert.equal(deleteResponse.status, 302)
+    assert.equal(deleteResponse.status, 303)
     let location = deleteResponse.headers.get('Location')
     assert.equal(location, '/lists')
 
@@ -1967,7 +1967,7 @@ describe('Lists controller', () => {
         Cookie: adminCookie,
       },
     })
-    assert.equal(deleteResponse.status, 302)
+    assert.equal(deleteResponse.status, 303)
 
     let row = await db.findOne(lists, { where: { id } })
     assert.equal(row, null, 'list should be deleted')
@@ -2434,7 +2434,7 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
     })
-    assert.equal(copyResponse.status, 302)
+    assert.equal(copyResponse.status, 303)
     let location = copyResponse.headers.get('Location')
     assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
 
@@ -2519,7 +2519,7 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location')
     assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
     assert.ok(location?.includes('&offset=15'), 'should preserve the sidebar page offset')
@@ -2585,7 +2585,7 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
     })
-    assert.equal(response.status, 302)
+    assert.equal(response.status, 303)
     let location = response.headers.get('Location')
     assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
     assert.ok(location?.includes('&filter=needle'), 'should preserve the sidebar filter')

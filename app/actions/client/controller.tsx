@@ -388,6 +388,7 @@ export default createController(routes.admin.clients, {
         routes.admin.clients.index.href(),
         rowId,
         gridStateFromURL(context.url),
+        302,
       )
     },
 
@@ -406,6 +407,7 @@ export default createController(routes.admin.clients, {
           routes.admin.clients.index.href(),
           null,
           gridStateFromForm(rawValues),
+          303,
         )
       }
 
@@ -419,6 +421,7 @@ export default createController(routes.admin.clients, {
             routes.admin.clients.index.href(),
             null,
             gridStateFromForm(rawValues),
+            303,
           )
         }
 
@@ -452,6 +455,7 @@ export default createController(routes.admin.clients, {
           routes.admin.clients.index.href(),
           null,
           gridStateFromForm(rawValues),
+          303,
         )
       }
 
@@ -468,7 +472,12 @@ export default createController(routes.admin.clients, {
       }
 
       context.session.flash('success', 'Kunde gespeichert.')
-      return editingRedirect(routes.admin.clients.index.href(), id, gridStateFromForm(rawValues))
+      return editingRedirect(
+        routes.admin.clients.index.href(),
+        id,
+        gridStateFromForm(rawValues),
+        303,
+      )
     },
 
     // -- DELETE /admin/clients/:id -- Delete a client row --
@@ -480,21 +489,21 @@ export default createController(routes.admin.clients, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige Kunden-ID.')
-        return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
+        return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
       }
 
       try {
         let deleted = await db.delete(clients, { id })
         if (!deleted) {
           context.session.flash('error', 'Kunde nicht gefunden.')
-          return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
+          return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
         }
       } catch (error) {
         let message = isConstraintViolation(error)
           ? 'Kunde kann nicht gelöscht werden: abhängige Datensätze vorhanden.'
           : 'Löschen fehlgeschlagen. Bitte erneut versuchen.'
         context.session.flash('error', message)
-        return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
+        return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
       }
 
       let authIdentity = getAdminIdentity(context.auth)
@@ -509,7 +518,7 @@ export default createController(routes.admin.clients, {
       }
 
       context.session.flash('success', 'Kunde gelöscht.')
-      return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
+      return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
     },
 
     // -- POST /admin/clients/:id/toggle-status -- Toggle a client's status --
@@ -523,7 +532,7 @@ export default createController(routes.admin.clients, {
       let fail = (message: string): Response => {
         context.session.flash('error', message)
         let qs = params.toString()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
+        return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }
 
       if (id === undefined || id < 1) {
@@ -556,7 +565,7 @@ export default createController(routes.admin.clients, {
         newStatus === 'Active' ? 'Kunde aktiviert.' : 'Kunde deaktiviert.',
       )
       let qs = params.toString()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
     },
 
     // -- GET /admin/clients/:id/toggle-status -- Resolve the toggle action path --
@@ -624,7 +633,7 @@ export default createController(routes.admin.clients, {
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let qs = params.toString()
-      return redirect(routes.admin.clients.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.admin.clients.index.href() + (qs ? '?' + qs : ''), 303)
     },
   },
 })

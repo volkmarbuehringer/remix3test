@@ -74,7 +74,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: Register redirects to register-sent page (no auto-login with email verification)
-    assert.equal(registerResponse.status, 302, 'register should redirect')
+    assert.equal(registerResponse.status, 303, 'register should redirect')
     assert.equal(
       registerResponse.headers.get('Location'),
       routes.auth.registerSent.href(),
@@ -93,7 +93,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: Login authenticates and redirects to home
-    assert.equal(loginResponse.status, 302, 'login should redirect')
+    assert.equal(loginResponse.status, 303, 'login should redirect')
     assert.equal(loginResponse.headers.get('Location'), '/', 'login should redirect to home')
 
     let cookie = extractSessionCookie(loginResponse)
@@ -111,7 +111,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: Logout unsets auth and redirects to home
-    assert.equal(logoutResponse.status, 302, 'logout should redirect')
+    assert.equal(logoutResponse.status, 303, 'logout should redirect')
     assert.equal(logoutResponse.headers.get('Location'), '/', 'logout should redirect to home')
   })
 
@@ -136,7 +136,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: Admin login succeeds
-    assert.equal(loginResponse.status, 302, 'admin login should redirect')
+    assert.equal(loginResponse.status, 303, 'admin login should redirect')
     assert.equal(loginResponse.headers.get('Location'), '/', 'admin login should redirect to home')
 
     let adminCookie = extractSessionCookie(loginResponse)
@@ -154,7 +154,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: Logout succeeds with regenerated session ID
-    assert.equal(logoutResponse.status, 302, 'logout should redirect after admin login')
+    assert.equal(logoutResponse.status, 303, 'logout should redirect after admin login')
     assert.equal(logoutResponse.headers.get('Location'), '/', 'logout should redirect to home')
 
     let logoutCookie = extractSessionCookie(logoutResponse)
@@ -179,7 +179,7 @@ describe('auth e2e', () => {
     })
 
     // Assert: User login redirects to home with session cookie
-    assert.equal(response.status, 302, 'user login should redirect')
+    assert.equal(response.status, 303, 'user login should redirect')
     assert.equal(response.headers.get('Location'), '/', 'user login should redirect to home')
 
     let sessionCookie = extractSessionCookie(response)

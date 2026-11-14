@@ -316,7 +316,7 @@ export default createController(routes.admin.lists, {
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
-      return redirect(routes.admin.lists.index.href() + '?' + params.toString())
+      return redirect(routes.admin.lists.index.href() + '?' + params.toString(), 303)
     },
 
     async update(context) {
@@ -331,13 +331,13 @@ export default createController(routes.admin.lists, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige Listen-ID.')
-        return redirect(listsGridUrl(formData))
+        return redirect(listsGridUrl(formData), 303)
       }
 
       let existing = await findListRow(db, id)
       if (!existing) {
         context.session.flash('error', 'Liste nicht gefunden.')
-        return redirect(listsGridUrl(formData))
+        return redirect(listsGridUrl(formData), 303)
       }
 
       let rawValues = readFormFieldValues(LISTS_FORM_KEYS, formData)
@@ -381,7 +381,7 @@ export default createController(routes.admin.lists, {
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
-      return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''), 303)
     },
 
     async destroy(context) {
@@ -391,13 +391,13 @@ export default createController(routes.admin.lists, {
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         context.session.flash('error', 'Ungültige Listen-ID.')
-        return redirect(listsGridUrl(formData))
+        return redirect(listsGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(lists, { where: { id } })
       if (!existing) {
         context.session.flash('error', 'Liste nicht gefunden.')
-        return redirect(listsGridUrl(formData))
+        return redirect(listsGridUrl(formData), 303)
       }
 
       try {
@@ -407,7 +407,7 @@ export default createController(routes.admin.lists, {
           context.logger?.('Delete list failed: ' + String(err))
         }
         context.session.flash('error', 'Liste wird noch verwendet und kann nicht gelöscht werden.')
-        return redirect(listsGridUrl(formData))
+        return redirect(listsGridUrl(formData), 303)
       }
 
       let authIdentity = getAdminIdentity(context.auth)
@@ -437,7 +437,7 @@ export default createController(routes.admin.lists, {
       if (offset >= total) {
         offset = total > 0 ? Math.floor((total - 1) / pageSize) * pageSize : 0
       }
-      return redirect(listsGridUrl(formData, offset))
+      return redirect(listsGridUrl(formData, offset), 303)
     },
   },
 })

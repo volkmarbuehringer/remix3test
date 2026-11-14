@@ -1,5 +1,6 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
+import { SetCookie } from 'remix/headers'
 
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
@@ -201,8 +202,18 @@ describe('Settings controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 200)
-      let html = await response.text()
+      assert.equal(response.status, 303, 'password change must PRG')
+      let location = response.headers.get('Location')!
+      assert.equal(location, routes.settings.index.href() + '?tab=password')
+
+      // The success message is a one-shot flash, rendered by the GET destination.
+      let setCookie = SetCookie.from(response.headers.get('Set-Cookie'))
+      let followCookie = setCookie.name
+        ? `${setCookie.name}=${setCookie.value ?? ''}`
+        : session.cookie
+      let follow = await router.fetch(BASE + location, { headers: { Cookie: followCookie } })
+      assert.equal(follow.status, 200)
+      let html = await follow.text()
       assert.ok(html.includes('Passwort erfolgreich aktualisiert'), 'should show success message')
 
       currentPassword = NEW_PASSWORD
@@ -331,7 +342,7 @@ describe('Settings controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location')
       assert.ok(
         location === routes.settings.index.href() + '?tab=display',
@@ -355,7 +366,7 @@ describe('Settings controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
 
       let page = await router.fetch(`${BASE}${routes.settings.index.href()}?tab=display`, {
         headers: { Cookie: session.cookie },
@@ -545,7 +556,7 @@ describe('Settings controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location')
       assert.ok(location?.includes(routes.auth.login.index.href()), 'should redirect to login')
 

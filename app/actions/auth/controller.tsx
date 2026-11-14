@@ -153,7 +153,7 @@ export const authLogin = createController(routes.auth.login, {
       session.set('auth', { userId: user.id, tv: user.token_version })
 
       returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? '/'
-      return redirect(returnTo)
+      return redirect(returnTo, 303)
     },
   },
 })
@@ -295,7 +295,7 @@ export const authRegister = createController(routes.auth.register, {
         }
       }
 
-      return redirect(routes.auth.registerSent.href())
+      return redirect(routes.auth.registerSent.href(), 303)
     },
   },
 })
@@ -493,7 +493,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
         session.flash('reset', 'Password reset successfully! Please log in.')
       }
 
-      return redirect(routes.auth.login.index.href())
+      return redirect(routes.auth.login.index.href(), 303)
     },
   },
 })
@@ -592,5 +592,5 @@ export const authLogout = createAction(routes.auth.logout, () => {
   }
   session.unset('auth')
   session.regenerateId(true)
-  return redirect(routes.home.href())
+  return redirect(routes.home.href(), 303)
 })

@@ -422,7 +422,7 @@ describe('Admin Users Controller', () => {
         body: body.toString(),
       })
       // Should redirect to editing mode
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users?editing='))
     })
@@ -444,7 +444,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
       assert.ok(text.includes(email), 'should preserve the submitted email value')
@@ -466,7 +466,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
       assert.ok(text.includes('not-an-email'), 'should preserve the submitted email value')
@@ -493,7 +493,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(
         text.includes('name="_status" value="disabled"'),
@@ -517,7 +517,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
       assert.ok(text.includes('Passwort'), 'should show the password complexity error')
@@ -539,7 +539,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
       assert.ok(text.includes('existiert bereits'), 'should show the duplicate-email error')
@@ -562,7 +562,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       let match = location.match(/editing=(\d+)/)
       if (match) {
@@ -603,7 +603,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       assert.ok((response.headers.get('Location') || '').startsWith('/admin/users'))
     })
 
@@ -627,7 +627,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(text.includes('Benutzer bearbeiten'), 'should re-render the edit panel')
       assert.ok(text.includes('bad-email'), 'should preserve the submitted email value')
@@ -657,7 +657,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'update should redirect on success')
+      assert.equal(response.status, 303, 'update should redirect on success')
 
       let result = await pool.query(
         `SELECT details, action_type, target_id, target_type FROM audit_logs
@@ -729,7 +729,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 200, 'invalid email should re-render the edit panel')
+      assert.equal(response.status, 400, 'invalid email should re-render the edit panel')
       let text = await response.text()
       assert.ok(
         !text.includes('super-secret-pw-123!'),
@@ -794,7 +794,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'toggle should redirect (PRG), not return JSON')
+      assert.equal(response.status, 303, 'toggle should redirect (PRG), not return JSON')
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
       assert.ok(location.includes('sort=name'), 'should carry grid-state params')
@@ -825,7 +825,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(
         location.includes('status=disabled'),
@@ -855,7 +855,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.equal(result.rows[0]?.disabled_at, null, 'disabled_at should be null')
@@ -881,7 +881,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'no JSON 404 — PRG back to the grid')
+      assert.equal(response.status, 303, 'no JSON 404 — PRG back to the grid')
 
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
@@ -917,7 +917,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
 
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
@@ -1023,7 +1023,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
     })
 
     it('returns 404 for non-existent user', async () => {
@@ -1068,7 +1068,7 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 302)
+      assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(
         location.includes('filter=disabled'),

@@ -249,8 +249,8 @@ describe('CSRF protection', () => {
     })
 
     // Assert: request passes CSRF validation
-    // (status is 302 because login succeeded, not 403 from CSRF)
-    assert.equal(response.status, 302, 'POST with valid CSRF token should pass through')
+    // (status is 303 because login succeeded, not 403 from CSRF)
+    assert.equal(response.status, 303, 'POST with valid CSRF token should pass through')
   })
 
   // -----------------------------------------------------------------------
@@ -286,10 +286,10 @@ describe('CSRF protection', () => {
     })
 
     // Assert: the token from the HTML form is valid for the session
-    // A 302 means login succeeded, proving the CSRF token matched
+    // A 303 means login succeeded, proving the CSRF token matched
     assert.equal(
       loginResponse.status,
-      302,
+      303,
       'CSRF token from HTML form should match session token and allow POST',
     )
   })

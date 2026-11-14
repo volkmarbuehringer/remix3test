@@ -40,7 +40,7 @@ export default createController(routes.verwaltung, {
           }
         }
       }
-      return redirect(verwaltungReturnTo(context.formData))
+      return redirect(verwaltungReturnTo(context.formData), 303)
     },
   },
 })

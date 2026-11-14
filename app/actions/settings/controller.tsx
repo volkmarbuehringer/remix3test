@@ -167,7 +167,7 @@ export default createController(routes.settings, {
           }
         }
 
-        return redirect(routes.auth.login.index.href())
+        return redirect(routes.auth.login.index.href(), 303)
       }
 
       if (_action === 'set-page-size') {
@@ -179,7 +179,7 @@ export default createController(routes.settings, {
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }
-        return redirect(`${routes.settings.index.href()}?tab=display`)
+        return redirect(`${routes.settings.index.href()}?tab=display`, 303)
       }
 
       if (!changePasswordLimiter.attempt(user.id)) {
@@ -276,16 +276,11 @@ export default createController(routes.settings, {
 
       changePasswordLimiter.reset(user.id)
 
-      return context.render(
-        <SettingsView
-          isFrame={isFrame}
-          inline
-          user={user}
-          pageSize={pageSize}
-          activeTab="password"
-          passwordSuccess="Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet."
-        />,
+      context.session.flash(
+        'success',
+        'Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet.',
       )
+      return redirect(`${routes.settings.index.href()}?tab=password`, 303)
     },
   },
 })
@@ -326,7 +321,6 @@ type SettingsPageProps = {
   pageSize: number
   passwordError?: string
   passwordErrors?: Record<string, string | undefined>
-  passwordSuccess?: string
   deleteError?: string
   /** Section rendered into the frame; defaults to the profile tab. */
   activeTab?: SettingsTab
@@ -399,8 +393,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
 
 function SettingsTabs(handle: Handle<SettingsPageProps>) {
   return () => {
-    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
-      handle.props
+    let { user, pageSize, passwordError, passwordErrors, deleteError } = handle.props
     let activeTab = handle.props.activeTab ?? DEFAULT_SETTINGS_TAB
 
     return (
@@ -523,11 +516,6 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
               {passwordError ? (
                 <p role="alert" mix={errorBanner}>
                   {passwordError}
-                </p>
-              ) : null}
-              {passwordSuccess ? (
-                <p role="status" mix={successBanner}>
-                  {passwordSuccess}
                 </p>
               ) : null}
               <form
@@ -922,16 +910,6 @@ const errorBanner = css({
   border: `1px solid ${theme.colors.action.danger.border}`,
   borderRadius: theme.radius.md,
   color: theme.colors.action.danger.foreground,
-  margin: 0,
-  padding: theme.space.md,
-})
-
-const successSurface = theme.surface as Record<string, string>
-const successBanner = css({
-  backgroundColor: successSurface.successBg ?? '#d1fae5',
-  border: `1px solid ${successSurface.successBorder ?? '#6ee7b7'}`,
-  borderRadius: theme.radius.md,
-  color: successSurface.successText ?? '#065f46',
   margin: 0,
   padding: theme.space.md,
 })

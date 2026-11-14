@@ -32,7 +32,7 @@ export default createController(routes.admin.webhookRequests.create, {
           context.render,
           'webhooks',
           <AdminWebhookComposerPage initialPayload={submitted} formError={parsed.message} />,
-          { status: 200 },
+          { status: 400 },
         )
       }
 
@@ -48,6 +48,10 @@ export default createController(routes.admin.webhookRequests.create, {
         if (process.env.NODE_ENV !== 'test') {
           console.error('Failed to insert webhook request: ' + String(error))
         }
+        // Keep the 500 (a failed insert is a server error, not a validation
+        // re-render) but use the app's error surface: document submissions get
+        // the admin shell with a German message; the frame runtime shows its
+        // recovery card for 5xx.
         return renderAdminPage(
           context.render,
           'webhooks',
@@ -55,7 +59,7 @@ export default createController(routes.admin.webhookRequests.create, {
             initialPayload={submitted}
             formError="Fehler beim Speichern."
           />,
-          { status: 200 },
+          { status: 500 },
         )
       }
 

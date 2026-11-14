@@ -11,7 +11,7 @@ import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { UsersExportPage } from '../../../ui/users-export-page.tsx'
 import { pdfAttachmentResponse } from '../../../utils/pdf-utils.ts'
 import { buildUserSummaryPdf } from '../../../utils/user-summary-pdf.ts'
-import { issuesToFieldErrors } from '../../../utils/schema-utils.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { MS_PER_DAY, formatUtcPeriodDayDE, parseIsoDateUtc } from '../../../utils/date-utils.ts'
 
 function isIsoCalendarDate(value: string): boolean {
@@ -142,8 +142,9 @@ export default createController(routes.verwaltung.usersExport, {
 
     async create(context) {
       let formData = context.formData
-      let startDate = (formData.get('startDate') as string) ?? ''
-      let endDate = (formData.get('endDate') as string) ?? ''
+      let values = readFormFieldValues(['startDate', 'endDate'], formData)
+      let startDate = values.startDate ?? ''
+      let endDate = values.endDate ?? ''
 
       if (context.request.headers.get('X-Remix-Frame') === 'true') {
         let url = new URL(context.url)
@@ -151,7 +152,7 @@ export default createController(routes.verwaltung.usersExport, {
         if (startDate) params.set('startDate', startDate)
         if (endDate) params.set('endDate', endDate)
         params.set(FRAME_DOWNLOAD_PARAM, '1')
-        return redirect(`${url.pathname}?${params}`)
+        return redirect(`${url.pathname}?${params}`, 303)
       }
 
       return downloadUsersExport(context, startDate, endDate)

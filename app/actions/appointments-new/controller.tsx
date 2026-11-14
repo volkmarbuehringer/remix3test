@@ -58,7 +58,7 @@ const deleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true
 function errorRedirectDestroy(formData: FormData, error: string): Response {
   let params = gridStateToParams(gridStateFromFormData(formData))
   params.set('error', error)
-  return redirect(routes.appointmentsNew.index.href() + '?' + params.toString())
+  return redirect(routes.appointmentsNew.index.href() + '?' + params.toString(), 303)
 }
 
 interface AppointmentsNewPageData {
@@ -427,9 +427,12 @@ export default createController(routes.appointmentsNew, {
 
       // Combined step 2: validate and create appointment in one submission
       if (step === '2') {
-        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-        let dayStartRaw = (formData.get('day_start') as string) ?? ''
-        let weekStartRaw = (formData.get('week_start') as string) || undefined
+        let resourceIdRaw = formValues.resource_id ?? ''
+        let dayStartValue = formData.get('day_start')
+        let dayStartRaw = typeof dayStartValue === 'string' ? dayStartValue : ''
+        let weekStartValue = formData.get('week_start')
+        let weekStartRaw =
+          typeof weekStartValue === 'string' && weekStartValue ? weekStartValue : undefined
 
         if (!createLimiter.attempt(userId)) {
           let data = await loadAppointmentsNewPageData(context, userId, {
@@ -569,11 +572,11 @@ export default createController(routes.appointmentsNew, {
           status: '',
         })
         let qs = params.toString()
-        return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
+        return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''), 303)
       }
 
       // No valid step — redirect to step 1 (resource cards)
-      return redirect(routes.appointmentsNew.index.href() + '?creating=true')
+      return redirect(routes.appointmentsNew.index.href() + '?creating=true', 303)
     },
 
     async destroy(context) {
@@ -634,7 +637,7 @@ export default createController(routes.appointmentsNew, {
         status: '',
       })
       let qs = params.toString()
-      return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''), 303)
     },
 
     async events(context) {

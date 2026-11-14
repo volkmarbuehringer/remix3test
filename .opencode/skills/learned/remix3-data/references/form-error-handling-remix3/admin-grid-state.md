@@ -72,13 +72,13 @@ function withPanelState(href: string, editingId: number | null | undefined, crea
 - Reference: `app/actions/client/grid-page.tsx` (`withPanelState`) and
   `app/actions/client/grid-page.test.ts`.
 
-### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
+### Admin Grid Error Path: `renderGridFormError` returns 400
 
-When an admin **grid** page routes its validation-error re-render through `renderGridFormError` (`app/ui/admin-grid-error.tsx`), the response is always **status 200**, NOT 400. The admin frame transport treats any non-OK response as an unrecoverable error card, so a validation-error re-render MUST be a 200 to show inline field errors in the frame; the helper renders `renderAdminPage(..., { status: 200 })` (`app/ui/admin-grid-error.tsx:79`).
+When an admin **grid** page routes its validation-error re-render through `renderGridFormError` (`app/ui/admin-grid-error.tsx`), the response is **status 400**, matching vendor guide 09 ("Return validation failures with the form"). The frame transport renders HTML 4xx bodies (`app/assets/frame-response.browser.tsx`, asserted in `app/assets/frame-response.test.browser.ts` — a 400 fragment is `render`, not an error card), so the inline errors and preserved values still swap into the frame.
 
-This is the `/admin/users` pattern. A grid action using this helper MUST assert 200, not 400. Reference call: `app/actions/client/controller.tsx:249` (`renderClientsError`).
+This is the `/admin/users` pattern. A grid action using this helper asserts 400. Reference calls: `app/actions/client/controller.tsx` (`renderClientsError`), `app/actions/admin/lists/controller.tsx` (`renderListsError`).
 
-**Contrast:** `context.render(<Page/>, { status: 400 })` (direct re-render in `validation-and-schema.md`) is for full-page / non-admin-frame forms. Inside the admin frame, route validation through `renderGridFormError` so inline errors appear at 200. When a spec/test says "returns 400" for a grid page that uses `renderGridFormError`, it describes stale behavior — correct it to 200 (see the users test `assert.equal(response.status, 200)`).
+**Contrast:** full-page / non-admin-frame forms also use `context.render(<Page/>, { status: 400 })` (direct re-render in `validation-and-schema.md`), and the Verwaltung panel editors (offerings, appointments, resources, offering-configs) pass `{ status: 400 }` on the same error paths. If a spec/test still says "returns 200" for a validation re-render, it predates this convention — change it to 400 (see `app/actions/admin/admin-lists.test.ts` and `app/actions/admin/admin-users.test.ts`).
 
 ### Form Error Banner Styles
 

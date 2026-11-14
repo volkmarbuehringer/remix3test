@@ -97,6 +97,33 @@ npm run test:server && npm run test:browser && npm run test:e2e
 An audit that touches shells or middleware touches every page: run the full suites, not only the
 chapter's files.
 
+### 7. Status-code drift: classify exact-status tests before changing handlers
+
+Guide re-audits often find a handler returning the wrong status while every browser test
+passes: browsers follow 302/303 and render 200/400 bodies identically. The server tests
+encode the old convention, so a bulk change turns a green suite red for the wrong reason.
+Classify every assertion you touch first:
+
+| Assertion context                                                             | Keep | Change        |
+| ----------------------------------------------------------------------------- | ---- | ------------- |
+| `200` on a GET page/fragment render                                           | ✓    |               |
+| `200` on a POST/PUT/DELETE validation re-render                               |      | `400`         |
+| `302` on an unauthenticated GET → login, or a framed download marker redirect | ✓    |               |
+| `302` on a POST/PUT/DELETE mutation / PRG                                     |      | `303`         |
+| `200` on a successful mutation that should PRG                                |      | flash + `303` |
+
+- Shared redirect helpers often serve both kinds of caller. Add an optional status
+  (`editingRedirect(..., status = 302)`) and pass `303` from mutations; do not flip the
+  default used by GET callers.
+- Before preserving a “non-OK frame response becomes an error card” comment, verify it
+  against the installed resolver: `defaultResolveFrame` rejects only `5xx` and non-HTML
+  `3xx/4xx`, and the app's `classifyFrameResponse` renders HTML `400`/`404` fragments.
+  A validation re-render at 400 still swaps into the frame.
+- A success POST that renders the page must become flash + `303`; otherwise refresh
+  re-submits the form (`app/actions/settings/controller.tsx` password change).
+- Run the affected files, then the full server/browser/e2e suites; update the learned
+  owner reference in the same pass (`remix3-data` forms/validation, guide coverage row).
+
 ## Traps
 
 - **In-memory test stores mask persistence-order bugs.** `createMemorySessionStorage` returns the

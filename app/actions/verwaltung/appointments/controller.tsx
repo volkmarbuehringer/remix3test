@@ -332,11 +332,11 @@ export default createController(routes.verwaltung.appointments, {
             formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
             ...gridStateOverrides(gridValues),
           })
-          return renderAppointmentsPage(context, data)
+          return renderAppointmentsPage(context, data, { status: 400 })
         }
       }
 
-      let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+      let resourceIdRaw = formValues.resource_id ?? ''
       if (!resourceIdRaw.trim()) {
         let data = await loadAppointmentPageData(context, {
           creating: true,
@@ -344,9 +344,9 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { resource_id: 'ist erforderlich.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
-      let userIdRaw = (formData.get('user_id') as string) ?? ''
+      let userIdRaw = formValues.user_id ?? ''
       if (!userIdRaw.trim()) {
         let data = await loadAppointmentPageData(context, {
           creating: true,
@@ -354,7 +354,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { user_id: 'ist erforderlich.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let result = s.parseSafe(appointmentSaveSchema, formData)
@@ -367,7 +367,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors,
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let { resource_id, user_id, title, date, start_min, end_min } = result.value
@@ -380,7 +380,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let trimmedTitle = title.trim()
@@ -393,7 +393,7 @@ export default createController(routes.verwaltung.appointments, {
           formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
@@ -404,7 +404,7 @@ export default createController(routes.verwaltung.appointments, {
           formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let during = `[${start_min},${end_min})`
@@ -438,7 +438,7 @@ export default createController(routes.verwaltung.appointments, {
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
             ...gridStateOverrides(gridValues),
           })
-          return renderAppointmentsPage(context, data)
+          return renderAppointmentsPage(context, data, { status: 400 })
         }
         throw error
       }
@@ -448,7 +448,7 @@ export default createController(routes.verwaltung.appointments, {
       let params = gridStateToParams(gridValues)
       params.set('editing', String(newId))
       let qs = params.toString()
-      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''), 303)
     },
 
     async update(context) {
@@ -467,7 +467,7 @@ export default createController(routes.verwaltung.appointments, {
             formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
             ...gridStateOverrides(gridValues),
           })
-          return renderAppointmentsPage(context, data)
+          return renderAppointmentsPage(context, data, { status: 400 })
         }
       }
 
@@ -475,10 +475,10 @@ export default createController(routes.verwaltung.appointments, {
 
       if (!id) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(appointmentsGridUrl(formData))
+        return redirect(appointmentsGridUrl(formData), 303)
       }
 
-      let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+      let resourceIdRaw = formValues.resource_id ?? ''
       if (!resourceIdRaw.trim()) {
         let editRow = await fetchAppointmentEditRow(context.db, id)
         let data = await loadAppointmentPageData(context, {
@@ -487,9 +487,9 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { resource_id: 'ist erforderlich.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
-      let userIdRaw = (formData.get('user_id') as string) ?? ''
+      let userIdRaw = formValues.user_id ?? ''
       if (!userIdRaw.trim()) {
         let editRow = await fetchAppointmentEditRow(context.db, id)
         let data = await loadAppointmentPageData(context, {
@@ -498,7 +498,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { user_id: 'ist erforderlich.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let result = s.parseSafe(appointmentSaveSchema, formData)
@@ -512,7 +512,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors,
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let { resource_id, user_id, title, date, start_min, end_min } = result.value
@@ -526,7 +526,7 @@ export default createController(routes.verwaltung.appointments, {
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let trimmedTitle = title.trim()
@@ -540,7 +540,7 @@ export default createController(routes.verwaltung.appointments, {
           formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
@@ -552,7 +552,7 @@ export default createController(routes.verwaltung.appointments, {
           formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
           ...gridStateOverrides(gridValues),
         })
-        return renderAppointmentsPage(context, data)
+        return renderAppointmentsPage(context, data, { status: 400 })
       }
 
       let during = `[${start_min},${end_min})`
@@ -568,7 +568,7 @@ export default createController(routes.verwaltung.appointments, {
 
         if (!updated) {
           context.session.flash('error', 'Eintrag nicht gefunden.')
-          return redirect(appointmentsGridUrl(formData))
+          return redirect(appointmentsGridUrl(formData), 303)
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -591,7 +591,7 @@ export default createController(routes.verwaltung.appointments, {
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
             ...gridStateOverrides(gridValues),
           })
-          return renderAppointmentsPage(context, data)
+          return renderAppointmentsPage(context, data, { status: 400 })
         }
         throw error
       }
@@ -600,7 +600,7 @@ export default createController(routes.verwaltung.appointments, {
 
       let params = gridStateToParams(gridValues)
       let qs = params.toString()
-      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''), 303)
     },
 
     async destroy(context) {
@@ -612,13 +612,13 @@ export default createController(routes.verwaltung.appointments, {
         let authUserId = (auth.identity as { id: number }).id
         if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
           context.session.flash('error', 'Bitte warten Sie, bevor Sie einen Termin löschen.')
-          return redirect(appointmentsGridUrl(formData))
+          return redirect(appointmentsGridUrl(formData), 303)
         }
       }
 
       if (!id) {
         context.session.flash('error', 'Ungültige ID.')
-        return redirect(appointmentsGridUrl(formData))
+        return redirect(appointmentsGridUrl(formData), 303)
       }
 
       try {
@@ -626,7 +626,7 @@ export default createController(routes.verwaltung.appointments, {
 
         if (!deleted) {
           context.session.flash('error', 'Eintrag nicht gefunden.')
-          return redirect(appointmentsGridUrl(formData))
+          return redirect(appointmentsGridUrl(formData), 303)
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -645,7 +645,7 @@ export default createController(routes.verwaltung.appointments, {
             'error',
             'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
           )
-          return redirect(appointmentsGridUrl(formData))
+          return redirect(appointmentsGridUrl(formData), 303)
         }
         throw error
       }
@@ -654,7 +654,7 @@ export default createController(routes.verwaltung.appointments, {
 
       let params = gridStateToParams(gridStateFromFormData(formData))
       let qs = params.toString()
-      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''), 303)
     },
 
     async events(context) {
