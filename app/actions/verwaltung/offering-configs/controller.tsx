@@ -355,8 +355,13 @@ export default createController(routes.verwaltung.offeringConfigs, {
       // Raw /:id renders the edit panel — the frame commits this path as its
       // address after a PUT/DELETE, so it must be a valid GET. After a delete
       // the row is gone, so rather than surfacing a 404 card we PRG back to
-      // the grid (matching the non-field-error contract for missing rows).
-      let editRow = (await getOfferingConfig(context.db, Number(context.params.id))) ?? null
+      // the grid (matching the non-field-error contract for missing rows). The
+      // route param is a string, so guard before the int4 comparison.
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
+        return redirect(routes.verwaltung.offeringConfigs.index.href())
+      }
+      let editRow = (await getOfferingConfig(context.db, id)) ?? null
       if (!editRow) {
         return redirect(routes.verwaltung.offeringConfigs.index.href())
       }

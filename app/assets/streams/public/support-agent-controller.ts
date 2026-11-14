@@ -1,6 +1,7 @@
 import { updateUrl } from 'remix/component'
 
 import { readEventStream, isAbortError, fetchSseStream, type SseInit } from './sse-post.ts'
+import { routes } from '../../../routes.ts'
 
 /**
  * Turn, thread-navigation, and retry state machine for the admin support
@@ -350,7 +351,7 @@ export function createSupportAgentStreamController(
 
     ui.removeApprovalGate()
     ui.clearAgentMessageEl()
-    void startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
+    void startStream(routes.admin.supportAgent.toolDecision.href(), { method: 'POST', body })
   }
 
   function answer(form: HTMLFormElement) {
@@ -373,7 +374,7 @@ export function createSupportAgentStreamController(
 
     ui.removeQuestionGate()
     ui.clearAgentMessageEl()
-    void startStream('/admin/support-agent/answer', { method: 'POST', body })
+    void startStream(routes.admin.supportAgent.answer.href(), { method: 'POST', body })
   }
 
   // ── Reconnect: re-surface a pending gate after a reload ─────
@@ -628,7 +629,7 @@ export function createSupportAgentStreamController(
         body.set('selectionMode', 'single_select')
         if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
         if (currentThreadId) body.set('threadId', currentThreadId)
-        void startStream('/admin/support-agent/answer', { method: 'POST', body })
+        void startStream(routes.admin.supportAgent.answer.href(), { method: 'POST', body })
         return
       }
     } catch (err) {

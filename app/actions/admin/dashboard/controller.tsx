@@ -68,7 +68,8 @@ function adminReturnTo(formData: FormData): string {
     return fallback
   }
   if (url.origin !== 'http://internal.invalid') return fallback
-  if (url.pathname !== '/admin' && !url.pathname.startsWith('/admin/')) return fallback
+  let root = routes.admin.index.href()
+  if (url.pathname !== root && !url.pathname.startsWith(root + '/')) return fallback
 
   url.searchParams.delete('offset')
   url.searchParams.delete('page')

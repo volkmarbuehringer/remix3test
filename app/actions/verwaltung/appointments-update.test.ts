@@ -385,6 +385,29 @@ describe('Admin Appointments Controller', () => {
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
 
+    it('redirects with a flash error for a non-numeric appointment ID', async () => {
+      let body = new URLSearchParams({ title: 'Ungültige ID' })
+      let response = await router.fetch(`${ADMIN_APPT_URL}/abc`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 303, 'non-numeric update should PRG back to the grid')
+      let location = response.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
+
+      let rawSid = await readSessionId(adminCookie)
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Ungültige ID'), 'flash error should be set')
+    })
+
     it('returns error redirect for invalid update data', async () => {
       // Arrange: missing title (empty)
       let body = new URLSearchParams({

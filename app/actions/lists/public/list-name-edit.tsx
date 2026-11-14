@@ -1,5 +1,6 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
+import { routes } from '../../../routes.ts'
 
 export const ListNameEdit = clientEntry(
   import.meta.url + '#ListNameEdit',
@@ -60,7 +61,7 @@ export const ListNameEdit = clientEntry(
               let updatedAt = entryEl?.getAttribute('data-updated-at')
               if (updatedAt) headers['If-Match'] = updatedAt
 
-              fetch(`/lists/${listId}`, {
+              fetch(routes.lists.update.href({ id: listId }), {
                 method: 'PUT',
                 headers,
                 body: JSON.stringify({ title: trimmed }),

@@ -546,7 +546,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                       server redirect to the new list. */}
               <form
                 method="POST"
-                action={`/lists/${loadedListId}/copy`}
+                action={routes.lists.copy.href({ id: loadedListId })}
                 data-rmx-target={frames.listsContent}
                 hidden
                 mix={[ref((el) => view.onCopyFormRef(el))]}

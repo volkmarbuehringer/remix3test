@@ -98,6 +98,16 @@ describe('Admin Offering Configs Controller', () => {
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
 
+    it('redirects to the grid for a non-numeric id without querying', async () => {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/abc`, {
+        headers: { Cookie: adminCookie },
+        redirect: 'manual',
+      })
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/offering-configs'))
+    })
+
     it('renders the edit panel for an existing row', async () => {
       let now = Date.now()
       let resResult = await pool.query(

@@ -2,6 +2,7 @@ import type { Middleware } from 'remix/router'
 import { csrf } from 'remix/middleware/csrf'
 
 import { configuredPublicOrigin } from '../utils/public-origin.ts'
+import { routes } from '../routes.ts'
 
 // Cloudflare quick-tunnel hostnames are `<random-words>.trycloudflare.com`.
 const TRYCLOUDFLARE_ORIGIN = /^https?:\/\/[a-z0-9-]+\.trycloudflare\.com$/i
@@ -47,7 +48,11 @@ const csrfMiddleware = csrf({ origin: isAllowedCsrfOrigin })
 // the `remix3-server` skill's `references/security-gotchas/security-middleware.md` section).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
-const AGENT_PATHS = ['/admin/support-agent', '/admin/agent-events', '/chat']
+const AGENT_PATHS = [
+  routes.admin.supportAgent.index.href(),
+  routes.admin.agentEvents.index.href(),
+  routes.chat.index.href(),
+]
 
 function isAgentPath(pathname: string): boolean {
   return AGENT_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))

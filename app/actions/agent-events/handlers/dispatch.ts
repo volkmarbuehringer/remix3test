@@ -1,6 +1,6 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
 import { INTENTS, INTENT_TO_ACTION } from '../intents.ts'
-import { frames } from '../../../routes.ts'
+import { frames, routes } from '../../../routes.ts'
 
 function actionLabel(action: string): string {
   return action.charAt(0).toUpperCase() + action.slice(1)
@@ -32,7 +32,7 @@ export const dispatchHandler: EventHandler = {
     if (e.intent === INTENTS.LOOKUP_USER) {
       emit({
         type: 'navigate',
-        href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
+        href: routes.admin.users.index.href() + (navQuery ? '?filter=' + navQuery : ''),
         target: frames.agentEventsPanel,
       })
       return
@@ -49,7 +49,7 @@ export const dispatchHandler: EventHandler = {
         workflowId: 'userManagementWorkflow',
         input: { action, ...actionInput },
         navigate: {
-          href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
+          href: routes.admin.users.index.href() + (navQuery ? '?filter=' + navQuery : ''),
           target: frames.agentEventsPanel,
         },
         summary: `${actionLabel(action)} user ${resolved.targetUserId || resolved.targetName || resolved.targetEmail}`,
@@ -62,7 +62,7 @@ export const dispatchHandler: EventHandler = {
       let resourceId = Number(resolved.resourceId || 0)
       let filterValue = String(resolved.targetEmail || resolved.targetQuery || '')
       let href =
-        '/verwaltung/appointments' +
+        routes.verwaltung.appointments.index.href() +
         (filterValue ? '?filter=' + encodeURIComponent(filterValue) : '')
       emit({
         type: 'workflow.requested',
@@ -93,7 +93,7 @@ export const dispatchHandler: EventHandler = {
       let status = sanitizeFilterParam(e.params.status, STATUS_VALUES)
       if (status) params.set('status', status)
       let qs = params.toString()
-      let href = '/verwaltung/appointments' + (qs ? '?' + qs : '')
+      let href = routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '')
       emit({ type: 'navigate', href, target: frames.agentEventsPanel })
       return
     }

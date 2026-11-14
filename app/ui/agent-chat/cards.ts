@@ -1,4 +1,5 @@
 import { theme } from '../theme/theme.ts'
+import { routes } from '../../routes.ts'
 
 // ── Agent cards ───────────────────────────────────────────────────────
 //
@@ -65,7 +66,10 @@ function decisionButton(options: {
   btn.value = options.decision
   btn.className = options.className
   // A real form control so a no-JS submit reaches the same route (guide 09).
-  btn.setAttribute('formaction', options.decision === 'decline' ? '/chat/decline' : '/chat/approve')
+  btn.setAttribute(
+    'formaction',
+    options.decision === 'decline' ? routes.chat.decline.href() : routes.chat.approve.href(),
+  )
   btn.style.cssText = options.style
   btn.textContent = options.label
   return btn
@@ -84,7 +88,7 @@ function customerApprovalCard(options: CustomerApprovalCardOptions): HTMLElement
   form.id = 'chat-approval'
   form.className = 'chat-decision-form'
   form.method = 'post'
-  form.action = '/chat/approve'
+  form.action = routes.chat.approve.href()
   form.dataset.runId = options.runId
   form.style.cssText =
     `padding:1rem;border:2px solid ${theme.colors.action.danger.border};border-radius:12px;` +
@@ -144,7 +148,7 @@ function supportApprovalCard(options: SupportApprovalCardOptions): HTMLElement {
   form.id = 'support-agent-approval'
   form.className = 'support-agent-decision-form'
   form.method = 'post'
-  form.action = '/admin/support-agent/tool-decision'
+  form.action = routes.admin.supportAgent.toolDecision.href()
   form.dataset.runId = options.runId
   form.style.cssText =
     'padding:0.75rem;border:2px solid ' +
@@ -349,7 +353,7 @@ function customerQuestionCard(options: CustomerQuestionCardOptions): HTMLElement
   form.id = 'chat-question'
   form.className = 'chat-question-form'
   form.method = 'post'
-  form.action = '/chat/answer'
+  form.action = routes.chat.answer.href()
   form.dataset.runId = options.runId
   form.style.cssText =
     `padding:1rem;border:2px solid ${theme.colors.warning.border};border-radius:12px;` +
@@ -432,7 +436,7 @@ function supportQuestionCard(options: SupportQuestionCardOptions): HTMLElement {
   form.id = 'support-agent-question'
   form.className = 'support-agent-question-form'
   form.method = 'post'
-  form.action = '/admin/support-agent/answer'
+  form.action = routes.admin.supportAgent.answer.href()
   form.dataset.runId = options.runId
   form.style.cssText =
     'padding:0.75rem;border:2px solid ' +

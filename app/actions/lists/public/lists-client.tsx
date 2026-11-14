@@ -1,6 +1,7 @@
 import { clientEntry, type Handle } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
 import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
+import { routes } from '../../../routes.ts'
 
 import { syncSidebarRow, UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
 import type { ListsDragContext } from './lists-drag.ts'
@@ -501,7 +502,7 @@ export const ListsClient = clientEntry(
           clearDraft()
           saveStatus = 'saved'
           void handle.update()
-          navigateFrame(`/lists?load=${newId}`)
+          navigateFrame(routes.lists.index.href() + `?load=${newId}`)
           return true
         } else {
           saveStatus = 'error'

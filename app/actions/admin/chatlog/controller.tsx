@@ -300,7 +300,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         })
       }
 
-      return redirect(routes.admin.chatlog.index.href() + query)
+      return redirect(routes.admin.chatlog.index.href() + query, 303)
     },
 
     /**

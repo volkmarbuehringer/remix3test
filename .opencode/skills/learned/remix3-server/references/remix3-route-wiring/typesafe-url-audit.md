@@ -3,6 +3,7 @@
 **Source:** `remix3-typesafe-url-audit`
 
 **Extracted:** 2026-09-04
+**Re-audited:** 2026-11-14 (guide chapter 02 re-audit) — the sweep converted the last production offenders: the `/lists` client API + editor/copy links, admin list links, grid context-menu `fallbackBaseHref`s, agent-events dispatch/not-found links, the appointments-new `BASE`, customer/support-agent stream submit URLs and agent card form actions, the admin/verwaltung `returnTo` prefix guards, the CSRF agent-path list, and the legacy webhook-viewer `Location` prefix. Remaining literals are intentional: test fixtures/assertions, static asset URLs (`/favicon.svg`, `/fonts/fonts.css`), the `/ai` breadcrumb prefix that has no route, comments, and `appointment-grid-test-helpers.ts`.
 **Context:** Converting navbar links to the typed `routes.*` tree, then sweeping the app for remaining hardcoded `href`/`action`/`src` strings.
 
 ## Problem
@@ -17,7 +18,10 @@ Sweep `app/` with these regexes (Grep tool, `*.ts*`):
 href="/[a-zA-Z]      action="/[a-zA-Z]      src="/[a-zA-Z]
 url="/[a-zA-Z]       fetch("/[a-zA-Z]       redirect("/[a-zA-Z]
 href={`/             action={`/             new URL("/[a-zA-Z]
+fetch(`/...          navigateFrame(`/      form.action = '/...
 ```
+
+Template-literal URLs count: the last two offenders were a `fetch` whose URL was a template string for `/lists/:id`, and an `action` template for `/lists/:id/copy`, so sweep backticks as well as quotes. For a param route, build the path with `routes.lists.update.href({ id })` and keep query composition as `routes.x.href() + '?' + params`.
 
 Convert each match to the typed tree:
 

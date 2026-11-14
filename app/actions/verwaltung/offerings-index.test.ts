@@ -346,6 +346,32 @@ describe('Admin Offerings Controller', () => {
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
 
+    it('redirects (PRG) with a flash error for a non-numeric id on update and destroy', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      for (let method of ['PUT', 'DELETE'] as const) {
+        let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/abc`, {
+          method,
+          headers: {
+            Cookie: fresh.cookie,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Csrf-Token': fresh.csrfToken,
+          },
+          body: new URLSearchParams({ _csrf: fresh.csrfToken }).toString(),
+          redirect: 'manual',
+        })
+        assert.equal(response.status, 303, method + ' with a non-numeric id should PRG')
+        let location = response.headers.get('Location') || ''
+        assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
+
+        let rawSid = await readSessionId(fresh.cookie)
+        let session = await sessionStorage.read(rawSid)
+        let err = session.get('error') as string | undefined
+        assert.ok(err?.includes('Ungültige ID'), method + ' flash error should be set')
+      }
+    })
+
     it('redirects (PRG) with a flash error on config-save failure (no JSON 400)', async () => {
       let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
       assert.ok(fresh?.cookie, 'fresh admin session must be created')

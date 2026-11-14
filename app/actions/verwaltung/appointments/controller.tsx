@@ -7,6 +7,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
+import { parseId } from '../../../utils/ids.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange } from '../../../data/appointofferings.ts'
 import { parseDuring } from '../../../utils/during.ts'
@@ -305,7 +306,12 @@ export default createController(routes.verwaltung.appointments, {
 
     async show(context) {
       let id = context.params.id
-      let editRow = id ? ((await fetchAppointmentEditRow(context.db, id)) ?? null) : null
+      // The route param is a string; guard before the int4 comparison so a
+      // malformed id PRGs to the grid instead of failing the query.
+      if (id === undefined || parseId(id) === undefined) {
+        return redirect(routes.verwaltung.appointments.index.href())
+      }
+      let editRow = (await fetchAppointmentEditRow(context.db, id)) ?? null
       if (!editRow) {
         // The frame commits the form action path as its src and GETs it after a
         // PUT/DELETE. After a delete the row is gone, so rather than surfacing a
@@ -458,11 +464,16 @@ export default createController(routes.verwaltung.appointments, {
 
       let auth = context.auth
       let updateId = context.params.id
+      // The route param is a string; guard before any int4 comparison.
+      if (updateId === undefined || parseId(updateId) === undefined) {
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(appointmentsGridUrl(formData), 303)
+      }
       if (auth?.ok) {
         let authUserId = (auth.identity as { id: number }).id
         if (process.env.NODE_ENV !== 'test' && !appointmentsUpdateLimiter.attempt(authUserId)) {
           let data = await loadAppointmentPageData(context, {
-            editRow: updateId ? await fetchAppointmentEditRow(context.db, updateId) : undefined,
+            editRow: await fetchAppointmentEditRow(context.db, updateId),
             formValues,
             formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
             ...gridStateOverrides(gridValues),
@@ -472,11 +483,6 @@ export default createController(routes.verwaltung.appointments, {
       }
 
       let id = context.params.id
-
-      if (!id) {
-        context.session.flash('error', 'Ungültige ID.')
-        return redirect(appointmentsGridUrl(formData), 303)
-      }
 
       let resourceIdRaw = formValues.resource_id ?? ''
       if (!resourceIdRaw.trim()) {
@@ -616,7 +622,7 @@ export default createController(routes.verwaltung.appointments, {
         }
       }
 
-      if (!id) {
+      if (id === undefined || parseId(id) === undefined) {
         context.session.flash('error', 'Ungültige ID.')
         return redirect(appointmentsGridUrl(formData), 303)
       }

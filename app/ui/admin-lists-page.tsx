@@ -1114,7 +1114,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           </a>
                           {row.description ? (
                             <a
-                              href={'/lists?load=' + row.id}
+                              href={routes.lists.index.href() + '?load=' + row.id}
                               target="_top"
                               data-rmx-document
                               mix={descLinkStyle}
@@ -1256,7 +1256,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           aria-label="Zeilenaktionen"
                         >
                           <a
-                            href={'/lists?load=' + row.id}
+                            href={routes.lists.index.href() + '?load=' + row.id}
                             target="_top"
                             data-rmx-document
                             aria-label={'„' + displayTitle + '“ in Listen öffnen'}

@@ -465,6 +465,34 @@ describe('Admin Resources Controller', () => {
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
+
+    it('redirects with a flash error for a non-numeric id (int4 guard)', async () => {
+      let body = new URLSearchParams({
+        title: 'Invalid id update',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/verwaltung/resources/abc`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 303, 'non-numeric id should redirect (PRG)')
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
+
+      let rawSid = await readSessionId(adminCookie)
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Ungültige ID'), 'flash error should be set')
+    })
   })
 
   describe('destroy (DELETE /verwaltung/resources/:id)', () => {
@@ -626,6 +654,17 @@ describe('Admin Resources Controller', () => {
       // Assert: it must PRG back to the grid, not render a 404 card
       assert.equal(getResponse.status, 302, 'missing resource GET should redirect to the grid')
       let location = getResponse.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
+    })
+
+    it('GET /verwaltung/resources/:id with a non-numeric id redirects without querying', async () => {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/abc`, {
+        headers: { Cookie: adminCookie },
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302, 'non-numeric id GET should redirect to the grid')
+      let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
     })
 

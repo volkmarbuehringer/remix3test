@@ -3,6 +3,7 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { createCustomerChatController } from './customer-chat-controller.ts'
 import { createCustomerChatRenderer } from './customer-chat-render.ts'
+import { routes } from '../../../routes.ts'
 
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
@@ -23,7 +24,7 @@ export const CustomerChatStream = clientEntry(
 
     let controller = createCustomerChatController(delegate, {
       lifecycleSignal,
-      reconnectHref: '/chat/reconnect',
+      reconnectHref: routes.chat.reconnect.href(),
     })
 
     // ── Composer ──────────────────────────────────────────────
@@ -72,7 +73,7 @@ export const CustomerChatStream = clientEntry(
       autoGrowReset?.()
       updateCounter()
       controller.beginTurn()
-      await controller.submit('/chat', formData)
+      await controller.submit(routes.chat.index.href(), formData)
     }
 
     function handleCancel() {
@@ -122,7 +123,7 @@ export const CustomerChatStream = clientEntry(
       formData.set('message', message)
 
       controller.beginTurn()
-      await controller.submit('/chat', formData)
+      await controller.submit(routes.chat.index.href(), formData)
     }
 
     let submittingOtherResource = false
@@ -138,7 +139,7 @@ export const CustomerChatStream = clientEntry(
       formData.set('message', message)
 
       controller.beginTurn()
-      await controller.submit('/chat', formData)
+      await controller.submit(routes.chat.index.href(), formData)
       submittingOtherResource = false
     }
 
@@ -152,7 +153,10 @@ export const CustomerChatStream = clientEntry(
       delegate.hideApproval()
       controller.beginTurn()
 
-      await controller.submit('/chat/' + action, body)
+      await controller.submit(
+        action === 'approve' ? routes.chat.approve.href() : routes.chat.decline.href(),
+        body,
+      )
     }
 
     async function handleAnswer(form: HTMLFormElement) {
@@ -169,7 +173,7 @@ export const CustomerChatStream = clientEntry(
 
       controller.beginTurn()
 
-      await controller.submit('/chat/answer', body)
+      await controller.submit(routes.chat.answer.href(), body)
     }
 
     return () => (

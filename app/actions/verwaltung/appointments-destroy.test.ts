@@ -102,6 +102,28 @@ describe('Admin Appointments Controller', () => {
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
 
+    it('redirects with a flash error for a non-numeric appointment ID on delete', async () => {
+      let response = await router.fetch(`${ADMIN_APPT_URL}/abc`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: new URLSearchParams().toString(),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 303, 'non-numeric ID should PRG with an error')
+      let location = response.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
+
+      let rawSid = await readSessionId(adminCookie)
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Ungültige ID'), 'flash error should be set')
+    })
+
     it('includes grid state parameters in redirect after delete', async () => {
       // Arrange: create an appointment to delete
       let dayMs = new Date('2026-08-20T00:00:00Z').getTime()
@@ -215,6 +237,17 @@ describe('Admin Appointments Controller', () => {
       // Assert: it must PRG back to the grid, not render a 404 "Eintrag nicht gefunden."
       assert.equal(getResponse.status, 302, 'missing appointment GET should redirect to the grid')
       let location = getResponse.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
+    })
+
+    it('GET /verwaltung/appointments/:id with a non-numeric id redirects to the grid', async () => {
+      let response = await router.fetch(`${ADMIN_APPT_URL}/abc`, {
+        headers: { Cookie: adminCookie },
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302, 'non-numeric id GET should redirect to the grid')
+      let location = response.headers.get('Location') ?? ''
       assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
     })
   })

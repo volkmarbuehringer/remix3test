@@ -15,7 +15,7 @@ import {
   buildCancelUrl,
 } from './mixins/admin-urls.ts'
 import { formatDateDE } from '../utils/date-utils.ts'
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
@@ -24,7 +24,7 @@ import { formatDuring } from '../utils/during.ts'
 import { AppointmentsScrollLock } from '../ui/appointments-scroll-lock.browser.tsx'
 import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
 
-const BASE = '/appointments/new'
+const BASE = routes.appointmentsNew.index.href()
 
 function buildPeriodUrl(
   newPeriod: string | null,

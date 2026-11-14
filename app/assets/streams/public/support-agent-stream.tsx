@@ -187,7 +187,7 @@ export const SupportAgentStream = clientEntry(
       signal: handle.signal,
       getActivePanelFrame,
       getFrame: (target) => (target ? (handle.frames.get(target) ?? null) : (handle.frame ?? null)),
-      reconnectHref: '/admin/support-agent/reconnect',
+      reconnectHref: routes.admin.supportAgent.reconnect.href(),
     })
 
     // ── Error + retry ────────────────────────────────────────────
@@ -495,7 +495,10 @@ export const SupportAgentStream = clientEntry(
       setFormEnabled(false)
       currentAgentMessageEl = null
 
-      void controller.startStream('/admin/support-agent', { method: 'POST', body: formData })
+      void controller.startStream(routes.admin.supportAgent.index.href(), {
+        method: 'POST',
+        body: formData,
+      })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {

@@ -10,10 +10,11 @@ import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { MenuItem } from '../../../ui/theme/menu/index.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { routes } from '../../../routes.ts'
 
 const navigation: GridNavigation = {
   stateElementId: 'appointments-grid-state',
-  fallbackBaseHref: '/verwaltung/appointments',
+  fallbackBaseHref: routes.verwaltung.appointments.index.href(),
   defaultSort: 'a.date',
 }
 

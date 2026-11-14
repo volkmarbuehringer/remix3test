@@ -10,6 +10,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
+import { parseId } from '../../../utils/ids.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import Holidays from 'date-holidays'
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-schema.ts'
@@ -336,7 +337,7 @@ export default createController(routes.verwaltung.offerings, {
     async update(context) {
       let formData = context.formData
       let id = context.params.id
-      if (!id) {
+      if (id === undefined || parseId(id) === undefined) {
         context.session.flash('error', 'Ungültige ID.')
         return redirect(offeringsGridUrl(formData), 303)
       }
@@ -443,7 +444,7 @@ export default createController(routes.verwaltung.offerings, {
     async destroy(context) {
       let id = context.params.id
       let formData = context.formData
-      if (!id) {
+      if (id === undefined || parseId(id) === undefined) {
         context.session.flash('error', 'Ungültige ID.')
         return redirect(offeringsGridUrl(formData), 303)
       }

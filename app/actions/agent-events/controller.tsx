@@ -353,7 +353,7 @@ export default createController(routes.admin.agentEvents, {
                     href:
                       event.intent === INTENTS.DELETE_APPOINTMENTS
                         ? routes.verwaltung.appointments.index.href()
-                        : '/admin/users',
+                        : routes.admin.users.index.href(),
                     target: frames.agentEventsPanel,
                     history: 'push',
                   }),

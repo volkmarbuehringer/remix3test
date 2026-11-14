@@ -19,6 +19,7 @@ import { FlashBanner } from '../../ui/flash-banner.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
+import { parseId } from '../../utils/ids.ts'
 import {
   gridStateToParams,
   gridStateFromFormData,
@@ -589,7 +590,7 @@ export default createController(routes.appointmentsNew, {
         return errorRedirectDestroy(formData, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
       }
 
-      if (!id) {
+      if (id === undefined || parseId(id) === undefined) {
         return errorRedirectDestroy(formData, 'Ungültige ID.')
       }
 

@@ -529,6 +529,23 @@ describe('Appointments New Controller', () => {
     )
   })
 
+  it('DELETE /appointments/new/:id with a non-numeric id shows the invalid-id error', async () => {
+    let response = await router.fetch(`${APPT_URL}/abc`, {
+      method: 'DELETE',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: new URLSearchParams().toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 303)
+    let location = response.headers.get('Location') ?? ''
+    let error = new URL(location, 'https://remix.run').searchParams.get('error')
+    assert.ok(error?.includes('Ungültige ID'), 'invalid id flash should be in the URL')
+  })
+
   it('DELETE /appointments/new/:id returns 403 when not authenticated (CSRF before auth)', async () => {
     let response = await router.fetch(`${APPT_URL}/1`, {
       method: 'DELETE',

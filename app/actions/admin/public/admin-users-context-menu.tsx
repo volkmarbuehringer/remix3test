@@ -11,10 +11,11 @@ import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { MenuItem } from '../../../ui/theme/menu/index.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { routes } from '../../../routes.ts'
 
 const navigation: GridNavigation = {
   stateElementId: 'users-grid-state',
-  fallbackBaseHref: '/admin/users',
+  fallbackBaseHref: routes.admin.users.index.href(),
   defaultSort: 'name',
 }
 

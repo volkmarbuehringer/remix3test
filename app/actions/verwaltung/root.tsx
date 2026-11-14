@@ -63,7 +63,8 @@ function verwaltungReturnTo(formData: FormData): string {
     return fallback
   }
   if (url.origin !== 'http://internal.invalid') return fallback
-  if (url.pathname !== '/verwaltung' && !url.pathname.startsWith('/verwaltung/')) return fallback
+  let root = routes.verwaltung.index.href()
+  if (url.pathname !== root && !url.pathname.startsWith(root + '/')) return fallback
 
   url.searchParams.delete('offset')
   let query = url.searchParams.toString()

@@ -132,7 +132,7 @@ describe('Admin Chatlog controller', () => {
       redirect: 'manual',
     })
 
-    assert.ok(response.status === 302 || response.status === 303, 'should redirect after destroy')
+    assert.equal(response.status, 303, 'destroy should PRG with 303')
     let location = response.headers.get('Location')
     assert.ok(
       location === '/admin/chatlog' || location?.startsWith('/admin/chatlog'),
@@ -151,10 +151,7 @@ describe('Admin Chatlog controller', () => {
       redirect: 'manual',
     })
 
-    assert.ok(
-      response.status === 302 || response.status === 303,
-      'should redirect safely for invalid ID',
-    )
+    assert.equal(response.status, 303, 'invalid ID destroy should PRG with 303')
   })
 
   it('POST /admin/chatlog/:id/delete without auth returns 403 (CSRF triggers before auth)', async () => {
@@ -182,7 +179,7 @@ describe('Admin Chatlog controller', () => {
       redirect: 'manual',
     })
 
-    assert.ok(response.status === 302 || response.status === 303, 'should redirect after destroy')
+    assert.equal(response.status, 303, 'destroy should PRG with 303')
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('offset=10'), 'should keep the page offset')
     assert.ok(location.includes('source=support'), 'should keep the source filter')

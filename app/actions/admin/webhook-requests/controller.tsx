@@ -366,7 +366,7 @@ export const webhookRequestsEvents = createController(routes.admin.webhookReques
 function legacyViewerRedirect(context: { url: URL }): Response {
   return new Response(null, {
     status: 308,
-    headers: { Location: '/admin' + context.url.pathname + context.url.search },
+    headers: { Location: routes.admin.index.href() + context.url.pathname + context.url.search },
   })
 }
 

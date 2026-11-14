@@ -1,3 +1,4 @@
+import { routes } from '../../../routes.ts'
 import type { ListItem, ListInitialState } from './lists-state.ts'
 
 export type ServerListState = ListInitialState
@@ -33,7 +34,11 @@ export async function createListRequest(
   body: { title: string; description: string; items: ListItem[] },
 ): Promise<CreateOutcome> {
   try {
-    let response = await fetch('/lists', { method: 'POST', headers, body: JSON.stringify(body) })
+    let response = await fetch(routes.lists.create.href(), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
     if (!response.ok) return { status: 'error', network: false }
     return { status: 'ok', state: toState(await response.json()) }
   } catch {
@@ -52,7 +57,7 @@ export async function patchListRequest(
   partial: Record<string, unknown>,
 ): Promise<PatchOutcome> {
   try {
-    let response = await fetch(`/lists/${id}`, {
+    let response = await fetch(routes.lists.update.href({ id }), {
       method: 'PUT',
       headers,
       body: JSON.stringify(partial),
@@ -80,7 +85,7 @@ export async function copyItemsRequest(
   itemIds: string[],
 ): Promise<CopyItemsOutcome> {
   try {
-    let response = await fetch(`/lists/${sourceId}/copy-items`, {
+    let response = await fetch(routes.lists.copyItems.href({ id: sourceId }), {
       method: 'POST',
       headers,
       body: JSON.stringify({ targetId, itemIds }),
@@ -122,7 +127,7 @@ export async function moveItemRequest(
   itemId: string,
 ): Promise<MoveOutcome> {
   try {
-    let response = await fetch(`/lists/${sourceId}/move`, {
+    let response = await fetch(routes.lists.move.href({ id: sourceId }), {
       method: 'POST',
       headers,
       body: JSON.stringify({ targetId, itemId }),
@@ -148,7 +153,7 @@ export async function moveItemsRequest(
   itemIds: string[],
 ): Promise<MoveItemsOutcome> {
   try {
-    let response = await fetch(`/lists/${sourceId}/move-items`, {
+    let response = await fetch(routes.lists.moveItems.href({ id: sourceId }), {
       method: 'POST',
       headers,
       body: JSON.stringify({ targetId, itemIds }),
@@ -191,7 +196,7 @@ export async function searchListTargetsRequest(query: string): Promise<ListTarge
     let params = new URLSearchParams({ limit: '100' })
     let trimmed = query.trim()
     if (trimmed) params.set('filter', trimmed)
-    let response = await fetch(`/lists/targets?${params.toString()}`, {
+    let response = await fetch(routes.lists.targets.href() + `?${params.toString()}`, {
       headers: { Accept: 'application/json' },
     })
     if (!response.ok) return { status: 'error', network: false }
@@ -230,7 +235,7 @@ export async function mergeListRequest(
   targetId: number,
 ): Promise<MergeOutcome> {
   try {
-    let response = await fetch(`/lists/${sourceId}/merge`, {
+    let response = await fetch(routes.lists.merge.href({ id: sourceId }), {
       method: 'POST',
       headers,
       body: JSON.stringify({ targetId }),
@@ -256,7 +261,7 @@ export function sendKeepalivePatch(
   partial: Record<string, unknown>,
 ): void {
   try {
-    void fetch(`/lists/${id}`, {
+    void fetch(routes.lists.update.href({ id }), {
       method: 'PUT',
       keepalive: true,
       headers,
