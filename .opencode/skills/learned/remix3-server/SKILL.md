@@ -35,6 +35,7 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 | Merging flat controller directories into a parent `controller.tsx` (names, imports, router, tests, `remix doctor`) | `references/remix-controllers/controller-consolidation.md` |
 | Existing tests breaking after moving error handling into middleware | `references/remix-controllers/error-centralization-tests.md` |
 | Route contract: `resources()`/`resource()` options (`only` vs this app's `exclude`), `patch`/`head`/`options` or any-method/bare-string leaves, nested-map registration and startup throws, `context.has`/`context.router`/request-only `context.headers` | `references/remix-controllers/route-contract-and-controllers.md` |
+| A `/:id` leaf 500s on `abc`/`1.5` (`Database execution failed`), or you are adding an id-shaped route and need the `parseId` guard + a malformed-id probe | `references/remix-controllers/route-contract-and-controllers.md` |
 | Request pipeline: `createRequestListener` options and the `(request, client)` arg, root middleware order (`securityHeaders`/`csp`/`compression`/`staticFiles`/`logger`), `RouterContext` vs `MiddlewareContext`, `request.body`/`request.signal` streaming and cancellation | `references/remix-controllers/request-middleware.md` |
 | `RoutePattern` is opaque and `.pathname.tokens`/`_parts` access breaks; you need the pattern's variables/wildcards | `references/remix-controllers/route-contract-and-controllers.md` |
 | Constructing or parsing HTTP headers with the typed `remix/headers` classes (Content-Disposition quoting, `Content-Length`, browser-safe `ContentType`) | `references/remix-controllers/headers.md` |
@@ -50,7 +51,8 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 **Route Contract and Resource Helpers (`references/remix-controllers/route-contract-and-controllers.md`)**
 
-- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:87,295,298`) — do not rewrite to `only`.
+- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:87,295,297`) — do not rewrite to `only`.
+- A route param is a string, not a number: `:id` matches `abc`, `1.5`, and `1e30`, and a raw value in an `int4` comparison makes PostgreSQL throw (`Database execution failed` → 500). Guard with `parseId` + a bound check and PRG/redirect; probe every id leaf through the test router (a `THREW` line is the 500) — snippet in the reference.
 - A controller owns only the direct `Route` leaves of its map; register nested maps (e.g. `routes.appointment.types`) separately. A missing, unknown, or nested key throws a `TypeError` at `router.map(...)` (startup), not on the first request.
 - `controller.middleware` reaches only that controller's direct leaves, not a separately-mapped nested map; repeat the boundary there.
 - Bare-string leaves are `Route<'ANY', ...>` — branch on `context.method`. `context.headers` is request headers, so return a `Response` for response headers; `context.router` re-enters the pipeline.

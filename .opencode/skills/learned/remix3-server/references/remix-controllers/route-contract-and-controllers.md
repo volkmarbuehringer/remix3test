@@ -51,6 +51,45 @@ The guide introduces the route map, route builders, and controller ownership, bu
 - Fixed seams: `app/actions/verwaltung/resources/controller.tsx:205` (show), `app/actions/verwaltung/offering-configs/controller.tsx:360` (show), `app/actions/verwaltung/appointments/controller.tsx:311` (show), `:468` (update), `:625` (destroy), `app/actions/verwaltung/offerings/controller.tsx:340` (update), `:447` (destroy), and `app/actions/appointments-new/controller.tsx:593` (destroy). `app/actions/verwaltung/resources/controller.tsx:323`/`:383` already had it and are the template.
 - The raw-SQL helpers still take the id as a `string` (`fetchAppointmentEditRow`, `updateOffering`, `deleteOffering`, `getAppointmentRow`, `adminUpdateAppointment`, `adminDeleteAppointment`), so pass the original validated string, not `Number(...)`; `parseId` is the guard, not the value conversion. Tests cover each seam with a non-numeric id.
 
+### Probe route-param robustness through the test router
+
+Green suites exercise valid ids only, so a `/:id` leaf can 500 on malformed input for months.
+Probe every id leaf with a throwaway server test (`tmp/` is gitignored; imports resolve to
+`../app/...`):
+
+```ts
+import { test } from 'remix/test'
+import { router } from '../app/test-router.ts'
+import { createAuthCookieWithCsrf } from '../test/utils.ts'
+
+test('probe malformed route ids', async () => {
+  let session = await createAuthCookieWithCsrf()
+  for (let path of [
+    '/verwaltung/resources/abc',
+    '/verwaltung/offering-configs/abc',
+    '/verwaltung/appointments/abc',
+  ]) {
+    try {
+      let response = await router.fetch('https://remix.run' + path, {
+        headers: { Cookie: session!.cookie },
+        redirect: 'manual',
+      })
+      console.log(path, '->', response.status)
+      await response.text()
+    } catch (error) {
+      console.log(path, '-> THREW', (error as Error).message)
+    }
+  }
+})
+```
+
+Run `NODE_ENV=test npx remix test --type server --concurrency 1 tmp/probe-route-ids.test.ts`.
+`THREW Database execution failed` is the int4 failure the `parseId` guard prevents. For
+`PUT`/`DELETE` leaves send the real method plus `X-Csrf-Token: session.csrfToken` (no `_method`
+override when calling `router.fetch` directly). Turn each confirmed throw into a regression test
+next to its controller, then delete the probe. Audit-workflow context:
+`docs/guide-chapter-audit.md` §3.
+
 ### `RoutePattern` is opaque — use the public API
 
 Do not read pattern internals (`route.pattern._parts`, `route.pattern.pathname.tokens`, `route.pattern.hostname.tokens`). Use the public surface documented in `node_modules/remix/src/route-pattern/README.md`:
