@@ -74,6 +74,12 @@ Scroll the app's page scroller, not the window: `[data-page-scroller]` (`app/ui/
 
 The built-in lazy-loading behavior itself is covered by the vendor `@remix-run/component` frame tests; the app no longer carries a browser test for its own deferral mechanism.
 
+## Checked-in HTML Artifacts In The Gallery
+
+`app/actions/ui/controller.tsx` streams checked-in fragments through `openLazyFile()` + `createFileResponse()` at `/ui/html/:name`, and their stylesheets at `/ui/css/:name`. Do not put a `<style>` block in the static HTML: the CSP is nonce-gated (`style-src-elem 'self'` plus the request nonce), and a static file has no request nonce, so the browser blocks the style and posts a violation. Link the sibling CSS file instead.
+
+`app/ui/lazy-frame.demo.tsx` mounts `static-frame.html` with `Frame loading="lazy"` inside its own `overflow-y: auto` scroller. The clip matters: the built-in loading boundary is one viewport, so a frame merely below the page fold still loads; the scroll container keeps the fallback clipped until the user scrolls. `app/actions/ui/gallery-lazy-frame.test.e2e.ts` pins the zero-request state before scrolling and the single request after.
+
 ## Cost
 
 A server-only fragment avoids a client entry, import map, and per-row serialized props. The server sends only the fallback plus frame metadata; nested user-detail work starts when the disclosure opens. The built-in fallback is server-rendered too: `/admin` ships two reserved-height slots instead of two resolved cards, and `/admin/chatlog` ships a hidden pane whose fallback is never observed until the pane opens. Keep the fallback element large enough to represent the pending content and avoid layout shifts.

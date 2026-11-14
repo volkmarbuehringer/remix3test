@@ -346,6 +346,10 @@ export const routes = route({
     // `createFileResponse()`. Used by the lazy-frames/static-artifact pattern:
     // a `<Frame>` can consume plain HTML without the component renderer.
     html: get('/html/:name'),
+    // Styles for checked-in HTML fragments. A linked stylesheet keeps the
+    // artifact compatible with the app's nonce-gated CSP; an inline `<style>`
+    // in a static file has no request nonce and is blocked.
+    css: get('/css/:name'),
   }),
 })
 

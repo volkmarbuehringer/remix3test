@@ -18,6 +18,13 @@ const HTML_FRAGMENTS = new Map<string, URL>([
   ['static-frame', new URL('./html/static-frame.html', import.meta.url)],
 ])
 
+// Stylesheets for checked-in HTML artifacts. Linking these keeps the artifact
+// under the app's nonce-gated CSP: an inline `<style>` in a static file carries
+// no request nonce and would be blocked.
+const CSS_FRAGMENTS = new Map<string, URL>([
+  ['static-frame', new URL('./css/static-frame.css', import.meta.url)],
+])
+
 /**
  * Development-only component gallery.
  *
@@ -71,30 +78,42 @@ export default createController(routes.ui, {
     // response as ordinary DOM, exactly like the upstream lazy-frames demo.
     html(context) {
       if (!galleryAvailable()) return notFound()
+      return streamFragmentFile(HTML_FRAGMENTS, context.params.name, context.request)
+    },
 
-      let name = context.params.name
-      if (typeof name !== 'string') return notFound()
-
-      let url = HTML_FRAGMENTS.get(name)
-      if (url === undefined) return notFound()
-
-      let filename: string
-      try {
-        // Resolve at request time so a non-file `import.meta.url` in a future
-        // bundling/runtime degrades to 404 instead of failing module import.
-        filename = fileURLToPath(url)
-      } catch {
-        return notFound()
-      }
-
-      return createFileResponse(openLazyFile(filename), context.request, {
-        cacheControl: 'no-store',
-        // Already off by default for HTML; pinned here so the contract is explicit.
-        acceptRanges: false,
-      })
+    // The artifact's linked stylesheet, served the same way as its HTML.
+    css(context) {
+      if (!galleryAvailable()) return notFound()
+      return streamFragmentFile(CSS_FRAGMENTS, context.params.name, context.request)
     },
   },
 })
+
+async function streamFragmentFile(
+  files: Map<string, URL>,
+  name: string | undefined,
+  request: Request,
+): Promise<Response> {
+  if (typeof name !== 'string') return notFound()
+
+  let url = files.get(name)
+  if (url === undefined) return notFound()
+
+  let filename: string
+  try {
+    // Resolve at request time so a non-file `import.meta.url` in a future
+    // bundling/runtime degrades to 404 instead of failing module import.
+    filename = fileURLToPath(url)
+  } catch {
+    return notFound()
+  }
+
+  return createFileResponse(openLazyFile(filename), request, {
+    cacheControl: 'no-store',
+    // Already off by default for these types; pinned here so the contract is explicit.
+    acceptRanges: false,
+  })
+}
 
 function galleryAvailable(): boolean {
   return isExplicitDevelopmentEnv() || isExplicitTestEnv()

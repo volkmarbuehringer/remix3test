@@ -7,7 +7,9 @@ import { router } from '../../test-router.ts'
 
 const BASE = 'https://remix.run'
 const BUTTON_DEMO_URL = `${BASE}/ui/demo/theme/button.demo.tsx`
+const LAZY_FRAME_DEMO_URL = `${BASE}${routes.ui.demo.href({ filename: 'lazy-frame.demo.tsx' })}`
 const HTML_FRAGMENT_URL = `${BASE}${routes.ui.html.href({ name: 'static-frame' })}`
+const CSS_FRAGMENT_URL = `${BASE}${routes.ui.css.href({ name: 'static-frame' })}`
 
 describe('UI gallery controller', () => {
   let originalNodeEnv: string | undefined
@@ -39,6 +41,7 @@ describe('UI gallery controller', () => {
     assert.ok(html.includes('theme/button.demo.tsx'), 'button demo should be listed')
     assert.ok(html.includes('theme/glyph.demo.tsx'), 'glyph demo should be listed')
     assert.ok(html.includes('page-primitives.demo.tsx'), 'primitives demo should be listed')
+    assert.ok(html.includes('lazy-frame.demo.tsx'), 'lazy-frame demo should be listed')
     assert.ok(html.includes('static-frame'), 'the checked-in HTML fragment should be linked')
   })
 
@@ -54,6 +57,28 @@ describe('UI gallery controller', () => {
     assert.ok(
       /\/assets\/app\/ui\/theme\/button\.demo[^"]*\.tsx/.test(html),
       'the client entry should reference the asset server URL',
+    )
+  })
+
+  it('renders the lazy-frame demo with a deferred checked-in HTML fragment', async () => {
+    let response = await router.fetch(LAZY_FRAME_DEMO_URL)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+
+    let html = await response.text()
+    assert.ok(html.includes('data-gallery-demo="true"'), 'demo stage should render')
+    assert.ok(html.includes('data-gallery-lazy-fallback="true"'), 'the lazy fallback should ship')
+    assert.ok(
+      html.includes('Statisches HTML-Fragment wird geladen'),
+      'the fallback copy should render',
+    )
+    assert.ok(
+      !html.includes('data-static-frame-fragment'),
+      'the checked-in fragment must not be resolved into the demo page',
+    )
+    assert.ok(
+      !html.includes('No component renderer required'),
+      'the artifact payload must not be inlined',
     )
   })
 
@@ -81,6 +106,19 @@ describe('UI gallery controller', () => {
     let html = await response.text()
     assert.ok(html.includes('data-static-frame-fragment'), 'the checked-in artifact is served')
     assert.ok(html.includes('openLazyFile'), 'the artifact explains its delivery path')
+    assert.ok(
+      html.includes(routes.ui.css.href({ name: 'static-frame' })),
+      'the artifact links its checked-in stylesheet',
+    )
+  })
+
+  it('streams the artifact stylesheet with a CSS content type', async () => {
+    let response = await router.fetch(CSS_FRAGMENT_URL)
+
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get('Content-Type') ?? '', /^text\/css/)
+    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    assert.ok((await response.text()).includes('[data-static-frame-fragment]'))
   })
 
   it('answers HEAD for a checked-in fragment without a body', async () => {
@@ -100,6 +138,12 @@ describe('UI gallery controller', () => {
 
     let traversal = await router.fetch(`${BASE}/ui/html/%2e%2e%2fcontroller`)
     assert.equal(traversal.status, 404)
+
+    let unknownStyles = await router.fetch(`${BASE}/ui/css/missing`)
+    assert.equal(unknownStyles.status, 404)
+
+    let inheritedStyles = await router.fetch(`${BASE}/ui/css/toString`)
+    assert.equal(inheritedStyles.status, 404, 'prototype properties are not fragment names')
   })
 
   it('is unavailable outside development and test', async () => {
@@ -119,6 +163,9 @@ describe('UI gallery controller', () => {
 
       let fragment = await router.fetch(HTML_FRAGMENT_URL)
       assert.equal(fragment.status, 404, `html fragments should be unavailable in ${nodeEnv}`)
+
+      let styles = await router.fetch(CSS_FRAGMENT_URL)
+      assert.equal(styles.status, 404, `fragment styles should be unavailable in ${nodeEnv}`)
     }
   })
 })
