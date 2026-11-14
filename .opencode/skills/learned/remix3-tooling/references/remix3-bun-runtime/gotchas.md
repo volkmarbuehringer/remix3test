@@ -75,15 +75,25 @@ Plain `bun run remix test` goes through the pnpm shim and runs the whole suite u
 
 `@remix-run/component`'s server runtime gives every component `signal: ssrSignal`, a frozen plain object (`dist/server/stream.js`), not an `AbortSignal`. Registering `handle.frame.addEventListener(type, fn, { signal: handle.signal })` during SSR throws `TypeError: Type error` under Bun. Node duck-types the shape (it exposes `aborted` plus no-op `addEventListener`), so the Node suite stays green on unguarded code.
 
-Frame/DOM reload events only fire in the browser, so guard registration:
+Frame/DOM reload events only fire in the browser, so register them after the client commit with `handle.queueTask`. A queued task is a no-op during SSR, so it replaces the `typeof document` guard:
 
 ```ts
-if (typeof document !== 'undefined') {
+handle.queueTask(() => {
   handle.frame.addEventListener('reloadComplete', reloadFromFrame, { signal: handle.signal })
-}
+})
 ```
 
-Sweep every `addEventListener(..., { signal: handle.signal })` that can run during SSR. Typecheck and Node tests cannot catch it: `Handle.signal` is declared `AbortSignal`, and Node accepts the real `ssrSignal`. Run the guard under Bun — `renderToString()` executes a `clientEntry`'s setup body during SSR, so a server test rendering the entry goes red under `test:bun` when unguarded:
+Keep `handle.signal` on the registration for teardown: a disposed entry removes its listeners; the task's own abort signal is for work that should also stop on the next render. Use `typeof document !== 'undefined'` only for **render-time** DOM reads that need a server fallback (for example `if (typeof document === 'undefined') return null`) — not to register listeners, observers, `matchMedia`, or `EventSource` in setup. The guide (ch. 05 §"DOM references, global events, and cleanup") says to schedule browser-only setup after the commit; setup-time registration is what the frozen `handle.signal` stub punishes under Bun. `render()` in `remix/component/test` calls `root.flush()`, which drains queued tasks, so a browser test that clicks immediately after mounting still observes the listener.
+
+Audit with:
+
+```sh
+rg -n "if \(typeof (document|window) !== 'undefined'\)" app --glob '!*.test.*'
+```
+
+Every remaining hit in a `clientEntry` setup body should either move into `handle.queueTask` or be a render-time fallback; `handle.frame.addEventListener` counts too. The 2026-11-14 §04 pass converted the nav/sidebar toggles, appointment grid, lists editor, uploads dropzone and bulk actions, confirm dialog, grid announcer, and message composer this way.
+
+Sweep every `addEventListener(..., { signal: handle.signal })` that can run during SSR. Typecheck and Node tests cannot catch it: `Handle.signal` is declared `AbortSignal`, and Node accepts the real `ssrSignal`. Run the server render under Bun — `renderToString()` executes a `clientEntry`'s setup body during SSR, so a server test rendering the entry goes red under `test:bun` when the registration is still in setup:
 
 ```tsx
 // app/actions/lists/public/lists-search.test.tsx
