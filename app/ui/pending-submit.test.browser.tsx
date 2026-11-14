@@ -104,14 +104,16 @@ describe('PendingSubmitButton', () => {
     assert.equal(btn.textContent?.trim(), 'Speichern')
   })
 
-  it('disables and shows the pending label during its submission', () => {
+  it('shows the pending label and stays enabled during its submission', () => {
     let result = mountEntry({ children: 'Speichern' })
     let btn = submitButton(result)
     assert.equal(btn.disabled, false, 'sanity: enabled before submission')
 
     dispatchSubmission(btn, pendingSubmission().promise)
 
-    assert.equal(btn.disabled, true, 'submit must be disabled while the request is pending')
+    // Guide 09 "Add pending feedback": the button stays enabled so the visitor
+    // can submit again; the next submission supersedes this one.
+    assert.equal(btn.disabled, false, 'the submit button must stay enabled while pending')
     assert.equal(btn.textContent?.trim(), 'Speichern…', 'default pending label is children + …')
   })
 
@@ -121,12 +123,11 @@ describe('PendingSubmitButton', () => {
     let submission = pendingSubmission()
 
     dispatchSubmission(btn, submission.promise)
-    assert.equal(btn.disabled, true)
+    assert.equal(btn.textContent?.trim(), 'Speichern…')
 
     submission.resolve(new AbortController().signal)
     await flush()
 
-    assert.equal(btn.disabled, false, 're-enabled once the submission settles')
     assert.equal(btn.textContent?.trim(), 'Speichern', 'label returns to the resting text')
   })
 
@@ -173,11 +174,14 @@ describe('PendingSubmitButton', () => {
     aborted.abort()
     first.resolve(aborted.signal)
     await flush()
-    assert.equal(btn.disabled, true, 'the superseded submission must not clear the newer one')
+    assert.equal(
+      btn.textContent?.trim(),
+      'Senden…',
+      'the superseded submission must not clear the newer one',
+    )
 
     second.resolve(new AbortController().signal)
     await flush()
-    assert.equal(btn.disabled, false)
     assert.equal(btn.textContent?.trim(), 'Senden')
   })
 
@@ -188,7 +192,10 @@ describe('PendingSubmitButton', () => {
     mounted!.frame.dispatchEvent(new Event('reloadStart'))
     mounted!.frame.dispatchEvent(new Event('reloadComplete'))
 
-    assert.equal(btn.disabled, false, 'only this button’s own submission may disable it')
-    assert.equal(btn.textContent?.trim(), 'Senden')
+    assert.equal(
+      btn.textContent?.trim(),
+      'Senden',
+      'only this button’s own submission may change it',
+    )
   })
 })

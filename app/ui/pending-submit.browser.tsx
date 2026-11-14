@@ -21,11 +21,16 @@ interface PendingSubmitButtonProps {
  * Primary-tone submit button with pending feedback (guide 09 "Add pending
  * feedback").
  *
- * Disables itself and swaps the label while its own form submission is
- * pending. It listens for `rmx:submission`, which targets the actual submitter
- * and carries the submission's `finished` promise, instead of the frame's
- * reload events: an unrelated frame reload must not disable this button, and a
- * superseded submission finishes aborted without a `reloadComplete` (#12183).
+ * Swaps the label while its own form submission is pending. It listens for
+ * `rmx:submission`, which targets the actual submitter and carries the
+ * submission's `finished` promise, instead of the frame's reload events: an
+ * unrelated frame reload must not change this button, and a superseded
+ * submission finishes aborted without a `reloadComplete` (#12183).
+ *
+ * The button stays enabled, as the guide requires, so the visitor can submit
+ * again. The next submission aborts the earlier handler's signal and a newer
+ * submission owns the pending state; `signal.aborted` keeps the finished
+ * earlier handler from clearing it.
  */
 export const PendingSubmitButton = clientEntry(
   import.meta.url + '#PendingSubmitButton',
@@ -38,7 +43,6 @@ export const PendingSubmitButton = clientEntry(
       return (
         <button
           type="submit"
-          disabled={pending}
           mix={[
             button({ tone: 'primary' }),
             on('rmx:submission', async (event, signal) => {
@@ -47,7 +51,8 @@ export const PendingSubmitButton = clientEntry(
               try {
                 await event.finished
               } catch {
-                // The frame runtime reports the failure; just leave pending state.
+                // The frame runtime reports the failure; clear pending below
+                // so the button returns to its resting label.
               }
               if (signal.aborted) return
               pending = false
