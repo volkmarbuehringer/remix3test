@@ -200,7 +200,12 @@ describe('HEAD requests served by the GET fallback', () => {
         let marker = `${method} ${path} →`
         let matching = logSpy.mock.calls
           .flatMap((call) => call.arguments)
-          .filter((arg): arg is string => typeof arg === 'string' && arg.includes(marker))
+          .filter((arg): arg is string => typeof arg === 'string')
+          // logger() colorizes %method/%status when terminal color detection
+          // allows, and Bun can enable colors even in a piped run. Strip SGR
+          // sequences so this asserts the request line, not the renderer.
+          .map((arg) => arg.replace(/\x1b\[[0-9;]*m/g, ''))
+          .filter((arg) => arg.includes(marker))
         assert.equal(
           matching.length,
           1,
