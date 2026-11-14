@@ -80,8 +80,8 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     // before the session/database stack so a font request never touches them.
     // compression() above wraps static responses per the request-handling guide
     // (put a response wrapper before an early response it should transform);
-    // its own guards skip the .woff2 files (already-compressed MIME filter),
-    // while `fonts.css` benefits from compression.
+    // its own guards skip the .woff2 files (already-compressed MIME filter) and
+    // the sub-1KB fonts.css (below the default 1024-byte compression threshold).
     staticFiles('./public', {
       // `/` must reach the home route instead of looking for public/index.html.
       index: false,
