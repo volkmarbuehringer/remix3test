@@ -108,7 +108,10 @@ export const MessageCompose = clientEntry(
     // the swap finishes instead of staying latched for the rest of the page.
     let submitting = false
 
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       handle.frame.addEventListener(
         'reloadComplete',
         () => {
@@ -116,7 +119,7 @@ export const MessageCompose = clientEntry(
         },
         { signal: handle.signal },
       )
-    }
+    })
 
     return () => {
       let { maxLength, strippableWarning, value = '', contentError, formError } = handle.props

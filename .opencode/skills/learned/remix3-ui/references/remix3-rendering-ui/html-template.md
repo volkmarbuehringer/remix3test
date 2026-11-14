@@ -19,7 +19,7 @@ return new Response(
 )
 ```
 
-The live 500 handler is `app/utils/server-handler.ts:9` (the `catch` in the request listener) — mirror it when adding sibling error pages.
+The live 500 page is `renderServerError()` in `app/utils/server-handler.ts:22`, returned by the Node and Bun entry catches (`server.ts:39`, `server.bun.ts:68`) — mirror it when adding sibling error pages.
 
 ### Full document vs fragment
 
@@ -66,4 +66,4 @@ This is most commonly encountered when extracting template strings into locale/i
 ## References
 
 - `node_modules/remix/src/html-template/README.md` — full API docs
-- `app/utils/server-handler.ts:9` — the live 500 handler in this repo
+- `app/utils/server-handler.ts:22` — `renderServerError()`, the live 500 page in this repo

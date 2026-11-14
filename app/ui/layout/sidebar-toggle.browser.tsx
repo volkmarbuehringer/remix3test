@@ -14,7 +14,10 @@ const TOGGLE_ID = 'sidebar-shell-toggle'
 export const SidebarToggle = clientEntry(
   import.meta.url + '#SidebarToggle',
   function SidebarToggleEntry(handle: Handle) {
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       document.addEventListener(
         'click',
         (event) => {
@@ -66,10 +69,8 @@ export const SidebarToggle = clientEntry(
 
       // Hydration marker for e2e: the button is server-rendered, and a click
       // before this delegated listener attaches is a silent no-op.
-      handle.queueTask(() => {
-        document.getElementById(TOGGLE_ID)?.setAttribute('data-sidebar-toggle-ready', 'true')
-      })
-    }
+      document.getElementById(TOGGLE_ID)?.setAttribute('data-sidebar-toggle-ready', 'true')
+    })
 
     return () => null
   },

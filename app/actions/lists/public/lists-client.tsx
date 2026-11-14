@@ -1198,7 +1198,10 @@ export const ListsClient = clientEntry(
       if (typeof window !== 'undefined' && window.confirm(message)) void run()
     }
 
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       document.addEventListener(
         'click',
         (event) => {
@@ -1240,7 +1243,7 @@ export const ListsClient = clientEntry(
         },
         { signal: handle.signal },
       )
-    }
+    })
 
     // Revert unsaved edits back to the last saved snapshot.
     let discardChanges = () => {
@@ -1356,11 +1359,13 @@ export const ListsClient = clientEntry(
       void handle.update()
     }
 
-    // Frame reload events only fire in the browser. Registering them during SSR
-    // would pass @remix-run/ui's frozen, AbortSignal-shaped `handle.signal` stub
-    // as a native addEventListener option: Node tolerates it, but Bun requires a
-    // real AbortSignal and throws `TypeError: Type error`.
-    if (typeof document !== 'undefined') {
+    // Frame reload events only fire in the browser, so register them after the
+    // client commit (guide 05 §"DOM references, global events, and cleanup").
+    // Registering during SSR would pass @remix-run/ui's frozen,
+    // AbortSignal-shaped `handle.signal` stub as a native addEventListener
+    // option: Node tolerates it, but Bun requires a real AbortSignal and throws
+    // `TypeError: Type error`.
+    handle.queueTask(() => {
       handle.frame.addEventListener('reloadComplete', reloadFromFrame, {
         signal: handle.signal,
       })
@@ -1384,13 +1389,14 @@ export const ListsClient = clientEntry(
       handle.frame.addEventListener('reloadStart', beginFrameReload, {
         signal: handle.signal,
       })
-    }
+    })
 
-    // On init, if no initial state was already provided, wait for frame load
+    // On init, if no initial state was already provided, wait for the frame
+    // load. `queueTask` runs after the client commit and is a no-op during SSR.
     if (!initialized) {
-      setTimeout(() => {
+      handle.queueTask(() => {
         reloadFromFrame()
-      }, 0)
+      })
     }
 
     // Every reorder commit (drag drop, keyboard quick-move, touch ↑/↓) runs
@@ -1675,7 +1681,7 @@ export const ListsClient = clientEntry(
       if (Object.keys(partial).length === 0) return
       sendKeepalivePatch(getCsrfHeaders(), loadedListId, partial)
     }
-    if (typeof window !== 'undefined') {
+    handle.queueTask(() => {
       window.addEventListener('beforeunload', flushWithKeepalive, { signal: handle.signal })
 
       // Lost connectivity: keep the editor and the dirty draft, surface a
@@ -1697,12 +1703,13 @@ export const ListsClient = clientEntry(
         },
         { signal: handle.signal },
       )
-    }
+    })
 
     // The "Weitere Aktionen" menu is a native <details>, which otherwise never
     // dismisses: it stays open after choosing an action and ignores outside
-    // clicks and Escape. Close it from one delegated set of document listeners.
-    if (typeof document !== 'undefined') {
+    // clicks and Escape. Close it from one delegated set of document listeners,
+    // registered after the client commit (guide 05).
+    handle.queueTask(() => {
       let closeMoreMenus = (except?: Node) => {
         for (let menu of Array.from(
           document.querySelectorAll<HTMLDetailsElement>('details[data-lists-more][open]'),
@@ -1764,7 +1771,7 @@ export const ListsClient = clientEntry(
         },
         { signal: handle.signal },
       )
-    }
+    })
 
     // Status pill display
     let statusLabel = (): string => {

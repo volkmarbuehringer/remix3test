@@ -106,9 +106,12 @@ export const UploadBulkDownload = clientEntry(
       form.dataset.bulkDownloadReady = 'true'
     }
 
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       handle.frame.addEventListener('reloadComplete', init, { signal: handle.signal })
-    }
+    })
     handle.signal.addEventListener('abort', () => {
       controller?.abort()
       controller = null

@@ -30,7 +30,10 @@ const srOnlyStyle = css({
 export const GridStatusAnnouncer = clientEntry(
   import.meta.url + '#GridStatusAnnouncer',
   function GridStatusAnnouncer(handle: Handle) {
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       let lastAnnounced = ''
       let scheduled = false
 
@@ -85,7 +88,7 @@ export const GridStatusAnnouncer = clientEntry(
         characterData: true,
       })
       handle.signal.addEventListener('abort', () => observer.disconnect())
-    }
+    })
 
     return () => (
       <div data-grid-status role="status" aria-live="polite" aria-atomic="true" mix={srOnlyStyle} />

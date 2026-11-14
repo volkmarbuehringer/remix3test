@@ -153,7 +153,10 @@ export const ConfirmDelete = clientEntry(
   function ConfirmDelete(handle: Handle) {
     let pending: PendingConfirm | null = null
 
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       document.addEventListener(
         'click',
         (event) => {
@@ -198,7 +201,7 @@ export const ConfirmDelete = clientEntry(
         },
         { signal: handle.signal },
       )
-    }
+    })
 
     let dialogEl: HTMLDialogElement | null = null
     let removalObserver: MutationObserver | null = null

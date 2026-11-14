@@ -55,7 +55,10 @@ export const NavToggle = clientEntry(
       if (event.target instanceof Element && event.target.id === 'nav-drawer') cleanup()
     }
 
-    if (typeof document !== 'undefined') {
+    // Schedule browser-only setup after the client commit (guide 05
+    // §"DOM references, global events, and cleanup"): setup also runs during
+    // SSR, and the queued task is a no-op there.
+    handle.queueTask(() => {
       document.addEventListener(
         'click',
         (event) => {
@@ -80,7 +83,7 @@ export const NavToggle = clientEntry(
           capture: true,
         })
       }
-    }
+    })
 
     return () => {
       if (typeof document === 'undefined') return null

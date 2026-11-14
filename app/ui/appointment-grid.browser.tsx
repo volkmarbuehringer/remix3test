@@ -182,12 +182,15 @@ export const AppointmentGrid = clientEntry(
       void handle.update()
     })
 
-    // Always-active listeners for type-drag from types panel (client-side only)
-    if (typeof document !== 'undefined') {
+    // Always-active listeners for type-drag from types panel (client-side only).
+    // Register after the client commit, not during setup: setup also runs
+    // during SSR, and `handle.queueTask` is a no-op there (guide 05
+    // §"DOM references, global events, and cleanup").
+    handle.queueTask(() => {
       document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
       document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
       document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
-    }
+    })
 
     return () => {
       let data = currentData()

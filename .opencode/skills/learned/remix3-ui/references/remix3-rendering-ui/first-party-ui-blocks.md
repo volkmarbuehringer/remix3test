@@ -21,6 +21,11 @@ Use the guide's selection model, then this app's concrete decisions.
 
 Interactive controls must sit inside a `clientEntry(...)` boundary, directly or via an interactive ancestor (see `remix3-client-entries`).
 
+**Styling deltas:**
+
+- **JSX `style` props are blocked by the app CSP.** The guide recommends the `style` prop for values that change continuously (progress, coordinates, transforms), but `contentSecurityPolicy()` sets `style-src-attr 'none'` and the component runtime writes a `style` prop with `setAttribute('style', …)` (`@remix-run/component/src/runtime/core/props.ts`), so a `style` prop never reaches the page. Use `css()` for bounded value sets (generated classes are content-addressed and cached by serialized style, so a repeated value reuses its class) and CSSOM (`el.style.x = …` in a ref/handler) for continuously changing geometry. Examples: `app/ui/scaffold-home-page.tsx` (bounded progress widths/tones), `app/actions/admin/uploads/controller.tsx` (quota bar), `app/ui/appointment-grid.browser.tsx` (drag transforms). Policy detail: `remix3-server` § Security → `security-gotchas/security-checks.md`.
+- **Single-site named styles are a pre-#12193 convention.** The guide's placement rule (keep a descriptor used at one JSX site inline; name it when multiple sites share it or a variant map clarifies; extract at the second use) postdates most of this app: 472 of 1,068 `css()` descriptors are named constants used at exactly one site. Follow the guide for new code; do not churn the existing set without a dedicated sweep. The variant half of the rule is live: `app/actions/lists/public/lists-view.tsx` puts the grabbed-row highlight behind `&[data-grabbed]` in the row style instead of a second `css()` call.
+
 **App-specific deltas:**
 
 - **Button is wrapped, not used raw.** `app/ui/theme/button.ts` imports `app/ui/theme/upstream-button.ts`, adds `secondary`/`danger`/`dangerOutline` tones, and rebinds the mixin host type to `HTMLButtonElement` (a type-level workaround for TypeScript's order-sensitive recursive assignability). `buttonLink()` rebinds to `HTMLAnchorElement` so a navigation link is styled as a button without nesting a `<button>` inside an `<a>`.

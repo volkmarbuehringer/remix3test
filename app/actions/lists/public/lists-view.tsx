@@ -1618,6 +1618,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                 return (
                   <div
                     key={item.id}
+                    data-grabbed={item.id === grabbedId ? '' : undefined}
                     mix={[
                       css({
                         position: 'relative',
@@ -1681,10 +1682,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           paddingRight: theme.space.md,
                           rowGap: theme.space.xs,
                         },
+                        '&[data-grabbed]': {
+                          boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}`,
+                        },
                       }),
-                      ...(item.id === grabbedId
-                        ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
-                        : []),
                       on('keydown', (e) => handleRowKeyDown(e, index)),
                       on('click', (event) => {
                         view.setFocusedId(item.id)
