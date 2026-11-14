@@ -107,4 +107,24 @@ describe('Admin chatlog detail pane', () => {
     assert.equal(document.activeElement, row, 'focus returns to the conversation row')
     assert.equal(sessionStorage.getItem(OPEN_KEY), null)
   })
+
+  it('removes its delegated listener when the entry disconnects', () => {
+    let { close, panel } = mountOpenPane()
+
+    let cleanup = cleanups.pop()
+    cleanup?.()
+
+    let preventedByEntry: boolean | null = null
+    let guard = (event: MouseEvent) => {
+      preventedByEntry = event.defaultPrevented
+      event.preventDefault()
+    }
+    document.addEventListener('click', guard, { once: true })
+
+    close.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    document.removeEventListener('click', guard)
+
+    assert.equal(preventedByEntry, false, 'a disposed entry must not consume the click')
+    assert.equal(panel.getAttribute('data-chatlog-detail-open'), 'true', 'the pane stays open')
+  })
 })

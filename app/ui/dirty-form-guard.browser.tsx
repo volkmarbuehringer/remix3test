@@ -66,7 +66,7 @@ export const DirtyFormGuard = clientEntry(
         data-dirty-form-guard="true"
         mix={[
           hiddenStyle,
-          ref((el) => {
+          ref((el, signal) => {
             let form = el.closest('form')
             if (!form) return
 
@@ -85,8 +85,11 @@ export const DirtyFormGuard = clientEntry(
               else form.removeAttribute('data-dirty')
             }
 
-            form.addEventListener('input', refresh, { signal: handle.signal })
-            form.addEventListener('change', refresh, { signal: handle.signal })
+            // Element-owned listeners follow the ref signal (guide 05 §"DOM
+            // references, global events, and cleanup"): if the guarded form is
+            // replaced while this entry stays mounted, they stop with the node.
+            form.addEventListener('input', refresh, { signal })
+            form.addEventListener('change', refresh, { signal })
 
             // A submit is an intentional save: drop the guard before navigation.
             form.addEventListener(
@@ -95,7 +98,7 @@ export const DirtyFormGuard = clientEntry(
                 submitted = true
                 form.removeAttribute('data-dirty')
               },
-              { signal: handle.signal },
+              { signal },
             )
 
             let wouldDiscardEdits = (target: HTMLElement): boolean => {

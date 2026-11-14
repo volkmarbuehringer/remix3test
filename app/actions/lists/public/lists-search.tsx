@@ -122,8 +122,21 @@ export const ListsSearch = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref(() => {
+          ref((_el, signal) => {
             if (typeof document === 'undefined') return
+            // The { signal } listeners below are element-owned. Abort them when
+            // this hidden mount node is removed (a frame swap disposes the
+            // entry) so a pending debounce cannot submit a dead form, and the
+            // next entry installs a fresh set (guide 05 §"DOM references, global
+            // events, and cleanup").
+            signal.addEventListener(
+              'abort',
+              () => {
+                for (let ac of controllers) ac.abort()
+                controllers = []
+              },
+              { once: true },
+            )
             mount()
           }),
         ]}

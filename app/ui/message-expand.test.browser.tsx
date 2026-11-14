@@ -10,8 +10,9 @@ import { MessageExpand } from './message-expand.browser.tsx'
 // The clamp lives on a server-rendered class (admin-messages-page mirrors this
 // fixture with `-webkit-line-clamp: 2` on a width-bounded span); the entry
 // only manipulates INLINE properties and the toggle button. The click listener
-// is module-guarded once per document, so it is registered exactly once no
-// matter how many tests render the entry.
+// is installed after the client commit and scoped to the entry's handle signal,
+// so it is registered once per mounted entry and removed when a frame swap
+// disposes the entry.
 // The queueTask post-render scan is flushed via result.act().
 // ---------------------------------------------------------------------------
 
@@ -142,5 +143,21 @@ describe('MessageExpand', () => {
     textSpan('1').click()
 
     assert.equal(textSpan('1').getAttribute('data-expanded'), 'false')
+  })
+
+  it('stops handling clicks once the entry disconnects', async () => {
+    mountCells()
+    await renderEntry()
+
+    cleanup?.()
+    cleanup = null
+
+    toggleBtn('1').click()
+
+    assert.equal(
+      textSpan('1').getAttribute('data-expanded'),
+      'false',
+      'a disposed entry must not keep manipulating the document',
+    )
   })
 })

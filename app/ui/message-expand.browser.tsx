@@ -11,14 +11,16 @@ import { prefersReducedMotion } from '../utils/motion.ts'
  * expanding only removes the clamp on the sibling span — no server round-trip,
  * no state to reconcile on navigation (a fresh frame render collapses again).
  *
- * A single document-level delegated listener is registered once per page load
- * (module-scoped guard), so it survives frame swaps.
+ * A single delegated document-level listener serves the whole page. It is
+ * scheduled after the client commit and bound to `handle.signal`, not a
+ * module-scoped flag: a frame swap disposes the old entry (removing its
+ * listener) and the replacement entry installs a fresh one, so no listener
+ * outlives the component that owns it (guide 05 §"DOM references, global
+ * events, and cleanup").
  * After every render a `queueTask` re-scans the cells: it resets each cell to
  * its collapsed default and hides the toggle on messages that already fit
  * within the clamp, so short messages never show a pointless button.
  */
-let listenersRegistered = false
-
 function setCollapsed(span: HTMLElement): void {
   span.style.display = ''
   span.style.removeProperty('-webkit-line-clamp')
@@ -126,17 +128,15 @@ function scanCells(): void {
   })
 }
 
-function registerListener(): void {
-  if (listenersRegistered || typeof document === 'undefined') return
-  listenersRegistered = true
-  document.addEventListener('click', onToggleClick, { capture: true })
-}
-
 export const MessageExpand = clientEntry(
   import.meta.url + '#MessageExpand',
   function MessageExpand(handle: Handle) {
+    handle.queueTask(() => {
+      if (typeof document === 'undefined') return
+      document.addEventListener('click', onToggleClick, { capture: true, signal: handle.signal })
+    })
+
     return () => {
-      registerListener()
       handle.queueTask(scanCells)
       return <div mix={css({ display: 'none' })} />
     }

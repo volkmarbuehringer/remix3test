@@ -149,4 +149,18 @@ describe('ListsSidebarKeyboard', () => {
 
     assert.equal(document.activeElement, linkOf(host, '1'), 'focus should stay on the link')
   })
+
+  it('stops handling row keys when the entry disconnects', () => {
+    let host = mountRows()
+    mountEntry()
+
+    linkOf(host, '1').focus()
+    cleanup?.()
+    cleanup = null
+
+    let notCancelled = press(linkOf(host, '1'), 'ArrowDown')
+
+    assert.equal(notCancelled, true, 'a disposed entry installs no key handler')
+    assert.equal(document.activeElement, linkOf(host, '1'), 'focus stays put')
+  })
 })

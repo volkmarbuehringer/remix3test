@@ -170,9 +170,9 @@ export const MessageCompose = clientEntry(
                     if (event.isComposing || event.keyCode === 229) return
                     if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return
                     event.preventDefault()
-                    // The shared pending button disables itself, but a second
-                    // shortcut would still submit and race the first POST
-                    // (duplicate message or a rate-limit error). The form
+                    // The shared pending button stays enabled (guide 09), so a
+                    // second shortcut would still submit and race the first
+                    // POST (duplicate message or a rate-limit error). The form
                     // submit listener below sets the guard synchronously.
                     if (submitting) return
                     textarea.form?.requestSubmit()

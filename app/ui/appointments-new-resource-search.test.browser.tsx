@@ -7,11 +7,12 @@ import { ResourceSearchLive } from './appointments-new-resource-search.browser.t
 // ---------------------------------------------------------------------------
 // ResourceSearchLive — live filtering of the wizard's resource cards.
 //
-// The entry registers delegated document input/keydown listeners once
-// (module guard) and re-scans every [data-resource-search-root] via
-// queueTask after each render. The fixture mirrors the server markup from
-// appointments-new-resource-cards.tsx: a search input, resource cards with a
-// data-search-text haystack, a result count, and an empty notice.
+// The entry registers delegated document input/keydown listeners after the
+// client commit, scoped to its handle signal, and re-scans every
+// [data-resource-search-root] via queueTask after each render. The fixture
+// mirrors the server markup from appointments-new-resource-cards.tsx: a search
+// input, resource cards with a data-search-text haystack, a result count, and
+// an empty notice.
 // ---------------------------------------------------------------------------
 
 const ROOT_HTML = `
@@ -182,5 +183,21 @@ describe('ResourceSearchLive', () => {
     other.dispatchEvent(new Event('input', { bubbles: true }))
 
     assert.equal(countLine().textContent, '1 Ressource', 'untouched by the foreign input')
+  })
+
+  it('removes its document listeners when the entry disconnects', async () => {
+    mount()
+    await renderEntry()
+
+    cleanup?.()
+    cleanup = null
+
+    typeSearch('coaching')
+
+    assert.deepEqual(
+      visibleCards().map((card) => card.textContent?.trim()),
+      ['Beratung online', 'Workshop Präsenz', 'Coaching'],
+      'a disposed entry must not keep filtering the document',
+    )
   })
 })

@@ -27,11 +27,6 @@ function applyFilter(root: HTMLElement, input: HTMLInputElement): void {
   }
 }
 
-// A delegated document-level listener registered once per page load. The
-// resource list is re-rendered in place on frame navigation, which replaces the
-// <input> node; a listener bound to the old node would be dropped with it.
-let listenerRegistered = false
-
 function searchInputFrom(event: Event): HTMLInputElement | null {
   let target = event.target
   if (!(target instanceof HTMLInputElement)) return null
@@ -55,11 +50,12 @@ function onSearchKeydown(event: KeyboardEvent): void {
   if (root) applyFilter(root, input)
 }
 
-function registerSearchListener(): void {
-  if (listenerRegistered || typeof document === 'undefined') return
-  listenerRegistered = true
-  document.addEventListener('input', onSearchInput)
-  document.addEventListener('keydown', onSearchKeydown)
+function applyAllFilters(): void {
+  if (typeof document === 'undefined') return
+  document.querySelectorAll<HTMLElement>('[data-resource-search-root]').forEach((root) => {
+    let input = root.querySelector<HTMLInputElement>('[data-resource-search]')
+    if (input) applyFilter(root, input)
+  })
 }
 
 // Live-filters the resource cards in wizard step 1. The list stays fully
@@ -68,14 +64,21 @@ function registerSearchListener(): void {
 export const ResourceSearchLive = clientEntry(
   import.meta.url + '#ResourceSearchLive',
   function ResourceSearchLiveEntry(handle: Handle) {
+    // Delegated on `document`, because frame navigation replaces the <input>
+    // node. Schedule the browser-only setup after the client commit and bind it
+    // to `handle.signal`, so a frame swap removes the old entry's listeners
+    // before the replacement entry installs its own (guide 05 §"DOM references,
+    // global events, and cleanup").
+    handle.queueTask(() => {
+      if (typeof document === 'undefined') return
+      document.addEventListener('input', onSearchInput, { signal: handle.signal })
+      document.addEventListener('keydown', onSearchKeydown, { signal: handle.signal })
+    })
+
     return () => {
-      registerSearchListener()
-      handle.queueTask(() => {
-        document.querySelectorAll<HTMLElement>('[data-resource-search-root]').forEach((root) => {
-          let input = root.querySelector<HTMLInputElement>('[data-resource-search]')
-          if (input) applyFilter(root, input)
-        })
-      })
+      // The card DOM can be replaced without remounting the entry; re-apply the
+      // field's current query to the freshly rendered cards.
+      handle.queueTask(applyAllFilters)
       return null
     }
   },

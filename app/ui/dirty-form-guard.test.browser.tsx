@@ -231,4 +231,23 @@ describe('DirtyFormGuard', () => {
 
     assert.deepEqual(confirmMessages, [], 'nothing to lose, nothing to ask')
   })
+
+  it('unbinds its form and window listeners when the guard disconnects', () => {
+    mount()
+    mountGuard()
+
+    let cleanup = cleanups.pop()
+    cleanup?.()
+
+    typeInto('title', 'Halb getippt')
+    assert.equal(
+      form().hasAttribute('data-dirty'),
+      false,
+      'a disposed guard must not keep watching the form',
+    )
+
+    let event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    assert.equal(event.defaultPrevented, false, 'no unload veto after disconnect')
+  })
 })

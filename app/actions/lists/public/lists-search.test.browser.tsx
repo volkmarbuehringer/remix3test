@@ -115,4 +115,21 @@ describe('ListsSearch', () => {
     timers.advance(1)
     assert.equal(submits(), 1, 'the last value is submitted once')
   })
+
+  it('cancels a pending submit and unbinds when the entry disconnects', async (t) => {
+    let timers = t.useFakeTimers()
+    mount(FORM)
+    renderEntry()
+
+    let input = searchInput()
+    let submits = countSubmits(input)
+    input.value = 'abc'
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+
+    cleanup?.()
+    cleanup = null
+    timers.advance(400)
+
+    assert.equal(submits(), 0, 'a disposed entry must not submit the form')
+  })
 })

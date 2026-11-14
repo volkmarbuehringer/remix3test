@@ -37,12 +37,10 @@ const PAGE_SELECTOR = '[data-chatlog-page]'
 const PANE_SELECTOR = '[data-chatlog-detail-panel]'
 const OPEN_SELECTOR = '[data-chatlog-master-detail], ' + PANE_SELECTOR
 
-/** Module-scoped so a re-created entry instance cannot double-register. */
-let clickBound = false
-
-/** Module-scoped pane observer; the pane element outlives entry instances. */
-let paneObserver: MutationObserver | undefined
-let observedPane: HTMLElement | undefined
+interface PaneWatch {
+  observer: MutationObserver | undefined
+  pane: HTMLElement | undefined
+}
 
 /** Read the remembered thread id, tolerating disabled/unavailable storage. */
 function readOpenId(): string {
@@ -205,19 +203,23 @@ function settleDetailFrame(contentChanged: boolean): void {
  * setup can be replaced by the time a transcript lands (the frame re-registers
  * across the hydration that follows a parent frame reload) and then its events
  * never fire. A mutation observer follows the DOM that actually changes.
+ *
+ * The watch belongs to the entry instance: the observer is disconnected from
+ * `handle.signal` when the entry is disposed, so a parent frame reload cannot
+ * leave an observer owned by a dead handle behind.
  */
-function watchPaneSettled(): void {
+function watchPaneSettled(watch: PaneWatch): void {
   let pane = document.querySelector<HTMLElement>(PANE_SELECTOR)
   if (!pane) return
   // The pane element is recreated by a parent frame reload. An observer left on
   // the detached old node would silently stop reporting.
-  if (paneObserver && observedPane?.isConnected) return
-  paneObserver?.disconnect()
-  observedPane = pane
+  if (watch.observer && watch.pane?.isConnected) return
+  watch.observer?.disconnect()
+  watch.pane = pane
 
   let previousHtml = paneHtml()
   let settleScheduled = false
-  paneObserver = new MutationObserver(() => {
+  watch.observer = new MutationObserver(() => {
     if (settleScheduled) return
     settleScheduled = true
     // Frame content is applied through several mutations; judge the settled DOM.
@@ -231,60 +233,77 @@ function watchPaneSettled(): void {
       settleDetailFrame(changed)
     })
   })
-  paneObserver.observe(pane, { childList: true, subtree: true, characterData: true })
+  watch.observer.observe(pane, { childList: true, subtree: true, characterData: true })
 }
 
 export const AdminChatlogDetail = clientEntry(
   import.meta.url + '#AdminChatlogDetail',
   function AdminChatlogDetail(handle: Handle) {
+    let paneWatch: PaneWatch = { observer: undefined, pane: undefined }
+
+    handle.signal.addEventListener(
+      'abort',
+      () => {
+        paneWatch.observer?.disconnect()
+        paneWatch.observer = undefined
+        paneWatch.pane = undefined
+      },
+      { once: true },
+    )
+
     handle.queueTask(() => {
       // ── Restore the remembered transcript after a frame reload ──────────
       void restoreSelection(handle)
 
       // Focus and missing-thread handling run off the pane DOM, which survives
       // the frame handle being replaced across a parent frame reload.
-      watchPaneSettled()
+      watchPaneSettled(paneWatch)
 
-      // ── One delegated click listener for the whole page ────────────────
+      // ── One delegated click listener per entry ─────────────────────────
       //
-      // Module-scoped so a runtime that re-creates the entry after a frame swap
-      // cannot double-register it.
-      if (!clickBound && typeof document !== 'undefined') {
-        clickBound = true
-        document.addEventListener('click', (event) => {
-          // A handler closer to the target already dealt with this click.
-          if (event.defaultPrevented) return
-          let target = event.target as HTMLElement | null
+      // `handle.signal` removes it when a parent frame reload disposes this
+      // entry; the replacement entry installs its own listener bound to its
+      // own handle, instead of a module-scoped listener outliving the handle
+      // it captured (guide 05 §"DOM references, global events, and cleanup").
+      if (typeof document !== 'undefined') {
+        document.addEventListener(
+          'click',
+          (event) => {
+            // A handler closer to the target already dealt with this click.
+            if (event.defaultPrevented) return
+            let target = event.target as HTMLElement | null
 
-          // Dismiss the transcript without leaving the list. The href stays as
-          // the no-JS fallback, so the client path must cancel it explicitly —
-          // otherwise the runtime refetches the list and steals the focus the
-          // collapse just restored.
-          let close = target?.closest<HTMLElement>('[data-chatlog-close]')
-          if (close) {
+            // Dismiss the transcript without leaving the list. The href stays as
+            // the no-JS fallback, so the client path must cancel it explicitly —
+            // otherwise the runtime refetches the list and steals the focus the
+            // collapse just restored.
+            let close = target?.closest<HTMLElement>('[data-chatlog-close]')
+            if (close) {
+              event.preventDefault()
+              event.stopPropagation()
+              collapsePane(close.getAttribute('data-chatlog-return') ?? '')
+              return
+            }
+
+            let link = target?.closest<HTMLAnchorElement>('a[data-chatlog-open]')
+            let id = link?.getAttribute('data-chatlog-open') ?? ''
+            if (!link || !id) return
+
+            let current = detailFrame(handle)
+            let href = link.getAttribute('href') ?? ''
+            if (!current || !href) return
+
+            // Load the transcript into the pane instead of the outer frame.
             event.preventDefault()
             event.stopPropagation()
-            collapsePane(close.getAttribute('data-chatlog-return') ?? '')
-            return
-          }
-
-          let link = target?.closest<HTMLAnchorElement>('a[data-chatlog-open]')
-          let id = link?.getAttribute('data-chatlog-open') ?? ''
-          if (!link || !id) return
-
-          let current = detailFrame(handle)
-          let href = link.getAttribute('href') ?? ''
-          if (!current || !href) return
-
-          // Load the transcript into the pane instead of the outer frame.
-          event.preventDefault()
-          event.stopPropagation()
-          current.reload({ src: href }).catch(() => {
-            /* the pane keeps its previous content on failure */
-          })
-          setOpenState(id)
-          rememberOpenId(id)
-        })
+            current.reload({ src: href }).catch(() => {
+              /* the pane keeps its previous content on failure */
+            })
+            setOpenState(id)
+            rememberOpenId(id)
+          },
+          { signal: handle.signal },
+        )
       }
     })
 

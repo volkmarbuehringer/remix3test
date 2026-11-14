@@ -291,10 +291,10 @@ export const AppointmentGrid = clientEntry(
                 <Glyph name="trash" width={18} height={18} />
               </div>
             </div>
-            {visibleDays.map((day, i) => {
+            {visibleDays.map((day) => {
               let isToday = day.date === todayMs
               return (
-                <div key={i} data-day-date={day.date} mix={dayHeaderStyle}>
+                <div key={day.date} data-day-date={day.date} mix={dayHeaderStyle}>
                   <span mix={isToday ? todayDayNameStyle : dayNameStyle}>{day.dayName}</span>
                   <span mix={isToday ? todayDayDateStyle : dayDateStyle}>{day.dateStr}</span>
                 </div>

@@ -92,8 +92,20 @@ export const ListsSidebarKeyboard = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref(() => {
+          ref((_el, signal) => {
             if (typeof document === 'undefined') return
+            // The row listeners are element-owned; abort them with the hidden
+            // mount node so a disposed entry cannot keep moving a roving tab
+            // stop or reload a frame through a stale handle (guide 05 §"DOM
+            // references, global events, and cleanup").
+            signal.addEventListener(
+              'abort',
+              () => {
+                for (let ac of rovingControllers) ac.abort()
+                rovingControllers = []
+              },
+              { once: true },
+            )
             initRoving()
             handle.frame.addEventListener('reloadComplete', initRoving, {
               signal: handle.signal,

@@ -51,6 +51,31 @@ Scoped-to-form beats the old document-level listener: same behavior, narrower
 surface, and the signal cleans it up. A `<textarea>`'s own `el.form` property is
 the cheapest form handle.
 
+## Frame-owned DOM: delegate per entry, don't convert
+
+The conversion above assumes the entry can render the enhanced element. When
+the target markup belongs to server-rendered frame content the entry does not
+own (`appointments-new-resource-search`, `appointments-new-step2`,
+`message-expand`, `admin-chatlog-detail`), every frame navigation replaces that
+markup. Moving the region into the entry would pull page content into browser
+code, and a `ref` bound to the first fragment dies with the swap.
+
+Keep document-level delegation, but remove the module-scoped guard:
+
+- Install the listener in setup `handle.queueTask` (after the client commit),
+  never in the render function.
+- Pass `{ signal: handle.signal }`; the replacement entry installs its own
+  listener after the old handle aborts.
+- Delete `listenersRegistered` / `clickBound` / `changeBound`: the first
+  entry's listener otherwise outlives its component and its closure over
+  `handle` / `handle.frame` points at a disposed runtime.
+- For a split case (`dirty-form-guard`), form-owned listeners use the `ref`
+  signal and `document` / `window` listeners use `handle.signal`.
+- Regression: after `cleanup()`, an input/click must be inert.
+
+See `interactivity-runtime.md` § "Listener lifetime" for the signal-selection
+rule and the fixed seams.
+
 ## Test conversions
 
 - `render(<Entry/>, { container })` mounts into an existing element, but
@@ -65,12 +90,17 @@ the cheapest form handle.
 
 ## When to Use
 
-Converting any enhancer that renders `null`/hidden-div + scan + module-scoped
-document listeners. The four mechanical steps: render the element from the
-entry with serializable props → move used-only-here styles → bind listeners in
-`ref` with the signal (form-scoped when the enhanced element is a sibling) →
-delete the module guard and rewrite the fixture to render the entry into a
-real form context.
+An enhancer that renders `null`/hidden-div + scan + module-scoped document
+listeners.
+
+- **If the entry can own the enhanced element:** render it from the entry with
+  serializable props → move used-only-here styles → bind listeners in `ref`
+  with the signal (form-scoped when the enhanced element is a sibling) → delete
+  the module guard and rewrite the fixture to render the entry into a real form
+  context.
+- **If the DOM belongs to server-rendered frame content:** keep delegation,
+  install per entry after commit with `handle.signal`, and delete the module
+  guard (§ "Frame-owned DOM").
 
 ## Related
 

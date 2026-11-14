@@ -22,34 +22,39 @@ function syncSelection(form: HTMLFormElement): void {
   }
 }
 
-// A delegated document-level listener registered once per page load. The wizard
-// form is re-rendered in place on frame navigation, which can replace the form
-// node; a listener bound to the old node would be dropped with it.
-let changeBound = false
-
-function registerChangeListener(): void {
-  if (changeBound || typeof document === 'undefined') return
-  changeBound = true
-  document.addEventListener('change', (event) => {
-    let target = event.target
-    if (!(target instanceof HTMLElement)) return
-    let form = target.closest('[data-wizard-form]')
-    if (form instanceof HTMLFormElement) syncSelection(form)
-  })
+// A delegated document-level listener, because the wizard form is re-rendered
+// in place on frame navigation, which can replace the form node; a listener
+// bound to the old node would be dropped with it. Scheduled after the client
+// commit and scoped to `handle.signal` so a frame swap removes the old entry's
+// listener before the replacement entry installs its own (guide 05 §"DOM
+// references, global events, and cleanup").
+function syncCurrentSelection(): void {
+  let form = document.querySelector('[data-wizard-form]')
+  if (form instanceof HTMLFormElement) syncSelection(form)
 }
 
 export const AppointmentsNewStep2Live = clientEntry(
   import.meta.url + '#AppointmentsNewStep2Live',
   function AppointmentsNewStep2LiveEntry(handle: Handle) {
+    handle.queueTask(() => {
+      if (typeof document === 'undefined') return
+      document.addEventListener(
+        'change',
+        (event) => {
+          let target = event.target
+          if (!(target instanceof HTMLElement)) return
+          let form = target.closest('[data-wizard-form]')
+          if (form instanceof HTMLFormElement) syncSelection(form)
+        },
+        { signal: handle.signal },
+      )
+    })
+
     return () => {
-      registerChangeListener()
       // The factory closure survives frame DOM swaps, so re-sync on every render
       // rather than only on first mount — otherwise a post-swap validation error
       // leaves the submit button enabled with no time selected.
-      handle.queueTask(() => {
-        let form = document.querySelector('[data-wizard-form]')
-        if (form instanceof HTMLFormElement) syncSelection(form)
-      })
+      handle.queueTask(syncCurrentSelection)
       return null
     }
   },
