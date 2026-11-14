@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
 import { css, type Handle } from 'remix/component'
 import { SuperHeaders } from 'remix/headers'
+import { mimeTypeToContentType } from 'remix/mime'
 import { createFileResponse } from 'remix/response/file'
 import { redirect } from 'remix/response/redirect'
 import {
@@ -519,6 +520,13 @@ export default createController(routes.admin.uploads, {
         // storing them, and `no-cache` revalidates the stable URL with its ETag.
         cacheControl: 'private, no-cache',
       })
+      // Derive the header from the stored MIME type, not `file.type`: Bun's
+      // `File` appends `;charset=utf-8` to text types without the canonical
+      // space, which would make the served header runtime-dependent. Only
+      // rewrite responses that already carry a content type, so 304s stay bare.
+      if (response.headers.has('Content-Type')) {
+        response.headers.set('Content-Type', mimeTypeToContentType(mime_type))
+      }
       response.headers.set('Content-Disposition', attachmentDisposition(cleanFilename))
       return response
     },
