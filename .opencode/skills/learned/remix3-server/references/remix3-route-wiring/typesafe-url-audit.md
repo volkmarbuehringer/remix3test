@@ -36,6 +36,13 @@ Convert each match to the typed tree:
 - Serialized-output assertion strings: `'"href":"/verwaltung/appointments"'` in controller tests asserting on rendered JSON
 - JSDoc/comment examples: `` * <ConnectionIndicator url="/admin/messages/subscribe" /> ``
 
+**Why tests keep literal URLs** (do not "fix" them into `routes.*.href()`):
+
+- A literal request path pins the public URL contract. Building the request from `routes.*.href()` moves the test with a rename and stays green, so it can never catch a changed bookmark/API/legacy URL; a literal fails until the rename is deliberate. Use `routes.*.href()` for redirect-target assertions where the intent is "the handler chose the right route", and literals for URLs a browser or external client sends.
+- Rendered-HTML assertions check serialized markup, not URL construction; deriving the expected `href` from `routes` makes the assertion tautological. Mind the escaping rule (`&` → `&amp;`): `remix3-tooling` § Testing → `references/remix3-testing/testing-hygiene.md`.
+- Client-entry fixtures are arbitrary HTML with no backing route (`url="/test/subscribe"`, `/lists?load=1`), so there is nothing to type.
+- A literal is an offender only when production code builds a URL the user will navigate to. Diagnostic probes (`route-contract-and-controllers.md` § Probe) are the opposite case: they build the path through the route tree so a rename cannot turn the probe into a 404 false negative.
+
 Verify: `npm run typecheck` then run the touched files' tests (`npx remix test <file>`).
 
 ## When to Use

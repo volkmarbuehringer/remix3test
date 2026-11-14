@@ -61,14 +61,18 @@ Probe every id leaf with a throwaway server test (`tmp/` is gitignored; imports 
 import { test } from 'remix/test'
 import { router } from '../app/test-router.ts'
 import { createAuthCookieWithCsrf } from '../test/utils.ts'
+import { routes } from '../app/routes.ts'
 
 test('probe malformed route ids', async () => {
   let session = await createAuthCookieWithCsrf()
-  for (let path of [
-    '/verwaltung/resources/abc',
-    '/verwaltung/offering-configs/abc',
-    '/verwaltung/appointments/abc',
-  ]) {
+  // Build each path through the route tree so a route rename cannot turn this
+  // probe into a 404 false negative; only the :id value is deliberately bad.
+  let paths = [
+    routes.verwaltung.resources.show.href({ id: 'abc' }),
+    routes.verwaltung.offeringConfigs.show.href({ id: 'abc' }),
+    routes.verwaltung.appointments.show.href({ id: 'abc' }),
+  ]
+  for (let path of paths) {
     try {
       let response = await router.fetch('https://remix.run' + path, {
         headers: { Cookie: session!.cookie },
