@@ -164,15 +164,22 @@ describe('CSP report normalization', () => {
   })
 })
 
-/** Captures structured CSP log lines written through `console.log`. */
+/**
+ * Captures structured CSP log lines written through `console.log`.
+ *
+ * Mock `console.log` itself instead of `process.stdout.write`: Node's console
+ * routes through stdout, but Bun writes to stdout natively, so a stdout spy
+ * would silently capture nothing there.
+ */
 function captureCspLogs(t: TestContext): string[] {
   let lines: string[] = []
-  t.mock.method(process.stdout, 'write', (chunk: unknown) => {
-    let text = typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk as Uint8Array)
-    for (let line of text.split('\n')) {
-      if (line.includes('"event":"csp.violation"')) lines.push(line)
+  t.mock.method(console, 'log', (...args: unknown[]) => {
+    for (let arg of args) {
+      if (typeof arg !== 'string') continue
+      for (let line of arg.split('\n')) {
+        if (line.includes('"event":"csp.violation"')) lines.push(line)
+      }
     }
-    return true
   })
   return lines
 }
