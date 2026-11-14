@@ -98,6 +98,7 @@
   - `mastra-deltas` (§ Workflow) — Workflow resume/abort race and strict step typing.
 - `dev-gotchas` (§ Format Triage) — classifying repo-wide formatter contamination (`format:fix` rewriting files outside the session's edit set) via whitespace-stripped hash vs HEAD, reverting only provably format-only files. Tooling hygiene, not a guide chapter.
 - `agent-ops` (§ Checkpoint Handoff) — ending a working session at a verified checkpoint: finish in-flight work only (typecheck + tests green, committed), start no new work at high context, carry a hard bug as an executable artifact, and emit a self-contained follow-up prompt for the next session. Session hygiene, not a guide chapter.
+- `truncated-output-write-recovery` — detecting files written from display-truncated tool output (literal `... (line truncated to N chars)` markers, dropped trailing sections) and recovering them from the pre-corruption commit while re-applying later edits. Tooling hygiene, not a guide chapter.
 
 ## Unfinished chapters — re-audit on authoring
 
