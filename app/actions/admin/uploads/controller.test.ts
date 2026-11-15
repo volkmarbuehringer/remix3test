@@ -194,8 +194,26 @@ describe('Admin Uploads controller', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
-    let html = await response.text()
+    // A stored upload must answer with a PRG redirect (guide 11 §"Validate
+    // uploads"), so a refresh cannot re-submit the multipart body.
+    assert.equal(response.status, 303, 'a stored upload must redirect')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(
+      location.startsWith(routes.admin.uploads.index.href()),
+      'the redirect must land on the uploads grid',
+    )
+    let redirectUrl = new URL(location, BASE)
+    assert.equal(
+      redirectUrl.searchParams.get('uploaded')?.split(',').length,
+      2,
+      'the stored ids must travel with the redirect',
+    )
+
+    let page = await router.fetch(`${BASE}${location}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(page.status, 200)
+    let html = await page.text()
     assert.ok(
       html.includes('2 Dateien erfolgreich hochgeladen.'),
       'success banner should report the number of uploaded files',
@@ -235,7 +253,7 @@ describe('Admin Uploads controller', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400, 'a rejected upload is a validation failure')
     let html = await response.text()
     assert.ok(
       html.includes('Upload fehlgeschlagen'),
@@ -261,8 +279,9 @@ describe('Admin Uploads controller', () => {
     })
 
     // The handler declines the file without throwing, so the request completes
-    // with the banner rather than being killed by an uncaught exception.
-    assert.equal(response.status, 200)
+    // with a 400 validation re-render rather than being killed by an uncaught
+    // exception.
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Dateityp nicht erlaubt'), 'should explain why the file was rejected')
     let result = await pool.query("SELECT COUNT(*) AS c FROM uploads WHERE filename = 'bad.exe'")

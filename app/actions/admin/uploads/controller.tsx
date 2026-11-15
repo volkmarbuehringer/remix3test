@@ -161,6 +161,10 @@ const UPLOADS_PAGE_SIZE = 15
  */
 const FRAME_DOWNLOAD_PARAM = 'frameDownload'
 
+/** Rejection shown when a multipart post produced no storable file. */
+const GENERIC_UPLOAD_ERROR =
+  'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
+
 /**
  * The file-picker `accept` list and full extension list come from the server
  * allowlist. The visible summary deliberately groups them into the same three
@@ -248,6 +252,23 @@ function uploadKindLabel(kind: UploadKind): string {
 function uploadErrorFromParam(code: string | null): string | null {
   if (!code) return null
   return uploadErrorMessages[code] ?? null
+}
+
+/**
+ * Ids of the rows stored by the PRG we just followed (`?uploaded=1,2`). They
+ * highlight the new rows and drive the success banner. Bounded to one request's
+ * file cap so a hand-written URL cannot inflate the banner or the id list.
+ */
+function parseUploadedIds(raw: string | null): number[] {
+  if (!raw) return []
+  let ids = new Set<number>()
+  for (let part of raw.split(',')) {
+    let id = parseId(part)
+    if (id === undefined || id < 1) continue
+    ids.add(id)
+    if (ids.size >= MAX_UPLOAD_FILES) break
+  }
+  return [...ids]
 }
 
 /**
@@ -343,8 +364,10 @@ type UploadsGridOpts = {
 async function renderUploadsPage(
   context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
   opts: UploadsGridOpts = {},
+  init: ResponseInit = {},
 ): Promise<Response> {
   let user = getCurrentUser()
+  let uploadedIds = opts.uploadedIds ?? parseUploadedIds(context.url.searchParams.get('uploaded'))
   let page = opts.page ?? parseUploadPage(context.url.searchParams.get('page'))
   let uploadError =
     opts.uploadError !== undefined
@@ -378,7 +401,7 @@ async function renderUploadsPage(
       page={effectivePage}
       total={total}
       totalPages={totalPages}
-      uploadedIds={opts.uploadedIds ?? []}
+      uploadedIds={uploadedIds}
       uploadError={uploadError}
       deletedCount={deletedCount}
       sortColumn={sortColumn}
@@ -391,6 +414,7 @@ async function renderUploadsPage(
       pageKey={pageKey}
       pageSizeOverride={pageSizeOverride}
     />,
+    init,
   )
 }
 
@@ -458,7 +482,7 @@ export default createController(routes.admin.uploads, {
       let user = getCurrentUser()
       let uploadedIds = takeUploadedIds()
         .map(Number)
-        .filter((id) => !Number.isNaN(id))
+        .filter((id) => Number.isSafeInteger(id) && id > 0)
 
       let uploadError = takeUploadError()
       if (uploadedIds.length > 0) {
@@ -468,23 +492,34 @@ export default createController(routes.admin.uploads, {
             'Upload abgelehnt: Das Speicherkontingent ist erschöpft. Bitte löschen Sie alte Dateien.'
           uploadedIds = []
         }
-      } else {
-        let attemptedUpload =
-          context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
-        if (attemptedUpload && uploadError == null) {
-          uploadError =
-            'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
-        }
       }
 
-      return renderUploadsPage(context, {
-        page: 1,
-        sortColumn: 'created_at',
-        sortDirection: 'desc',
-        filter: undefined,
-        uploadedIds,
-        uploadError,
-      })
+      if (uploadedIds.length === 0) {
+        // Nothing was stored: this is a validation failure, so re-render the
+        // grid with the rejection and the 400 status the other admin form
+        // editors use (guide 09 §"Return validation failures with the form").
+        return renderUploadsPage(
+          context,
+          {
+            page: 1,
+            sortColumn: 'created_at',
+            sortDirection: 'desc',
+            filter: undefined,
+            uploadedIds: [],
+            uploadError: uploadError ?? GENERIC_UPLOAD_ERROR,
+          },
+          { status: 400 },
+        )
+      }
+
+      // PRG (guide 11 §"Validate uploads"): a stored upload answers with a
+      // redirect, so a refresh cannot re-submit the multipart body and store the
+      // files twice. The new ids travel in the URL so the GET keeps the row
+      // highlight and the success banner. A partially rejected batch keeps its
+      // rejection in the one-shot flash.
+      if (uploadError != null) context.session.flash('error', uploadError)
+      let params = new URLSearchParams({ uploaded: uploadedIds.join(',') })
+      return redirect(`${routes.admin.uploads.index.href()}?${params}`, 303)
     },
 
     async download(context) {

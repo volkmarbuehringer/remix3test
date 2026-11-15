@@ -227,8 +227,21 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
-    let html = await response.text()
+    // A stored upload must answer with a PRG redirect (guide 11 §"Validate
+    // uploads"), so a refresh cannot re-submit the multipart body.
+    assert.equal(response.status, 303, 'a stored upload must redirect')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(
+      location.startsWith(routes.admin.uploadnew.index.href()),
+      'the redirect must land on the upload page',
+    )
+    assert.match(location, /\?uploaded=1$/, 'the stored count must travel with the redirect')
+
+    let page = await router.fetch(`${BASE}${location}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(page.status, 200)
+    let html = await page.text()
     assert.ok(
       html.includes('Datei erfolgreich im Dateisystem gespeichert.'),
       'success banner should confirm the filesystem write',
@@ -308,7 +321,7 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
         body: formData,
       })
 
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(
         html.includes('Speicherkontingent'),
@@ -352,7 +365,7 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
         body: formData,
       })
 
-      assert.equal(response.status, 200)
+      assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(
         html.includes('Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.'),
@@ -383,7 +396,7 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(
       html.includes('Der Dateiinhalt passt nicht zum Dateityp.'),
@@ -414,7 +427,7 @@ describe('Admin UploadNew controller (filesystem bytes + DB metadata)', () => {
       body: formData,
     })
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Dateityp nicht erlaubt.'), 'the rejection should be explained')
     assert.equal(

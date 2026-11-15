@@ -60,4 +60,4 @@ files (the self-hosted fonts) stay on `staticFiles()`, not the asset server.
 - `node_modules/remix/schema/remix.json` — `assets` JSON schema (`additionalProperties: false`, `mounts`).
 - `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/inspection.ts` — `AssetStatus`, `AssetKind`, `getAssets()`, `getAssetDetails()`.
 - `node_modules/.pnpm/@remix-run+assets@*/node_modules/@remix-run/assets/src/lib/asset-server.ts` — `AssetServerOptions` (accepts `rootDir`, `basePath`, `mounts`, `allowFiles`, `allowPackages`, `denyFiles`, `files`).
-- App wiring: `app/assets.ts`, `remix.json → assets`, covered by `app/assets.test.ts` (re-checked 2026-11-04).
+- App wiring: `app/assets.ts`, `remix.json → assets`, covered by `app/assets.test.ts` (re-checked 2026-11-15 against build `3fac48ab` in the §11 re-audit: `remix assets inspect` still reports a `*.test.*` file as `denied` by `app/**/*.test.*` and `app/middleware/uploads.ts` as `not-allowed`; the non-dev config fingerprints/minifies and `assetServer.close()` runs after `server.close()`; no config drift).

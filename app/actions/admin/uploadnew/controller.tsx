@@ -34,7 +34,6 @@ import {
 } from '../../../data/upload-files.ts'
 import { getCurrentUserSafely } from '../../../utils/context.ts'
 import {
-  isMultipartForm,
   takeStoredFileKeys,
   takeUploadFilesError,
   UPLOAD_FILES_FIELD,
@@ -84,11 +83,27 @@ export default createController(routes.admin.uploadnew, {
       let storedKeys = takeStoredFileKeys()
       let error = takeUploadFilesError()
 
-      if (storedKeys.length === 0 && error == null && isMultipartForm(context.request)) {
-        error = 'Upload fehlgeschlagen. Bitte prüfen Sie Dateityp und Größe.'
+      if (storedKeys.length === 0) {
+        // Nothing was stored: re-render the form with the rejection at 400,
+        // matching the other admin form editors (guide 09 §"Return validation
+        // failures with the form").
+        return renderUploadNewPage(
+          context,
+          {
+            uploadedCount: 0,
+            error: error ?? 'Upload fehlgeschlagen. Bitte prüfen Sie Dateityp und Größe.',
+          },
+          { status: 400 },
+        )
       }
 
-      return renderUploadNewPage(context, { uploadedCount: storedKeys.length, error })
+      // PRG (guide 11 §"Validate uploads"): a stored upload answers with a
+      // redirect so a refresh cannot re-submit the multipart body and store the
+      // files twice. The count travels in the URL for the success banner; a
+      // partially rejected batch keeps its rejection in the one-shot flash.
+      if (error != null) context.session.flash('error', error)
+      let params = new URLSearchParams({ uploaded: String(storedKeys.length) })
+      return redirect(`${routes.admin.uploadnew.index.href()}?${params}`, 303)
     },
 
     // The frame commits the POST delete form action path as its address after
@@ -162,8 +177,9 @@ export default createController(routes.admin.uploadnew, {
  * index (queryable, paginatable); the bytes stay in filesystem storage.
  */
 async function renderUploadNewPage(
-  context: Pick<AppContext, 'render' | 'db'>,
+  context: Pick<AppContext, 'render' | 'db' | 'url'>,
   options: UploadNewPageOptions = {},
+  init: ResponseInit = {},
 ): Promise<Response> {
   let [files, total, quota] = await Promise.all([
     listUploadFiles(context.db, { limit: LIST_LIMIT }),
@@ -177,11 +193,22 @@ async function renderUploadNewPage(
     <UploadNewPage
       files={files}
       total={total}
-      uploadedCount={options.uploadedCount ?? 0}
+      uploadedCount={options.uploadedCount ?? uploadedCountFromUrl(context.url)}
       error={options.error ?? null}
       quota={quota}
     />,
+    init,
   )
+}
+
+/**
+ * Count from the PRG redirect (`?uploaded=N`). Bounded to one request's file
+ * cap so a hand-written URL cannot inflate the banner.
+ */
+function uploadedCountFromUrl(url: URL): number {
+  let count = Number(url.searchParams.get('uploaded'))
+  if (!Number.isSafeInteger(count) || count < 1) return 0
+  return Math.min(count, MAX_UPLOAD_FILES)
 }
 
 /**
