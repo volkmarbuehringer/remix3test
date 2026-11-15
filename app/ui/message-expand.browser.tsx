@@ -59,9 +59,16 @@ const spanAnimations = new WeakMap<HTMLElement, Animation>()
 function animateHeightDelta(span: HTMLElement, toggle: () => void): void {
   let before = span.getBoundingClientRect().height
   toggle()
-  let target = span.getBoundingClientRect().height
-  if (Math.abs(target - before) < 1) return
+  // Cancel the previous animation before measuring the new layout: while it
+  // runs it controls `height`, so a mid-flight measurement would read the old
+  // animation's value instead of the state's natural height.
   spanAnimations.get(span)?.cancel()
+  spanAnimations.delete(span)
+  let target = span.getBoundingClientRect().height
+  if (Math.abs(target - before) < 1) {
+    span.style.height = ''
+    return
+  }
   span.style.overflow = 'hidden'
   let animation = span.animate(
     [{ height: `${before.toFixed(1)}px` }, { height: `${target.toFixed(1)}px` }],
@@ -71,7 +78,10 @@ function animateHeightDelta(span: HTMLElement, toggle: () => void): void {
   animation.finished
     .catch(() => {})
     .finally(() => {
-      if (spanAnimations.get(span) === animation) spanAnimations.delete(span)
+      // A canceled animation settles after its replacement has taken over;
+      // never let stale cleanup clear the new animation's inline styles.
+      if (spanAnimations.get(span) !== animation) return
+      spanAnimations.delete(span)
       span.style.height = ''
       // Expanded state must keep overflow visible (the stylesheet clamps it).
       span.style.overflow = span.getAttribute('data-expanded') === 'true' ? 'visible' : ''

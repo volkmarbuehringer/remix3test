@@ -120,6 +120,50 @@ describe('MessageExpand', () => {
     assert.equal(btn.textContent, 'Mehr')
   })
 
+  it('retargets a mid-flight expansion without losing overflow clipping', async () => {
+    mountCells()
+    await renderEntry()
+
+    let btn = toggleBtn('1')
+    let span = textSpan('1')
+    btn.click()
+
+    let first = span.getAnimations()[0]
+    assert.ok(first, 'the first expansion starts an animation')
+    // Advance deterministically instead of sleeping: Firefox does not advance
+    // the document timeline while the test page is unfocused.
+    first.currentTime = 200
+
+    btn.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    let replacement = span.getAnimations()
+    assert.equal(replacement.length, 1, 'the first animation is replaced by one retarget')
+    assert.notEqual(replacement[0], first, 'the first animation must be canceled')
+    assert.equal(
+      span.style.overflow,
+      'hidden',
+      'a canceled animation must not clear the replacement animation swap',
+    )
+    await Promise.allSettled(replacement.map((animation) => animation.finished))
+    assert.equal(span.style.overflow, '', 'the collapsed state clears inline overflow')
+  })
+
+  it('cancels a not-yet-visible expansion on an immediate second toggle', async () => {
+    mountCells()
+    await renderEntry()
+
+    let btn = toggleBtn('1')
+    let span = textSpan('1')
+    btn.click()
+    btn.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    assert.equal(span.getAttribute('data-expanded'), 'false')
+    assert.equal(span.getAnimations().length, 0, 'the canceled first animation must not linger')
+    assert.equal(span.style.overflow, '', 'the collapsed state owns its overflow reset')
+  })
+
   it('an entry re-render resets every cell to the collapsed default', async () => {
     mountCells()
     await renderEntry()

@@ -2,8 +2,8 @@
 
 **Source:** consolidated from `motion-values`, `presence-and-layout`, `reduced-motion` (installed guide `node_modules/remix/guides/07-animation.md`)
 
-**Extracted:** 2026-09-26; app deltas through 2026-10-24
-**Validated:** 2026-11-11 against preview release `v0.20261113.174821-main-9ceaeb82` / source `9ceaeb82` (#12220: per-property `transition`, synchronous `animateExit()` start)
+**Extracted:** 2026-09-26; app deltas through 2026-11-15
+**Validated:** 2026-11-15 against preview release `v0.20261114.200722-main-3fac48ab` / source `3fac48ab` (#12220: per-property `transition` at `animate-mixins.ts:20`, synchronous `beforeRemove` start at `:477`; guide 07 byte-identical between `848e2fbe` and `3fac48ab`, last content change `ca504176` was demo-only).
 **Context:** Springs/tweens, entrance/exit/layout mixins, and `prefers-reduced-motion` in this app.
 
 ## Motion values: springs, tweens, easing
@@ -15,10 +15,11 @@
 
 **App deltas:**
 
-- **Drag-release settle** (`app/ui/appointment-grid.browser.tsx`): on drop, `startSettleAnimation(blockId)` runs `node.animate([...], { ...spring('snappy', { velocity }) })`. Velocity comes from `draggedBlockOffset` samples (`recordDragVelocity`, ≥8ms apart), normalized per the guide (`velocity × 1000 / distance`, clamped ±20, along the larger-distance axis). If a refresh rebuilds the node mid-animation, the block appears in place — graceful degradation.
+- **Drag-release settle** (`app/ui/appointment-grid.browser.tsx`): on drop, `startSettleAnimation(blockId)` runs `node.animate([...], { ...spring('snappy', { velocity }) })`. Velocity comes from `draggedBlockOffset` samples (`recordDragVelocity`, ≥8ms apart), normalized per the guide (`velocity × 1000 / distance`, clamped ±20, along the larger-distance axis). The in-flight settle is held in setup scope and `cancelSettleAnimation()` runs at `startDrag`/`startResize`/`startEdit`, so a regrabbed block never keeps the old WAAPI transform while the drag writes its own. If a refresh rebuilds the node mid-animation, the block appears in place — graceful degradation.
+- **Message clamp FLIP** (`app/ui/message-expand.browser.tsx`): `animateHeightDelta()` measures the current visual height, applies the state change, then cancels the previous `Animation` before measuring the new natural height (a running animation controls `height`, so measuring first would read the old animation). Cleanup is keyed to the current `spanAnimations` entry; a canceled animation's settled `finished` must not clear the replacement's `overflow`/`height`.
 - **WAAPI ignores the CSS reduced-motion guard** — imperative animations must check `prefersReducedMotion()` themselves (see below).
 - **Stylesheet `!important` beats inline transitions.** The shell's `transition: none !important` overrides `element.style.transition`, so a component that sets its own inline transition (e.g. `app/ui/toast.ts`) gets `transitionend` *never* under reduced motion. Anything driven by `transitionend` needs a timeout fallback.
-- **This app's seams:** `app/ui/mixins/card-lift.ts` (`cardLift`) is a spreadable style object with a spring-timed transition for transform/box-shadow/border-color, hover lift, and press-back; `app/assets/entry.tsx` `fadeOutBody()` awaits `document.body.animate([...], { ...spring('snappy') }).finished`; `app/assets/error-card.browser.tsx` spreads `spring('smooth')` into `animateEntrance`.
+- **This app's seams:** `app/ui/mixins/card-lift.ts` (`cardLift`) is a spreadable style object with a spring-timed transition for transform/box-shadow/border-color, hover lift, and press-back; `app/assets/fade-out-body.ts` `fadeOutBody()` (called by `app/assets/entry.tsx`) skips the WAAPI fade under reduced motion and otherwise awaits `body.animate([...], { ...spring('snappy') }).finished`; `app/assets/error-card.browser.tsx` spreads `spring('smooth')` into `animateEntrance`.
 
 ## Entrance, exit, and layout animation
 
@@ -51,11 +52,9 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
 
 **App seams:**
 
-- `app/utils/motion.ts` re-exports `prefersReducedMotion()` from `@remix-run/ui/animation` and exports `entrance(config)` / `exit(config)` that return `false` under reduced motion. Server-rendered pages apply `animateEntrance(entrance({...}))` (~15 admin/client pages).
-- `app/ui/confirm-delete.browser.tsx` is the only `animateExit` site. Its dialog entrance/exit runs `opacity` on a 120 ms ease-out while `transform` keeps `spring('snappy')` via `transition`; `app/ui/confirm-delete.test.browser.tsx` asserts the exit animations exist synchronously after close, then polls for removal.
-- `app/assets/error-card.browser.tsx` uses `spring('smooth')` in `animateEntrance` with the same 120 ms opacity override; `app/assets/entry.tsx` uses `spring('snappy')` imperatively.
-- These mixins run on server-rendered markup, not only inside a `clientEntry`.
-- `app/ui/mixins/panel-entrance.ts` (`panelEntrance`) uses the shell's `app-panel-enter` keyframes for server panels; `animateEntrance` is `ssr: false` and must not be applied to plain server components.
+- `app/utils/motion.ts` re-exports `prefersReducedMotion()` from `@remix-run/ui/animation` and exports `entrance(config)` / `exit(config)` that return `false` under reduced motion. Server-rendered panels cannot use these mixins: `animateEntrance`/`animateExit` are `ssr: false`, so they use `app/ui/mixins/panel-entrance.ts` (`panelEntrance`, the shell's `app-panel-enter` keyframes) instead.
+- Only client entries apply the presence mixins: `app/ui/confirm-delete.browser.tsx` (dialog entrance/exit) and `app/assets/error-card.browser.tsx` (fatal-card entrance). `confirm-delete` is the only `animateExit` site; its dialog runs `opacity` on a 120 ms ease-out while `transform` keeps `spring('snappy')` via `transition`, and `app/ui/confirm-delete.test.browser.tsx` asserts the exit animations exist synchronously after close before polling for removal.
+- `app/assets/error-card.browser.tsx` uses `spring('smooth')` in `animateEntrance` with the same 120 ms opacity override; `app/assets/entry.tsx` calls `fadeOutBody()` from `app/assets/fade-out-body.ts`, which checks reduced motion before its imperative `spring('snappy')` fade.
 
 **Native `<details>` is not a drop-in for a measured expand control.** Spiked for the `/admin/messages` two-line message clamp on 2026-11-09 and rejected — keep `app/ui/message-expand.browser.tsx`:
 
@@ -77,9 +76,9 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
 
 ## Reduced motion
 
-**CSS boundary first — global in this app.** `app/ui/document.tsx` ships a shell-level guard: under `@media (prefers-reduced-motion: reduce)` it sets `transition: none !important` on `body` **and** `*, *::before, *::after`, plus `animation-duration: 0.01ms !important` (so `animationend` still fires). Component-level CSS transitions need no per-component media query; do not re-gate new components. `app/ui/scaffold-home-page.tsx` keeps an older scoped kill-switch.
+**CSS boundary first — global in this app.** `app/ui/document.tsx` ships a shell-level guard: under `@media (prefers-reduced-motion: reduce)` it sets `transition: none !important` on `body` **and** `*, *::before, *::after`, plus `animation-duration: 0.01ms !important` (so `animationend` still fires). Component-level CSS transitions need no per-component media query; do not re-gate new components. The landing page's keyframes keep a scoped `animation: none`/`transition: none` guard in `app/ui/home-styles.tsx`.
 
-**JS boundary second.** For JS-driven motion, check the same query first. The CSS guard does **not** stop WAAPI (`element.animate()`).
+**JS boundary second.** For JS-driven motion, check the same query first. The CSS guard does **not** stop WAAPI (`element.animate()`) or an explicit `scrollIntoView({ behavior: 'smooth' })`. The app's two smooth-scroll call sites (`app/ui/appointments-new-create.browser.tsx` mobile panel reveal, `app/ui/admin-chatlog-detail.browser.tsx` transcript reveal) switch to `'auto'` under reduced motion.
 
 **Use the app helpers.** `app/utils/motion.ts` wraps the vendor `prefersReducedMotion()` as `entrance`/`exit`; wrap every `animateEntrance`/`animateExit` config. Inline transitions lose to the global `!important` guard and need a timeout fallback. Reduced motion is not "no feedback" — prefer shorter fades, instant layout changes, or a non-motion state change.
 
@@ -103,7 +102,7 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
    ```
 3. **Deferred removal races one-shot snapshots** — poll the observable DOM state (`waitDialogGone()` above).
 
-Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointment-grid.browser.tsx` (`startSettleAnimation`), `app/ui/confirm-delete.browser.tsx` (per-property exit timing), `app/ui/confirm-delete.test.browser.tsx` (`waitDialogGone` + synchronous exit-start assertion).
+Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointment-grid.browser.tsx` (`startSettleAnimation`/`cancelSettleAnimation`), `app/ui/message-expand.browser.tsx` (retarget-before-measure + cleanup guard), `app/assets/fade-out-body.ts` (WAAPI reduced-motion gate), `app/ui/appointments-new-create.browser.tsx` / `app/ui/admin-chatlog-detail.browser.tsx` (smooth-scroll gate), `app/ui/confirm-delete.browser.tsx` (per-property exit timing), `app/ui/confirm-delete.test.browser.tsx` (`waitDialogGone` + synchronous exit-start assertion).
 
 ## When to Use
 
@@ -117,4 +116,4 @@ Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointme
 - `node_modules/remix/guides/07-animation.md` — §"Springs, tweens, and easing", §"Interruptible interactions", §"Entrance and exit animations", §"Layout animations", §"CSS-first visual states", §"Reduced-motion behavior"
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/README.md` — per-property `transition` section
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/animate-mixins.ts` — `transition` type at `:20` and the `beforeRemove` handler at `:477` at source `3fac48ab`
-- `app/utils/motion.ts`, `app/ui/document.tsx`, `app/ui/mixins/card-lift.ts`, `app/ui/appointment-grid.browser.tsx`, `app/ui/confirm-delete.browser.tsx`
+- `app/utils/motion.ts`, `app/ui/document.tsx`, `app/ui/mixins/panel-entrance.ts`, `app/ui/mixins/card-lift.ts`, `app/ui/appointment-grid.browser.tsx`, `app/ui/message-expand.browser.tsx`, `app/assets/fade-out-body.ts`, `app/ui/confirm-delete.browser.tsx`

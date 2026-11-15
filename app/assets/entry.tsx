@@ -1,6 +1,5 @@
 import { run } from 'remix/component'
 import type { FrameContent, ResolveFrameOptions } from 'remix/component'
-import { spring } from '@remix-run/ui/animation'
 import {
   detectMultipleImportMapSupport,
   importModule,
@@ -8,6 +7,7 @@ import {
 } from 'remix/multiple-import-maps-polyfill'
 
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
+import { fadeOutBody } from './fade-out-body.ts'
 import {
   claimPrefetchedFrame,
   clearPrefetchedFrames,
@@ -90,17 +90,4 @@ function reconcileFrameRedirect(result: FrameContent | Response, target?: string
   if (!dest || !target) return
   let frame = app.frames.get(target)
   if (frame) frame.src = dest
-}
-
-async function fadeOutBody() {
-  let animation = document.body.animate(
-    [
-      { opacity: 1, transform: 'translateY(0) scale(1)' },
-      { opacity: 0, transform: 'translateY(10px) scale(0.985)' },
-    ],
-    { ...spring('snappy') },
-  )
-
-  await animation.finished
-  document.body.innerHTML = ''
 }

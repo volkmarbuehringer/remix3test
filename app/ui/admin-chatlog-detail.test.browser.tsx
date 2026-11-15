@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from 'remix/test'
+import { describe, it, afterEach, type TestContext } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
@@ -82,6 +82,41 @@ afterEach(() => {
   for (let style of document.head.querySelectorAll('style[data-rmx-style]')) style.remove()
 })
 
+function stubMatchMedia(t: TestContext, reducedMotion: boolean): void {
+  t.mock.method(window, 'matchMedia', ((query: string) => ({
+    matches: query.includes('prefers-reduced-motion') ? reducedMotion : false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia)
+}
+
+/**
+ * Mounts the open pane, stubs the reveal call, then mutates the transcript so
+ * the pane's MutationObserver runs `focusDetailPane()`.
+ */
+async function revealBehavior(t: TestContext, reducedMotion: boolean): Promise<string | undefined> {
+  stubMatchMedia(t, reducedMotion)
+  let { panel } = mountOpenPane()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  let calls: ScrollIntoViewOptions[] = []
+  t.mock.method(panel, 'scrollIntoView', ((options?: boolean | ScrollIntoViewOptions) => {
+    if (typeof options === 'object') calls.push(options)
+  }) as typeof panel.scrollIntoView)
+
+  let detail = panel.querySelector<HTMLElement>('[data-chatlog-detail="true"]')
+  assert.ok(detail, 'the transcript must render')
+  detail!.append(document.createTextNode(' mehr'))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  return calls.at(-1)?.behavior
+}
+
 describe('Admin chatlog detail pane', () => {
   it('dismisses in place, cancels the fallback navigation, and restores row focus', () => {
     let { row, close, panel } = mountOpenPane()
@@ -106,6 +141,14 @@ describe('Admin chatlog detail pane', () => {
     assert.equal(panel.getAttribute('data-chatlog-detail-open'), 'false')
     assert.equal(document.activeElement, row, 'focus returns to the conversation row')
     assert.equal(sessionStorage.getItem(OPEN_KEY), null)
+  })
+
+  it('scrolls a newly loaded transcript into view with a smooth reveal', async (t) => {
+    assert.equal(await revealBehavior(t, false), 'smooth')
+  })
+
+  it('reveals a newly loaded transcript instantly under reduced motion', async (t) => {
+    assert.equal(await revealBehavior(t, true), 'auto')
   })
 
   it('removes its delegated listener when the entry disconnects', () => {

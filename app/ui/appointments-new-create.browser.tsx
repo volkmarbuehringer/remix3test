@@ -1,5 +1,7 @@
 import { clientEntry, type Handle } from 'remix/component'
 
+import { prefersReducedMotion } from '../utils/motion.ts'
+
 // The create/delete panel can load scrolled past its header: a frame navigation
 // can carry a stale scroll offset into the new step, and the sticky column only
 // sticks while its content is shorter than the grid row. On mobile the panel is
@@ -22,7 +24,10 @@ function revealPanel(panel: HTMLElement): void {
   if (window.matchMedia('(max-width: 768px)').matches) {
     // Stacked layout: the panel is below the list, so scroll it into view.
     panel.style.scrollMarginTop = '4.5rem'
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    panel.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      block: 'start',
+    })
     return
   }
 

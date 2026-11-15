@@ -148,6 +148,10 @@ export const AppointmentGrid = clientEntry(
     let lastOffsetSample = { x: 0, y: 0, t: 0 }
     let isOverTrashcan = false
     let isOverTypesPanel = false
+    // In-flight drop settle animation. A new drag must cancel it; otherwise
+    // WAAPI keeps controlling the block's transform while the drag writes the
+    // inline transform (guide 07 §"Interruptible interactions").
+    let settleAnimation: Animation | null = null
     // Corrected to the browser's local calendar day after the first commit.
     let localTodayMs: number | null = null
     let sidebarColElement: HTMLElement | null = null
@@ -702,6 +706,7 @@ export const AppointmentGrid = clientEntry(
 
     function startEdit(appt: { id: number; title: string }) {
       if (editingId !== null || activeGesture) return
+      cancelSettleAnimation()
       editingId = appt.id
       syncInteractionState()
       void handle.update()
@@ -792,6 +797,7 @@ export const AppointmentGrid = clientEntry(
 
     function startDrag(appt: AppointmentLayoutBlock, event: PointerEvent) {
       if (!gridBodyElement) return
+      cancelSettleAnimation()
 
       let grid = measureGrid(gridBodyElement)
       let data = currentData()
@@ -961,19 +967,31 @@ export const AppointmentGrid = clientEntry(
      * rebuilds the node mid-animation, the block just appears in place.
      */
     function startSettleAnimation(blockId: number) {
+      cancelSettleAnimation()
       if (prefersReducedMotion()) return
       let fromX = draggedBlockOffset.x
       let fromY = draggedBlockOffset.y
       if (fromX === 0 && fromY === 0) return
       let node = gridBodyElement?.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`)
       if (!node) return
-      node.animate(
+      let animation = node.animate(
         [
           { transform: `translate(${fromX.toFixed(1)}px, ${fromY.toFixed(1)}px)` },
           { transform: 'none' },
         ],
         { ...spring('snappy', { velocity: settleVelocity(fromX, fromY) }) },
       )
+      settleAnimation = animation
+      animation.finished
+        .catch(() => {})
+        .finally(() => {
+          if (settleAnimation === animation) settleAnimation = null
+        })
+    }
+
+    function cancelSettleAnimation() {
+      settleAnimation?.cancel()
+      settleAnimation = null
     }
 
     function cancelDrag() {
@@ -1104,6 +1122,7 @@ export const AppointmentGrid = clientEntry(
 
     function startResize(appt: AppointmentLayoutBlock, edge: 'start' | 'end', event: PointerEvent) {
       if (activeGesture || !gridBodyElement) return
+      cancelSettleAnimation()
       try {
         let grid = measureGrid(gridBodyElement)
         let data = currentData()

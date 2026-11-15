@@ -517,7 +517,82 @@ describe('Collision detection', () => {
 })
 
 // -----------------------------------------------------------------------
-// 8. Interaction state coordination
+// 8. Drop settle interruption
+// -----------------------------------------------------------------------
+
+describe('Drop settle interruption', () => {
+  let cleanup: (() => void) | undefined
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = undefined
+    removeFixtureData()
+    uninstallFetchCapture()
+  })
+
+  it('cancels the drop settle animation when a new drag starts', async (t) => {
+    installFetchCapture()
+    removeFixtureData()
+    let result = render(<AppointmentGrid data={createFixtureData()} />)
+    cleanup = result.cleanup
+    await t.waitFor(
+      () => {
+        assert.ok(
+          result.container.querySelector('[data-block-id="1"]'),
+          'the appointment grid block',
+        )
+      },
+      { timeout: 3000 },
+    )
+
+    let pointer = (type: string, target: EventTarget, clientX: number, clientY: number) => {
+      target.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          pointerId: 1,
+          clientX,
+          clientY,
+        }),
+      )
+    }
+
+    let center = (id: number) => {
+      let block = result.container.querySelector<HTMLElement>(`[data-block-id="${id}"]`)
+      assert.ok(block, `appointment block ${id} must render`)
+      let rect = block!.getBoundingClientRect()
+      return {
+        block,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      }
+    }
+
+    let first = center(1)
+    await result.act(() => pointer('pointerdown', first.block!, first.x, first.y))
+    await result.act(() => pointer('pointermove', window, first.x + 8, first.y))
+    await result.act(() => pointer('pointerup', window, first.x + 8, first.y))
+
+    first = center(1)
+    assert.ok(first.block!.getAnimations().length > 0, 'the drop starts a settle animation')
+
+    // Starting another gesture must stop the settle before the drag writes its
+    // own transform; otherwise WAAPI keeps controlling the first block.
+    let second = center(2)
+    await result.act(() => pointer('pointerdown', second.block!, second.x, second.y))
+    assert.equal(
+      first.block!.getAnimations().length,
+      0,
+      'starting a new drag must cancel the drop settle animation',
+    )
+    await result.act(() => pointer('pointerup', window, second.x, second.y))
+    assert.equal(interactionState.active, false, 'the cancelled gesture releases interaction state')
+  })
+})
+
+// -----------------------------------------------------------------------
+// 9. Interaction state coordination
 // -----------------------------------------------------------------------
 
 describe('Interaction state for SSE coordination', () => {
@@ -543,7 +618,7 @@ describe('Interaction state for SSE coordination', () => {
 })
 
 // -----------------------------------------------------------------------
-// 9. Type-drag coordination with shared state
+// 10. Type-drag coordination with shared state
 // -----------------------------------------------------------------------
 
 describe('Type-drag coordination', () => {
@@ -565,7 +640,7 @@ describe('Type-drag coordination', () => {
 })
 
 // -----------------------------------------------------------------------
-// 10. Delete via trashcan concept
+// 11. Delete via trashcan concept
 // -----------------------------------------------------------------------
 
 describe('Trashcan delete gesture', () => {

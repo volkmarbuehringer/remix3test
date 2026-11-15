@@ -39,10 +39,11 @@ function domRect(top: number): DOMRect {
   }
 }
 
-function stubMatchMedia(matches: boolean): () => void {
+function stubMatchMedia(matches: boolean | ((query: string) => boolean)): () => void {
+  let matchesQuery = typeof matches === 'function' ? matches : () => matches
   let original = window.matchMedia
   window.matchMedia = ((query: string) => ({
-    matches,
+    matches: matchesQuery(query),
     media: query,
     onchange: null,
     addListener: () => {},
@@ -148,6 +149,21 @@ describe('Appointments new create panel reveal', () => {
     }) as typeof outer.scrollTo)
   }
 
+  function buildMobilePanel(t: TestContext): {
+    panel: HTMLElement
+    calls: ScrollIntoViewOptions[]
+  } {
+    let panel = document.createElement('div')
+    panel.setAttribute('data-create-panel', 'true')
+    panel.setAttribute('data-panel-step', 'create:2')
+    document.body.appendChild(panel)
+    let calls: ScrollIntoViewOptions[] = []
+    t.mock.method(panel, 'scrollIntoView', ((options?: boolean | ScrollIntoViewOptions) => {
+      if (typeof options === 'object') calls.push(options)
+    }) as typeof panel.scrollIntoView)
+    return { panel, calls }
+  }
+
   it('resets the scroll container to the top when the panel header is above the fold', async (t) => {
     restoreMatchMedia = stubMatchMedia(false)
     let built = buildScroller(t)
@@ -177,6 +193,34 @@ describe('Appointments new create panel reveal', () => {
     await result.act(() => {})
 
     assert.equal(scrollCalls.length, 0)
+  })
+
+  it('reveals the stacked mobile panel with a smooth scroll', async (t) => {
+    restoreMatchMedia = stubMatchMedia((query) => query.includes('max-width'))
+    let built = buildMobilePanel(t)
+    scroller = built.panel
+
+    let result = render(<CreatePanelScrollLive />)
+    cleanup = result.cleanup
+    await result.act(() => {})
+
+    assert.equal(built.calls.length, 1)
+    assert.equal(built.calls[0]?.behavior, 'smooth')
+  })
+
+  it('reveals the stacked mobile panel instantly under reduced motion', async (t) => {
+    restoreMatchMedia = stubMatchMedia(
+      (query) => query.includes('max-width') || query.includes('prefers-reduced-motion'),
+    )
+    let built = buildMobilePanel(t)
+    scroller = built.panel
+
+    let result = render(<CreatePanelScrollLive />)
+    cleanup = result.cleanup
+    await result.act(() => {})
+
+    assert.equal(built.calls.length, 1)
+    assert.equal(built.calls[0]?.behavior, 'auto')
   })
 })
 

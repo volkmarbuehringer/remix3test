@@ -1,5 +1,6 @@
 import { clientEntry, css, type Handle } from 'remix/component'
 import { frames } from '../routes.ts'
+import { prefersReducedMotion } from '../utils/motion.ts'
 
 /**
  * Master–detail behaviour for /admin/chatlog.
@@ -99,7 +100,10 @@ function focusDetailPane(): void {
   let pane = document.querySelector<HTMLElement>(PANE_SELECTOR)
   if (!pane || pane.getAttribute('data-chatlog-detail-open') !== 'true') return
   pane.focus({ preventScroll: true })
-  pane.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  pane.scrollIntoView({
+    block: 'start',
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+  })
 }
 
 /** Whether the transcript currently rendered in the pane is readable. */
