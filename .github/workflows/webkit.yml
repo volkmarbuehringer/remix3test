@@ -52,7 +52,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
         with:
-          version: 12.16.1
+          # Must match package.json "packageManager"; v6 fails when they differ.
+          version: 12.21.0
       - uses: actions/setup-node@v6
         with:
           node-version: 26

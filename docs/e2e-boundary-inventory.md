@@ -17,6 +17,9 @@ Current shape after the 2026-11-12 audit:
 - browser: 65 files / 108 suites / 1,030 tests (1,028 pass, 2 skipped, ~62 s) →
   66 / 109 / 1,034 (1,032 pass, 2 skipped, ~64 s) → 65 / 108 / 1,020
   (1,018 pass, 2 skipped, ~65 s) after deleting the custom `LazyFrame` suite.
+- 2026-11-15 §13 re-audit: 46 e2e files / 236 tests (236 pass) and 69 browser files /
+  1,130 tests (1,128 pass, 2 skipped). Added cases are chapter re-audit regressions
+  (frame targets, lazy frames, listener cleanup); one e2e per boundary is unchanged.
 
 ## Boundary classes
 
@@ -41,9 +44,11 @@ Current shape after the 2026-11-12 audit:
 | `app/actions/admin/admin-lists-prefetch.test.e2e.ts`                  | Real runtime prefetch/claim HTTP                                  | `render()` never boots the prefetch wiring.                                                                           |
 | `app/actions/client/clients-prefetch.test.e2e.ts`                     | Real runtime prefetch/claim HTTP on the clients grid pager        | Covers the separate `client/grid-page.tsx` pager; `render()` never boots prefetch.                                    |
 | `app/actions/admin/admin-users-pdf.test.e2e.ts`                       | Real PDF download through the frame                               | Binary response and `Content-Disposition`.                                                                            |
+| `app/actions/admin/chatlog/chatlog-detail-frame.test.e2e.ts`          | Real nested frame selection + lazy frame load                     | Named-frame handle, nested lazy frame, and list scroll retention need the runtime.                                    |
 | `app/actions/admin/fragments/lazy-frames.test.e2e.ts`                 | Real dashboard fragment + frame route requests                    | Built-in lazy frames are vendor-tested; this proves the shipped fragment wiring and close/reopen retention.           |
 | `app/actions/admin/frame-form-detached-submitter.test.e2e.ts`         | Real navigation listener/frame form path                          | Only `run()` installs the document submit + Navigation API listeners.                                                 |
 | `app/actions/admin/lists/lists-frame-history.test.e2e.ts`             | Real history replace contract                                     | Navigation API history entry identity.                                                                                |
+| `app/actions/admin/lists/lists-frame-transition.test.e2e.ts`          | Real frame commit + document View Transition                      | The scoped grid ⇄ editor transition only exists in the runtime commit hook.                                           |
 | `app/actions/admin/lists/lists-ux.test.e2e.ts`                        | Real frame search/focus, phone SSR layout, editor navigation      | Hover/focus and viewport behavior need the real page.                                                                 |
 | `app/actions/admin/messages/messages-ux.test.e2e.ts`                  | Real frame search/focus + phone SSR layout                        | Same boundary as admin lists.                                                                                         |
 | `app/actions/admin/uploads/uploads-bulk-delete.test.e2e.ts`           | Real POST + in-frame banner + DB rows                             | Mutation and frame reload.                                                                                            |
@@ -73,6 +78,7 @@ Current shape after the 2026-11-12 audit:
 | `app/actions/scroll-restoration/scroll-restoration.test.e2e.ts`       | Real history traversal + scroll restoration                       | Navigation/history contract.                                                                                          |
 | `app/actions/settings/settings-responsive.test.e2e.ts`                | Real settings routes at 390px                                     | Route/SSR matrix.                                                                                                     |
 | `app/actions/support-agent/no-js-gate.test.e2e.ts`                    | Real no-JS POST + 303 flash                                       | No-JS server path.                                                                                                    |
+| `app/actions/ui/gallery-lazy-frame.test.e2e.ts`                       | Real viewport-triggered lazy frame                                | Built-in lazy-frame deferral needs real scroll geometry.                                                              |
 | `app/actions/ui/gallery.test.e2e.ts`                                  | Real asset URL/import map + nested client-entry hydration         | Gallery ships its own assets.                                                                                         |
 | `app/middleware/security-headers.test.e2e.ts`                         | Real CSP headers/violations/report delivery                       | Security boundary.                                                                                                    |
 | `app/ui/document-head-resources.test.e2e.ts`                          | Real client-side navigation head persistence                      | Browser document/navigation behavior.                                                                                 |

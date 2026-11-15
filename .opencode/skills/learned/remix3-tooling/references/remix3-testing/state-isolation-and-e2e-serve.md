@@ -4,6 +4,8 @@
 
 **Extracted:** 2026-09-26
 
+**Re-validated:** 2026-11-15 (guide chapter 13 re-audit; installed chapter is byte-identical between `848e2fbe` and `3fac48ab`, md5 `50f00986…`).
+
 **Context:** Writing a `remix test` server/router test that shares session or database state, or an `*.test.e2e.ts` that drives the app through Playwright.
 
 ## Problem
@@ -13,6 +15,13 @@ The guide describes the *shape* of the seams to use — a `createAppRouter(optio
 ## Solution
 
 Use the guide for the pattern; use these app-owned modules for the implementation.
+
+**Runner configuration and scripts (the guide's `remix test` section)**
+
+- `package.json` `test` is a three-leg chain (`test:server` → `test:browser` → `test:e2e`) with per-boundary concurrency 6/3/2, not a single `remix test` (commit `58ed1f1`: one `remix test` at concurrency 6 oversubscribes CPU while Chromium+Firefox run and flakes debounce/`waitForFunction`-budgeted browser/e2e tests). `npm test` still covers all three types, but `npm test -- --type …` (or `--watch`) appends the flag to the **last** chained command only (`test:e2e`). Use `npm run test:server`, `test:browser`, `test:e2e` while developing (append `--watch` to one of those, e.g. `npm run test:server -- --watch`); use `npm run test:coverage` when coverage matters (it is the single `remix test` invocation, because the CLI only combines server/browser/e2e coverage maps within one run).
+- `remix.json` `test.exclude` stays `[]` on purpose. The CLI applies `--glob.exclude` to positional globs too, so excluding `tmp/**` would break the chapter-audit probe workflow (`remix test tmp/<probe>.test.ts`). Probes are gitignored and deleted after use; Node and Bun glob scans already skip `node_modules` (2026-11-15 probe: 293 matches, 0 under `node_modules` or `tmp` with no exclude).
+- Tests keep **literal request paths** to pin the public URL contract and use `routes.*.href()` for redirect-target assertions; this is the app policy recorded in `remix3-server` → `references/remix3-route-wiring/typesafe-url-audit.md`, not a guide-13 omission.
+- CI runs `pnpm test` (the three legs) after `pnpm typecheck`/`lint`/`format` and installs Chromium+Firefox with `playwright install --with-deps`; it does not enable `--coverage`, so the 80/80/70/80 thresholds are an on-demand gate (`npm run test:coverage`), not a CI gate.
 
 **Router factory (the guide's `createAppRouter`)**
 
@@ -37,9 +46,10 @@ Send them the same way as the guide: `router.fetch(url, { headers: { Cookie: adm
 
 **End-to-end (`t.serve` + `createTestServer`)**
 
-- The app form uses an arrow adapter, not the guide's direct reference: `let page = await t.serve(await createTestServer((request) => router.fetch(request)))`. Every existing `*.test.e2e.ts` (e.g. `app/actions/lists/lists-client-ops.test.e2e.ts`, `app/actions/agent-events/agent-events-frame-redirect.test.e2e.ts`) uses this.
+- The app form uses an arrow adapter, not the guide's direct reference: `let page = await t.serve(await createTestServer((request) => router.fetch(request)))`. Every existing `*.test.e2e.ts` (e.g. `app/actions/lists/lists-client-ops.test.e2e.ts`, `app/actions/agent-events/agent-events-frame-redirect.test.e2e.ts`) uses this shape.
+- Create the server inside the test, not in a suite-level `before`: `t.serve(...)` closes the server and page when each test ends, so a shared server is dead for the second test.
 - `t.serve(...)` closes the server and page after the test; database or file fixtures created outside it still need their own cleanup.
-- Both configured projects (chromium + firefox) run every e2e file. Scope an assertion that Firefox cannot satisfy with `isFirefox(page)` from `test/utils.ts` rather than skipping the project, so the page-load smoke coverage survives.
+- Both configured projects (chromium + firefox) run every e2e file; WebKit is opt-in via `PLAYWRIGHT_WEBKIT=1` / `npm run test:webkit`. Scope an assertion that Firefox cannot satisfy with `isFirefox(page)` from `test/utils.ts` rather than skipping the project, so the page-load smoke coverage survives.
 
 ## When to Use
 

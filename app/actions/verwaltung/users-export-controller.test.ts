@@ -140,7 +140,7 @@ describe('Verwaltung Users Export Controller', () => {
     assert.ok(html.includes('Keine Benutzer mit Terminen'), 'should show the empty-state notice')
   })
 
-  it('redirects framed download requests to the marker URL (303)', async () => {
+  it('redirects framed download requests to the marker URL (302)', async () => {
     let response = await router.fetch(`${EXPORT_URL}?startDate=2026-06-01&endDate=2026-06-30`, {
       headers: { Cookie: adminCookie, 'X-Remix-Frame': 'true' },
     })

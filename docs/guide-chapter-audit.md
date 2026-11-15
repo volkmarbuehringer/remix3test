@@ -69,7 +69,9 @@ assert.ok(fallbackAt > 0 && templateAt > fallbackAt, 'fallback must stream befor
 
 Run it with `NODE_ENV=test npx remix test --type server --concurrency 1 tmp/<probe>.test.ts`
 (imports from `tmp/` resolve to `../app/...`; setup gives the run an isolated DB, and `tmp/` is
-gitignored), then delete the file. When a test names an ordering, read its assertion: replace
+gitignored), then delete the file. This relies on `remix.json` keeping `test.exclude` empty:
+discovery excludes apply to explicit positional globs too, so excluding `tmp/**` would filter the
+probe out and report “No test files found”. When a test names an ordering, read its assertion: replace
 `readUntil(marker)` + `assert.includes(marker)` with a first-chunk assertion and a template-order
 check.
 
