@@ -14,6 +14,7 @@ npm run typecheck
 npm run format
 npm run format:fix
 npm run knip
+npm run update:deps
 npm run update:remix
 npm run dev:mastra
 ```
