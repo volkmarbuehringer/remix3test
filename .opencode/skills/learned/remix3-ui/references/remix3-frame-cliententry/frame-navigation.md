@@ -101,7 +101,7 @@ Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event whi
 
 **Context:** The `entry.tsx` client asset implements `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
 
-**Since the `848e2fbe` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
+**Since the `3fac48ab` pin the app delegates request construction to `defaultResolveFrame` (remix #12249).** `app/assets/frame-response.browser.tsx` calls `defaultResolveFrame(url.href, options, { fetch })`; the vendor default owns form encoding, `Accept`, `X-Remix-Frame`/`X-Remix-Target`, `Content-Type`, `same-origin` mode, hash stripping, and 5xx/non-HTML-3xx/4xx rejection. The app-only policy lives in the `fetch` override (one-shot `X-Agent-Prefill`, `cache: 'no-store'`) and in the exported `classifyFrameResponse(response, { target, mode })`, which is total over every response:
 
 | Response | Navigation outcome | Prefetch outcome |
 | --- | --- | --- |
@@ -129,7 +129,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-13 against the installed preview release `v0.20261113.215858-main-848e2fbe` (source `848e2fbe`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-13 against the installed preview release `v0.20261114.200722-main-3fac48ab` (source `3fac48ab`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
@@ -146,7 +146,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 - Starting the transition on `reloadStart` is still wrong (the snapshot predates the response), and `startViewTransition(async () => { await frame.reload() })` still holds the update phase for the whole request.
 - A `MutationObserver` around the frame subtree remains rejected: it re-enters for unrelated mutations, has no ordering guarantee against reconcile, and produces duplicate/partial snapshots.
 
-**App implementation (since the `848e2fbe` pin):** `app/assets/frame-response.browser.tsx` now delegates to `defaultResolveFrame(..., { fetch, commit })`, so the commit hook is live. `app/assets/frame-transition.browser.ts` owns the single animated flow:
+**App implementation (since the `3fac48ab` pin):** `app/assets/frame-response.browser.tsx` now delegates to `defaultResolveFrame(..., { fetch, commit })`, so the commit hook is live. `app/assets/frame-transition.browser.ts` owns the single animated flow:
 
 - **Candidate:** admin lists grid ⇄ edit/create panel (`/admin/lists`, target `admin-content`). The URL toggles an `editing`/`creating` parameter, so `shouldAnimateAdminListsPanel(options, to)` compares `options.transition.from.url` with `to`. Pagination, filter/search, reload, form saves (same panel parameter), other frame targets, and independent reloads stay instant. `createAdminListsPanelCommit` only attaches the callback for a navigation-driven `admin-content` load.
 - **Scoping:** `app/ui/admin-lists-page.tsx` marks both root branches with `data-frame-transition-region="admin-lists"` (constant contract in `app/utils/frame-transition.ts`; it is server HTML, so it exists in both snapshots). The callback sets `view-transition-name: admin-lists-content` on the one region immediately before `startViewTransition()` and re-applies it inside the update callback after `commitFrame()` (the new root is a re-created node). It removes the name when the transition settles, guarded by an `activeTransition` token so a superseded transition cannot clear a newer one's name.
