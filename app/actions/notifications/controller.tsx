@@ -17,6 +17,7 @@ import {
   PAGE_SIZE_KEYS,
 } from '../../utils/get-page-size.ts'
 import { parseId } from '../../utils/ids.ts'
+import { parseOffsetParam } from '../../utils/query-params.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
@@ -32,12 +33,6 @@ import type { Notification } from '../../data/schema.ts'
 
 const DEFAULT_PAGE_SIZE = 15
 
-function readOffset(url: URL): number {
-  let raw = url.searchParams.get('offset')
-  let n = raw === null ? NaN : Number(raw)
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0
-}
-
 export default createController(routes.notifications, {
   middleware: [requireAuth()],
   actions: {
@@ -45,7 +40,7 @@ export default createController(routes.notifications, {
       let user = getCurrentUser()
       let pageSize = getPageSize(context.session, DEFAULT_PAGE_SIZE, PAGE_SIZE_KEYS.notifications)
       let pageSizeOverride = getPageSizeOverride(context.session, PAGE_SIZE_KEYS.notifications)
-      let offset = readOffset(context.url)
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let { rows, hasMore } = await listUserNotifications(context.db, user.id, {
         pageSize,
         offset,
@@ -109,7 +104,7 @@ export default createController(routes.notifications, {
 })
 
 function backUrl(url: URL, base: string): string {
-  let offset = readOffset(url)
+  let offset = parseOffsetParam(url.searchParams.get('offset'))
   return offset > 0 ? `${base}?offset=${offset}` : base
 }
 

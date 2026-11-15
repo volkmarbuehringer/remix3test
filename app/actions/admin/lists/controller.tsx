@@ -6,6 +6,7 @@ import { minLength } from 'remix/data-schema/checks'
 import type { Database, TableRow } from 'remix/data-table'
 
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { lists } from '../../../data/schema.ts'
 import {
@@ -35,7 +36,11 @@ import {
   gridSortDirection,
 } from '../../../utils/grid-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
-import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
+import {
+  issuesToFieldErrors,
+  readFormFieldValues,
+  trimmedText,
+} from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
@@ -57,7 +62,7 @@ const LISTS_FORM_KEYS = [
 ] as const
 
 const listsCreateSchema = f.object({
-  title: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
+  title: f.field(s.defaulted(trimmedText(), '').pipe(minLength(1))),
   description: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
@@ -66,7 +71,7 @@ const listsCreateSchema = f.object({
 })
 
 const listsUpdateSchema = f.object({
-  title: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
+  title: f.field(s.defaulted(trimmedText(), '').pipe(minLength(1))),
   description: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
@@ -206,7 +211,7 @@ export default createController(routes.admin.lists, {
       let pageKey = PAGE_SIZE_KEYS.adminLists
       let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT, pageKey)
       let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let filter = context.url.searchParams.get('filter') || undefined
       let statusParam = context.url.searchParams.get('status')
       let status = isListItemFilter(statusParam) ? statusParam : undefined

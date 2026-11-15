@@ -6,6 +6,7 @@ import * as f from 'remix/data-schema/form-data'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../utils/ids.ts'
+import { parseOffsetParam } from '../../utils/query-params.ts'
 import { parseIsoDateUtc } from '../../utils/date-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
@@ -35,7 +36,7 @@ import {
   gridStateToParams,
   editingRedirect,
 } from '../../utils/grid-state.ts'
-import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
+import { issuesToFieldErrors, readFormFieldValues, trimmedText } from '../../utils/schema-utils.ts'
 import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-grid-error.tsx'
 
 type Row = Client
@@ -69,13 +70,8 @@ function isClientRegisteredDate(value: string): boolean {
 }
 
 const clientSaveSchema = f.object({
-  name: f.field(
-    s
-      .defaulted(s.string(), '')
-      .pipe(minLength(8), maxLength(100))
-      .refine((value) => value.trim().length >= 8, 'Der Name muss mindestens 8 Zeichen enthalten.'),
-  ),
-  email: f.field(s.defaulted(s.string(), '').pipe(email(), maxLength(100))),
+  name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(8), maxLength(100))),
+  email: f.field(s.defaulted(trimmedText(), '').pipe(email(), maxLength(100))),
   role: f.field(s.optional(s.enum_(CLIENT_ROLES))),
   status: f.field(s.optional(s.enum_(CLIENT_STATUSES))),
   registered: f.field(
@@ -301,7 +297,7 @@ async function renderClientsIndex(
   let pageKey = PAGE_SIZE_KEYS.adminClients
   let effectivePageSize = getPageSize(context.session, PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = parseOffsetParam(context.url.searchParams.get('offset'))
   let filter = context.url.searchParams.get('filter') || undefined
   let status = normalizeStatusFilter(context.url.searchParams.get('status'))
 

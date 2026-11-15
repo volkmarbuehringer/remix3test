@@ -7,6 +7,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { isConstraintViolation } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { resources, type Resource } from '../../../data/schema.ts'
@@ -16,7 +17,11 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { AdminResourcesPage } from '../../../ui/admin-resources-page.tsx'
 import { routes } from '../../../routes.ts'
-import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
+import {
+  issuesToFieldErrors,
+  readFormFieldValues,
+  trimmedText,
+} from '../../../utils/schema-utils.ts'
 import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
@@ -84,7 +89,7 @@ async function loadResourcePageData(
   let pageKey = PAGE_SIZE_KEYS.verwaltungResources
   let effectivePageSize = getPageSize(context.session, RESOURCES_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let pageNum = Math.floor(offset / effectivePageSize) + 1
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
@@ -109,9 +114,9 @@ async function loadResourcePageData(
 
   let editingParam =
     overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
-  let editingRowId = editingParam ? Number(editingParam) : null
+  let editingRowId = parseId(editingParam)
   let editRow = overrides?.editRow ?? null
-  if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
+  if (!editRow && editingRowId !== undefined && editingRowId > 0) {
     editRow = (await db.findOne(resources, { where: { id: editingRowId } })) as ResourceRow | null
   }
 
@@ -137,7 +142,7 @@ async function loadResourcePageData(
 }
 
 const resourceSaveSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '').pipe(minLength(4))),
+  name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(4))),
   description: f.field(
     s
       .defaulted(s.string(), '')

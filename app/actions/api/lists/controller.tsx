@@ -5,6 +5,9 @@ import { maxLength, minLength } from 'remix/data-schema/checks'
 import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth, requireApiUser } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
+import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
+import { trimmedText } from '../../../utils/schema-utils.ts'
 import { routes } from '../../../routes.ts'
 import {
   getAllLists,
@@ -33,8 +36,8 @@ const listItemSchema = s.object({
 })
 
 const listsSaveSchema = s.object({
-  title: s.optional(s.string().pipe(maxLength(200))),
-  description: s.string().pipe(minLength(1), maxLength(500)),
+  title: s.optional(trimmedText().pipe(maxLength(200))),
+  description: trimmedText().pipe(minLength(1), maxLength(500)),
   items: s.array(listItemSchema),
 })
 
@@ -43,7 +46,7 @@ export default createController(routes.apiLists, {
 
   actions: {
     async index(context) {
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
       let filter = context.url.searchParams.get('filter') || undefined
 
@@ -55,14 +58,8 @@ export default createController(routes.apiLists, {
     async show(context) {
       let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch {
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -115,15 +112,8 @@ export default createController(routes.apiLists, {
     async update(context) {
       let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in api/lists/update: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -181,14 +171,8 @@ export default createController(routes.apiLists, {
     async destroy(context) {
       let apiUser = requireApiUser(context)
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch {
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 

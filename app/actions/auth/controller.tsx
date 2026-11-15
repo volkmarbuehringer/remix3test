@@ -15,7 +15,7 @@ import { hashPassword } from '../../utils/password-hash.ts'
 import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
-import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
+import { issuesToFieldErrors, readFormFieldValues, trimmedText } from '../../utils/schema-utils.ts'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
 import { connectionIp } from '../../utils/request-ip.ts'
@@ -35,7 +35,7 @@ import {
 // ── Login ──
 
 const loginSchema = f.object({
-  email: f.field(s.defaulted(s.string(), '').pipe(emailCheck())),
+  email: f.field(s.defaulted(trimmedText(), '').pipe(emailCheck())),
   password: f.field(s.defaulted(s.string(), '')),
 })
 
@@ -165,8 +165,8 @@ const registerLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxA
 const REGISTER_FORM_KEYS = ['name', 'email'] as const
 
 const registerSchema = f.object({
-  name: f.field(s.string().pipe(minLength(8))),
-  email: f.field(s.string().pipe(emailCheck())),
+  name: f.field(trimmedText().pipe(minLength(8))),
+  email: f.field(trimmedText().pipe(emailCheck())),
   password: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
@@ -310,7 +310,7 @@ const forgotLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, m
 const resetLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
 
 const emailSchema = f.object({
-  email: f.field(s.string().pipe(emailCheck())),
+  email: f.field(trimmedText().pipe(emailCheck())),
 })
 
 const passwordSchema = f.object({

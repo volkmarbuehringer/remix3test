@@ -160,7 +160,8 @@ export const messages = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
-    sender_id: c.integer(),
+    // messages.sender_id is `ON DELETE SET NULL`; a deleted user leaves NULL.
+    sender_id: c.integer().nullable(),
     content: c.text(),
     created_at: bigint(),
   },
@@ -409,7 +410,8 @@ export const resources = table({
     id: c.integer(),
     name: c.text(),
     description: c.text(),
-    capabilities: c.text(),
+    // The SQL column is `TEXT DEFAULT ''` and nullable; raw SQL may leave NULL.
+    capabilities: c.text().nullable(),
     created_at: bigint(),
     updated_at: bigint(),
   },
@@ -550,7 +552,8 @@ export const apiTokens = table({
     token_hash: c.text(),
     created_at: bigint(),
     expires_at: bigint(),
-    revoked_at: bigint(),
+    // Revoked tokens keep the column NULL; the app sets it on logout.
+    revoked_at: bigintNullable(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -564,6 +567,14 @@ export const apiTokens = table({
   },
 })
 
+/**
+ * Row type for the notifications inbox.
+ *
+ * All reads and writes go through the raw-SQL helpers in
+ * `app/data/notifications.ts`, so this definition carries no lifecycle hooks:
+ * raw SQL does not run `beforeWrite`/`afterRead` (guide ch. 8 §"Compose
+ * queries and load relations"). Keep the wire decoding there.
+ */
 const notifications = table({
   name: 'notifications',
   primaryKey: ['id'],
@@ -576,21 +587,6 @@ const notifications = table({
     appointment_id: c.integer().nullable(),
     read_at: bigintNullable(),
     created_at: bigint(),
-  },
-  beforeWrite({ operation, value }) {
-    let next = { ...value }
-
-    if (operation === 'create') {
-      let now = Date.now()
-      if (next.created_at === undefined) next.created_at = now
-      if (next.title === undefined) next.title = ''
-      if (next.body === undefined) next.body = ''
-    }
-
-    return { value: next }
-  },
-  afterRead({ value }) {
-    return { value: decodeInt8Fields(value, 'created_at', 'read_at', 'user_id', 'appointment_id') }
   },
 })
 

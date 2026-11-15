@@ -28,6 +28,7 @@ import {
   type PageSizeKey,
 } from '../../../utils/get-page-size.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import {
   gridStateDirection,
   gridStateFromFormData,
@@ -105,7 +106,7 @@ async function loadPageData(
   let pageSize =
     overrides.pageSize ?? getPageSize(context.session, WEBHOOK_REQUESTS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = overrides.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let filter = overrides.filter ?? context.url.searchParams.get('filter') ?? undefined
 
   let column: string

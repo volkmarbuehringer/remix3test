@@ -22,6 +22,7 @@ import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import {
   gridFilter,
@@ -62,12 +63,6 @@ const MESSAGES_PAGE_LIMIT = 10
 /** Sortable columns (whitelisted; the SQL expressions are the keys of
  *  SORT_EXPRS in ../data/admin-messages.ts). */
 const SORTABLE_FIELDS = ['id', 'sender_name', 'content', 'created_at'] as const
-
-/** Clamps a query/form offset to a non-negative integer. */
-function parseOffset(raw: string | null | undefined): number {
-  let value = Number(raw ?? '')
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
-}
 
 /** Clamps a query/form filter to a bounded string (optional). */
 function parseFilter(raw: string | null | undefined): string | undefined {
@@ -226,7 +221,7 @@ export default createController(routes.admin.messages, {
 
   actions: {
     async index(context) {
-      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let filter = parseFilter(context.url.searchParams.get('filter'))
       let { column, direction } = parseSort(context.url, {
         allowedColumns: SORTABLE_FIELDS,
@@ -241,7 +236,7 @@ export default createController(routes.admin.messages, {
     // reloads it on invalidate. Render the list so that GET of the action path
     // resolves instead of falling to a 404 (POST-only route).
     async destroyResolve(context) {
-      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let filter = parseFilter(context.url.searchParams.get('filter'))
       let { column, direction } = parseSort(context.url, {
         allowedColumns: SORTABLE_FIELDS,
@@ -357,7 +352,7 @@ export default createController(routes.admin.messages, {
       let state = gridStateFromFormData(context.formData)
       let filter = parseFilter(state.filter)
       let pageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT, PAGE_SIZE_KEYS.adminMessages)
-      let offset = parseOffset(state.offset)
+      let offset = parseOffsetParam(state.offset)
       if (offset > 0) {
         let remaining = await countMessages(db, filter)
         if (offset >= remaining) {

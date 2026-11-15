@@ -510,18 +510,10 @@ describe('Appointment Grid', () => {
     assert.ok(body.error, 'should include error message')
   })
 
-  it('POST /appointment with whitespace-only title passes validation (minLength checks raw chars, not trimmed)', async () => {
-    // The server schema validates with minLength(1) which checks the raw
-    // string length, not the trimmed length. So "   " (length 3) passes
-    // validation. The createAppointment function then calls .trim() which
-    // reduces it to "". The title stored in the DB is "".
-    //
-    // This test documents the current server behavior — the client-side
-    // draft commit already does .trim() before sending, so empty titles
-    // are caught client-side before they reach the API.
-
-    // Arrange
-    // Act
+  it('POST /appointment with a whitespace-only title returns 400', async () => {
+    // The schema trims before minLength (guide ch. 8 §"Define the input
+    // schema"), so "   " becomes "" and fails the required check instead of
+    // reaching createAppointment and being stored as an empty title.
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -538,16 +530,7 @@ describe('Appointment Grid', () => {
       }),
     })
 
-    // Assert: server accepts because "   ".length === 3 >= minLength(1)
-    assert.equal(
-      response.status,
-      201,
-      'whitespace-only title passes minLength(1) server validation',
-    )
-    let body = await response.json()
-    // The stored title is trimmed to "" by createAppointment
-    assert.equal(body.appointment.title, '', 'title is trimmed to empty by data layer')
-    testAppointmentIds.push(body.appointment.id)
+    assert.equal(response.status, 400, 'a whitespace-only title must fail validation')
   })
 
   it('POST /appointment with title exceeding 80 chars returns 400', async () => {

@@ -86,6 +86,7 @@ import {
 } from '../../../ui/mixins/row-actions.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
+import { parsePageParam } from '../../../utils/query-params.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import {
@@ -207,8 +208,7 @@ const MOBILE_SORT_OPTIONS = [
 ] as const
 
 function parseUploadPage(raw: string | null): number {
-  let n = Number(raw)
-  return Number.isInteger(n) && n >= 1 ? n : 1
+  return parsePageParam(raw)
 }
 
 /** URL `kind` parameter → a whitelisted MIME grouping, or undefined for "Alle". */
@@ -543,8 +543,8 @@ export default createController(routes.admin.uploads, {
       // if their ids are submitted.
       let ids = context.formData
         .getAll('ids')
-        .map((value) => Number(value))
-        .filter((id) => !Number.isNaN(id))
+        .map((value) => parseId(value))
+        .filter((id): id is number => id !== undefined && id >= 1)
       if (ids.length === 0) {
         return new Response('Keine Dateien ausgew\u00e4hlt', { status: 400 })
       }
@@ -618,8 +618,8 @@ export default createController(routes.admin.uploads, {
       // their ids are submitted.
       let ids = context.formData
         .getAll('ids')
-        .map((value) => Number(value))
-        .filter((id) => !Number.isNaN(id))
+        .map((value) => parseId(value))
+        .filter((id): id is number => id !== undefined && id >= 1)
       let deleted = await deleteUploads(
         context.db,
         ids,

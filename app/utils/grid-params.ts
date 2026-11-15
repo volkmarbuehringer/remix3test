@@ -1,6 +1,8 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
+import { parseOffsetParam } from './query-params.ts'
+
 /**
  * Shared parsers for the hidden `_offset` / `_sort` / `_order` / `_filter`
  * grid-state fields that data-grid pages round-trip through their forms.
@@ -11,9 +13,13 @@ import * as f from 'remix/data-schema/form-data'
  * the grid's own set rather than trusted.
  */
 
-/** Clamp the hidden `_offset` field to a non-negative integer. */
+/**
+ * Clamp the hidden `_offset` field to a non-negative safe integer. The field
+ * is client-supplied and lands in SQL `OFFSET`, so a value outside the bigint
+ * range (e.g. `1e30`) must not reach the database.
+ */
 export function gridOffset(raw: Record<string, string>): number {
-  return Math.max(0, Number(raw._offset) || 0)
+  return parseOffsetParam(raw._offset)
 }
 
 /** The hidden `_filter` field, or `undefined` when empty. */

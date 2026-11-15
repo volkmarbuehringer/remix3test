@@ -7,6 +7,8 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import type { PageSizeKey } from '../../../utils/get-page-size.ts'
 import { monthNameDE } from '../../../utils/date-utils.ts'
@@ -84,8 +86,8 @@ function parseReport1Query(
   month = Math.max(1, Math.min(12, month))
   let selectedUserId = overrides?.selectedUserId
   if (selectedUserId === undefined) {
-    let raw = context.url.searchParams.get('user_id')
-    selectedUserId = raw ? Number(raw) || undefined : undefined
+    let parsedUserId = parseId(context.url.searchParams.get('user_id'))
+    selectedUserId = parsedUserId !== undefined && parsedUserId > 0 ? parsedUserId : undefined
   }
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
@@ -116,7 +118,7 @@ async function loadReport1PageData(
   let effectivePageSize = getPageSize(context.session, REPORT1_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let query = parseReport1Query(context, overrides)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
 
   let opts: RunReport1Opts = {
     monthStart: query.monthStart,

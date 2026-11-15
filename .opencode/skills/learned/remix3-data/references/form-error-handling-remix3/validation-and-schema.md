@@ -59,6 +59,36 @@ let parsed = s.parseSafe(clientSaveSchema, formData, { errorMap: clientErrorMap 
 
 Declarative schema in `app/utils/offering-schema.ts:8` (`offeringSaveSchema`) — `f.object` + `f.field`, `coerce.number().refine(...)` for ids/minutes, and `s.string().refine(...)` for the date. No hand-written validation.
 
+### Trim before length checks
+
+The guide's `albumText` (§"Define the input schema") trims **before** the length check:
+
+```ts
+const albumText = s.string().transform((value) => value.trim()).pipe(checks.minLength(1))
+```
+
+`minLength(1)` checks raw characters, so a whitespace-only value passes it. The
+app's table `beforeWrite` hooks then trim the same column, so the write is either
+rejected by `validate` (`DataTableValidationError` → unhandled 500 for a required
+column) or silently stored as `''` (no table-level required rule). Use the shared
+`trimmedText()` from `app/utils/schema-utils.ts`:
+
+```ts
+name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(1)))
+email: f.field(s.defaulted(trimmedText(), '').pipe(email()))
+```
+
+- Compose `trimmedText()` before `pipe(...)`; `s.defaulted(trimmedText(), '')`
+  still returns the default without running the transform, and the outer
+  `minLength` runs on that default, so a missing field keeps failing.
+- Trim text fields only — never passwords (spaces are valid password
+  characters). Trim email before `email()` so `" user@example.com "` is accepted
+  and normalized the same way the table hook normalizes it.
+- Covered in this app: admin user name/email, register name/email, login email,
+  resource name, admin list title, client name/email, appointment title, and
+  lists/api-list title/description. Regression: `app/input-validation.test.ts`.
+
+
 ### `coerce.number()` Empty-Select Pitfall
 
 When a `<select>` has a disabled placeholder option (`<option value="">`), the browser sends `""`. `coerce.number()` fails immediately with **English** `"Expected number"` before `.refine()` can produce a **German** message.

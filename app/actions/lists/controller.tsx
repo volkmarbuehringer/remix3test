@@ -7,6 +7,8 @@ import { requireAuth } from '../../middleware/auth.ts'
 
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
+import { trimmedText } from '../../utils/schema-utils.ts'
+import { parseOffsetParam } from '../../utils/query-params.ts'
 import {
   getListById,
   getListSummaries,
@@ -93,14 +95,14 @@ function listsIndexReturnHref(url: URL): string {
 }
 
 const listsCreateSchema = s.object({
-  title: s.optional(s.string().pipe(maxLength(200))),
-  description: s.optional(s.string().pipe(maxLength(500))),
+  title: s.optional(trimmedText().pipe(maxLength(200))),
+  description: s.optional(trimmedText().pipe(maxLength(500))),
   items: s.optional(s.array(listItemSchema)),
 })
 
 const listsPatchSchema = s.object({
-  title: s.optional(s.string().pipe(maxLength(200))),
-  description: s.optional(s.string().pipe(minLength(1), maxLength(500))),
+  title: s.optional(trimmedText().pipe(maxLength(200))),
+  description: s.optional(trimmedText().pipe(minLength(1), maxLength(500))),
   items: s.optional(s.array(listItemSchema)),
 })
 
@@ -133,7 +135,7 @@ export default createController(routes.lists, {
     async targets(context) {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 100, 100))
       let filter = context.url.searchParams.get('filter')?.trim() || undefined
 
@@ -157,7 +159,7 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let filter = context.url.searchParams.get('filter') || undefined
       let sortRaw = context.url.searchParams.get('sort')
       let sort: SidebarSort = sortRaw === 'name' || sortRaw === 'count' ? sortRaw : 'recent'
@@ -365,15 +367,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/update: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -444,15 +439,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let sourceId: number
-      try {
-        sourceId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/move: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (!Number.isInteger(sourceId) || sourceId < 1) {
+      let sourceId = parseId(context.params.id)
+      if (sourceId === undefined || sourceId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -532,15 +520,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let sourceId: number
-      try {
-        sourceId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/moveItems: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (!Number.isInteger(sourceId) || sourceId < 1) {
+      let sourceId = parseId(context.params.id)
+      if (sourceId === undefined || sourceId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -629,15 +610,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let sourceId: number
-      try {
-        sourceId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/merge: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (!Number.isInteger(sourceId) || sourceId < 1) {
+      let sourceId = parseId(context.params.id)
+      if (sourceId === undefined || sourceId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -802,15 +776,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/destroy: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -826,15 +793,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
-      let listId: number
-      try {
-        listId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.logger?.('Invalid list ID in lists/copy: ' + String(error))
-        return context.json({ error: 'Invalid list ID' }, { status: 400 })
-      }
-
-      if (listId < 1) {
+      let listId = parseId(context.params.id)
+      if (listId === undefined || listId < 1) {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 

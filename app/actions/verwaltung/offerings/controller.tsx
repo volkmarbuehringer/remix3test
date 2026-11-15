@@ -11,6 +11,7 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import Holidays from 'date-holidays'
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-schema.ts'
@@ -113,7 +114,7 @@ async function loadOfferingPageData(
   let pageKey = PAGE_SIZE_KEYS.verwaltungOfferings
   let effectivePageSize = getPageSize(context.session, OFFERINGS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
   let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
@@ -142,10 +143,10 @@ async function loadOfferingPageData(
 
   let editingParam =
     overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
-  let editingRowId = editingParam || null
+  let editingRowId = parseId(editingParam)
   let editRow = overrides?.editRow ?? null
-  if (!editRow && editingRowId) {
-    editRow = await fetchOfferingEditRow(context.db, editingRowId)
+  if (!editRow && editingRowId !== undefined && editingRowId > 0) {
+    editRow = await fetchOfferingEditRow(context.db, String(editingRowId))
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
@@ -155,15 +156,12 @@ async function loadOfferingPageData(
   let fieldErrors = overrides?.fieldErrors ?? undefined
   let formError = overrides?.formError ?? undefined
 
-  let configResourceId = context.url.searchParams.get('config')
+  let configResourceId = parseId(context.url.searchParams.get('config'))
   let addWeek = context.url.searchParams.get('addweek') === 'true'
 
   let offeringConfig: OfferingConfig | null = null
-  if (configResourceId) {
-    let rid = parseInt(configResourceId, 10)
-    if (!isNaN(rid)) {
-      offeringConfig = await getConfig(context.db, rid)
-    }
+  if (configResourceId !== undefined && configResourceId > 0) {
+    offeringConfig = await getConfig(context.db, configResourceId)
   }
 
   return {
@@ -183,7 +181,8 @@ async function loadOfferingPageData(
     creating,
     resources: resourceOptions,
     error,
-    configResourceId: configResourceId ? parseInt(configResourceId, 10) : undefined,
+    configResourceId:
+      configResourceId !== undefined && configResourceId > 0 ? configResourceId : undefined,
     offeringConfig: offeringConfig ?? undefined,
     addWeek,
     pastCount,

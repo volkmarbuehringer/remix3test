@@ -5,6 +5,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { isConstraintViolation } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { offeringConfigs, resources } from '../../../data/schema.ts'
@@ -109,7 +110,7 @@ async function loadOfferingConfigPageData(
   let pageKey = PAGE_SIZE_KEYS.verwaltungOfferingConfigs
   let effectivePageSize = getPageSize(context.session, OFFERING_CONFIGS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
   let { column, direction } = overrides?.sortColumn
@@ -135,9 +136,9 @@ async function loadOfferingConfigPageData(
 
   let editingParam =
     overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
-  let editingRowId = editingParam ? Number(editingParam) : null
+  let editingRowId = parseId(editingParam)
   let editRow = overrides?.editRow ?? null
-  if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
+  if (!editRow && editingRowId !== undefined && editingRowId > 0) {
     editRow = (await getOfferingConfig(context.db, editingRowId)) ?? null
   }
 

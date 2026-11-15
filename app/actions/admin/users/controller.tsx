@@ -6,6 +6,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { logAdminAction, logAdminActionStrict } from '../../../data/audit-log.ts'
 import {
   USERS_SORTABLE_FIELDS,
@@ -32,7 +33,11 @@ import {
   gridStateFromFormData,
   gridStateToParams,
 } from '../../../utils/grid-state.ts'
-import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
+import {
+  issuesToFieldErrors,
+  readFormFieldValues,
+  trimmedText,
+} from '../../../utils/schema-utils.ts'
 import { validatePasswordComplexity } from '../../../utils/password-complexity.ts'
 import { parseUserStatus, type UserStatus } from '../../../utils/user-status.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -59,8 +64,8 @@ const USERS_FORM_KEYS = [
 ] as const
 
 const userCreateSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
-  email: f.field(s.defaulted(s.string(), '').pipe(email())),
+  name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(1))),
+  email: f.field(s.defaulted(trimmedText(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   password: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
@@ -70,8 +75,8 @@ const userCreateSchema = f.object({
 })
 
 const userUpdateSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
-  email: f.field(s.defaulted(s.string(), '').pipe(email())),
+  name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(1))),
+  email: f.field(s.defaulted(trimmedText(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   password: f.field(s.defaulted(s.string(), '')),
   disabled: f.field(s.defaulted(s.string(), '')),
@@ -246,10 +251,9 @@ export async function renderUsersIndex(
   let pageKey = PAGE_SIZE_KEYS.adminUsers
   let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let rawOffset = Number(context.url.searchParams.get('offset')) || 0
   // `offset=Infinity`/`1e21` would otherwise reach the SQL OFFSET and 500 the
-  // page; keep the value inside the safe-integer range.
-  let offset = Number.isSafeInteger(rawOffset) && rawOffset > 0 ? rawOffset : 0
+  // page; parseOffsetParam keeps the value inside the safe-integer range.
+  let offset = parseOffsetParam(context.url.searchParams.get('offset'))
   let { filter, status, column, direction } = parseUsersQuery(context.url)
 
   let { rows, hasMore, total } = await loadUsersPage(context.db, {
@@ -261,10 +265,9 @@ export async function renderUsersIndex(
     pageSize: effectivePageSize,
   })
 
-  let editingParam = context.url.searchParams.get('editing')
-  let editingRowId = editingParam ? Number(editingParam) : null
+  let editingRowId = parseId(context.url.searchParams.get('editing'))
   let editRow: SafeUser | null = null
-  if (editingRowId && Number.isFinite(editingRowId)) {
+  if (editingRowId !== undefined && editingRowId > 0) {
     let found = await context.db.findOne(users, { where: { id: editingRowId } })
     if (found) editRow = toSafeUser(found as User)
   }

@@ -70,7 +70,7 @@ export function editingRedirect(
 
 function gridStateOffset(state: GridState): number | undefined {
   let n = Number(state.offset)
-  return n > 0 ? n : undefined
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined
 }
 
 function gridStateSort(state: GridState): string | undefined {

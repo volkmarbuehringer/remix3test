@@ -20,6 +20,7 @@ import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { parseId } from '../../utils/ids.ts'
+import { parseOffsetParam } from '../../utils/query-params.ts'
 import {
   gridStateToParams,
   gridStateFromFormData,
@@ -167,7 +168,7 @@ async function loadAppointmentsNewPageData(
   overrides?: AppointmentsNewPageOverrides,
 ): Promise<AppointmentsNewPageData> {
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_NEW_PAGE_SIZE)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
   let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
@@ -191,7 +192,7 @@ async function loadAppointmentsNewPageData(
   })
 
   let deletingParam =
-    overrides?.deletingRow !== undefined ? null : context.url.searchParams.get('deleting')
+    overrides?.deletingRow !== undefined ? null : parseId(context.url.searchParams.get('deleting'))
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
@@ -289,8 +290,8 @@ async function loadAppointmentsNewPageData(
   // Load row for delete confirmation
   let deletingRow: AppointmentsNewRow | null =
     overrides?.deletingRow !== undefined ? overrides.deletingRow : null
-  if (!deletingRow && deletingParam) {
-    deletingRow = (await getAppointmentForDelete(context.db, deletingParam, userId)) ?? null
+  if (!deletingRow && deletingParam != null) {
+    deletingRow = (await getAppointmentForDelete(context.db, String(deletingParam), userId)) ?? null
     if (deletingRow) {
       let apptStartMs = Number(deletingRow.date) + deletingRow.start_min * 60000
       let isWithinGracePeriod = deletingRow.created_at

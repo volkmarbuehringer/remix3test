@@ -8,6 +8,7 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange } from '../../../data/appointofferings.ts'
 import { parseDuring } from '../../../utils/during.ts'
@@ -152,7 +153,7 @@ async function loadAppointmentPageData(
   let pageKey = PAGE_SIZE_KEYS.verwaltungAppointments
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
-  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let gridFilter = readAppointmentGridFilter(context)
   let filter = overrides?.filter ?? gridFilter.filter
   let period = overrides?.period ?? gridFilter.period
@@ -198,10 +199,10 @@ async function loadAppointmentPageData(
 
   let editingParam =
     overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
-  let editingRowId = editingParam || null
+  let editingRowId = parseId(editingParam)
   let editRow = overrides?.editRow ?? null
-  if (!editRow && editingRowId) {
-    editRow = (await fetchAppointmentEditRow(context.db, editingRowId)) ?? null
+  if (!editRow && editingRowId !== undefined && editingRowId > 0) {
+    editRow = (await fetchAppointmentEditRow(context.db, String(editingRowId))) ?? null
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'

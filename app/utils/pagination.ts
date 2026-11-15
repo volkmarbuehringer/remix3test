@@ -19,17 +19,23 @@ export async function paginate<Row = Record<string, unknown>>(
   options: PaginateOptions,
 ): Promise<PaginateResult<Row>> {
   let { pageSize, page, orderBy, where } = options
-  let offset = (page - 1) * pageSize
+  // Defensive: a caller that computed `page` from an untrusted value could
+  // otherwise hand `findMany` a bigint-overflowing OFFSET. The controllers
+  // validate first; this keeps a future caller from reintroducing the 500.
+  let safePage = Number.isSafeInteger(page) && page > 0 ? page : 1
+  let safePageSize = Number.isSafeInteger(pageSize) && pageSize > 0 ? pageSize : 1
+  let rawOffset = (safePage - 1) * safePageSize
+  let offset = Number.isSafeInteger(rawOffset) ? rawOffset : 0
 
   let allItems = (await db.findMany(table, {
-    limit: pageSize + 1,
+    limit: safePageSize + 1,
     offset,
     orderBy: orderBy as never,
     ...(where ? { where } : {}),
   })) as Row[]
 
-  let hasMore = allItems.length > pageSize
-  let items = hasMore ? allItems.slice(0, pageSize) : allItems
+  let hasMore = allItems.length > safePageSize
+  let items = hasMore ? allItems.slice(0, safePageSize) : allItems
 
-  return { items, page, hasMore }
+  return { items, page: safePage, hasMore }
 }

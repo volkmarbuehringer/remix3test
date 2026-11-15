@@ -105,6 +105,25 @@ return { rows, hasMore, total }
 
 When `renderGridFormError` loads rows, let its `loadRows` result carry the optional `total`; loaders that do not count leave it `undefined`. Reference: `app/actions/client/controller.tsx` (`buildClientsFilterPredicate`, `loadGridData`), `app/ui/admin-grid-error.tsx`, `app/actions/client/page.tsx`/`grid-page.tsx`.
 
+## Pagination bounds: safe integers before `LIMIT`/`OFFSET`
+
+`paginate()` and every raw-SQL grid pass their offset to PostgreSQL as a bigint.
+`Number('1e30')` is finite and `Math.floor(Number('1e30'))` is still `1e30`, but
+PostgreSQL rejects it (`invalid input syntax for type bigint`), so a
+`?offset=1e30` request becomes a 500. `Number('1.5')` is also accepted by
+`Number.isFinite` and 500s an int4 `WHERE id = $1`.
+
+- Parse untrusted offsets/pages with `app/utils/query-params.ts`
+  (`parseOffsetParam`, `parsePageParam`): only a non-negative safe integer is
+  accepted, everything else falls back to `0`/`1`.
+- Use `parseId` for every id-shaped query/form/route param before it reaches SQL;
+  `Number.isFinite`/`Math.floor` are not validation.
+- `paginate()` clamps `page`/`pageSize` defensively, but the controller boundary
+  is still the first line (`gridOffset`, `gridStateOffset`, `?editing=`,
+  `?deleting=`, `?user_id=`).
+- Regression: `app/input-validation.test.ts` (real router, every grid plus
+  report1/uploads).
+
 ## When to Use
 
 - A multi-ID filter (always `where: inList('id', ids)`); the error contains `ungültige Eingabesyntax für Typ integer` and a JSON-array string.

@@ -30,7 +30,7 @@ import { AppointmentPage } from '../../ui/appointment-page.tsx'
 import { AppointTypePanel } from '../../ui/appointtype-panel.browser.tsx'
 import { appointmentChannel } from '../../utils/appointments-sse.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
+import { issuesToFieldErrors, trimmedText } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../utils/fragment-response.ts'
 import { frames, routes } from '../../routes.ts'
@@ -50,7 +50,7 @@ const appointmentUpdateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, pe
 const appointmentDeleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 
 const appointmentCreateSchema = s.object({
-  title: s.string().pipe(minLength(1), maxLength(80)),
+  title: trimmedText().pipe(minLength(1), maxLength(80)),
   date: s.number(),
   start_min: s.number().pipe(min(0), max(MINUTES_IN_DAY)),
   end_min: s.number().pipe(min(0), max(MINUTES_IN_DAY)),
@@ -58,7 +58,7 @@ const appointmentCreateSchema = s.object({
 })
 
 const appointmentUpdateSchema = s.object({
-  title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
+  title: s.optional(trimmedText().pipe(minLength(1), maxLength(80))),
   date: s.optional(s.number()),
   start_min: s.optional(s.number().pipe(min(0), max(MINUTES_IN_DAY))),
   end_min: s.optional(s.number().pipe(min(0), max(MINUTES_IN_DAY))),
@@ -448,11 +448,11 @@ export const appointment = createController(routes.appointment, {
 // ── AppointTypes ──
 
 const appointTypeCreateSchema = s.object({
-  title: s.string().pipe(minLength(1), maxLength(80)),
+  title: trimmedText().pipe(minLength(1), maxLength(80)),
 })
 
 const appointTypeUpdateSchema = s.object({
-  title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
+  title: s.optional(trimmedText().pipe(minLength(1), maxLength(80))),
 })
 
 export const appointmentTypes = createController(routes.appointment.types, {

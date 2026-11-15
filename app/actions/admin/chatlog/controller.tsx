@@ -17,6 +17,7 @@ import { fragmentResponseInit } from '../../../utils/fragment-response.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
+import { parseOffsetParam } from '../../../utils/query-params.ts'
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
 import { getSafeReturnTo } from '../../../utils/redirect.ts'
 import { hasActiveChatRunForThread } from '../../chat/run-store.ts'
@@ -46,12 +47,6 @@ const EMPTY_SOURCE_COUNTS: Record<ChatlogSourceFilter, number> = {
   support: 0,
   customer: 0,
   legacy: 0,
-}
-
-/** Clamps a query/form offset to a non-negative integer. */
-function parseOffset(raw: string | null | undefined): number {
-  let value = Number(raw ?? '')
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
 /**
@@ -253,7 +248,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async index(context) {
-      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let selectedId = parseSelectedId(context.url.searchParams.get('detail'))
       let source = parseSourceFilter(context.url.searchParams.get('source'))
       return renderChatLogPage(context, offset, selectedId, source)
@@ -263,7 +258,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
     // submission; render the list so a reload of that path resolves instead of
     // 404ing on the POST-only delete route.
     async destroyResolve(context) {
-      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let selectedId = parseSelectedId(context.url.searchParams.get('detail'))
       let source = parseSourceFilter(context.url.searchParams.get('source'))
       return renderChatLogPage(context, offset, selectedId, source)
@@ -272,7 +267,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
     async destroy(context) {
       let { params } = context
       let id = params.id
-      let offset = parseOffset(context.formData.get('_offset') as string | null)
+      let offset = parseOffsetParam(context.formData.get('_offset') as string | null)
       let source = parseSourceFilter(context.formData.get('_source') as string | null)
       let query = chatlogQuery(offset, source)
 
@@ -392,7 +387,7 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
       // The transcript is rendered in a nested detail frame on the list page.
       // `offset`/`source` let the dismiss control (and its no-JS fallback link)
       // come back to the same list page and filter.
-      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let offset = parseOffsetParam(context.url.searchParams.get('offset'))
       let source = parseSourceFilter(context.url.searchParams.get('source'))
       let closeHref = routes.admin.chatlog.index.href() + chatlogQuery(offset, source)
 
