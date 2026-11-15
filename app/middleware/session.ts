@@ -5,8 +5,9 @@ import { createCookie } from 'remix/cookie'
 import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
-import { envPositiveNumber, isProduction, isTest, requireEnv } from '../config.ts'
+import { envPositiveNumber, envString, isProduction, isTest, requireEnv } from '../config.ts'
 import { pruneSessionFiles, resolveSessionDirectory } from '../utils/session-files.ts'
+import { sessionSecrets } from '../utils/session-secrets.ts'
 import { mergeSessionWrites } from '../utils/session-storage-merge.ts'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -34,7 +35,10 @@ if (!isTest) {
 const sessionSecret = requireEnv('SESSION_SECRET')
 
 export const sessionCookie = createCookie('session', {
-  secrets: [sessionSecret],
+  // Newest signing secret first; `SESSION_SECRET_PREVIOUS` keeps cookies signed
+  // before a rotation verifiable without letting them sign new ones. See
+  // `sessionSecrets()` and guide 10 §"Cookie configuration and secret rotation".
+  secrets: sessionSecrets(sessionSecret, envString('SESSION_SECRET_PREVIOUS')),
   secure: isProduction,
   httpOnly: true,
   sameSite: 'Strict',

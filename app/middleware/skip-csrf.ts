@@ -39,7 +39,15 @@ export function isAllowedCsrfOrigin(
   return fetchSite === 'same-origin' || fetchSite === 'none'
 }
 
-const csrfMiddleware = csrf({ origin: isAllowedCsrfOrigin })
+const csrfMiddleware = csrf({
+  origin: isAllowedCsrfOrigin,
+  // Deliberate policy (guide 10 §"CSRF synchronizer tokens"): browsers send
+  // `Origin` on unsafe requests, so a missing Origin/Referer means a
+  // non-browser client. Such a request still needs a valid synchronizer token;
+  // the origin layer is defense in depth, not the primary check. Set this to
+  // `false` only when every form client can be required to send `Origin`.
+  allowMissingOrigin: true,
+})
 
 // Session-cookie-authenticated browser endpoints that normally skip CSRF
 // (SSE/agent streams call fetch() and cannot embed a form token). A custom

@@ -1,9 +1,9 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import { SetCookie } from 'remix/headers'
 
 import { router } from '../../test-router.ts'
-import { createCsrfSession } from '../../../test/utils.ts'
+import { createCsrfSession, extractCookie } from '../../../test/utils.ts'
+import { readSessionId } from '../../middleware/session.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
@@ -31,8 +31,11 @@ describe('auth-logout action', () => {
     assert.equal(response.headers.get('Location'), '/', 'should redirect to home')
   })
 
-  it('POST /logout sets a new session cookie (regenerateId)', async () => {
+  it('POST /logout rotates the session id (regenerateId)', async () => {
     let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let before = await readSessionId(cookie)
+    assert.ok(before, 'precondition: the GET should have issued a session id')
+
     let response = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
@@ -40,10 +43,10 @@ describe('auth-logout action', () => {
       redirect: 'manual',
     })
 
-    // Even though auth is unset, the session middleware should issue a new
-    // session cookie with the regenerated ID
-    let setCookie = SetCookie.from(response.headers.get('Set-Cookie'))
-    assert.ok(setCookie.name, 'should set a session cookie')
-    assert.equal(setCookie.name, 'session', 'set-cookie should contain session key')
+    // Logout must rotate, not only unset one identity field: a new session id
+    // is issued and the old one is marked for deletion when the session saves.
+    let after = await readSessionId(extractCookie(response))
+    assert.ok(after, 'should set a new session cookie')
+    assert.notEqual(after, before, 'logout must issue a different session id')
   })
 })

@@ -263,6 +263,7 @@ Copy `.env.example` to `.env` and configure:
 - `DATABASE_URL` — PostgreSQL connection string (see [Database Setup](#database-setup))
 - `AI_API_KEY` / `AI_BASE_URL` — OpenAI-compatible AI provider
 - `SESSION_SECRET` — Session encryption secret
+- `SESSION_SECRET_PREVIOUS` — optional comma-separated retired session secrets that still verify old cookies during a rotation (they never sign new cookies)
 - `PORT` — Server port (default: 44100)
 
 ## Testing

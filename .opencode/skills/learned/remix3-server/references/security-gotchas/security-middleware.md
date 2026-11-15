@@ -2,6 +2,8 @@
 
 **Source:** `remix-security-middleware`
 
+**Revalidated:** 2026-11-15 against preview release `v0.20261114.200722-main-3fac48ab` / source `3fac48ab` (chapter 10 re-audit). Token sources, origin-resolver semantics, and the `allowMissingOrigin` default below were re-read from the installed `@remix-run/csrf-middleware` source.
+
 Covers `remix/middleware/csrf`, `remix/middleware/cors`, `remix/middleware/cop`.
 
 ## CSRF Protection
@@ -114,9 +116,22 @@ createMiddleware(
 </form>
 ```
 
-## CORS and Cross-Origin Protection (COP)
+### Origin resolver semantics (app: `app/middleware/skip-csrf.ts`)
 
-`remix/middleware/cors` configures allowed origins; `remix/middleware/cop` is tokenless protection via browser provenance headers (`Sec-Fetch-*`). For the basic setup, see `node_modules/remix/src/cors-middleware/README.md` and `node_modules/remix/src/cop-middleware/README.md`.
+`csrf({ origin })` accepts a string, regex, array, or function. The app passes a **function** (`isAllowedCsrfOrigin`), so at this pin:
+
+- The resolver only runs when the request carries `Origin`, or a parseable `Referer` (the vendor derives the origin from either). Its result must be exactly `true`.
+- With **no** `Origin`/`Referer`, the vendor returns `allowMissingOrigin` (default `true`) and never calls the resolver. A missing-origin unsafe request still needs a valid synchronizer token; the token is the primary defense.
+- The app keeps the default, so a token-bearing non-browser POST with no provenance header passes. If a deployment wants to require provenance headers, set `allowMissingOrigin: false` — but then every non-browser form client must send `Origin`.
+- `context.url.origin` is the routing origin, not the browser origin: behind a Cloudflare quick tunnel the browser `Origin` is the tunnel hostname while the app sees localhost. The app's resolver therefore trusts `PUBLIC_ORIGIN` (or the origin file) and accepts `*.trycloudflare.com` only when `Sec-Fetch-Site` is `same-origin`/`none` (a header a page cannot forge). Keep the token check after this origin layer.
+
+### COP is not installed (deliberate)
+
+`app/middleware/root.ts` installs `skipCsrf()` (which delegates to `csrf()`), not `cop()`. The app already has the provenance layer the guide describes, inside `csrf()`: exact same-origin, the configured public origin, and the narrow tunnel exception. It is not an **early** layer — session creation and body parsing happen first for non-upload unsafe requests — but it covers the same trusted-origin exceptions, and `uploadFormData()` runs `isAllowedCsrfOrigin()` before the body is read for the two upload actions. Adding a global `cop()` would require `insecureBypassPatterns` for the same external paths `isExternalPath()` already exempts (`/webhook`, `/app-webhook`, `/callback`, `/csp-reports`, `/api/`) and would reject external callers that send an `Origin` header; do not add it without those bypasses and a webhook regression test.
+
+### CORS is not installed (deliberate)
+
+`cors()` is absent because no browser endpoint is meant to be called cross-origin: the JSON API under `/api/` is for server-to-server Bearer-token callers, and the agent/SSE transports are same-origin. The browser contract is enforced by CSP `connect-src 'self'`, `form-action 'self'`, and `frame-ancestors 'none'` (`app/middleware/security-headers.ts`). If a cross-origin browser caller is ever added, install `cors()` on that endpoint only with an exact origin, explicit credentials/headers, and preflight handling — CORS headers do not authenticate or authorize the caller.
 
 ## References
 

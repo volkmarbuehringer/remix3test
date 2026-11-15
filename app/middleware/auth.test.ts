@@ -250,6 +250,47 @@ describe('Auth + CSRF integration', () => {
     // Assert: token was valid, login succeeds
     assert.equal(response.status, 303, 'POST with valid CSRF token should succeed')
   })
+
+  it('rejects a foreign Origin even when the CSRF token is valid', async () => {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: 'https://evil.example' },
+      body: new URLSearchParams({
+        email: 'admin@newapp.com',
+        password: process.env.SEED_ADMIN_PASSWORD!,
+        _csrf: csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 403, 'a foreign origin must be rejected')
+    assert.ok(
+      (await response.text()).includes('invalid CSRF origin'),
+      'the origin layer must run before token acceptance',
+    )
+  })
+
+  it('allows a token-bearing POST with no Origin (deliberate missing-origin policy)', async () => {
+    // `skip-csrf.ts` keeps the vendor default `allowMissingOrigin: true`: a
+    // non-browser client that omits provenance headers still needs the token.
+    // If that policy is ever tightened, this test is the deliberate tripwire.
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: new URLSearchParams({
+        email: 'admin@newapp.com',
+        password: process.env.SEED_ADMIN_PASSWORD!,
+        _csrf: csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 303, 'missing origin is allowed when the token is valid')
+  })
 })
 
 // ---------------------------------------------------------------------------
