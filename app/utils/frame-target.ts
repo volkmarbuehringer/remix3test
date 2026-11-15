@@ -1,5 +1,4 @@
 import { getContext } from 'remix/middleware/async-context'
-import { frames } from '../routes.ts'
 
 /** The `X-Remix-Target` of the given request, or null when it is not a frame subrequest. */
 export function requestFrameTarget(request: Pick<Request, 'headers'>): string | null {
@@ -59,31 +58,32 @@ export function currentRequestIsInlinedFrame(): boolean {
  * Pure decision behind `getSelfFrameTarget()`, split out so the per-panel
  * branches are unit-testable without a request context.
  *
- * Returns `currentTarget` when it names an agent panel the page may be nested
- * in, otherwise the admin content frame (the existing default).
+ * Returns the frame the current render is nested in, or `undefined` when the
+ * request is not a frame subrequest (a standalone document). A standalone page
+ * must not name a frame: the named target would not be mounted, and the runtime
+ * would perform a full document navigation (`06-streaming-ui-with-frames.md`
+ * §"Target a frame from a link"). Returning `undefined` lets the runtime reload
+ * the top frame, which is the whole document.
  */
-export function selfFrameTarget(currentTarget: string | null): string {
-  if (currentTarget === frames.agentEventsPanel || currentTarget === frames.supportAgentPanel) {
-    return currentTarget
-  }
-  return frames.adminContent
+export function selfFrameTarget(currentTarget: string | null): string | undefined {
+  return currentTarget ?? undefined
 }
 
 /**
- * Frame that the currently-rendered page is embedded in.
+ * Frame that the currently-rendered page is embedded in, or `undefined` for a
+ * standalone document.
  *
- * Grid pages (users, appointments, …) hardcode `data-rmx-target={frames.adminContent}`
+ * Grid pages (users, appointments, …) carry `data-rmx-target={getSelfFrameTarget()}`
  * for their sidebar CRUD navigation. That is correct when the page lives directly
  * in the admin content frame, but when such a page is loaded into a nested agent
  * panel frame (agent-events-panel or support-agent-panel) the hardcoded target
  * would reload the OUTER admin-content frame — tearing down the host agent page
  * (the "agent dialog disappears" bug). When rendering inside an agent panel
  * frame, the page's own links/forms must instead target that panel so they stay
- * put.
- *
- * Returns the active agent-panel target when the request was rendered into one,
- * otherwise the admin content frame (the existing default).
+ * put. A standalone document (the Verwaltung section, or a full-document POST
+ * re-render) names no frame at all: the target would not be mounted and the
+ * runtime would replace the whole document (`06` §"Target a frame from a link").
  */
-export function getSelfFrameTarget(): string {
+export function getSelfFrameTarget(): string | undefined {
   return selfFrameTarget(currentFrameTarget())
 }

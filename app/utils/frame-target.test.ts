@@ -60,14 +60,16 @@ describe('selfFrameTarget', () => {
     assert.equal(selfFrameTarget(frames.supportAgentPanel), frames.supportAgentPanel)
   })
 
-  it('falls back to the admin content frame for other targets', () => {
+  it('passes any containing frame through instead of guessing another one', () => {
     assert.equal(selfFrameTarget(frames.adminContent), frames.adminContent)
-    assert.equal(selfFrameTarget(frames.listsContent), frames.adminContent)
-    assert.equal(selfFrameTarget(frames.settingsPanel), frames.adminContent)
+    assert.equal(selfFrameTarget(frames.listsContent), frames.listsContent)
+    assert.equal(selfFrameTarget(frames.settingsPanel), frames.settingsPanel)
   })
 
-  it('falls back to the admin content frame for a plain document request', () => {
-    assert.equal(selfFrameTarget(null), frames.adminContent)
+  it('names no frame for a standalone document', () => {
+    // A standalone page (Verwaltung, or a full-document POST re-render) has no
+    // mounted named frame; naming one would force a document navigation.
+    assert.equal(selfFrameTarget(null), undefined)
   })
 })
 
@@ -82,7 +84,7 @@ describe('context-based helpers outside a request context', () => {
     assert.equal(currentRequestTargetsFrame(frames.adminContent), false)
   })
 
-  it('getSelfFrameTarget falls back to the admin content frame', () => {
-    assert.equal(getSelfFrameTarget(), frames.adminContent)
+  it('getSelfFrameTarget names no frame outside a request context', () => {
+    assert.equal(getSelfFrameTarget(), undefined)
   })
 })

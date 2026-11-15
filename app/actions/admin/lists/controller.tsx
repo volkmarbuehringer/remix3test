@@ -262,6 +262,15 @@ export default createController(routes.admin.lists, {
       )
     },
 
+    // The frame commits the PUT/DELETE action path (`/admin/lists/:id`) as its
+    // address, so a reload GETs it. Open the grid's edit panel for a surviving
+    // row; a deleted row falls back to the plain grid.
+    async show(context) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) return redirect(routes.admin.lists.index.href(), 303)
+      return redirect(routes.admin.lists.index.href() + '?editing=' + id, 303)
+    },
+
     async create(context) {
       let db = context.db
       let formData = context.formData

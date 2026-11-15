@@ -2,7 +2,29 @@ import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import type { Handle } from 'remix/component'
+import { asyncContext } from 'remix/middleware/async-context'
+import type { RequestContext } from 'remix/router'
 import { ClientGridPage } from './grid-page.tsx'
+
+/**
+ * Runs a render inside a request context that carries the admin content frame
+ * target. The component reads the target from the async context (the real
+ * controller render always runs inside one); without it the page correctly
+ * names no frame.
+ */
+async function renderInAdminFrame<T>(run: () => T): Promise<T> {
+  let context = {
+    request: new Request('https://remix.run/admin/clients', {
+      headers: { 'X-Remix-Target': 'admin-content' },
+    }),
+  } as unknown as RequestContext
+  let result!: T
+  await asyncContext()(context, async () => {
+    result = run()
+    return new Response('ok')
+  })
+  return result
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -237,11 +259,13 @@ describe('ClientGridPage', () => {
     assert.ok(treeContainsText(tree, 'Suchen'), 'should have Suchen button')
   })
 
-  it('marks the GET filter form with data-rmx-history="replace"', () => {
-    let renderFn = ClientGridPage(
-      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
-    )
-    let tree = renderFn()
+  it('marks the GET filter form with data-rmx-history="replace"', async () => {
+    let tree = await renderInAdminFrame(() => {
+      let renderFn = ClientGridPage(
+        makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+      )
+      return renderFn()
+    })
 
     let forms = findElementsWithProp(tree, 'method', 'GET')
     assert.equal(forms.length, 1, 'should render exactly one GET form')
@@ -257,11 +281,13 @@ describe('ClientGridPage', () => {
     )
   })
 
-  it('opens the create panel inside the owning frame', () => {
-    let renderFn = ClientGridPage(
-      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
-    )
-    let tree = renderFn()
+  it('opens the create panel inside the owning frame', async () => {
+    let tree = await renderInAdminFrame(() => {
+      let renderFn = ClientGridPage(
+        makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+      )
+      return renderFn()
+    })
 
     // The create link must stay in the hosting frame (admin-content or an agent
     // panel) instead of forcing a full-document navigation that would tear down

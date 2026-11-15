@@ -211,7 +211,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter ? (
-            <a href={clearSearchHref} mix={table.clearLink}>
+            <a href={clearSearchHref} data-rmx-target={getSelfFrameTarget()} mix={table.clearLink}>
               Zurücksetzen
             </a>
           ) : null}

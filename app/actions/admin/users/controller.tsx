@@ -304,6 +304,16 @@ export default createController(routes.admin.users, {
       return renderUsersIndex(context)
     },
 
+    // The frame commits the PUT/DELETE action path (`/admin/users/:id`) as its
+    // address; a reload must not fall through to the router 404. Both verbs
+    // share the path, so render the grid's edit panel when the row still exists
+    // and the plain grid after a delete (no matching row).
+    async show(context) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) return redirect(routes.admin.users.index.href(), 303)
+      return redirect(routes.admin.users.index.href() + '?editing=' + id, 303)
+    },
+
     // The frame commits the POST toggle action path as its src after a
     // submission, and a later reload (e.g. the agent-events workflow-finish
     // reload) GETs that path. Render the users grid so a stale GET resolves

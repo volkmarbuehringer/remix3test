@@ -58,6 +58,10 @@ app = run({
 })
 
 app.addEventListener('error', async (event) => {
+  // Report the original error before the runtime is torn down; the fatal card only
+  // shows the message, so without this the stack is lost (guide 06 §"Handle failures
+  // and cancellation" / ch. 12 §"Handle browser runtime errors at the app root").
+  console.error(event.error)
   app.dispose()
   let errorCard = import('./error-card.browser.tsx')
   await fadeOutBody()

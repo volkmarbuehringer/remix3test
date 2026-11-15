@@ -2,6 +2,8 @@
 
 **Extracted:** 2026-08-25
 
+**Re-validated:** 2026-11-15 (§06 re-audit) — the resolver inventory, the redirecting `show` shape, and the download marker guard were checked against `app/routes.ts` and the owning controllers.
+
 ## Problem
 
 A form lives inside a `<Frame>` and posts to a **method-only** param route:
@@ -86,3 +88,11 @@ Full-suite note: adding the GET resolver to a `system`-style route map means new
 - A `put('/:id')` / `del('/:id')` admin form inside `<Frame>` where `?editing=N` works but `/<id>` does not.
 - Adding a new CRUD collection to this frame admin: give each `/:id` an edit-render GET so the frame action path resolves.
 - Do NOT use when you can keep `frame.src == form action` by making the action itself the frame src (then both GET and POST already resolve).
+
+## Resolver shapes found in this app (2026-11-15 §06 audit)
+
+The contract is the same for every frame-targeted write; the shape can vary:
+
+- **Render in place** — `verwaltung.appointments.show` (`GET /:id` renders the edit panel), the chatlog/messages/uploads `*Resolve` routes (render the grid/list), and the admin `toggleDisabledResolve` (render the grid).
+- **Redirect to the canonical page** — `admin.users.show` and `admin.lists.show` (`GET /admin/{users,lists}/:id`) and `lists.copyResolve`/`destroyResolve` (`GET /lists/:id/{copy,delete}`) return `303` to the grid/edit-panel URL. A reload only needs the stale path to land somewhere valid; the extra hop is cheaper than duplicating the index's data loading. The delete and update forms share `/admin/:collection/:id`, so the panel must tolerate a missing row after a delete.
+- **One-shot marker for a download** — a framed request to a PDF/binary endpoint must not redirect to the *same* URL while still carrying `X-Remix-Frame` (fetch re-sends it and loops). Add `?frameDownload=1` on the first pass and answer the marked request with a page; see `verwaltung/{pdf,users-pdf}/controller.tsx` (`verwaltung/users-export` uses the same marker).

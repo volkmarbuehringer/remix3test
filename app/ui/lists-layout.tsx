@@ -441,6 +441,7 @@ function ListsLayout(
               action={routes.lists.index.href()}
               data-rmx-target={frameTarget}
               data-rmx-reset-focus="manual"
+              data-rmx-history="replace"
               data-lists-search="true"
               mix={sidebarFormStyle}
             >

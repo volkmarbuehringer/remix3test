@@ -72,6 +72,23 @@ createSidebarLayout<AdminNavItem>({
 })
 ```
 
+#### Name no frame on a standalone page
+
+`getSelfFrameTarget()` (`app/utils/frame-target.ts`) returns the frame named by
+`X-Remix-Target` and `undefined` when the request is not a frame subrequest. Do not
+default a missing target to `admin-content`: a standalone page (the Verwaltung
+section, or a full-document POST re-render) has no mounted frame of that name, so
+the runtime performs a **document navigation** for every `data-rmx-target` link or
+form (guide 06 §"Target a frame from a link"). Omitting the attribute lets the
+runtime reload the top frame (a soft whole-document navigation). Keep the
+current-target pass-through so a grid loaded into an agent panel stays in that
+panel. The §06 audit (2026-11-15) fixed the old fallback; `frame-target.test.ts`
+and the Verwaltung standalone-page test pin it. `safeNavigate()`
+(`app/utils/frame-utils.ts`) mirrors the rule for programmatic navigation: reload
+a named/containing frame, but keep `window.location.href` when the containing
+frame is the top frame — a top-frame `reload({ src })` swaps the document without
+updating the browser URL.
+
 #### Use unique names for nested panels
 
 A frame nested inside the `admin-content` frame must have a DIFFERENT name than `admin-content`. Otherwise sidebar navigation (target `admin-content`) hits the inner panel frame.

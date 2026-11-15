@@ -313,6 +313,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     undefined,
                     status,
                   )}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={[buttonLink({ tone: 'secondary' }), table.spacer, css({ width: '100%' })]}
                 >
                   Abbrechen

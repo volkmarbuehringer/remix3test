@@ -806,6 +806,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               data-rmx-target={getSelfFrameTarget()}
               data-uploads-filter
               data-rmx-reset-focus="manual"
+              data-rmx-history="replace"
               mix={filterBarCss}
             >
               {/* Kind tabs reset to page 1 — a stale page can be out of range for

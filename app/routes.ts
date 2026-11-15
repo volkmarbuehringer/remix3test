@@ -46,6 +46,11 @@ export const routes = route({
     merge: post('/:id/merge'),
     copyItems: post('/:id/copy-items'),
     destroy: post('/:id/delete'),
+    // The frame commits a POST form action as its address, so a reload GETs
+    // these write endpoints. Redirect them to the grid (the same destination
+    // the POST redirects to) instead of leaving the path unresolved.
+    copyResolve: get('/:id/copy'),
+    destroyResolve: get('/:id/delete'),
   }),
 
   auth: route('auth', {
@@ -156,6 +161,10 @@ export const routes = route({
 
     lists: route('lists', {
       index: get('/'),
+      // The frame commits the PUT/DELETE action path (`/admin/lists/:id`) as its
+      // address, so a reload GETs it. Redirect to the grid's edit panel (or the
+      // grid after a delete) instead of leaving the path unresolved.
+      show: get('/:id'),
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),
@@ -163,6 +172,10 @@ export const routes = route({
 
     users: route('users', {
       index: get('/'),
+      // Form action == frame src: the update/destroy action path must also be a
+      // valid GET so a reload resolves to the grid/edit panel, not a 404 (same
+      // contract as the resolve routes below).
+      show: get('/:id'),
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),

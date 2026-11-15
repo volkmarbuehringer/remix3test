@@ -38,8 +38,13 @@ function withPanelContainer(activeFrame: string | null): {
   }
 }
 
-function fakeHandle(frame: FakeFrame | null): never {
-  return { frames: { get: () => frame } } as never
+function fakeHandle(
+  frame: FakeFrame | null,
+  containingFrame: FakeFrame | null = null,
+  topFrame: FakeFrame | null = null,
+): never {
+  let top = topFrame ?? ({ reloadCalled: 0, reload: () => Promise.resolve() } satisfies FakeFrame)
+  return { frames: { get: () => frame, top }, frame: containingFrame } as never
 }
 
 function flush(): Promise<void> {
@@ -93,6 +98,40 @@ describe('safeNavigate', () => {
       assert.deepEqual(reloadOptions, [{ src: '/x?editing=1' }])
       await flush()
       assert.equal(env.location.href, '')
+    } finally {
+      env.restore()
+    }
+  })
+
+  it('reloads the containing frame when no panel frame is addressable', async () => {
+    let env = withPanelContainer(null)
+    let reloadOptions: Array<{ src?: string } | undefined> = []
+    let containing: FakeFrame = {
+      reloadCalled: 0,
+      reload(options) {
+        containing.reloadCalled++
+        reloadOptions.push(options)
+        return Promise.resolve()
+      },
+    }
+    try {
+      safeNavigate('/x?editing=1', fakeHandle(null, containing))
+      assert.equal(containing.reloadCalled, 1)
+      assert.deepEqual(reloadOptions, [{ src: '/x?editing=1' }])
+      await flush()
+      assert.equal(env.location.href, '')
+    } finally {
+      env.restore()
+    }
+  })
+
+  it('keeps a full-page navigation for the top frame', () => {
+    let env = withPanelContainer(null)
+    let top: FakeFrame = { reloadCalled: 0, reload: () => Promise.resolve() }
+    try {
+      safeNavigate('/x?editing=1', fakeHandle(null, top, top))
+      assert.equal(top.reloadCalled, 0, 'a top-frame reload would not update the browser URL')
+      assert.equal(env.location.href, '/x?editing=1')
     } finally {
       env.restore()
     }

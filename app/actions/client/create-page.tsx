@@ -282,6 +282,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                   return (
                     <a
                       href={cancelHref}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={[
                         buttonLink({ tone: 'secondary' }),
                         table.spacer,

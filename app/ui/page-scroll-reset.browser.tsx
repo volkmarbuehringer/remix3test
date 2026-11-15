@@ -22,6 +22,25 @@ type NavigateEventLike = {
   sourceElement?: Element | null
 }
 
+/**
+ * Whether the navigation opted out of the default scroll reset.
+ *
+ * Mirrors the runtime's attribute lookup: a link carries the attribute itself, while a form
+ * submission's source element is the submitter (or the form), so a `data-rmx-reset-scroll`
+ * on the `<form>` must still apply. `"manual"` is the current value; `"false"` is the legacy
+ * boolean alias. A `"true"`/absent value keeps the default reset.
+ */
+export function isManualScrollReset(source: Element | null | undefined): boolean {
+  if (!source) return false
+  let value = source.getAttribute('data-rmx-reset-scroll')
+  if (value == null && typeof HTMLButtonElement !== 'undefined') {
+    if (source instanceof HTMLButtonElement || source instanceof HTMLInputElement) {
+      value = source.form?.getAttribute('data-rmx-reset-scroll') ?? null
+    }
+  }
+  return value === 'manual' || value === 'false'
+}
+
 type NavigationLike = {
   addEventListener(
     type: 'navigate',
@@ -69,8 +88,9 @@ export const PageScrollReset = clientEntry(
               return
             }
             // "manual" is the 3.1 Navigation API value; "false" is the legacy boolean.
-            let optOut = event.sourceElement?.getAttribute('data-rmx-reset-scroll')
-            pendingReset = optOut !== 'manual' && optOut !== 'false'
+            // A form submission reports its submitter as the source element, so the
+            // form's own attribute is checked as a fallback.
+            pendingReset = !isManualScrollReset(event.sourceElement)
           },
           { signal: handle.signal },
         )

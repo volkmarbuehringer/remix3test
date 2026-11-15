@@ -8,14 +8,24 @@ import { listUserSummaries } from '../../../data/users-pdf.ts'
 import { pdfAttachmentResponse } from '../../../utils/pdf-utils.ts'
 import { buildUserSummaryPdf } from '../../../utils/user-summary-pdf.ts'
 
+const FRAME_DOWNLOAD_PARAM = 'frameDownload'
+
 export default createController(routes.verwaltung.usersPdf, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
+      // Native downloads use data-rmx-document. A framed direct hit must not
+      // redirect to this same URL unconditionally: the frame client re-sends
+      // X-Remix-Frame across the redirect and loops until the fetch aborts.
+      // Mark once, then send the frame to the export page (HTML) to terminate.
       if (context.request.headers.get('X-Remix-Frame') === 'true') {
         let url = new URL(context.url)
-        return redirect(url.href)
+        if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {
+          return redirect(routes.verwaltung.usersExport.index.href(), 303)
+        }
+        url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
+        return redirect(url.href, 303)
       }
 
       try {

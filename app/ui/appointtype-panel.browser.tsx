@@ -215,11 +215,18 @@ export const AppointTypePanel = clientEntry(
           signal: handle.signal,
         })
         if (response.ok) {
-          await handle.frame?.reload()
+          // The save succeeded; a reload failure is a different problem.
+          try {
+            await handle.frame?.reload()
+          } catch {
+            showToast('Fehler beim Aktualisieren.')
+          }
         } else {
           showToast('Fehler beim Speichern.')
         }
       } catch {
+        // An abort is the entry being replaced, not a failed save.
+        if (handle.signal.aborted) return
         showToast('Fehler beim Speichern.')
       }
     }
@@ -267,7 +274,7 @@ export const AppointTypePanel = clientEntry(
         signal: handle.signal,
       })
         .then((r) => {
-          if (r.ok) void handle.frame?.reload()
+          if (r.ok) handle.frame?.reload().catch(() => showToast('Fehler beim Aktualisieren.'))
           else showToast('Fehler beim Speichern.')
         })
         .catch(() => showToast('Fehler beim Speichern.'))
@@ -296,7 +303,7 @@ export const AppointTypePanel = clientEntry(
             },
           })
             .then((r) => {
-              if (r.ok) void handle.frame?.reload()
+              if (r.ok) handle.frame?.reload().catch(() => showToast('Fehler beim Aktualisieren.'))
               else showToast('Fehler beim Löschen.')
             })
             .catch(() => showToast('Fehler beim Löschen.'))

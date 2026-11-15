@@ -496,6 +496,26 @@ describe('Admin Lists Controller', () => {
     })
   })
 
+  describe('show (GET /admin/lists/:id)', () => {
+    it('resolves a stale PUT/DELETE action path to the edit panel', async () => {
+      // The frame commits `/admin/lists/:id` as its address after an update or
+      // delete; a reload must not 404 on the POST/PUT-only path.
+      let response = await router.fetch(`${LISTS_URL}/2`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 303)
+      assert.equal(response.headers.get('Location'), '/admin/lists?editing=2')
+    })
+
+    it('resolves an invalid id to the plain grid', async () => {
+      let response = await router.fetch(`${LISTS_URL}/abc`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 303)
+      assert.equal(response.headers.get('Location'), '/admin/lists')
+    })
+  })
+
   describe('create (POST /admin/lists)', () => {
     it('re-renders at 400 with inline errors when title is empty', async () => {
       let body = gridBody(adminCsrfToken, { title: '', description: 'test-admin-create' })

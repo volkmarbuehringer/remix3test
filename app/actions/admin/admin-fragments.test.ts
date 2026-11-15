@@ -89,7 +89,9 @@ describe('Admin Fragments Controller', () => {
     // The controller generates 6 activities; each renders its disclosure and a
     // placeholder for the not-yet-requested user detail. Assert the exact count:
     // a lower-bound check would still pass if half the lazy frames regressed.
-    let placeholders = html.match(/Benutzerdetails werden geladen/g)
+    // Count the rendered label only (`>text`), not the label string inside the
+    // fallback client entry's serialized `rmx-data` props.
+    let placeholders = html.match(/>Benutzerdetails werden geladen/g)
     assert.equal(placeholders?.length, 6, 'should render one placeholder per activity')
 
     // The nested user-detail frames use the runtime's built-in lazy loading:

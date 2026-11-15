@@ -1,5 +1,6 @@
 import { Frame, css, type Handle } from 'remix/component'
 import { theme } from '../../ui/theme/theme.ts'
+import { FrameFallback } from '../frame-fallback.browser.tsx'
 import { routes } from '../../routes.ts'
 
 interface Activity {
@@ -84,16 +85,6 @@ const nestedFrameContainer = css({
   borderLeft: `3px solid ${theme.colors.border.subtle}`,
 })
 
-// Rendered by the built-in lazy frame as its server-side fallback. It must
-// render an element so the runtime can observe when the disclosure opens; the
-// reserved height keeps the row from shifting when the detail loads.
-const placeholderStyle = css({
-  display: 'inline-block',
-  minHeight: '2.75rem',
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-})
-
 function timeAgo(date: Date): string {
   let seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'gerade eben'
@@ -155,7 +146,12 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                         userId: String(activity.userId),
                       })}
                       loading="lazy"
-                      fallback={<span mix={placeholderStyle}>Benutzerdetails werden geladen…</span>}
+                      fallback={
+                        <FrameFallback
+                          label="Benutzerdetails werden geladen…"
+                          name={`user-detail-${activity.id}`}
+                        />
+                      }
                     />
                   </div>
                 </details>

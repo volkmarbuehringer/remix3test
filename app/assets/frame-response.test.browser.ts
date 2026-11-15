@@ -208,9 +208,10 @@ describe('resolveFrameResponse redirect handling', () => {
     assert.equal(errorSpy.mock.calls.length, 1, 'the misconfigured frame should be reported')
   })
 
-  it('shows the reload card for a 5xx server error', async () => {
+  it('shows the reload card for a 5xx server error and reports it', async (t) => {
     // `defaultResolveFrame` throws on every 5xx before the app policy runs; the
     // captured response is reclassified onto the recovery card.
+    let errorSpy = t.mock.method(console, 'error')
     let response = frameResponse({ status: 500, text: '<div>boom</div>' })
     stubFetch(response)
 
@@ -220,6 +221,12 @@ describe('resolveFrameResponse redirect handling', () => {
 
     // 5xx is a genuine server error — discard the body and surface the reload card.
     assert.ok(result !== response, 'should not return the crash body for a 5xx')
+    assert.equal(errorSpy.mock.calls.length, 1, 'the failed frame must be reported')
+    assert.match(
+      String(errorSpy.mock.calls[0]?.arguments[0]),
+      /\[frame\] 500 \/admin\/client failed/,
+      'the report names the frame status and path',
+    )
   })
 
   it('only resolves same-origin frame sources', () => {

@@ -182,10 +182,26 @@ async function fetchFrameResponse(
       result = nonHtmlFrameError(url, response)
       break
     case 'recovery-card':
+      reportRecoveryCard(url, response)
       result = { kind: 'error-card', content: recoveryCard() }
       break
   }
   return result
+}
+
+/**
+ * Reports a 5xx frame failure before the bounded card replaces the slot.
+ *
+ * The guide's default resolver rejects server errors to the runtime `error` event, but this
+ * app's error event is a fatal-page policy (it disposes the whole runtime), so a failing frame
+ * must not take the surrounding page down. Reporting through `console.error` keeps the failure
+ * visible — the card only covers the one region — without turning it into a document-level fatal.
+ */
+function reportRecoveryCard(url: URL, response: Response): void {
+  console.error(
+    `[frame] ${response.status} ${url.pathname} failed; showing the reload card` +
+      (response.statusText ? ` (${response.statusText})` : ''),
+  )
 }
 
 function nonHtmlFrameError(url: URL, response: Response): FrameFetchResult {

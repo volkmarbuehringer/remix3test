@@ -19,15 +19,24 @@ function formatDate(date: string | number): string {
   })
 }
 
+const FRAME_DOWNLOAD_PARAM = 'frameDownload'
+
 export default createController(routes.verwaltung.pdf, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
-      // If loaded from a frame, redirect to full page for proper download
+      // Native downloads use data-rmx-document. A framed direct hit must not
+      // redirect to this same URL unconditionally: the frame client re-sends
+      // X-Remix-Frame across the redirect and loops until the fetch aborts.
+      // Mark once, then render the Verwaltung page so the chain terminates.
       if (context.request.headers.get('X-Remix-Frame') === 'true') {
         let url = new URL(context.url)
-        return redirect(url.href)
+        if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {
+          return redirect(routes.verwaltung.index.href(), 303)
+        }
+        url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
+        return redirect(url.href, 303)
       }
 
       try {

@@ -78,6 +78,21 @@ describe('Admin Appointments Controller', () => {
       assert.equal(response.status, 200, 'admin GET /verwaltung/appointments should return 200')
     })
 
+    it('renders no frame target on the standalone document', async () => {
+      // Verwaltung is a top-level section (no mounted admin-content frame), so
+      // naming a frame would force a document navigation per grid interaction
+      // (`06-streaming-ui-with-frames.md` §"Target a frame from a link").
+      let response = await router.fetch(ADMIN_APPT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+      assert.equal(
+        html.includes('data-rmx-target'),
+        false,
+        'standalone Verwaltung pages must not name an unmounted frame',
+      )
+    })
+
     it('renders the Appointments heading', async () => {
       // Arrange & Act
       let response = await router.fetch(ADMIN_APPT_URL, {

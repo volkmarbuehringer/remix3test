@@ -2594,4 +2594,23 @@ describe('Lists controller', () => {
     await db.delete(lists, { id })
     await db.delete(lists, { id: copyId })
   })
+
+  // GET resolvers for the frame-committed POST action paths. The frame commits
+  // `/lists/:id/copy|delete` as its address after a form submission, so a
+  // reload must resolve instead of 404ing on the POST-only path.
+  it('GET /lists/:id/copy resolves to the grid with the sidebar state', async () => {
+    let response = await router.fetch(LISTS_URL + '/1/copy?offset=15&filter=needle', {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/lists?offset=15&filter=needle')
+  })
+
+  it('GET /lists/:id/delete resolves to the grid with the sidebar state', async () => {
+    let response = await router.fetch(LISTS_URL + '/1/delete?sort=name', {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 303)
+    assert.equal(response.headers.get('Location'), '/lists?sort=name')
+  })
 })

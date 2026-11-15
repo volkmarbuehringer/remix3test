@@ -33,10 +33,12 @@ export const ConnectionIndicator = clientEntry(
   function ConnectionIndicator(handle: Handle<ConnectionIndicatorProps>) {
     let state: ConnectionState = 'connecting'
     let eventSource: EventSource | null = null
-    let props = handle.props
-    let subscriptionUrl = props.url
-    let reloadMode = props.reloadMode ?? 'frame'
-    let skipReloadParams = props.skipReloadParams ?? []
+    // The EventSource URL is the subscription this entry opened; a frame reload keeps the
+    // entry (and its connection) alive, so the endpoint is fixed for the entry's lifetime.
+    // Configuration that can change with the server render is read from `handle.props` at
+    // event time instead of being snapshotted here (guide 06 §"Name and reload frames":
+    // setup state survives while props refresh).
+    let subscriptionUrl = handle.props.url
 
     // Post-hydration setup: establish the SSE connection
     handle.queueTask(() => {
@@ -55,6 +57,8 @@ export const ConnectionIndicator = clientEntry(
       })
 
       eventSource.addEventListener('invalidate', () => {
+        let reloadMode = handle.props.reloadMode ?? 'frame'
+        let skipReloadParams = handle.props.skipReloadParams ?? []
         // Skip reload if any guard params are present (e.g., editing, creating)
         if (skipReloadParams.length > 0) {
           let params = new URLSearchParams(window.location.search)

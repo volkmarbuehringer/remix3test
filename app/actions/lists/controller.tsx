@@ -787,6 +787,17 @@ export default createController(routes.lists, {
       })
     },
 
+    // The frame commits a POST form action (`/lists/:id/copy|delete`) as its
+    // address, so a reload GETs the write endpoint. Redirect it to the grid the
+    // POST itself redirects to; the query state rides on the form action.
+    async copyResolve(context) {
+      return redirect(listsIndexReturnHref(context.url), 303)
+    },
+
+    async destroyResolve(context) {
+      return redirect(listsIndexReturnHref(context.url), 303)
+    },
+
     async destroy(context) {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id

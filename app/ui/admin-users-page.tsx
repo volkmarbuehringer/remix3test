@@ -625,7 +625,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {hasFilters ? (
-            <a href={routes.admin.users.index.href()} mix={table.clearLink}>
+            <a
+              href={routes.admin.users.index.href()}
+              data-rmx-target={getSelfFrameTarget()}
+              mix={table.clearLink}
+            >
               Zurücksetzen
             </a>
           ) : null}
@@ -1264,7 +1268,12 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Benutzer bearbeiten</span>
               <span mix={panelIdStyle}>#{row.id}</span>
-              <a href={cancelHref} mix={panelCloseStyle} aria-label="Panel schließen">
+              <a
+                href={cancelHref}
+                data-rmx-target={getSelfFrameTarget()}
+                mix={panelCloseStyle}
+                aria-label="Panel schließen"
+              >
                 <Glyph name="close" width={15} height={15} />
               </a>
             </div>
@@ -1362,6 +1371,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={cancelHref}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={[
                     table.spacer,
                     table.linkPlain,
@@ -1426,7 +1436,12 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Neuer Benutzer</span>
-              <a href={cancelHref} mix={panelCloseStyle} aria-label="Panel schließen">
+              <a
+                href={cancelHref}
+                data-rmx-target={getSelfFrameTarget()}
+                mix={panelCloseStyle}
+                aria-label="Panel schließen"
+              >
                 <Glyph name="close" width={15} height={15} />
               </a>
             </div>
@@ -1448,6 +1463,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={cancelHref}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={[
                     table.spacer,
                     table.linkPlain,
