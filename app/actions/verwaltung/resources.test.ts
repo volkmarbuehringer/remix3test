@@ -40,11 +40,15 @@ describe('Admin Resources Controller', () => {
     adminUserId = userResult.rows[0].id as number
   })
 
-  async function insertResource(name: string, description: string): Promise<number> {
+  async function insertResource(
+    name: string,
+    description: string,
+    capabilities = '',
+  ): Promise<number> {
     let now = Date.now()
     let result = await pool.query(
-      'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
-      [name, description, now, now],
+      'INSERT INTO resources (name, description, capabilities, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [name, description, capabilities, now, now],
     )
     return result.rows[0].id as number
   }
@@ -132,11 +136,95 @@ describe('Admin Resources Controller', () => {
       assert.equal(response.status, 302)
     })
 
-    it('supports filtering by description', async () => {
-      let response = await router.fetch(`${RESOURCES_URL}?filter=resource1`, {
+    it('filters across description and capabilities, not just the name', async () => {
+      let token = `ux-filter-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      let byDescription = `UX Beschreibung ${token}`
+      let byCapabilities = `UX Ausstattung ${token}`
+      await insertResource(`UX Desc Room ${token}`, byDescription)
+      let capsId = await insertResource(
+        `UX Caps Room ${token}`,
+        'Ein Raum, dessen Name den Suchbegriff nicht enthält',
+        `Ausstattung: ${byCapabilities}`,
+      )
+      assert.ok(capsId > 0)
+
+      let descriptionResponse = await router.fetch(
+        `${RESOURCES_URL}?filter=${encodeURIComponent(byDescription)}`,
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(descriptionResponse.status, 200)
+      let descriptionText = await descriptionResponse.text()
+      assert.ok(
+        descriptionText.includes(`UX Desc Room ${token}`),
+        'a description-only match should be returned',
+      )
+
+      let capsResponse = await router.fetch(
+        `${RESOURCES_URL}?filter=${encodeURIComponent(byCapabilities)}`,
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(capsResponse.status, 200)
+      let capsText = await capsResponse.text()
+      assert.ok(
+        capsText.includes(`UX Caps Room ${token}`),
+        'a capabilities-only match should be returned (it is where the equipment lives)',
+      )
+    })
+
+    it('treats LIKE wildcards in the filter as literal characters', async () => {
+      let token = `uxlike${Date.now().toString(36)}`
+      await insertResource(`UX_${token}`, 'Ein Raum mit einem Unterstrich im Namen')
+      await insertResource(`UXx${token}`, 'Ein Raum, der nur bei unescaped Wildcards passt')
+
+      let response = await router.fetch(
+        `${RESOURCES_URL}?filter=${encodeURIComponent(`UX_${token}`)}`,
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes(`UX_${token}`), 'the literal underscore match should be returned')
+      assert.ok(!text.includes(`UXx${token}`), '`_` must not behave as a single-character wildcard')
+    })
+
+    it('reports the filtered total in the pagination footer', async () => {
+      let token = `uxtotal${Date.now().toString(36)}`
+      await insertResource(`UX Total A ${token}`, 'Erster Treffer für die Summenanzeige')
+      await insertResource(`UX Total B ${token}`, 'Zweiter Treffer für die Summenanzeige')
+
+      let response = await router.fetch(`${RESOURCES_URL}?filter=${encodeURIComponent(token)}`, {
         headers: { Cookie: adminCookie },
       })
       assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('data-pagination-info'),
+        'the footer summary must feed the document-wide live region',
+      )
+      assert.ok(/Zeige\s*1–2\s*von\s*2/.test(text), 'the footer should show the filtered total')
+      assert.ok(text.includes('Seite 1'), 'the footer should show the current page')
+    })
+
+    it('renders accessible sortable headers and an Aktionen column header', async () => {
+      let response = await router.fetch(RESOURCES_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('aria-sort="ascending"'), 'the active sort column exposes aria-sort')
+      assert.ok(text.includes('aria-label="Aktionen"'), 'the actions column has a header')
+      assert.ok(text.includes('<caption'), 'the grid has a screen-reader caption')
+      assert.ok(text.includes('name="sort"'), 'the filter form preserves the sort column')
+      assert.ok(text.includes('name="order"'), 'the filter form preserves the sort direction')
+    })
+
+    it('offers recovery actions in the empty state', async () => {
+      let response = await router.fetch(
+        `${RESOURCES_URL}?filter=zzz-no-such-resource-${Date.now()}`,
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Filter zurücksetzen'), 'a filtered empty grid can clear its filter')
     })
 
     it('supports sorting by description', async () => {
@@ -257,12 +345,39 @@ describe('Admin Resources Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('mindestens 8 Zeichen'))
       assert.ok(
-        text.includes('aria-describedby="ar-desc-c-error"'),
-        'create-panel description field should reference its error id',
+        text.includes('aria-describedby="ar-c-desc-hint ar-c-desc-error"'),
+        'create-panel description field should reference its hint and error ids',
       )
       assert.ok(
-        text.includes('id="ar-desc-c-error"'),
+        text.includes('id="ar-c-desc-error"'),
         'create-panel error element should carry the id',
+      )
+    })
+
+    it('rejects a too-short name with a German inline error', async () => {
+      let body = new URLSearchParams({
+        name: 'X',
+        description: 'Eine ausreichend lange Beschreibung',
+        capabilities: '',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(RESOURCES_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400)
+      let text = await response.text()
+      assert.ok(
+        text.includes('Name muss mindestens 4 Zeichen lang sein'),
+        'the inline name error should be German, like the field hint',
       )
     })
 
@@ -430,8 +545,8 @@ describe('Admin Resources Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('mindestens 8 Zeichen'))
       assert.ok(
-        text.includes('aria-describedby="ar-desc-error"'),
-        'edit-panel description field should reference its error id',
+        text.includes('aria-describedby="ar-desc-hint ar-desc-error"'),
+        'edit-panel description field should reference its hint and error ids',
       )
       assert.ok(text.includes('id="ar-desc-error"'), 'edit-panel error element should carry the id')
     })

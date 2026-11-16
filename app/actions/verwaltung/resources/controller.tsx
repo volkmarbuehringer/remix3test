@@ -1,7 +1,7 @@
-import { ilike } from 'remix/data-table'
+import { ilike, or, type SingleTableWhere } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import { minLength, maxLength } from 'remix/data-schema/checks'
+import { maxLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 
 import { redirect } from 'remix/response/redirect'
@@ -48,6 +48,7 @@ const RESOURCES_SORTABLE_FIELDS = ['id', 'name', 'description', 'created_at', 'u
 
 interface ResourcePageData {
   rows: ResourceRow[]
+  total: number
   offset: number
   hasMore: boolean
   prevOffset: number
@@ -65,6 +66,33 @@ interface ResourcePageData {
 }
 
 type Undefinable<T> = { [K in keyof T]: T[K] | undefined }
+
+/**
+ * Turn the raw filter into the LIKE pattern used by both the page query and its
+ * total count. The value is clamped (a 200+ char substring makes the query
+ * pointless) and LIKE wildcards are escaped so `_` / `%` are treated as literal
+ * characters — mirrors `admin-users.ts` / `admin-lists.ts`.
+ */
+function resourcesSearchPattern(filter: string | undefined): string | undefined {
+  let value = filter?.trim()
+  if (!value) return undefined
+  let clamped = value.length > 200 ? value.slice(0, 200) : value
+  return `%${clamped.replace(/[%_\\]/g, '\\$&')}%`
+}
+
+/**
+ * Resources are searched by what an admin actually knows about a room: its
+ * name, its short description and its capabilities/equipment text. Searching
+ * only `name` made the toolbar's promise ("Suche nach Name oder Beschreibung")
+ * false and hid the one field that describes what the room can be used for.
+ */
+function buildResourcesFilter(
+  filter: string | undefined,
+): SingleTableWhere<typeof resources> | undefined {
+  let pattern = resourcesSearchPattern(filter)
+  if (!pattern) return undefined
+  return or(ilike('name', pattern), ilike('description', pattern), ilike('capabilities', pattern))
+}
 
 async function loadResourcePageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
@@ -91,7 +119,7 @@ async function loadResourcePageData(
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
   let pageNum = Math.floor(offset / effectivePageSize) + 1
-  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter'))?.trim() || undefined
 
   let { column, direction } = overrides?.sortColumn
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
@@ -101,14 +129,17 @@ async function loadResourcePageData(
         defaultDirection: 'asc',
       })
 
-  let filterPredicate = filter && filter.length <= 200 ? ilike('name', `%${filter}%`) : undefined
+  let where = buildResourcesFilter(filter)
 
-  let { items: page, hasMore } = await paginate(db, resources, {
-    pageSize: effectivePageSize,
-    page: pageNum,
-    orderBy: [[column, direction]],
-    where: filterPredicate as Record<string, unknown>,
-  })
+  let [{ items: page, hasMore }, total] = await Promise.all([
+    paginate(db, resources, {
+      pageSize: effectivePageSize,
+      page: pageNum,
+      orderBy: [[column, direction]],
+      ...(where ? { where } : {}),
+    }),
+    db.count(resources, where ? { where } : undefined),
+  ])
 
   let rows = page as ResourceRow[]
 
@@ -124,6 +155,7 @@ async function loadResourcePageData(
 
   return {
     rows,
+    total,
     offset,
     hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
@@ -142,7 +174,11 @@ async function loadResourcePageData(
 }
 
 const resourceSaveSchema = f.object({
-  name: f.field(s.defaulted(trimmedText(), '').pipe(minLength(4))),
+  name: f.field(
+    s
+      .defaulted(trimmedText(), '')
+      .refine((v) => v.length >= 4, 'Name muss mindestens 4 Zeichen lang sein'),
+  ),
   description: f.field(
     s
       .defaulted(s.string(), '')
@@ -164,6 +200,7 @@ function renderResourcePage(
     context.render,
     <AdminResourcesPage
       rows={data.rows}
+      total={data.total}
       offset={data.offset}
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
