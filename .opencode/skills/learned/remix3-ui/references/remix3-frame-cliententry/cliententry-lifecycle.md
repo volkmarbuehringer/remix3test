@@ -249,6 +249,32 @@ A GET form inside the frame can submit after a debounce (live search). Two separ
 
 First application: `app/ui/filter-autosubmit.browser.tsx` (shared by `/admin/uploads` and `/admin/messages` via its `formSelector` prop) + `form[data-uploads-filter]` / `form[data-messages-filter]` in their controllers; e2e `uploads-ux.test.e2e.ts` and `messages-ux.test.e2e.ts` assert the field keeps focus after the filter navigation.
 
+### Gate live search off while a dirty-guarded inline panel shares the frame
+
+`FilterAutoSubmit` submits with `form.requestSubmit()` — a **programmatic** submit
+that dispatches `submit`, not `click`. `DirtyFormGuard` only intercepts `click`
+(capture) and `beforeunload`, and `beforeunload` never fires for a frame
+navigation. So a grid that renders BOTH a debounced live search AND an inline
+edit/create panel in the same frame silently discards half-typed panel edits on
+every debounce tick: the reload replaces the whole fragment (grid + panel) and
+the guard never sees a click to confirm.
+
+Fix: render the live-search entry only while no panel is open, so the explicit
+Suchen button (a real click the guard intercepts) is the only search path during
+editing:
+
+```tsx
+{!hasFormPanel ? <FilterAutoSubmit formSelector="form[data-resources-filter]" /> : null}
+```
+
+First application: `app/ui/admin-resources-page.tsx` (`hasFormPanel = !!(editRow ||
+creating)`). The lists/messages/uploads grids still render `FilterAutoSubmit`
+unconditionally; `/admin/lists` has inline panels + `DirtyFormGuard` and is the
+known latent instance. No dedicated regression yet — a future guard should type
+into the filter with a dirty panel open and assert the edits survive (or the
+confirm fires). Related: the panel forms themselves must stay `novalidate` so the
+server's inline errors own validation (see `frame-failures-and-rendering.md`).
+
 ### `reloadStart` — synchronous pre-reload hook
 
 `reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261114.200722-main-3fac48ab`: `startLoad` at `:1310` enters `transitionLoad` at `:854`, whose `start` case dispatches the direct event at `:980`; inherited reloads start with `startInheritedReload` at `:1398` and dispatch in the `inherit` case at `:1106`). Use it for work that must still see the outgoing frame state:

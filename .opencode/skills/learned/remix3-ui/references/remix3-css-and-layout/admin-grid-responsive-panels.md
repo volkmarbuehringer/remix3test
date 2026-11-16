@@ -132,6 +132,43 @@ panel the user just opened is the first thing in view. This trades strict
 DOM/visual order on phones for a visible editor; the grid stays reachable
 below.
 
+## 6. Nested cell content inside `mobileCards`
+
+`table.mobileCards` turns each `td` into a `justify-content: space-between` flex
+row. A two-line cell built from `table.cellStack` + `cellTitle`/`cellMeta` is a
+second flex item; without `min-width: 0` on the stack its no-wrap lines size to
+max-content, the card grows past the viewport, and the
+`noHorizontalScroll: ['[data-grid-scroll]']` route-matrix assertion fails.
+
+Apply a page-local stack/line pair:
+
+```ts
+const descriptionStackStyle = css({
+  minWidth: 0,
+  '@media (max-width: 768px)': {
+    flex: '1 1 auto',
+    alignItems: 'flex-end',
+    textAlign: 'right',
+  },
+})
+const descriptionLineStyle = css({ maxWidth: '100%' })
+```
+
+`max-width: 100%` on each line is also load-bearing: `align-items: flex-end`
+stops cross-axis stretch, so the lines stay max-content until they are capped.
+
+Two cascade notes measured on `/verwaltung/resources` at 390px:
+
+- `mobileCards`' `white-space: normal` loses to `table.td`'s `nowrap` in the
+  layered cascade (`getComputedStyle(td).whiteSpace` evaluates to `nowrap`), so
+  the lines stay single-line and the ellipsis has to do the truncation.
+- When the second line is optional (a nullable `capabilities` text), render an
+  empty span with `min-height: 1.2em` instead of omitting it; otherwise row
+  heights alternate between one and two lines.
+
+Verify with `wrap.scrollWidth === wrap.clientWidth` at 390px, then run
+`PLAYWRIGHT_MOBILE=1 … app/actions/mobile-route-matrix.test.e2e.ts`.
+
 ## Verification
 
 Measure, do not eyeball: at ~1440px with the panel open,
