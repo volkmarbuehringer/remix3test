@@ -121,6 +121,7 @@
 - `dev-gotchas` (§ Format Triage) — classifying repo-wide formatter contamination (`format:fix` rewriting files outside the session's edit set) via whitespace-stripped hash vs HEAD, reverting only provably format-only files. Tooling hygiene, not a guide chapter.
 - `agent-ops` (§ Checkpoint Handoff) — ending a working session at a verified checkpoint: finish in-flight work only (typecheck + tests green, committed), start no new work at high context, carry a hard bug as an executable artifact, and emit a self-contained follow-up prompt for the next session. Session hygiene, not a guide chapter.
 - `truncated-output-write-recovery` — detecting files written from display-truncated tool output (literal `... (line truncated to N chars)` markers, dropped trailing sections) and recovering them from the pre-corruption commit while re-applying later edits. Tooling hygiene, not a guide chapter.
+- `file-write-payload-escapes` — writing file content from a `run_code` program without corrupting it: a backtick in the payload terminates the enclosing template literal (even with `String.raw`), `${...}` still interpolates, mixed raw/normal fragments drop backslashes silently (`/s+/g` for `/\s+/g`), and generated source must be read back and grepped for the corruption that still compiles; also the scratch-file rule (`tmp/` is gitignored but still typechecked, so probes fail `npm run typecheck` until deleted). Learned 2026-11-16 while rewriting `/verwaltung/offering-configs`; tooling hygiene, not a guide chapter.
 
 ## Unfinished chapters — re-audit on authoring
 
