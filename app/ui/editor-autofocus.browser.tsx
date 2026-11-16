@@ -12,6 +12,10 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
  *
  * Mark the target with `data-editor-autofocus-field`; the first one inside the
  * enclosing form wins.
+ *
+ * A re-render that carries an error is skipped: FormErrorFocus already moved
+ * focus to the rejected control (or the form-level error banner), and focusing
+ * the first field afterwards would steal it back and hide the problem.
  */
 export const EditorAutofocus = clientEntry(
   import.meta.url + '#EditorAutofocus',
@@ -24,7 +28,9 @@ export const EditorAutofocus = clientEntry(
           ref((el) => {
             if (!el || typeof document === 'undefined') return
             let form = el.closest('form')
-            let field = form?.querySelector<HTMLElement>('[data-editor-autofocus-field]')
+            if (!form) return
+            if (form.querySelector('[aria-invalid="true"], [data-form-error]')) return
+            let field = form.querySelector<HTMLElement>('[data-editor-autofocus-field]')
             field?.focus()
           }),
         ]}

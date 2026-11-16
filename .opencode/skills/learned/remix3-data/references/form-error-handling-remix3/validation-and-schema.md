@@ -223,7 +223,9 @@ was before the frame re-render. Add all three:
   `renderToString`; the string form is still used in most admin pages). What matters
   is pairing it with `aria-describedby` and giving the error element an `id` — an
   `aria-invalid` alone does not link the message to the field.
-- Render `FormErrorFocus` from `app/ui/form-error-focus.browser.tsx:10` inside the form; it focuses the first `[aria-invalid="true"]` within `el.closest("form")` and is a no-op on a clean page.
+- Render `FormErrorFocus` from `app/ui/form-error-focus.browser.tsx:10` inside the form; it focuses the first `[aria-invalid="true"]` and is a no-op on a clean page. Two refinements found on `/verwaltung/offering-configs` (2026-11-16):
+  - A **form-level** error (`formError`) has no invalid field to focus. Mark its banner with `data-form-error` + `tabIndex={-1}` and let `FormErrorFocus` fall back to it, otherwise focus lands on `document.body` after the submit button is replaced.
+  - The `ref` that runs the lookup is **not guaranteed to run again** when a frame reload re-renders the panel: the reconciler can reuse the entry's node, so the error markup is rendered but focus is never moved. Repeat the lookup on `handle.frame`'s `reloadComplete` (scheduled from `handle.queueTask`, cleaned up with `handle.signal`). `app/ui/editor-autofocus.browser.tsx` is the counterpart: it must skip autofocus when the form already contains `[aria-invalid="true"]` or `[data-form-error]`, or it steals the focus the error entry just set. Browser tests: `app/ui/editor-autofocus.test.browser.tsx`; e2e: `app/actions/verwaltung/offering-configs-ux.test.e2e.ts` ("shows the form-level error inside the panel and focuses it").
 
 ### Shared Utilities: `app/utils/schema-utils.ts`
 

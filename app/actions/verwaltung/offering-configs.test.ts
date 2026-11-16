@@ -1,4 +1,4 @@
-import { describe, it, before } from 'remix/test'
+import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
@@ -297,6 +297,13 @@ describe('Admin Offering Configs Controller', () => {
     })
 
     it('links the create-panel resource field to its error id', async () => {
+      // The panel only renders the form while an unconfigured resource exists,
+      // so seed one instead of relying on the shared fixture's leftovers.
+      let now = Date.now()
+      await pool.query(
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4)',
+        [`Offering Config Error Res ${now}`, `Freie Ressource ${now}`, now, now],
+      )
       let body = new FormData()
       body.set('_csrf', adminCsrfToken)
       let response = await router.fetch(CONFIGS_URL, {
@@ -307,11 +314,11 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 400)
       let text = await response.text()
       assert.ok(
-        text.includes('aria-describedby="oc-resource-c-error"'),
+        text.includes('aria-describedby="oc-c-resource-error"'),
         'create-panel resource select should reference its error id',
       )
       assert.ok(
-        text.includes('id="oc-resource-c-error"'),
+        text.includes('id="oc-c-resource-error"'),
         'create-panel error element should carry the id',
       )
     })
@@ -722,5 +729,222 @@ describe('Admin Offering Configs Controller', () => {
       assert.ok(json.issues.length > 0)
       assert.equal(json.threadId, 'test-thread-empty-rules')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Grid/panel UX contracts that the controller owns: what the search matches,
+// what the footer reports, which resources the panels offer, and where the
+// German validation messages point.
+// ---------------------------------------------------------------------------
+
+const UX_TOKEN = 'ux-config-'
+
+describe('Admin Offering Configs UX', () => {
+  let adminCookie: string
+  let adminCsrfToken: string
+
+  before(async () => {
+    await initializeAppDatabase()
+    let adminAuth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!adminAuth?.cookie) {
+      throw new Error('Failed to create admin session')
+    }
+    adminCookie = adminAuth.cookie
+    adminCsrfToken = adminAuth.csrfToken
+  })
+
+  afterEach(async () => {
+    await pool.query(
+      `DELETE FROM offering_configs WHERE resource_id IN
+         (SELECT id FROM resources WHERE name LIKE $1)`,
+      [`${UX_TOKEN}%`],
+    )
+    await pool.query('DELETE FROM resources WHERE name LIKE $1', [`${UX_TOKEN}%`])
+  })
+
+  async function seedResource(name: string, description: string): Promise<number> {
+    let now = Date.now()
+    let result = await pool.query(
+      'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+      [name, description, now, now],
+    )
+    return result.rows[0].id as number
+  }
+
+  async function seedConfig(
+    resourceId: number,
+    rules: Record<string, [number, number]>,
+  ): Promise<number> {
+    let now = Date.now()
+    let result = await pool.query(
+      'INSERT INTO offering_configs (resource_id, rules, created_at, updated_at) VALUES ($1, $2::jsonb, $3, $3) RETURNING id',
+      [resourceId, JSON.stringify(rules), now],
+    )
+    return result.rows[0].id as number
+  }
+
+  function getConfigs(query = ''): Promise<Response> {
+    return router.fetch(CONFIGS_URL + query, { headers: { Cookie: adminCookie } })
+  }
+
+  it('groups the week by weekday and reports the filtered total', async () => {
+    let resourceId = await seedResource(`${UX_TOKEN}Gruppenraum`, `Ruhiger Raum ${UX_TOKEN}`)
+    await seedConfig(resourceId, {
+      // Stored in a JSONB-scrambled order on purpose: the grid must not let the
+      // database's key order shuffle the week.
+      friday: [480, 1020],
+      monday: [480, 1020],
+      tuesday: [480, 1020],
+      wednesday: [480, 1020],
+      thursday: [480, 1020],
+      saturday: [540, 780],
+    })
+
+    let response = await getConfigs(`?filter=${UX_TOKEN}Gruppenraum`)
+    assert.equal(response.status, 200)
+    let text = await response.text()
+
+    assert.ok(
+      text.includes('Mo\u2013Fr 08:00\u201317:00'),
+      'identical weekdays must be grouped into one range',
+    )
+    assert.ok(text.includes('Sa 09:00\u201313:00'), 'a differing Saturday must stay separate')
+    assert.ok(
+      text.includes('6 Tage \u00b7 49 Std./Woche'),
+      'the cell meta line must report the day count and weekly hours',
+    )
+    assert.ok(
+      text.includes('Zeige 1\u20131 von 1'),
+      'the footer must report the filtered total, not only the page range',
+    )
+  })
+
+  it('matches the search against the resource description as well as its name', async () => {
+    let resourceId = await seedResource(
+      `${UX_TOKEN}Malraum`,
+      `Kreativbereich mit Staffelei ${UX_TOKEN}`,
+    )
+    await seedConfig(resourceId, { monday: [540, 660] })
+
+    let byDescription = await getConfigs('?filter=Staffelei')
+    assert.equal(byDescription.status, 200)
+    assert.ok((await byDescription.text()).includes('Kreativbereich mit Staffelei'))
+
+    let byName = await getConfigs(`?filter=${UX_TOKEN}Malraum`)
+    assert.ok((await byName.text()).includes('Kreativbereich mit Staffelei'))
+  })
+
+  it('disables resources that already have a configuration in the create panel', async () => {
+    let configuredId = await seedResource(`${UX_TOKEN}Belegt`, 'Schon konfiguriert')
+    await seedConfig(configuredId, { monday: [480, 1020] })
+    await seedResource(`${UX_TOKEN}Frei`, 'Noch ohne Konfiguration')
+
+    let response = await getConfigs('?creating=true')
+    assert.equal(response.status, 200)
+    let text = await response.text()
+
+    assert.ok(
+      text.includes('\u2014 bereits konfiguriert'),
+      'a configured resource must say why it cannot be picked',
+    )
+    assert.match(
+      text,
+      new RegExp(`<option value="${configuredId}"[^>]*disabled`),
+      'a configured resource must be disabled, not merely labelled',
+    )
+    assert.ok(
+      text.includes('Ressource auswählen'),
+      'the placeholder option must still exist while a free resource exists',
+    )
+  })
+
+  it('names the weekday whose range is inverted and marks that row', async () => {
+    let resourceId = await seedResource(`${UX_TOKEN}Zeiten`, 'Zeiten prüfen')
+
+    let body = new URLSearchParams({
+      resource_id: String(resourceId),
+      monday_enabled: '1',
+      monday_start: '600',
+      monday_end: '300',
+      _csrf: adminCsrfToken,
+    })
+    let response = await router.fetch(CONFIGS_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: adminCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    })
+
+    assert.equal(response.status, 400)
+    let text = await response.text()
+    assert.ok(
+      text.includes('Montag: Das Ende muss nach dem Beginn liegen.'),
+      'the error must name the offending weekday',
+    )
+    assert.ok(
+      text.includes('id="oc-c-monday-error"'),
+      'the day row must carry the error element the selects describe',
+    )
+    assert.ok(
+      text.includes('aria-describedby="oc-c-monday-error"'),
+      'the day selects must be linked to their error',
+    )
+    assert.equal(
+      (await pool.query('SELECT 1 FROM offering_configs WHERE resource_id = $1', [resourceId])).rows
+        .length,
+      0,
+      'a partially invalid week must not be saved',
+    )
+  })
+
+  it('renders the form-level error inside the panel, not in the grid column', async () => {
+    let resourceId = await seedResource(`${UX_TOKEN}KeinTag`, 'Ohne Wochentag')
+
+    let body = new URLSearchParams({
+      resource_id: String(resourceId),
+      _csrf: adminCsrfToken,
+    })
+    let response = await router.fetch(CONFIGS_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: adminCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    })
+
+    assert.equal(response.status, 400)
+    let text = await response.text()
+    assert.ok(text.includes('Mindestens ein Tag muss einen Zeitraum haben'))
+    assert.ok(
+      text.includes('data-form-error'),
+      'the banner must be focusable for FormErrorFocus, next to the form',
+    )
+  })
+
+  it('offers every day with an accessible label for start and end', async () => {
+    let resourceId = await seedResource(`${UX_TOKEN}Barrierefrei`, 'Label prüfen')
+    let configId = await seedConfig(resourceId, { wednesday: [540, 1020] })
+
+    let response = await router.fetch(`${CONFIGS_URL}/${configId}`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+
+    for (let [day, label] of [
+      ['monday', 'Montag'],
+      ['wednesday', 'Mittwoch'],
+      ['sunday', 'Sonntag'],
+    ] as const) {
+      assert.ok(
+        text.includes(`aria-label="${label} Beginn"`),
+        `${day} start select must be labelled`,
+      )
+      assert.ok(text.includes(`aria-label="${label} Ende"`), `${day} end select must be labelled`)
+    }
   })
 })

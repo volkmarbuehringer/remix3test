@@ -76,6 +76,7 @@ const OFFERING_CONFIG_FORM_KEYS_LIST = [
 
 interface OfferingConfigPageData {
   rows: OfferingConfigRow[]
+  total: number
   offset: number
   hasMore: boolean
   prevOffset: number
@@ -111,7 +112,7 @@ async function loadOfferingConfigPageData(
   let effectivePageSize = getPageSize(context.session, OFFERING_CONFIGS_PAGE_SIZE, pageKey)
   let pageSizeOverride = getPageSizeOverride(context.session, pageKey)
   let offset = overrides?.offset ?? parseOffsetParam(context.url.searchParams.get('offset'))
-  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter'))?.trim() || undefined
 
   let { column, direction } = overrides?.sortColumn
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
@@ -121,8 +122,6 @@ async function loadOfferingConfigPageData(
         defaultDirection: 'asc',
       })
 
-  let totalRows = await countOfferingConfigs(context.db, { filter })
-
   let listOpts: ListOfferingConfigsOpts = {
     offset,
     pageSize: effectivePageSize + 1,
@@ -131,7 +130,13 @@ async function loadOfferingConfigPageData(
   }
   if (filter) listOpts.filter = filter
 
-  let rows = await listOfferingConfigs(context.db, listOpts)
+  let [totalRows, rows] = await Promise.all([
+    countOfferingConfigs(context.db, { filter }),
+    listOfferingConfigs(context.db, listOpts),
+  ])
+  // The total drives the footer ("Zeige 1-15 von 42") and the page count. It
+  // uses the same predicate as the page query, so a filter cannot report a
+  // total that disagrees with the rows.
   let hasMore = offset + effectivePageSize < totalRows
 
   let editingParam =
@@ -148,6 +153,7 @@ async function loadOfferingConfigPageData(
 
   return {
     rows,
+    total: totalRows,
     offset,
     hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
@@ -175,6 +181,7 @@ function renderOfferingConfigPage(
     context.render,
     <AdminOfferingConfigsPage
       rows={data.rows}
+      total={data.total}
       offset={data.offset}
       hasMore={data.hasMore}
       prevOffset={data.prevOffset}
@@ -245,100 +252,173 @@ const OFFERING_CONFIG_DAY_KEYS = [
   'sunday',
 ] as const
 
-function rulesFromParsed(parsed: Record<string, string>): Record<string, [number, number]> {
-  let rules: Record<string, [number, number]> = {}
-  for (let day of OFFERING_CONFIG_DAY_KEYS) {
-    let enabled = parsed[`${day}_enabled`]
-    if (enabled !== '1') continue
-    let start = parsed[`${day}_start`]
-    let end = parsed[`${day}_end`]
-    if (start && end) {
-      let startMin = Number(start)
-      let endMin = Number(end)
-      if (
-        Number.isFinite(startMin) &&
-        Number.isFinite(endMin) &&
-        startMin >= 0 &&
-        endMin <= 1440 &&
-        startMin < endMin
-      ) {
-        rules[day] = [startMin, endMin]
-      }
-    }
-  }
-  return rules
+/** German day names for validation messages; the panels label the rows with these. */
+const OFFERING_CONFIG_DAY_LABELS: Record<string, string> = {
+  monday: 'Montag',
+  tuesday: 'Dienstag',
+  wednesday: 'Mittwoch',
+  thursday: 'Donnerstag',
+  friday: 'Freitag',
+  saturday: 'Samstag',
+  sunday: 'Sonntag',
 }
 
-interface CreateValidationSuccess {
+interface RulesValidation {
+  rules: Record<string, [number, number]>
+  /** Per-day message keyed by the day name, so the panel can mark that row. */
+  dayErrors: Record<string, string>
+}
+
+/**
+ * Turns the submitted day fields into the stored rules map and reports what is
+ * wrong with every enabled day.
+ *
+ * The previous version quietly dropped a day whose range was inverted or out of
+ * bounds, then failed the whole form with "Mindestens ein Tag muss einen
+ * Zeitraum haben" — a message that names no field and is false when other days
+ * are valid. Day problems are now attributable to their row, and a form with
+ * one invalid day is rejected instead of saving a silently partial week.
+ */
+function validateRules(parsed: Record<string, string>): RulesValidation {
+  let rules: Record<string, [number, number]> = {}
+  let dayErrors: Record<string, string> = {}
+  for (let day of OFFERING_CONFIG_DAY_KEYS) {
+    if (parsed[`${day}_enabled`] !== '1') continue
+    let label = OFFERING_CONFIG_DAY_LABELS[day] ?? day
+    let rawStart = parsed[`${day}_start`]
+    let rawEnd = parsed[`${day}_end`]
+    if (!rawStart || !rawEnd) {
+      dayErrors[day] = `${label}: Bitte Beginn und Ende wählen.`
+      continue
+    }
+    let start = Number(rawStart)
+    let end = Number(rawEnd)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end > 1440) {
+      dayErrors[day] = `${label}: Ungültige Zeit.`
+      continue
+    }
+    if (start >= end) {
+      dayErrors[day] = `${label}: Das Ende muss nach dem Beginn liegen.`
+      continue
+    }
+    rules[day] = [start, end]
+  }
+  return { rules, dayErrors }
+}
+
+interface OfferingConfigValidationIssue {
+  message: string
+  path?: readonly unknown[] | undefined
+  code?: string
+}
+
+interface OfferingConfigValidationSuccess {
   ok: true
   parsed: Record<string, string>
   resourceId: number
   rules: Record<string, [number, number]>
+  /** Submitted field values, so a constraint-violation re-render keeps them. */
+  formValues: Record<string, string>
 }
 
-interface CreateValidationFailure {
+interface OfferingConfigValidationFailure {
   ok: false
   status: number
   formValues: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
-  issues?:
-    | readonly { message: string; path?: readonly unknown[] | undefined; code?: string }[]
-    | undefined
+  issues: readonly OfferingConfigValidationIssue[]
 }
 
-type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure
+type OfferingConfigValidation = OfferingConfigValidationSuccess | OfferingConfigValidationFailure
 
-async function validateCreate(
+/**
+ * One validator for the create and update actions: schema, resource
+ * existence/duplicate checks, and the weekly rules.
+ *
+ * Both actions used to repeat those checks inline, which let their German
+ * messages, their status codes and their agent-mode issue paths drift apart.
+ * Field-level problems are returned as `fieldErrors` (so the panel can mark the
+ * control and link it with aria-describedby); only form-level problems become a
+ * banner. `issues` always carries the agent-mode shape (X-Agent-Thread).
+ */
+async function validateOfferingConfig(
   db: AppContext['db'],
   schema: typeof offeringConfigSchema,
   formData: FormData,
-): Promise<CreateValidationResult> {
+  opts: { excludeId?: number | undefined } = {},
+): Promise<OfferingConfigValidation> {
+  let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
   let result = s.parseSafe(schema, formData)
   if (!result.success) {
     return {
       ok: false,
       status: 400,
-      formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+      formValues,
       fieldErrors: issuesToFieldErrors(result.issues),
       issues: result.issues,
     }
   }
 
   let parsed = result.value
-  let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
 
   let resourceId = Number(parsed.resource_id)
   if (!resourceId || !Number.isFinite(resourceId)) {
-    return { ok: false, status: 400, formValues, formError: 'Ressource ist erforderlich' }
+    let message = 'Ressource ist erforderlich'
+    return {
+      ok: false,
+      status: 400,
+      formValues,
+      fieldErrors: { resource_id: message },
+      issues: [{ message, path: ['resource_id'] }],
+    }
   }
 
   let resource = await db.findOne(resources, { where: { id: resourceId } })
   if (!resource) {
-    return { ok: false, status: 404, formValues, formError: 'Ressource nicht gefunden' }
+    let message = 'Ressource nicht gefunden'
+    return {
+      ok: false,
+      status: 404,
+      formValues,
+      fieldErrors: { resource_id: message },
+      issues: [{ message, path: ['resource_id'] }],
+    }
   }
 
   let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
-  if (existing) {
+  if (existing && Number(existing.id) !== opts.excludeId) {
+    let message = 'Diese Ressource hat bereits eine Konfiguration'
     return {
       ok: false,
       status: 400,
       formValues,
-      formError: 'Diese Ressource hat bereits eine Konfiguration',
+      fieldErrors: { resource_id: message },
+      issues: [{ message, path: ['resource_id'] }],
     }
   }
 
-  let rules = rulesFromParsed(parsed)
+  let { rules, dayErrors } = validateRules(parsed)
+  let dayErrorEntries = Object.entries(dayErrors)
+  let dayIssues = dayErrorEntries.map(([day, message]) => ({ message, path: [day] }))
+
   if (Object.keys(rules).length === 0) {
+    let formError = 'Mindestens ein Tag muss einen Zeitraum haben'
     return {
       ok: false,
       status: 400,
       formValues,
-      formError: 'Mindestens ein Tag muss einen Zeitraum haben',
+      ...(dayErrorEntries.length > 0 ? { fieldErrors: dayErrors } : {}),
+      formError,
+      issues: [...dayIssues, { message: formError, path: ['rules'] }],
     }
   }
 
-  return { ok: true, parsed, resourceId, rules }
+  if (dayErrorEntries.length > 0) {
+    return { ok: false, status: 400, formValues, fieldErrors: dayErrors, issues: dayIssues }
+  }
+
+  return { ok: true, parsed, resourceId, rules, formValues }
 }
 
 export default createController(routes.verwaltung.offeringConfigs, {
@@ -376,13 +456,10 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let threadId = context.request.headers.get('X-Agent-Thread')
       if (threadId) {
-        let validation = await validateCreate(db, offeringConfigSchema, formData)
+        let validation = await validateOfferingConfig(db, offeringConfigSchema, formData)
         if (!validation.ok) {
-          let issues = validation.issues
-            ? validation.issues
-            : [{ message: validation.formError!, path: ['resource_id'] as const }]
           return context.json(
-            { status: 'validation_error', issues, threadId },
+            { status: 'validation_error', issues: validation.issues, threadId },
             { status: validation.status },
           )
         }
@@ -436,7 +513,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let gridValues = gridStateFromFormData(formData)
 
-      let validation = await validateCreate(db, offeringConfigSchema, formData)
+      let validation = await validateOfferingConfig(db, offeringConfigSchema, formData)
 
       if (!validation.ok) {
         let data = await loadOfferingConfigPageData(context, {
@@ -446,6 +523,9 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formError: validation.formError,
           ...gridStateOverrides(gridValues),
         })
+        // A validation failure is a client error (guide 09): the panel fragment
+        // is rendered at 400 so the frame still swaps it in with the inline
+        // errors. Only the agent JSON response uses the validator's status.
         return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
@@ -470,7 +550,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             )
           let data = await loadOfferingConfigPageData(context, {
             creating: true,
-            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+            formValues: validation.formValues,
             formError: 'Ressource wurde gelöscht',
             ...gridStateOverrides(gridValues),
           })
@@ -515,69 +595,26 @@ export default createController(routes.verwaltung.offeringConfigs, {
         return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
-      let result = s.parseSafe(offeringConfigSchema, formData)
+      // The panel is the only caller, so a rejected edit must re-render that
+      // same panel with inline errors — a redirect would drop the user's input.
+      // Update keeps 400 for a vanished resource (the row itself still exists);
+      // only create answers 404 for it, matching its agent-mode contract.
+      let validation = await validateOfferingConfig(db, offeringConfigSchema, formData, {
+        excludeId: id,
+      })
 
-      if (!result.success) {
-        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-        let fieldErrors = issuesToFieldErrors(result.issues)
+      if (!validation.ok) {
         let data = await loadOfferingConfigPageData(context, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
-          formValues,
-          fieldErrors,
+          formValues: validation.formValues,
+          fieldErrors: validation.fieldErrors,
+          formError: validation.formError,
           ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
-      let parsed = result.value
-
-      let resourceId = Number(parsed.resource_id)
-      if (!resourceId || !Number.isFinite(resourceId)) {
-        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-        let data = await loadOfferingConfigPageData(context, {
-          editRow: toOfferingConfigRow(target as Record<string, unknown>),
-          formValues,
-          fieldErrors: { resource_id: 'Ressource ist erforderlich' },
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingConfigPage(context, data, { status: 400 })
-      }
-
-      let resource = await db.findOne(resources, { where: { id: resourceId } })
-      if (!resource) {
-        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-        let data = await loadOfferingConfigPageData(context, {
-          editRow: toOfferingConfigRow(target as Record<string, unknown>),
-          formValues,
-          formError: 'Ressource nicht gefunden',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingConfigPage(context, data, { status: 400 })
-      }
-
-      let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
-      if (existing && Number(existing.id) !== id) {
-        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-        let data = await loadOfferingConfigPageData(context, {
-          editRow: toOfferingConfigRow(target as Record<string, unknown>),
-          formValues,
-          formError: 'Diese Ressource hat bereits eine Konfiguration',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingConfigPage(context, data, { status: 400 })
-      }
-
-      let rules = rulesFromParsed(parsed)
-      if (Object.keys(rules).length === 0) {
-        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-        let data = await loadOfferingConfigPageData(context, {
-          editRow: toOfferingConfigRow(target as Record<string, unknown>),
-          formValues,
-          formError: 'Mindestens ein Tag muss einen Zeitraum haben',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingConfigPage(context, data, { status: 400 })
-      }
+      let { parsed, resourceId, rules } = validation
 
       try {
         await db.updateMany(
@@ -594,7 +631,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             )
           let data = await loadOfferingConfigPageData(context, {
             editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+            formValues: validation.formValues,
             formError: 'Ressource wurde gelöscht',
             ...gridStateOverrides(gridValues),
           })

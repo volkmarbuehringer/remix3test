@@ -18,6 +18,13 @@ export interface OfferingConfigResourceOption {
   id: number
   name: string
   description: string
+  /**
+   * True when the resource already owns a configuration. A resource can hold
+   * exactly one row (the controller rejects a duplicate), so the panels use
+   * this to disable options the user cannot pick instead of letting them
+   * submit into a "bereits konfiguriert" error.
+   */
+  has_config: boolean
 }
 
 const offeringConfigWireSchema = z.object({
@@ -95,20 +102,39 @@ export interface ListOfferingConfigsOpts {
   filter?: string
 }
 
+/** Longest search value that still narrows anything; longer input is clamped. */
+const FILTER_MAX_LENGTH = 200
+
+/**
+ * Builds the shared WHERE clause for the grid and its total count.
+ *
+ * The toolbar advertises a resource search, and the grid shows both the
+ * resource name and its description, so a single pattern is matched against
+ * both: an admin who knows the room by its description ("Nebenraum", "Beamer")
+ * should find its configuration without learning the name first. LIKE
+ * wildcards are escaped so `_` / `%` are literal characters, and the value is
+ * trimmed and clamped (a 200+ char substring makes the query pointless).
+ */
+function resourceFilterClause(filter: string | undefined): {
+  where: string
+  params: unknown[]
+} {
+  let value = filter?.trim()
+  if (!value) return { where: '', params: [] }
+  let clamped = value.length > FILTER_MAX_LENGTH ? value.slice(0, FILTER_MAX_LENGTH) : value
+  let pattern = `%${clamped.replace(/[%_\\]/g, '\\$&')}%`
+  return { where: ' WHERE (r.name ILIKE $1 OR r.description ILIKE $1)', params: [pattern] }
+}
+
 export async function countOfferingConfigs(
   db: Database,
   opts: { filter?: string | undefined },
 ): Promise<number> {
+  let { where, params } = resourceFilterClause(opts.filter)
   let query = `
     SELECT COUNT(*) AS count FROM offering_configs oc
-    JOIN resources r ON r.id = oc.resource_id
+    JOIN resources r ON r.id = oc.resource_id${where}
   `
-  let params: unknown[] = []
-  if (opts.filter && opts.filter.length <= 200) {
-    let esc = opts.filter.slice(0, 200).replace(/[%_\\]/g, '\\$&')
-    query += ' WHERE r.name ILIKE $1'
-    params.push(`%${esc}%`)
-  }
   let rows = await queryRows(db, rawSql(query, params), z.object({ count: int8Aggregate }))
   return rows[0]?.count ?? 0
 }
@@ -119,18 +145,13 @@ export async function listOfferingConfigs(
 ): Promise<OfferingConfigRow[]> {
   let { offset, pageSize, column, direction, filter } = opts
 
+  let { where, params } = resourceFilterClause(filter)
   let query = `
     SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description,
            oc.rules, oc.created_at, oc.updated_at
     FROM offering_configs oc
-    JOIN resources r ON r.id = oc.resource_id
+    JOIN resources r ON r.id = oc.resource_id${where}
   `
-  let params: unknown[] = []
-  if (filter && filter.length <= 200) {
-    let esc = filter.slice(0, 200).replace(/[%_\\]/g, '\\$&')
-    query += ' WHERE r.name ILIKE $1'
-    params.push(`%${esc}%`)
-  }
 
   let orderCol = OFFERING_CONFIGS_ORDER_BY_COLUMNS[column] ?? 'oc.id'
   let orderDir = compileOrderByDirection(direction)
@@ -157,12 +178,26 @@ export async function getOfferingConfig(
   return row ? toOfferingConfigRow(row as Record<string, unknown>) : undefined
 }
 
+/**
+ * Every resource plus whether it already has a configuration. The create panel
+ * offers only the unconfigured ones; the edit panel additionally allows the row
+ * being edited. `name` may be empty for legacy rows (the column is NOT NULL but
+ * historically allowed ''), so the panels fall back to the description.
+ */
 export async function listOfferingConfigResources(
   db: Database,
 ): Promise<OfferingConfigResourceOption[]> {
   return await queryRows(
     db,
-    sql`SELECT id, name, description FROM resources ORDER BY name ASC`,
-    z.object({ id: z.number(), name: z.string(), description: z.string() }),
+    sql`SELECT r.id, r.name, r.description, (oc.id IS NOT NULL) AS has_config
+        FROM resources r
+        LEFT JOIN offering_configs oc ON oc.resource_id = r.id
+        ORDER BY r.name ASC, r.id ASC`,
+    z.object({
+      id: z.number(),
+      name: z.string(),
+      description: z.string(),
+      has_config: z.boolean(),
+    }),
   )
 }

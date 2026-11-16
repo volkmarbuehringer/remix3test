@@ -47,6 +47,7 @@ let editRow = found ? toListRow(found) : null
 Adjacent gotchas this fixes in the same stroke:
 - `TableRow<typeof table>` needs the **table value only in a type position**, so import it `import type { table }`; `@typescript-eslint/consistent-type-imports` (and `verbatimModuleSyntax`) errors otherwise.
 - Keep guards inside the adapter (`Array.isArray` + per-element `typeof` checks for json arrays) — it's the boundary, so it's the one place to be defensive.
+- **A JSONB object does not preserve insertion/key order.** PostgreSQL stores `jsonb` object keys sorted by length then byte value, so a weekday map written as `{monday, tuesday, …, sunday}` is read back as `{friday, monday, sunday, tuesday, saturday, thursday, wednesday}`. Iterating `Object.entries(rules)` therefore renders a shuffled week. The adapter must normalise to a fixed order (a canonical key list), never trust the object's key order. Measured on `/verwaltung/offering-configs` (rules jsonb) and fixed by `summarizeWeek()` in `app/ui/admin-offering-configs-page.tsx`.
 - With `exactOptionalPropertyTypes`, build optional fields conditionally (`...(cond ? { done: x } : {})`) rather than assigning `undefined`.
 - If the table declares bigint via a repo `bigint()` helper cast (`c.bigint() as unknown as ColumnBuilder<number>`), timestamps are already `number`; a raw `c.bigint()` yields `unknown` and needs narrowing too.
 
