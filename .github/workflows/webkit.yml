@@ -1,4 +1,4 @@
-# Nightly Safari-engine coverage.
+# Manual Safari-engine coverage.
 #
 # The default CI run stays on Chromium + Firefox. This job is opt-in through
 # the env-gated `webkit` project in playwright.config.ts and the test:webkit
@@ -8,12 +8,15 @@
 # floor remains Safari/iOS 18.2+. Run it manually from the Actions tab (or
 # `gh workflow run webkit.yml`) after changing frame traversal, scroll
 # restoration, view transitions, or Playwright.
+#
+# No schedule: the nightly run never got a single browser-test file started in
+# the runner (0/69 files, then the runner's 90 s no-progress timeout), and the
+# workflow is disabled in the repository's Actions settings. Re-enable it and
+# prove one green manual run before adding an automatic trigger back.
 name: WebKit
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * *'
 
 permissions:
   contents: read
