@@ -1,4 +1,4 @@
-import { clientEntry, type FormSubmissionEvent, type Handle } from 'remix/component'
+import { clientEntry, type Handle, type NavigationEvent } from 'remix/component'
 
 /**
  * Quiet period after the last keystroke before the grid reloads. Long enough
@@ -33,9 +33,10 @@ interface FilterAutoSubmitProps {
  *
  * Listeners are delegated from `document` because the form is replaced on every
  * frame navigation; `handle.signal` removes them when the entry disconnects.
- * The submission itself is observed through `rmx:submission`, which carries the
- * owning form and is only dispatched for enhanced submissions, while
- * `reloadStart` is used only when no link/form initiated the reload.
+ * The navigation itself is observed through `rmx:navigation`, which bubbles
+ * from the submitter and carries the owning form; it is dispatched only for
+ * accepted enhanced navigations, while `reloadStart` is used only when no
+ * link/form initiated the reload.
  */
 export const FilterAutoSubmit = clientEntry(
   import.meta.url + '#FilterAutoSubmit',
@@ -123,14 +124,18 @@ export const FilterAutoSubmit = clientEntry(
         { signal: handle.signal },
       )
 
-      // A submission intercepted by the frame runtime fires `rmx:submission`
-      // on the actual submitter. Use it to remember the field state for the
-      // reload this form starts; an unrelated frame reload must not touch it.
+      // A submission intercepted by the frame runtime fires `rmx:navigation`
+      // on the actual submitter, bubbling through the owning form. Use it to
+      // remember the field state for the reload this form starts; an unrelated
+      // frame reload must not touch it.
       document.addEventListener(
-        'rmx:submission',
+        'rmx:navigation',
         (event) => {
-          let submission = event as FormSubmissionEvent
-          if (!submission.form.matches(handle.props.formSelector)) return
+          let navigation = event as NavigationEvent
+          let source = navigation.element
+          if (!(source instanceof HTMLFormElement) || !source.matches(handle.props.formSelector)) {
+            return
+          }
           let input = currentInput()
           if (!input) return
           lastSubmitted = input.value

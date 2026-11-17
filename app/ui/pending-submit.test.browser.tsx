@@ -16,7 +16,7 @@ type PendingProps = {
 // ---------------------------------------------------------------------------
 // PendingSubmitButton — pending feedback for its own form submission.
 //
-// The entry listens for `rmx:submission` on its button, so the test dispatches
+// The entry listens for `rmx:navigation` on its button, so the test dispatches
 // that event on the rendered button with a controllable `finished` promise.
 // Unlike a frame-level `reloadStart`/`reloadComplete` pair, this must ignore
 // unrelated frame reloads and a superseded submission must not clear a newer
@@ -76,7 +76,7 @@ function pendingSubmission() {
 }
 
 function dispatchSubmission(button: HTMLButtonElement, finished: Promise<AbortSignal>): void {
-  button.dispatchEvent(Object.assign(new Event('rmx:submission', { bubbles: true }), { finished }))
+  button.dispatchEvent(Object.assign(new Event('rmx:navigation', { bubbles: true }), { finished }))
 }
 
 async function flush(): Promise<void> {

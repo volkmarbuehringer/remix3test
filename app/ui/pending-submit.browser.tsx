@@ -22,10 +22,10 @@ interface PendingSubmitButtonProps {
  * feedback").
  *
  * Swaps the label while its own form submission is pending. It listens for
- * `rmx:submission`, which targets the actual submitter and carries the
- * submission's `finished` promise, instead of the frame's reload events: an
- * unrelated frame reload must not change this button, and a superseded
- * submission finishes aborted without a `reloadComplete` (#12183).
+ * `rmx:navigation` (#12306), which targets the actual submitter and carries
+ * the navigation's `finished` promise, instead of the frame's reload events:
+ * an unrelated frame reload must not change this button, and a superseded
+ * submission finishes aborted without a `reloadComplete`.
  *
  * The button stays enabled, as the guide requires, so the visitor can submit
  * again. The next submission aborts the earlier handler's signal and a newer
@@ -45,7 +45,7 @@ export const PendingSubmitButton = clientEntry(
           type="submit"
           mix={[
             button({ tone: 'primary' }),
-            on('rmx:submission', async (event, signal) => {
+            on('rmx:navigation', async (event, signal) => {
               pending = true
               void handle.update()
               try {

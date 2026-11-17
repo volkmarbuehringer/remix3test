@@ -285,4 +285,4 @@ await page
 
 See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-14 against preview release `v0.20261113.215858-main-848e2fbe` / source `848e2fbe`: `hydrateContainer` is at `src/runtime/frame.ts:2076`, the `createSubFrames(container.childNodes, context, options)` call at `:2110`, and `scheduleHydrationMarker(...)` at `:2112` (definition `:2124`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**Validated:** 2026-10-04 and re-checked 2026-11-17 against preview release `v0.20261116.224445-main-a5cc1ea2` / source `a5cc1ea2`: `hydrateContainer` is at `src/runtime/frame.ts:2076`, the `createSubFrames(container.childNodes, context, options)` call at `:2110`, and `scheduleHydrationMarker(...)` at `:2112` (definition `:2124`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

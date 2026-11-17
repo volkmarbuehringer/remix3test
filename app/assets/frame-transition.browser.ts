@@ -42,15 +42,13 @@ const ADMIN_LISTS_PATH = routes.admin.lists.index.href()
 
 /** True when this frame update swaps the admin lists grid ⇄ edit/create panel. */
 export function shouldAnimateAdminListsPanel(
-  options: Pick<ResolveFrameOptions, 'target' | 'transition'> | undefined,
+  options: Pick<ResolveFrameOptions, 'target' | 'navigationType' | 'from'> | undefined,
   to: string,
 ): boolean {
-  let transition = options?.transition
-  if (!transition) return false
-  if (transition.navigationType === 'reload') return false
-  if (options?.target !== frames.adminContent) return false
+  if (!options?.navigationType || options.navigationType === 'reload') return false
+  if (options.target !== frames.adminContent) return false
 
-  let from = transition.from?.url
+  let from = options.from?.url
   if (!from) return false
   if (!isAdminListsUrl(from) || !isAdminListsUrl(to)) return false
 
@@ -66,7 +64,7 @@ export function createAdminListsPanelCommit(
   options?: ResolveFrameOptions,
 ): FrameCommit | undefined {
   if (options?.target !== frames.adminContent) return undefined
-  if (!options.transition || options.transition.navigationType === 'reload') return undefined
+  if (!options.navigationType || options.navigationType === 'reload') return undefined
 
   return async (commitFrame, { to, signal }) => {
     if (!shouldAnimateAdminListsPanel(options, to)) {

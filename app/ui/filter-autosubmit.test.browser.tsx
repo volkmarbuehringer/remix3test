@@ -101,7 +101,7 @@ function replaceInputWithServerValue(value: string): void {
 /** Simulate the frame runtime's event for a submission of the fixture form. */
 function dispatchFormSubmission(): void {
   mounted!.form.dispatchEvent(
-    Object.assign(new Event('rmx:submission', { bubbles: true }), { form: mounted!.form }),
+    Object.assign(new Event('rmx:navigation', { bubbles: true }), { element: mounted!.form }),
   )
 }
 
@@ -195,7 +195,7 @@ describe('FilterAutoSubmit', () => {
     mounted!.input.focus()
 
     // `frame.reload()` has no initiating link or form, so it keeps the
-    // field-focused behavior even though `rmx:submission` never fires.
+    // field-focused behavior even though `rmx:navigation` never fires.
     type('alphabeta')
     mounted!.frame.dispatchEvent(new Event('reloadStart'))
     replaceInputWithServerValue('alpha')

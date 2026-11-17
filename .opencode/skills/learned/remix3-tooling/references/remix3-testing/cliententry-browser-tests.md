@@ -2,8 +2,8 @@
 
 **Source:** consolidated from `remix3-cliententry-browser-test-stubs`, the document-scoped full-page pattern (session 2026-10-04), and the frame-event synthetic-handle pattern.
 **Extracted:** 2026-09-13 … 2026-10-04
-**Revalidated:** 2026-11-14 against preview release `v0.20261113.215858-main-848e2fbe` / source `848e2fbe` (`@remix-run/test` 1.1.0 property/accessor mocks; `remix/component/test` `render`/`act`/`cleanup`; #12183 submission events).
-**Context:** Four shapes of `*.test.browser.tsx` coverage for a `clientEntry`: geometry/media-driven side effects, full-page document-scoped enhancers, frame-event state machines (`reloadStart`/`reloadComplete`), and submission-event state machines (`rmx:submission` + `event.finished`). The vendor guide `node_modules/remix/guides/13-testing.md` owns the generic `render`/`act`/`cleanup` API; this reference is the app delta.
+**Revalidated:** 2026-11-17 against preview release `v0.20261116.224445-main-a5cc1ea2` / source `a5cc1ea2` (`@remix-run/test` 1.1.0 property/accessor mocks; `remix/component/test` `render`/`act`/`cleanup`; #12306 navigation events, renamed from #12183's submission event).
+**Context:** Four shapes of `*.test.browser.tsx` coverage for a `clientEntry`: geometry/media-driven side effects, full-page document-scoped enhancers, frame-event state machines (`reloadStart`/`reloadComplete`), and navigation-event state machines (`rmx:navigation` + `event.finished`). The vendor guide `node_modules/remix/guides/13-testing.md` owns the generic `render`/`act`/`cleanup` API; this reference is the app delta.
 
 ## 1. Geometry and media stubs
 
@@ -123,9 +123,9 @@ mounted.frame.dispatchEvent(new Event('reloadComplete'))
 assert.ok(mounted.result.container.querySelector('#lists-title'))
 ```
 
-## 3b. Submission events: controllable `finished` promise
+## 3b. Navigation events: controllable `finished` promise
 
-`PendingSubmitButton` no longer listens to frame `reloadStart`/`reloadComplete`. It uses `on('rmx:submission', …)` and `event.finished` (#12183), so no synthetic handle is needed: the event is dispatched on the rendered submit button, and the test controls the completion promise directly.
+`PendingSubmitButton` no longer listens to frame `reloadStart`/`reloadComplete`. It uses `on('rmx:navigation', …)` and `event.finished` (#12306, renamed from `rmx:submission` at #12183), so no synthetic handle is needed: for a form submission the event is dispatched on the rendered submit button (the submitter) and bubbles through the owning form, and the test controls the completion promise directly.
 
 ```tsx
 function pendingSubmission() {
@@ -140,7 +140,7 @@ function pendingSubmission() {
 
 function submit(button: HTMLButtonElement, finished: Promise<AbortSignal>) {
   button.dispatchEvent(
-    Object.assign(new Event('rmx:submission', { bubbles: true }), { finished }),
+    Object.assign(new Event('rmx:navigation', { bubbles: true }), { finished }),
   )
 }
 ```
@@ -160,7 +160,7 @@ function submit(button: HTMLButtonElement, finished: Promise<AbortSignal>) {
 - **Reset the hash in `beforeEach`, not after.** Anchor clicks and `history.replaceState` mutate the iframe URL, and the next `init()` reads it.
 - **Synthesise only what the frame-event factory touches at construction.** With `initialState` supplied the entry takes its initial branch and never reads `document.getElementById('lists-initial-state')` on mount; `reloadComplete` does, so add the marker to `document.body` (and remove it in `afterEach`) before firing that event.
 - **The synthetic handle needs `frame`, `props`, `signal`, `update`.** `handle.update()` must re-render through `result.root.render(...)`; `handle.signal` must be a real `AbortSignal` because the factory passes it to native `addEventListener` (Bun rejects the SSR stub). Abort it in `afterEach`.
-- **`rmx:submission` tests dispatch on the button.** Keep the synthetic `Handle` for entries that genuinely consume frame events; do not route submission-scoped pending tests through `frame`.
+- **`rmx:navigation` tests dispatch on the button.** Keep the synthetic `Handle` for entries that genuinely consume frame events; do not route submission-scoped pending tests through `frame`. The event also fires for links, programmatic navigation, and Back/Forward, so a document-level listener must check `navigation.element` (the owning form) before treating it as a submission.
 - **Stub `queueTask` when the exercised path opens a picker/dialog.** On the minimal synthetic handle it is `undefined`, so the click handler throws *after* setting dialog state: the dialog appears empty, and the search request that would fill it never runs. Add `queueTask: (task) => task()` or queue/drain it.
 - **Hold the mutation response to test frame-navigation races.** Return a manually resolved promise from the `fetch` stub, dispatch `reloadStart`, swap in a different marker, dispatch `reloadComplete`, then resolve. Assert the new rows remain and the stale action is surfaced as cancelled.
 - **This bypasses hydration.** Assert the entry's own render output, and keep one e2e for the real navigation wiring.
@@ -172,5 +172,5 @@ function submit(button: HTMLButtonElement, finished: Promise<AbortSignal>) {
 - A `*.test.browser.tsx` must assert a `clientEntry` side effect driven by `getBoundingClientRect`, `scrollHeight`/`clientHeight`, `matchMedia`, or `scrollTo`/`scrollIntoView`.
 - A `*.test.browser.tsx` targets a full-page `clientEntry` that queries `document`/`window`; browser tests pass alone but fail together, or a test sees an unexpected active tab/panel.
 - A `*.test.browser.tsx` must drive `reloadStart`/`reloadComplete` (loading/pending state, pre-swap flush, post-swap re-read), and `render(<Entry/>)` gives no frame handle.
-- A `*.test.browser.tsx` must assert pending/optimistic UI driven by `rmx:submission`, and the test needs to control success, failure, or supersession via `event.finished`.
+- A `*.test.browser.tsx` must assert pending/optimistic UI driven by `rmx:navigation`, and the test needs to control success, failure, or supersession via `event.finished`.
 - You are adding regression coverage for a geometry-driven or responsive branch and need a matching positive case.

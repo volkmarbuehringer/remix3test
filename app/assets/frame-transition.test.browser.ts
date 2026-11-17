@@ -35,7 +35,7 @@ type ViewTransitionDocument = Document & {
   startViewTransition?: (update: () => void | Promise<void>) => ViewTransitionLike
 }
 
-type FrameTransition = NonNullable<ResolveFrameOptions['transition']>
+type FrameTransition = Pick<ResolveFrameOptions, 'navigationType' | 'from'>
 
 let restoreViewTransition: (() => void) | null = null
 let restoreMatchMedia: (() => void) | null = null
@@ -98,8 +98,8 @@ function frameTransition(from: string, navigationType: FrameTransition['navigati
   return { from: { url: from }, navigationType } as FrameTransition
 }
 
-function listsOptions(transition: FrameTransition): ResolveFrameOptions {
-  return { target: frames.adminContent, transition }
+function listsOptions(navigation: FrameTransition): ResolveFrameOptions {
+  return { target: frames.adminContent, ...navigation }
 }
 
 function commitContext(to: string, signal = new AbortController().signal): FrameCommitContext {
@@ -204,7 +204,7 @@ describe('shouldAnimateAdminListsPanel', () => {
   it('requires the admin-content target, a navigation transition, and the lists route', () => {
     assert.equal(
       shouldAnimateAdminListsPanel(
-        { target: frames.listsContent, transition: frameTransition(grid) },
+        { target: frames.listsContent, ...frameTransition(grid) },
         editor,
       ),
       false,
@@ -227,7 +227,7 @@ describe('createAdminListsPanelCommit', () => {
     assert.equal(
       createAdminListsPanelCommit({
         target: frames.listsContent,
-        transition: frameTransition('/'),
+        ...frameTransition('/'),
       }),
       undefined,
     )
