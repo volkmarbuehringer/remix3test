@@ -25,10 +25,11 @@ migrates the old `github:` and
 ## Current release-asset flow (2026-11-04+)
 
 Every push to `remix` `main` publishes a release in `remix-run/previews`,
-tagged `v0.<date>.<counter>-main-<source-sha-8>` (main builds use counter
-`0`). The assets are one tarball per package (`remix.tgz`, `ui.tgz`,
-`component.tgz`, …) plus `remix.url`; each tarball rewrites its `@remix-run/*`
-dependencies to the same release's asset URLs. The update script:
+tagged `v0.0.<date>-main-<source-sha-8>` since #12319 (older pins use
+`v0.<date>.<counter>-main-<sha>`; main builds used counter `0`). The assets are
+one tarball per package (`remix.tgz`, `ui.tgz`, `component.tgz`, …) plus
+`remix.url`; each tarball rewrites its `@remix-run/*` dependencies to the same
+release's asset URLs. The update script:
 
 1. `git ls-remote` the `remix` `main` tip for reporting.
 2. Read `https://api.github.com/repos/remix-run/previews/releases/latest`; PR

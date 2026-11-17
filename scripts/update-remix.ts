@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
+import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
 import { refreshPinDocs } from './remix-pin-docs.ts'
 
 // ---------------------------------------------------------------------------
@@ -10,9 +11,9 @@ import { refreshPinDocs } from './remix-pin-docs.ts'
 //
 // Since #12174, upstream no longer pushes preview builds to a `preview/main`
 // branch. Every push to `main` publishes a GitHub release in
-// `remix-run/previews`, tagged `v0.<date>.<counter>-main-<source-sha-8>` (main
-// builds use counter `0`), with one tarball asset per package (`remix.tgz`,
-// `ui.tgz`, ...). Each tarball rewrites
+// `remix-run/previews`, tagged `v0.0.<date>-main-<source-sha-8>` since #12319
+// (older builds use `v0.<date>.<counter>-main-<sha>`), with one tarball asset
+// per package (`remix.tgz`, `ui.tgz`, ...). Each tarball rewrites
 // its `@remix-run/*` dependencies to the same release's asset URLs, so the
 // lock pins one unified build.
 //
@@ -54,7 +55,6 @@ const NETWORK_FLAGS = [
   '--config.fetch-retry-maxtimeout=60000',
 ]
 const SOURCE_SHA_RE = /^[0-9a-f]{40}$/
-const RELEASE_TAG_RE = /^v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8})$/
 const STORE_VERSION_SEGMENT = /\/v\d+$/
 
 // The two direct dependencies on the preview build. The tarball file names are
@@ -67,8 +67,7 @@ const TARBALL_FILES: Record<(typeof PINNED_PACKAGES)[number], string> = {
 const OLD_SPEC_RE = /^github:remix-run\/remix#preview\/main&path:packages\/([^#&]+)$/
 const LEGACY_TARBALL_SPEC_RE =
   /^https:\/\/raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\/([^/]+)\.tgz$/
-const RELEASE_SPEC_RE =
-  /^https:\/\/github\.com\/remix-run\/previews\/releases\/download\/(v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8}))\/([^/]+)\.tgz$/
+const RELEASE_SPEC_RE = releaseAssetUrlRe('[^/]+')
 
 // pnpm runs a nested `pnpm install` to prepare a git-hosted package. That child
 // does not inherit --store-dir/--cache-dir flags, only the environment, so set
@@ -477,7 +476,7 @@ async function readCurrentPin(kind: Pin['kind'], before: LockState): Promise<Pin
   if (!tag || tags.size !== 1) {
     throw new Error('Could not determine the current preview release from package.json')
   }
-  let sha = RELEASE_TAG_RE.exec(tag)?.[1]
+  let sha = MAIN_RELEASE_TAG_RE.exec(tag)?.[1]
   if (!sha) throw new Error(`Invalid preview release tag in package.json: ${tag}`)
   let info = await githubCommit(sha)
   return { kind, build: tag, source: info?.sha, tag }
@@ -586,7 +585,7 @@ async function listMainReleases(): Promise<PreviewRelease[]> {
       typeof release === 'object' &&
       release !== null &&
       typeof (release as PreviewRelease).tag_name === 'string' &&
-      RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
+      MAIN_RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
   )
 }
 
@@ -597,7 +596,7 @@ async function listMainReleases(): Promise<PreviewRelease[]> {
  */
 async function fetchLatestMainRelease(): Promise<PreviewRelease> {
   let latest = (await fetchJson(`${PREVIEW_API}/releases/latest`)) as Partial<PreviewRelease>
-  if (typeof latest.tag_name === 'string' && RELEASE_TAG_RE.test(latest.tag_name)) {
+  if (typeof latest.tag_name === 'string' && MAIN_RELEASE_TAG_RE.test(latest.tag_name)) {
     return validateRelease(latest as PreviewRelease)
   }
 
@@ -613,7 +612,7 @@ function validateRelease(release: PreviewRelease): PreviewRelease {
     throw new Error(`Preview release ${tag} is still a draft; wait for it to publish`)
   if (!Array.isArray(release.assets)) throw new Error(`Preview release ${tag} has no assets`)
 
-  let sha = RELEASE_TAG_RE.exec(tag)?.[1]
+  let sha = MAIN_RELEASE_TAG_RE.exec(tag)?.[1]
   if (!sha) throw new Error(`Unexpected preview release tag: ${tag}`)
 
   for (let name of PINNED_PACKAGES) {
@@ -792,7 +791,7 @@ async function main(): Promise<void> {
 
   let release = await fetchLatestMainRelease()
   let targetTag = release.tag_name
-  let targetSha = RELEASE_TAG_RE.exec(targetTag)?.[1] ?? ''
+  let targetSha = MAIN_RELEASE_TAG_RE.exec(targetTag)?.[1] ?? ''
   let targetSource = (await githubCommit(targetSha))?.sha ?? targetSha
 
   let mainTip = run('git', ['ls-remote', REMOTE, MAIN_REF], true).split(/\s+/)[0] ?? ''

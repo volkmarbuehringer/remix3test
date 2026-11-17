@@ -2,16 +2,18 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
+import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
 
 // ---------------------------------------------------------------------------
 // Check that the remix preview pin is still installable.
 //
 // Since #12174, upstream publishes each `main` preview build as a GitHub
 // release in `remix-run/previews`, tagged
-// `v0.<date>.<counter>-main-<source-sha-8>` (main builds use counter `0`),
-// with one tarball asset per package. Since #12311 main releases are retained
-// for 30 days (the latest publication is kept indefinitely), so a lockfile
-// pointed at an old release URL installs until it 404s.
+// `v0.0.<date>-main-<source-sha-8>` since #12319 (older builds use
+// `v0.<date>.<counter>-main-<sha>`), with one tarball asset per package. Since
+// #12311 main releases are retained for 30 days (the latest publication is kept
+// indefinitely), so a lockfile pointed at an old release URL installs until it
+// 404s.
 //
 // This check:
 //   1. reads the two release asset URLs from package.json,
@@ -37,9 +39,7 @@ const TARBALL_FILES: Record<(typeof PINNED_PACKAGES)[number], string> = {
   remix: 'remix',
   '@remix-run/ui': 'ui',
 }
-const RELEASE_SPEC_RE =
-  /^https:\/\/github\.com\/remix-run\/previews\/releases\/download\/(v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8}))\/(remix|ui)\.tgz$/
-const RELEASE_TAG_RE = /^v0\.\d{8}\.\d{1,6}-main-([0-9a-f]{8})$/
+const RELEASE_SPEC_RE = releaseAssetUrlRe('(?:remix|ui)')
 const LOCK_RELEASE_REF_RE = /github\.com\/remix-run\/previews\/releases\/download\/([^/]+)\//g
 const LOCK_LEGACY_TARBALL_REF_RE =
   /raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\//g
@@ -365,7 +365,7 @@ async function fetchRelease(tag: string): Promise<PreviewRelease> {
 
 async function fetchLatestMainRelease(): Promise<PreviewRelease | undefined> {
   let latest = (await fetchJson(`${PREVIEW_API}/releases/latest`)) as Partial<PreviewRelease>
-  if (typeof latest.tag_name === 'string' && RELEASE_TAG_RE.test(latest.tag_name)) {
+  if (typeof latest.tag_name === 'string' && MAIN_RELEASE_TAG_RE.test(latest.tag_name)) {
     return latest as PreviewRelease
   }
 
@@ -376,7 +376,7 @@ async function fetchLatestMainRelease(): Promise<PreviewRelease | undefined> {
       typeof release === 'object' &&
       release !== null &&
       typeof (release as PreviewRelease).tag_name === 'string' &&
-      RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
+      MAIN_RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
   )
   return sortReleasesByPublishedAt(releases)[0]
 }

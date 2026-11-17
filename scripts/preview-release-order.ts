@@ -1,8 +1,10 @@
 // Preview release tags are not chronological. Upstream #12311 changed main
-// tags from `v0.<date>.<time>-…` to `v0.<date>.0-main-<sha>`, so a same-day
-// time-of-day tag (for example `v0.20261117.163354-…`) sorts above the newer
-// `.0` tag even though its release published later. Order releases by their
-// publish timestamp instead; the tag counter is not a clock.
+// tags from `v0.<date>.<time>-…` to `v0.<date>.0-main-<sha>`, and #12319 moved
+// the date to the patch (`v0.0.<date>-main-<sha>`), so a same-day time-of-day
+// tag (for example `v0.20261117.163354-…`) sorts above a newer `.0` tag even
+// though its release published later, and the new shape sorts below both.
+// Order releases by their publish timestamp instead; the tag counter is not a
+// clock.
 
 export type PreviewReleaseTimestamps = {
   published_at?: string | null
