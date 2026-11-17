@@ -1,7 +1,7 @@
 # Remix Preview Installs (Preview Releases)
 
 **Extracted:** 2026-10-23
-**Updated:** 2026-11-04 (preview-release assets; the pre-2026-11-04
+**Updated:** 2026-11-17 (preview-release assets and the #12319 tag format; the pre-2026-11-04
 retained-tarball and pre-2026-11-03 `github:…&path:` recipes are in
 [`history/pnpm-git-hosted-installs.md`](history/pnpm-git-hosted-installs.md) and
 `docs/remix-pin-history.md`)

@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires after the frame's active reload settles (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261117.0-main-ab790c88`: `completeLoad` is defined at `:1375` and dispatches at `:1026`; the inherited-reload variant is `completeInheritedReload` at `:1395`, dispatching at `:1114`). Since #12183 (pin `848e2fbe`) `reloadStart` is a `FrameReloadStartEvent` carrying the request details and a `finished` promise. Each direct `frame.reload()` announces its own `reloadStart`; a superseded reload finishes aborted and gets **no** `reloadComplete`, while the active reload completes. Ancestor-inherited reloads continue that active event pair. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:862`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires after the frame's active reload settles (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.0.20261117-main-9cbc5144`: `completeLoad` is defined at `:1375` and dispatches at `:1026`; the inherited-reload variant is `completeInheritedReload` at `:1395`, dispatching at `:1114`). Since #12183 (pin `848e2fbe`) `reloadStart` is a `FrameReloadStartEvent` carrying the request details and a `finished` promise. Each direct `frame.reload()` announces its own `reloadStart`; a superseded reload finishes aborted and gets **no** `reloadComplete`, while the active reload completes. Ancestor-inherited reloads continue that active event pair. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:862`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -277,7 +277,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261117.0-main-ab790c88`: `startLoad` at `:1294` enters `transitionLoad` at `:852`, whose `start` case dispatches the direct event at `:982`; inherited reloads start with `startInheritedReload` at `:1383` and dispatch in the `inherit` case at `:1090`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261117-main-9cbc5144`: `startLoad` at `:1294` enters `transitionLoad` at `:852`, whose `start` case dispatches the direct event at `:982`; inherited reloads start with `startInheritedReload` at `:1383` and dispatch in the `inherit` case at `:1090`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -380,7 +380,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1477-1515` at preview release `ab790c88`). The factory closure
+   (`runtime/reconcile.ts:1517-1555` at source `9cbc5144`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -424,8 +424,8 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
 - `ref()` is driven by the mixin `insert` event (`@remix-run/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:963`, `:1144`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1311`, `:2176`) for mixin-persisted nodes — not for plain hydration.
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:963`, `:1161`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:1351`, `:2216`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 

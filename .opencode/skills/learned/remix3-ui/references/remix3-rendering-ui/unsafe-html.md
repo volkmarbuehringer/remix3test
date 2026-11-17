@@ -21,7 +21,7 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-11-17 against preview release `v0.20261117.0-main-ab790c88` / source `ab790c88` (#12314 folded `core/mix.ts` into `mixins/mixin.ts`; the `reconcile.ts`/`server/stream.ts` anchors are unchanged; previously `848e2fbe`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
+**Re-validated:** 2026-11-17 against preview release `v0.0.20261117-main-9cbc5144` / source `9cbc5144` (#12294 changed only `mountHostNode` after `parseHostProps`, so the `reconcile.ts:369-370`/`:327`/`:337` and `server/stream.ts` anchors are unchanged; #12314 had folded `core/mix.ts` into `mixins/mixin.ts`; previously `848e2fbe`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
 
 Enforcement sites in the installed source:
 
