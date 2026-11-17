@@ -308,7 +308,11 @@ export function Step2(handle: Handle<Step2Props>) {
                 {selectedConfirm || 'Bitte wählen Sie eine Uhrzeit.'}
               </div>
 
-              {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
+              {formError ? (
+                <div mix={formErrorBanner} role="alert">
+                  {formError}
+                </div>
+              ) : null}
 
               <div
                 mix={css({
@@ -387,7 +391,11 @@ export function Step2(handle: Handle<Step2Props>) {
                   </a>
                 </div>
               ) : (
-                <fieldset mix={timeGroup}>
+                <fieldset
+                  mix={timeGroup}
+                  aria-invalid={fieldErrors?.day_start ? true : undefined}
+                  aria-describedby={fieldErrors?.day_start ? 'wiz-day-start-error' : undefined}
+                >
                   <legend mix={timeGroupLegend}>Uhrzeit wählen</legend>
                   <ul
                     mix={css({
@@ -434,7 +442,9 @@ export function Step2(handle: Handle<Step2Props>) {
                 </fieldset>
               )}
               {fieldErrors?.day_start ? (
-                <span mix={inlineErrorStyle}>{fieldErrors.day_start}</span>
+                <span id="wiz-day-start-error" role="alert" mix={inlineErrorStyle}>
+                  {fieldErrors.day_start}
+                </span>
               ) : null}
 
               <div mix={table.fieldGroup}>
@@ -446,11 +456,15 @@ export function Step2(handle: Handle<Step2Props>) {
                   name="title"
                   type="text"
                   placeholder="Titel eingeben..."
+                  aria-invalid={fieldErrors?.title ? true : undefined}
+                  aria-describedby={fieldErrors?.title ? 'wiz-title-error' : undefined}
                   mix={[input.base, input.focus, fieldErrors?.title ? input.error : undefined]}
                   value={formValues?.title ?? ''}
                 />
                 {fieldErrors?.title ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.title}</span>
+                  <span id="wiz-title-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.title}
+                  </span>
                 ) : null}
               </div>
 

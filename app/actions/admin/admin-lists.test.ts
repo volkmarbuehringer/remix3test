@@ -130,6 +130,13 @@ describe('Admin Lists Controller', () => {
         text.includes('data-dirty-form-guard'),
         'edit panel should include the unsaved-changes guard',
       )
+      // Guide 09 §"Use other HTTP methods": the browser submits POST and the
+      // method override selects the PUT route. Pin the rendered override field.
+      assert.ok(
+        text.includes('method="POST"') && text.includes('name="_method" value="PUT"'),
+        'the edit form must submit POST with the _method override',
+      )
+      assert.ok(text.includes('name="_csrf"'), 'the edit form must carry the CSRF token')
     })
 
     it('ignores a non-integer ?editing value instead of failing the query', async () => {

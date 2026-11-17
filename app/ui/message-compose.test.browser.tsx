@@ -23,6 +23,7 @@ let fixture: HTMLFormElement | null = null
 let mount: HTMLElement | null = null
 let cleanup: (() => void) | null = null
 let submitCount = 0
+let lastSubmitter: HTMLElement | null = null
 let testFrame: EventTarget | null = null
 
 /** Captures the test root's frame so a case can close the pending window. */
@@ -44,6 +45,7 @@ function mountForm(): void {
   host.addEventListener('submit', (e) => {
     e.preventDefault()
     submitCount++
+    lastSubmitter = (e as SubmitEvent).submitter
   })
 }
 
@@ -85,6 +87,7 @@ afterEach(() => {
   fixture = null
   mount = null
   submitCount = 0
+  lastSubmitter = null
   testFrame = null
   sessionStorage.removeItem(DRAFT_KEY)
 })
@@ -179,6 +182,11 @@ describe('MessageCompose', () => {
       }),
     )
     assert.equal(submitCount, 1, 'Ctrl+Enter should submit the compose form')
+    assert.equal(
+      lastSubmitter,
+      fixture!.querySelector('button[type="submit"]'),
+      'the shortcut must name the submit button so its pending state (rmx:navigation on the submitter) runs',
+    )
 
     // Close the pending window before testing the other modifier; while a POST
     // is in flight the shortcut is intentionally ignored.

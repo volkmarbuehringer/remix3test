@@ -483,6 +483,7 @@ describe('Settings controller', () => {
         body: new URLSearchParams({
           _action: 'delete-account',
           currentPassword: INITIAL_PASSWORD,
+          confirmDelete: 'on',
           _csrf: session.csrfToken,
         }),
         redirect: 'manual',
@@ -491,6 +492,51 @@ describe('Settings controller', () => {
       assert.equal(response.status, 403)
       let html = await response.text()
       assert.ok(html.includes('Administratoren'), 'should show admin restriction error')
+    })
+
+    it('rejects delete account without the server-side confirmation checkbox', async () => {
+      let deleteUserEmail = `${TEST_PREFIX}delete-no-confirm@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [
+          deleteUserEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Delete No Confirm',
+          'customer',
+          Date.now(),
+        ],
+      )
+
+      let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'delete-account',
+          currentPassword: INITIAL_PASSWORD,
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      // Guide 09: browser constraint validation is feedback only; the action
+      // must re-validate the confirmation before deleting the account.
+      assert.equal(response.status, 400)
+      let html = await response.text()
+      assert.ok(
+        html.includes('Bitte bestätigen Sie die Löschung des Kontos.'),
+        'the missing confirmation should be reported',
+      )
+      assert.ok(
+        html.includes('aria-describedby="delete-account-error"') &&
+          html.includes('id="delete-account-error"'),
+        'the password input must be linked to the delete error (guide 09)',
+      )
+      let userResult = await pool.query('SELECT id FROM users WHERE email = $1', [deleteUserEmail])
+      assert.equal(userResult.rows.length, 1, 'the account must not be deleted')
     })
 
     it('rejects delete account with incorrect password', async () => {
@@ -516,6 +562,7 @@ describe('Settings controller', () => {
         body: new URLSearchParams({
           _action: 'delete-account',
           currentPassword: 'wrong-password',
+          confirmDelete: 'on',
           _csrf: session.csrfToken,
         }),
         redirect: 'manual',
@@ -551,6 +598,7 @@ describe('Settings controller', () => {
         body: new URLSearchParams({
           _action: 'delete-account',
           currentPassword: INITIAL_PASSWORD,
+          confirmDelete: 'on',
           _csrf: session.csrfToken,
         }),
         redirect: 'manual',
@@ -588,6 +636,7 @@ describe('Settings controller', () => {
           body: new URLSearchParams({
             _action: 'delete-account',
             currentPassword: 'wrong-password',
+            confirmDelete: 'on',
             _csrf: session.csrfToken,
           }),
           redirect: 'manual',

@@ -9,9 +9,9 @@ The `parseSafe`-based direct re-render pattern and the schema traps that come wi
 - Using `parseSafe` with declarative schemas
 - The `coerce.number()` empty-select pitfall and Postgres `number` vs URL `string` mismatch
 - Cross-field validation and multi-step wizard state on POST
-- Testing validation failure (400) and success (302)
+- Testing validation failure (400) and mutation success (303)
 
-For admin grid state and the 200-vs-400 grid path, see `admin-grid-state.md`.
+For admin grid state and the 400 grid-error path, see `admin-grid-state.md`.
 
 ## Pattern: direct re-render
 
@@ -241,7 +241,7 @@ In a multi-step wizard, POST has no query params, so `context.url.searchParams` 
 
 ## Testing Form Validation
 
-- Pass `redirect: 'manual'` to `router.fetch`; otherwise the test follows the 302 and cannot assert the 400 response.
+- Pass `redirect: 'manual'` to `router.fetch`; otherwise the test follows the redirect and cannot assert the 400 response.
 - Include `_csrf` in the `URLSearchParams` body for CSRF-protected routes.
-- Assert the 400 status, preserved `value="..."` in the returned HTML, and the localized error text. For success, assert the 302 `Location` header.
+- Assert the 400 status, preserved `value="..."` in the returned HTML, and the localized error text. For a mutation's success, assert the **303** `Location` header (the `redirect()` 302 default stays for GET-only redirects).
 - Reference tests: `app/actions/client/controller.test.ts`.

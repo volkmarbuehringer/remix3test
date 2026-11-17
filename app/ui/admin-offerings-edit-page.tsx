@@ -116,7 +116,11 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
             </div>
 
             <div mix={table.panelBody}>
-              {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
+              {formError ? (
+                <div mix={formErrorBanner} role="alert">
+                  {formError}
+                </div>
+              ) : null}
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
@@ -127,6 +131,8 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-resource"
                   name="resource_id"
                   required
+                  aria-invalid={fieldErrors?.resource_id ? true : undefined}
+                  aria-describedby={fieldErrors?.resource_id ? 'oe-resource-error' : undefined}
                   mix={
                     fieldErrors?.resource_id
                       ? [input.base, input.error, input.focus, table.select]
@@ -144,7 +150,9 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   ))}
                 </select>
                 {fieldErrors?.resource_id ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span>
+                  <span id="oe-resource-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.resource_id}
+                  </span>
                 ) : null}
               </div>
 
@@ -158,6 +166,8 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   name="day"
                   type="date"
                   required
+                  aria-invalid={fieldErrors?.day ? true : undefined}
+                  aria-describedby={fieldErrors?.day ? 'oe-day-error' : undefined}
                   mix={
                     fieldErrors?.day
                       ? [input.base, input.error, input.focus]
@@ -165,7 +175,11 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   }
                   value={resolvedDay}
                 />
-                {fieldErrors?.day ? <span mix={inlineErrorStyle}>{fieldErrors.day}</span> : null}
+                {fieldErrors?.day ? (
+                  <span id="oe-day-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.day}
+                  </span>
+                ) : null}
               </div>
 
               {/* Start time dropdown */}
@@ -177,6 +191,8 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-start"
                   name="start_min"
                   required
+                  aria-invalid={fieldErrors?.start_min ? true : undefined}
+                  aria-describedby={fieldErrors?.start_min ? 'oe-start-error' : undefined}
                   mix={
                     fieldErrors?.start_min
                       ? [input.base, input.error, input.focus, table.select]
@@ -190,7 +206,9 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   ))}
                 </select>
                 {fieldErrors?.start_min ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span>
+                  <span id="oe-start-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.start_min}
+                  </span>
                 ) : null}
               </div>
 
@@ -203,6 +221,8 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-end"
                   name="end_min"
                   required
+                  aria-invalid={fieldErrors?.end_min ? true : undefined}
+                  aria-describedby={fieldErrors?.end_min ? 'oe-end-error' : undefined}
                   mix={
                     fieldErrors?.end_min
                       ? [input.base, input.error, input.focus, table.select]
@@ -216,7 +236,9 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   ))}
                 </select>
                 {fieldErrors?.end_min ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span>
+                  <span id="oe-end-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.end_min}
+                  </span>
                 ) : null}
               </div>
 

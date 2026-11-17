@@ -281,6 +281,12 @@ describe('Admin Offerings Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('Neues Angebot'), 'should re-render the create panel')
       assert.ok(text.includes('not-a-date'), 'should preserve the submitted day value')
+      assert.ok(
+        text.includes('aria-invalid="true"') &&
+          text.includes('aria-describedby="oc-day-error"') &&
+          text.includes('id="oc-day-error"'),
+        'the day control must be linked to its error message (guide 09)',
+      )
     })
 
     it('re-renders the edit form at 400 with preserved values on validation failure', async () => {
@@ -314,6 +320,12 @@ describe('Admin Offerings Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('Angebot bearbeiten'), 'should re-render the edit panel')
       assert.ok(text.includes('not-a-date'), 'should preserve the submitted day value')
+      assert.ok(
+        text.includes('aria-invalid="true"') &&
+          text.includes('aria-describedby="oe-day-error"') &&
+          text.includes('id="oe-day-error"'),
+        'the day control must be linked to its error message (guide 09)',
+      )
     })
 
     it('redirects (PRG) with a flash error for a missing offer on destroy (no JSON 404)', async () => {

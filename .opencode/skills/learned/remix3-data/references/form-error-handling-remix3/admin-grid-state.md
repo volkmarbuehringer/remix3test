@@ -6,7 +6,7 @@ Keeping admin CRUD grid state (sort/filter/pagination) across a failed POST, and
 
 - A shared `loadXxxPageData(context, overrides?)` used by both GET and POST-error renders
 - Hidden inputs and `app/utils/grid-state.ts` helpers
-- `renderGridFormError` and why the grid error path returns **200, not 400**
+- `renderGridFormError` and why the grid error path returns **400** (HTML 4xx fragments still swap into the frame)
 - Page-level vs form-level error banners, and avoiding double display
 - Optional update fields: keeping absence real so a partial submit cannot rewrite the row
 - Unicode escapes in JSX text

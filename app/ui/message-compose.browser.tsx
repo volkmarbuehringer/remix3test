@@ -178,7 +178,14 @@ export const MessageCompose = clientEntry(
                     // POST (duplicate message or a rate-limit error). The form
                     // submit listener below sets the guard synchronously.
                     if (submitting) return
-                    textarea.form?.requestSubmit()
+                    // Pass the submit button: a bare requestSubmit() dispatches
+                    // the submit (and `rmx:navigation`) on the form, so the
+                    // PendingSubmitButton — which listens on its own button —
+                    // would not show "Wird gesendet…" for the advertised shortcut.
+                    textarea.form?.requestSubmit(
+                      textarea.form.querySelector<HTMLButtonElement>('button[type="submit"]') ??
+                        undefined,
+                    )
                   },
                   { signal },
                 )

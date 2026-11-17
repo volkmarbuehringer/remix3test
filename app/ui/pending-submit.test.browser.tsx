@@ -185,6 +185,57 @@ describe('PendingSubmitButton', () => {
     assert.equal(btn.textContent?.trim(), 'Senden')
   })
 
+  it('ignores a navigation started by another element or the owning form', () => {
+    let result = mountEntry({ children: 'Senden' })
+    let btn = submitButton(result)
+    let otherButton = document.createElement('button')
+    otherButton.type = 'submit'
+    let form = document.createElement('form')
+    form.appendChild(otherButton)
+    document.body.appendChild(form)
+
+    try {
+      let finished = pendingSubmission().promise
+      otherButton.dispatchEvent(
+        Object.assign(new Event('rmx:navigation', { bubbles: true }), { finished }),
+      )
+      // The event starts on the form when a programmatic submit has no
+      // submitter; it does not bubble down to this button.
+      form.dispatchEvent(
+        Object.assign(new Event('rmx:navigation', { bubbles: true }), { finished }),
+      )
+      assert.equal(
+        btn.textContent?.trim(),
+        'Senden',
+        'only a navigation starting on this button may change its label',
+      )
+
+      dispatchSubmission(btn, finished)
+      assert.equal(btn.textContent?.trim(), 'Senden…', 'sanity: its own submission still works')
+    } finally {
+      form.remove()
+    }
+  })
+
+  it('clears pending state when the navigation resolves aborted (cancellation)', async () => {
+    let result = mountEntry({ children: 'Senden' })
+    let btn = submitButton(result)
+    let submission = pendingSubmission()
+
+    dispatchSubmission(btn, submission.promise)
+    assert.equal(btn.textContent?.trim(), 'Senden…')
+
+    // Guide 09: cancellation resolves finished with an aborted signal and must
+    // clear "Saving…" without entering a failure state.
+    let aborted = new AbortController()
+    aborted.abort()
+    submission.resolve(aborted.signal)
+    await flush()
+
+    assert.equal(btn.disabled, false)
+    assert.equal(btn.textContent?.trim(), 'Senden', 'a cancelled navigation clears pending')
+  })
+
   it('ignores unrelated frame reloads', () => {
     let result = mountEntry({ children: 'Senden' })
     let btn = submitButton(result)

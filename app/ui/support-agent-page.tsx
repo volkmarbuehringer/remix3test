@@ -9,6 +9,7 @@ import { AgentChatShell, ChatComposer, MessageBubble } from './agent-chat/shell.
 import { SupportApprovalForm } from './agent-chat/support-approval-form.tsx'
 import { SupportQuestionForm } from './agent-chat/support-question-form.tsx'
 import { tryGetCsrfToken } from './csrf-token-input.tsx'
+import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 
 const headerStyle = css({
   display: 'flex',
@@ -345,6 +346,8 @@ export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
             textarea={{
               name: 'message',
               rows: 3,
+              required: true,
+              maxLength: MAX_MESSAGE_LENGTH,
               ariaLabel: 'Nachricht an den Support-Agenten',
               placeholder: 'Frage zu Benutzern, Terminen und Systemdaten...',
             }}

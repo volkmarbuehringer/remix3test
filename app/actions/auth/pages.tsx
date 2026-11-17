@@ -27,11 +27,13 @@ type LoginPageProps = {
   error?: string
   errors?: AuthFormErrors
   returnTo?: string | undefined
+  /** Submitted email, preserved on a failed sign-in (guide 09). */
+  values?: { email?: string | undefined } | undefined
 }
 
 export function LoginPage(handle: Handle<LoginPageProps>) {
   return () => {
-    let { error, errors, returnTo } = handle.props
+    let { error, errors, returnTo, values } = handle.props
 
     let formAction = routes.auth.login.action.href()
     if (returnTo) formAction += `?returnTo=${encodeURIComponent(returnTo)}`
@@ -68,6 +70,7 @@ export function LoginPage(handle: Handle<LoginPageProps>) {
                 name="email"
                 required
                 autoComplete="email"
+                defaultValue={values?.email ?? ''}
                 aria-invalid={errors?.email ? true : undefined}
                 aria-describedby={errors?.email ? 'email-error' : undefined}
                 mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
@@ -311,11 +314,13 @@ export function RegisterSentPage(_handle: Handle<{}>) {
 type ForgotPageProps = {
   error?: string
   errors?: AuthFormErrors
+  /** Submitted email, preserved on a failed reset request (guide 09). */
+  values?: { email?: string | undefined } | undefined
 }
 
 export function ForgotPage(handle: Handle<ForgotPageProps>) {
   return () => {
-    let { error, errors } = handle.props
+    let { error, errors, values } = handle.props
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
@@ -345,6 +350,7 @@ export function ForgotPage(handle: Handle<ForgotPageProps>) {
                 name="email"
                 required
                 autoComplete="email"
+                defaultValue={values?.email ?? ''}
                 aria-invalid={errors?.email ? true : undefined}
                 aria-describedby={errors?.email ? 'email-error' : undefined}
                 mix={[input.base, input.focus, errors?.email ? input.error : undefined]}

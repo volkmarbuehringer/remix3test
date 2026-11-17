@@ -122,6 +122,11 @@ describe('Auth Login controller', () => {
       html.includes('Invalid email or password'),
       'should show error message for wrong password',
     )
+    assert.ok(
+      html.includes('value="admin@newapp.com"'),
+      'the submitted email should be preserved in the re-rendered form (guide 09)',
+    )
+    assert.ok(!html.includes('value="wrongpassword"'), 'the password must never be echoed')
   })
 
   it('POST /login with non-existent email returns 401 with error message', async () => {

@@ -117,6 +117,10 @@ export const authLogin = createController(routes.auth.login, {
 
     async action(context) {
       let returnTo = context.url.searchParams.get('returnTo') ?? undefined
+      // Guide 09 "Return validation failures with the form": re-render with the
+      // submitted email so a failed sign-in does not clear the field. The
+      // password is never echoed.
+      let values = { email: readFormFieldValues(['email'], context.formData).email }
 
       let parsed = s.parseSafe(loginSchema, context.formData)
       if (!parsed.success) {
@@ -125,6 +129,7 @@ export const authLogin = createController(routes.auth.login, {
             error="Invalid email or password format."
             errors={issuesToFieldErrors(parsed.issues)}
             returnTo={returnTo}
+            values={values}
           />,
           { status: 400 },
         )
@@ -132,9 +137,12 @@ export const authLogin = createController(routes.auth.login, {
 
       let rateLimit = checkRateLimit(parsed.value.email, connectionIp(context.request))
       if (rateLimit) {
-        return context.render(<LoginPage error={rateLimit.error} returnTo={returnTo} />, {
-          status: 429,
-        })
+        return context.render(
+          <LoginPage error={rateLimit.error} returnTo={returnTo} values={values} />,
+          {
+            status: 429,
+          },
+        )
       }
 
       let user = await verifyCredentials(passwordProvider, context)
@@ -142,7 +150,7 @@ export const authLogin = createController(routes.auth.login, {
       if (user == null) {
         incrementFailedAttempts(parsed.value.email, connectionIp(context.request))
         return context.render(
-          <LoginPage error="Invalid email or password." returnTo={returnTo} />,
+          <LoginPage error="Invalid email or password." returnTo={returnTo} values={values} />,
           { status: 401 },
         )
       }
@@ -322,16 +330,24 @@ export const authForgotten = createController(routes.auth.forgotten, {
   middleware: [],
   actions: {
     index(context) {
+      // PRG destination for a submitted reset request (guide 09 "Redirect after
+      // saving"): a refresh repeats this GET instead of regenerating the token
+      // and re-sending the email.
+      if (context.url.searchParams.get('sent') === '1') {
+        return context.render(<ForgotSentPage />)
+      }
       return context.render(<ForgotPage />)
     },
 
     async action(context) {
+      let values = { email: readFormFieldValues(['email'], context.formData).email }
       let parsed = s.parseSafe(emailSchema, context.formData)
       if (!parsed.success) {
         return context.render(
           <ForgotPage
             error="Bitte geben Sie eine gültige E-Mail-Adresse ein."
             errors={issuesToFieldErrors(parsed.issues)}
+            values={values}
           />,
           { status: 400 },
         )
@@ -341,7 +357,10 @@ export const authForgotten = createController(routes.auth.forgotten, {
 
       if (!forgotLimiter.attempt(normalizedEmail)) {
         return context.render(
-          <ForgotPage error="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+          <ForgotPage
+            error="Zu viele Versuche. Bitte versuchen Sie es später erneut."
+            values={values}
+          />,
           { status: 429 },
         )
       }
@@ -368,7 +387,7 @@ export const authForgotten = createController(routes.auth.forgotten, {
         }
       }
 
-      return context.render(<ForgotSentPage />)
+      return redirect(routes.auth.forgotten.index.href() + '?sent=1', 303)
     },
   },
 })
@@ -490,7 +509,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (session) {
         session.regenerateId(true)
         session.unset('auth')
-        session.flash('reset', 'Password reset successfully! Please log in.')
+        session.flash('success', 'Password reset successfully! Please log in.')
       }
 
       return redirect(routes.auth.login.index.href(), 303)
@@ -577,7 +596,9 @@ export async function verify(context: AppContext) {
 
   let session = context.session
   if (session) {
-    session.flash('verified', 'Email verified successfully! Please log in.')
+    // The login page's FlashBanner reads only the shared keys; a bespoke key
+    // never renders and is dropped by mergeSessionWrites' flash merge.
+    session.flash('success', 'Email verified successfully! Please log in.')
   }
 
   return redirect(routes.auth.login.index.href())

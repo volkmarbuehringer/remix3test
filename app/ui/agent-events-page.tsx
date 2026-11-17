@@ -88,6 +88,7 @@ export function AgentEventsPage(_handle: Handle) {
           textarea={{
             name: 'message',
             rows: 2,
+            required: true,
             placeholder: examplePlaceholder(),
             autoComplete: 'off',
             maxLength: MAX_MESSAGE_LENGTH,

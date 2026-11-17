@@ -92,6 +92,24 @@ export default createController(routes.settings, {
           )
         }
 
+        // Guide 09: the browser's `required` checkbox is feedback only — the
+        // action re-validates the confirmation, so a scripted POST cannot
+        // delete the account without it. Checked before the rate limiter: a
+        // missing confirmation is not a password attempt.
+        if (context.formData.get('confirmDelete') !== 'on') {
+          return context.render(
+            <SettingsView
+              isFrame={isFrame}
+              inline
+              user={user}
+              pageSize={pageSize}
+              activeTab="account"
+              deleteError="Bitte bestätigen Sie die Löschung des Kontos."
+            />,
+            { status: 400 },
+          )
+        }
+
         if (!deleteAccountLimiter.attempt(user.id)) {
           return context.render(
             <SettingsView
@@ -579,7 +597,7 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                 rückgängig gemacht werden. Alle Sitzungen werden beendet.
               </p>
               {deleteError ? (
-                <p role="alert" mix={errorBanner}>
+                <p id="delete-account-error" role="alert" mix={errorBanner}>
                   {deleteError}
                 </p>
               ) : null}
@@ -600,6 +618,8 @@ function SettingsTabs(handle: Handle<SettingsPageProps>) {
                       name="currentPassword"
                       required
                       autoComplete="current-password"
+                      aria-invalid={deleteError ? true : undefined}
+                      aria-describedby={deleteError ? 'delete-account-error' : undefined}
                       mix={[input.base, input.focus]}
                     />
                   </label>

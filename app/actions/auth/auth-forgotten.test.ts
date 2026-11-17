@@ -2,7 +2,7 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
-import { createCsrfSession } from '../../../test/utils.ts'
+import { createCsrfSession, extractCookie } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
 
@@ -33,7 +33,7 @@ describe('Auth Forgot Password controller', () => {
   })
 
   describe('POST /auth/forgotten (action)', () => {
-    it('with valid existing email returns success page', async () => {
+    it('with valid existing email PRGs to the success page', async () => {
       let { cookie, csrfToken } = await createCsrfSession(
         `${BASE}${routes.auth.forgotten.index.href()}`,
       )
@@ -48,8 +48,21 @@ describe('Auth Forgot Password controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 200)
-      let html = await response.text()
+      // Guide 09 §"Redirect after saving": the POST writes the reset token and
+      // sends mail, so it must PRG rather than render success at 200 (a refresh
+      // would otherwise regenerate the token and invalidate the mailed link).
+      assert.equal(response.status, 303)
+      assert.equal(
+        response.headers.get('Location'),
+        routes.auth.forgotten.index.href() + '?sent=1',
+        'should redirect to the GET confirmation page',
+      )
+
+      let follow = await router.fetch(`${BASE}${routes.auth.forgotten.index.href()}?sent=1`, {
+        headers: { Cookie: cookie },
+      })
+      assert.equal(follow.status, 200)
+      let html = await follow.text()
       assert.ok(html.includes('Check your email'), 'should show success message')
       assert.ok(html.includes('sent a password reset link'), 'should mention reset link sent')
     })
@@ -69,10 +82,61 @@ describe('Auth Forgot Password controller', () => {
         redirect: 'manual',
       })
 
-      assert.equal(response.status, 200)
-      let html = await response.text()
+      assert.equal(response.status, 303)
+      assert.equal(
+        response.headers.get('Location'),
+        routes.auth.forgotten.index.href() + '?sent=1',
+        'the enumeration-safe response must look identical',
+      )
+
+      let follow = await router.fetch(`${BASE}${routes.auth.forgotten.index.href()}?sent=1`, {
+        headers: { Cookie: cookie },
+      })
+      let html = await follow.text()
       assert.ok(html.includes('Check your email'), 'should show same success message')
       assert.ok(html.includes('sent a password reset link'), 'should mention reset link sent')
+    })
+
+    it('does not rotate the reset token when the confirmation page is refreshed', async () => {
+      let email = `${TEST_PREFIX}refresh@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [email, 'old-hash', 'Refresh Test User', 'customer', Date.now()],
+      )
+
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
+      let submitted = await router.fetch(`${BASE}${routes.auth.forgotten.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        body: new URLSearchParams({ email, _csrf: csrfToken }),
+        redirect: 'manual',
+      })
+      assert.equal(submitted.status, 303)
+
+      let tokenBefore = await pool.query(
+        'SELECT password_reset_token FROM users WHERE email = $1',
+        [email],
+      )
+      assert.ok(tokenBefore.rows[0].password_reset_token, 'the POST should store a token')
+
+      for (let i = 0; i < 2; i++) {
+        let refresh = await router.fetch(`${BASE}${routes.auth.forgotten.index.href()}?sent=1`, {
+          headers: { Cookie: cookie },
+        })
+        assert.equal(refresh.status, 200)
+      }
+
+      let tokenAfter = await pool.query('SELECT password_reset_token FROM users WHERE email = $1', [
+        email,
+      ])
+      assert.equal(
+        tokenAfter.rows[0].password_reset_token,
+        tokenBefore.rows[0].password_reset_token,
+        'refreshing the GET destination must not re-run the POST',
+      )
     })
 
     it('with invalid email format returns validation error', async () => {
@@ -93,6 +157,10 @@ describe('Auth Forgot Password controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('valid email'), 'should show validation error')
+      assert.ok(
+        html.includes('value="not-an-email"'),
+        'the submitted email should be preserved in the re-rendered form (guide 09)',
+      )
     })
 
     it('rate limits after too many attempts', async () => {
@@ -221,6 +289,27 @@ describe('Auth Forgot Password controller', () => {
         response.headers.get('Location'),
         routes.auth.login.index.href(),
         'should redirect to login',
+      )
+
+      // The flash must survive the redirect on the regenerated session and be
+      // rendered by the login page's FlashBanner (guide 09 §"Redirect after saving").
+      let loginCookie = extractCookie(response)
+      let login = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
+        headers: { Cookie: loginCookie },
+      })
+      assert.equal(login.status, 200)
+      let loginHtml = await login.text()
+      assert.ok(
+        loginHtml.includes('Password reset successfully! Please log in.'),
+        'the login page should render the one-shot reset message',
+      )
+
+      let loginAgain = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
+        headers: { Cookie: loginCookie },
+      })
+      assert.ok(
+        !(await loginAgain.text()).includes('Password reset successfully!'),
+        'the flash must be consumed after one render',
       )
 
       let result = await pool.query(

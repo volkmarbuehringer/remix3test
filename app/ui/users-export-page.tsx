@@ -108,11 +108,13 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
                   name="startDate"
                   type="date"
                   value={p.startDate ?? ''}
+                  aria-invalid={p.fieldErrors?.startDate ? true : undefined}
+                  aria-describedby={p.fieldErrors?.startDate ? 'startDate-error' : undefined}
                   mix={inputStyle}
                   required
                 />
                 {p.fieldErrors?.startDate && (
-                  <div mix={fieldErrorStyle} role="alert">
+                  <div id="startDate-error" mix={fieldErrorStyle} role="alert">
                     {p.fieldErrors.startDate}
                   </div>
                 )}
@@ -126,11 +128,13 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
                   name="endDate"
                   type="date"
                   value={p.endDate ?? ''}
+                  aria-invalid={p.fieldErrors?.endDate ? true : undefined}
+                  aria-describedby={p.fieldErrors?.endDate ? 'endDate-error' : undefined}
                   mix={inputStyle}
                   required
                 />
                 {p.fieldErrors?.endDate && (
-                  <div mix={fieldErrorStyle} role="alert">
+                  <div id="endDate-error" mix={fieldErrorStyle} role="alert">
                     {p.fieldErrors.endDate}
                   </div>
                 )}

@@ -120,6 +120,10 @@ describe('Verwaltung Users Export Controller', () => {
     let html = await response.text()
     assert.ok(html.includes('2024-02-31'), 'submitted value should be preserved')
     assert.ok(html.includes('Startdatum'), 'should show a start-date field error')
+    assert.ok(
+      html.includes('aria-describedby="startDate-error"') && html.includes('id="startDate-error"'),
+      'the start-date input must be linked to its error message (guide 09)',
+    )
   })
 
   it('rejects an end date before the start date (400)', async () => {

@@ -6,7 +6,7 @@ import { table } from './mixins/admin-table.ts'
 interface PendingSubmitButtonProps {
   /** Resting label; the submit button text as rendered in the HTML. */
   children: string
-  /** Label while the containing frame is reloading. Defaults to `children` + "…". */
+  /** Label while this button's own submission is in flight. Defaults to `children` + "…". */
   pendingLabel?: string
   /** Optional glyph shown before the label in both states. */
   icon?: GlyphName

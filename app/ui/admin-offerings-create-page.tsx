@@ -87,7 +87,11 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
             </div>
 
             <div mix={table.panelBody}>
-              {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
+              {formError ? (
+                <div mix={formErrorBanner} role="alert">
+                  {formError}
+                </div>
+              ) : null}
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
@@ -98,6 +102,8 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   id="oc-resource"
                   name="resource_id"
                   required
+                  aria-invalid={fieldErrors?.resource_id ? true : undefined}
+                  aria-describedby={fieldErrors?.resource_id ? 'oc-resource-error' : undefined}
                   mix={
                     fieldErrors?.resource_id
                       ? [input.base, input.error, input.focus, table.select]
@@ -118,7 +124,9 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   ))}
                 </select>
                 {fieldErrors?.resource_id ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span>
+                  <span id="oc-resource-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.resource_id}
+                  </span>
                 ) : null}
               </div>
 
@@ -132,6 +140,8 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   name="day"
                   type="date"
                   required
+                  aria-invalid={fieldErrors?.day ? true : undefined}
+                  aria-describedby={fieldErrors?.day ? 'oc-day-error' : undefined}
                   mix={
                     fieldErrors?.day
                       ? [input.base, input.error, input.focus]
@@ -139,7 +149,11 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   }
                   value={resolvedDay}
                 />
-                {fieldErrors?.day ? <span mix={inlineErrorStyle}>{fieldErrors.day}</span> : null}
+                {fieldErrors?.day ? (
+                  <span id="oc-day-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.day}
+                  </span>
+                ) : null}
               </div>
 
               {/* Start time dropdown */}
@@ -151,6 +165,8 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   id="oc-start"
                   name="start_min"
                   required
+                  aria-invalid={fieldErrors?.start_min ? true : undefined}
+                  aria-describedby={fieldErrors?.start_min ? 'oc-start-error' : undefined}
                   mix={
                     fieldErrors?.start_min
                       ? [input.base, input.error, input.focus, table.select]
@@ -164,7 +180,9 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   ))}
                 </select>
                 {fieldErrors?.start_min ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span>
+                  <span id="oc-start-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.start_min}
+                  </span>
                 ) : null}
               </div>
 
@@ -177,6 +195,8 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   id="oc-end"
                   name="end_min"
                   required
+                  aria-invalid={fieldErrors?.end_min ? true : undefined}
+                  aria-describedby={fieldErrors?.end_min ? 'oc-end-error' : undefined}
                   mix={
                     fieldErrors?.end_min
                       ? [input.base, input.error, input.focus, table.select]
@@ -190,7 +210,9 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   ))}
                 </select>
                 {fieldErrors?.end_min ? (
-                  <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span>
+                  <span id="oc-end-error" role="alert" mix={inlineErrorStyle}>
+                    {fieldErrors.end_min}
+                  </span>
                 ) : null}
               </div>
 
