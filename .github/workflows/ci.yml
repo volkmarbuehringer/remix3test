@@ -4,10 +4,10 @@
 # dependency bump or a broad change. This workflow is intentionally not
 # scheduled and does not run on push.
 #
-# Main preview releases are pruned after ~7 days, so run `pnpm remix:pin:check`
+# Main preview releases are pruned after ~30 days, so run `pnpm remix:pin:check`
 # around a bump: it fails when a pinned asset is gone or the lock resolves a
 # different release, and warns when a newer upstream preview exists or the pin
-# crosses the five-day refresh window.
+# enters the last five days before pruning.
 name: CI
 
 on:
