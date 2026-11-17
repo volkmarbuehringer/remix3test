@@ -2,6 +2,7 @@ import { css, Frame, type Handle } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 
 import { Layout } from './layout.tsx'
+import { FlashFragment } from './flash-fragment.tsx'
 import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
 import { FrameFallback } from './frame-fallback.browser.tsx'
@@ -129,7 +130,8 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
 
     // Frame-fragment requests must not re-render the document shell (or a
     // nested appointmentContent frame): that is the frame-in-frame double load.
-    if (isFrame) return content
+    // FlashFragment keeps the one-shot flash owned by exactly one render path.
+    if (isFrame) return <FlashFragment>{content}</FlashFragment>
 
     return (
       <Layout title="Termine">

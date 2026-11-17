@@ -44,6 +44,7 @@ import {
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
+import { flashError, flashSuccess } from '../../../utils/flash.ts'
 
 const LISTS_PAGE_LIMIT = 10
 
@@ -325,7 +326,7 @@ export default createController(routes.admin.lists, {
         })
       }
 
-      context.session.flash('success', 'Liste erstellt.')
+      flashSuccess(context.session, 'Liste erstellt.')
 
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
@@ -344,13 +345,13 @@ export default createController(routes.admin.lists, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige Listen-ID.')
+        flashError(context.session, 'Ungültige Listen-ID.')
         return redirect(listsGridUrl(formData), 303)
       }
 
       let existing = await findListRow(db, id)
       if (!existing) {
-        context.session.flash('error', 'Liste nicht gefunden.')
+        flashError(context.session, 'Liste nicht gefunden.')
         return redirect(listsGridUrl(formData), 303)
       }
 
@@ -390,7 +391,7 @@ export default createController(routes.admin.lists, {
         })
       }
 
-      context.session.flash('success', 'Liste gespeichert.')
+      flashSuccess(context.session, 'Liste gespeichert.')
 
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
@@ -404,13 +405,13 @@ export default createController(routes.admin.lists, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige Listen-ID.')
+        flashError(context.session, 'Ungültige Listen-ID.')
         return redirect(listsGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(lists, { where: { id } })
       if (!existing) {
-        context.session.flash('error', 'Liste nicht gefunden.')
+        flashError(context.session, 'Liste nicht gefunden.')
         return redirect(listsGridUrl(formData), 303)
       }
 
@@ -420,7 +421,7 @@ export default createController(routes.admin.lists, {
         if (process.env.NODE_ENV !== 'test') {
           context.logger?.('Delete list failed: ' + String(err))
         }
-        context.session.flash('error', 'Liste wird noch verwendet und kann nicht gelöscht werden.')
+        flashError(context.session, 'Liste wird noch verwendet und kann nicht gelöscht werden.')
         return redirect(listsGridUrl(formData), 303)
       }
 
@@ -435,7 +436,7 @@ export default createController(routes.admin.lists, {
         })
       }
 
-      context.session.flash('success', 'Liste gelöscht.')
+      flashSuccess(context.session, 'Liste gelöscht.')
 
       // If the delete emptied the last page, step back to the new last page so
       // the follow-up GET does not land on an empty grid (same contract as the

@@ -43,6 +43,7 @@ import type {
   AppointmentUserOption,
 } from '../../../data/appointments.ts'
 import { createAppointmentsIcs, icsAttachmentResponse } from '../../../utils/appointments-ics.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Appointments
@@ -467,7 +468,7 @@ export default createController(routes.verwaltung.appointments, {
       let updateId = context.params.id
       // The route param is a string; guard before any int4 comparison.
       if (updateId === undefined || parseId(updateId) === undefined) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(appointmentsGridUrl(formData), 303)
       }
       if (auth?.ok) {
@@ -574,7 +575,7 @@ export default createController(routes.verwaltung.appointments, {
         })
 
         if (!updated) {
-          context.session.flash('error', 'Eintrag nicht gefunden.')
+          flashError(context.session, 'Eintrag nicht gefunden.')
           return redirect(appointmentsGridUrl(formData), 303)
         }
 
@@ -618,13 +619,13 @@ export default createController(routes.verwaltung.appointments, {
       if (auth?.ok) {
         let authUserId = (auth.identity as { id: number }).id
         if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
-          context.session.flash('error', 'Bitte warten Sie, bevor Sie einen Termin löschen.')
+          flashError(context.session, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
           return redirect(appointmentsGridUrl(formData), 303)
         }
       }
 
       if (id === undefined || parseId(id) === undefined) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(appointmentsGridUrl(formData), 303)
       }
 
@@ -632,7 +633,7 @@ export default createController(routes.verwaltung.appointments, {
         let deleted = await adminDeleteAppointment(context.db, id)
 
         if (!deleted) {
-          context.session.flash('error', 'Eintrag nicht gefunden.')
+          flashError(context.session, 'Eintrag nicht gefunden.')
           return redirect(appointmentsGridUrl(formData), 303)
         }
 
@@ -648,8 +649,8 @@ export default createController(routes.verwaltung.appointments, {
         }
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          context.session.flash(
-            'error',
+          flashError(
+            context.session,
             'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
           )
           return redirect(appointmentsGridUrl(formData), 303)

@@ -39,6 +39,7 @@ import {
 import { validateThreadId } from '../../../utils/thread-id.ts'
 import { chatlogQuery } from '../../../utils/chatlog-query.ts'
 import type { ChatMessage } from '../../../types/chatlog.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 const CHATLOG_PAGE_SIZE = 10
 
@@ -318,7 +319,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         routes.admin.chatlog.index.href()
 
       if (!id || !validateThreadId(id)) {
-        context.session.flash('error', 'Ungültige Konversation.')
+        flashError(context.session, 'Ungültige Konversation.')
         return redirect(returnTo, 303)
       }
 
@@ -326,21 +327,21 @@ export const adminChatlog = createController(routes.admin.chatlog, {
       try {
         let thread = await loadThreadSummary(id)
         if (!thread) {
-          context.session.flash('error', 'Konversation nicht gefunden.')
+          flashError(context.session, 'Konversation nicht gefunden.')
           return redirect(returnTo, 303)
         }
 
         if (classifyThreadSourceFor(thread.resourceId, userId) !== 'support') {
           if (await isOtherAdminsThread(context.db, thread.resourceId, userId)) {
-            context.session.flash(
-              'error',
+            flashError(
+              context.session,
               'Diese Konversation gehört zu einem anderen Admin und kann nicht übernommen werden.',
             )
             return redirect(returnTo, 303)
           }
           if (await hasActiveChatRunForThread(id)) {
-            context.session.flash(
-              'error',
+            flashError(
+              context.session,
               'Diese Konversation wird gerade verwendet und kann erst nach dem Abschluss übernommen werden.',
             )
             return redirect(returnTo, 303)
@@ -369,7 +370,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         if (process.env.NODE_ENV !== 'test') {
           console.error('[Admin Chatlog] claim failed for ' + id + ': ' + String(error))
         }
-        context.session.flash('error', 'Konversation konnte nicht übernommen werden.')
+        flashError(context.session, 'Konversation konnte nicht übernommen werden.')
         return redirect(returnTo, 303)
       }
     },

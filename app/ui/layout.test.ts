@@ -95,6 +95,11 @@ describe('Layout — flash messages', () => {
       html.includes('Test error banner message'),
       'error flash message should appear in rendered HTML',
     )
+    assert.ok(
+      html.includes('data-flash-tone="error"'),
+      'the error banner is marked for the announcer',
+    )
+    assert.ok(html.includes('role="alert"'), 'the error banner must be announced on insertion')
   })
 
   // -----------------------------------------------------------------------
@@ -117,6 +122,15 @@ describe('Layout — flash messages', () => {
       html.includes('Operation completed successfully'),
       'success flash message should appear in rendered HTML',
     )
+    assert.ok(
+      html.includes('data-flash-tone="success"'),
+      'the success banner is mirrored by the persistent live region',
+    )
+    assert.ok(html.includes('data-flash-banner'), 'the announcer selects the banner marker')
+    assert.ok(
+      html.includes('data-flash-status'),
+      'the document shell must render the persistent flash status region',
+    )
   })
 
   // -----------------------------------------------------------------------
@@ -136,5 +150,6 @@ describe('Layout — flash messages', () => {
     assert.equal(response.status, 200, 'should render the page')
     let html = await response.text()
     assert.ok(html.includes('Listen'), 'normal page content should render')
+    assert.ok(html.includes('data-flash-status'), 'the live region is shell chrome, not flash-only')
   })
 })

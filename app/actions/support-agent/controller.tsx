@@ -39,6 +39,7 @@ import {
 } from '../../ui/support-agent-page.tsx'
 import type { TestAgent } from '../mastra/shared-agent.ts'
 import { fetchChatThreadPreviews, listChatThreadsForResource } from '../../utils/mastra-memory.ts'
+import { flashError } from '../../utils/flash.ts'
 
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
@@ -260,7 +261,7 @@ function nativeGateError(
   context: { session: { flash(key: 'error', value: string): void } },
   message: string,
 ): Response {
-  context.session.flash('error', message)
+  flashError(context.session, message)
   return redirect(routes.admin.supportAgent.index.href(), 303)
 }
 

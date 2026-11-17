@@ -7,7 +7,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { Layout } from './layout.tsx'
 import { FrameShell } from './frame-shell.tsx'
-import { FlashBanner } from './flash-banner.tsx'
+import { FlashFragment } from './flash-fragment.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import type { BaseNavItem } from './nav.ts'
@@ -99,7 +99,9 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
       let { activeItem, fullHeight, blockingFrame = true, children } = handle.props
       let target = currentFrameTarget()
       if (target != null && contentOnlyTargetSet.has(target)) {
-        return children
+        // A page embedded in an agent panel is still a frame response: keep the
+        // one-shot flash owned by the fragment path (no shell is rendered here).
+        return <FlashFragment>{children}</FlashFragment>
       }
       if (isFrameRequest()) {
         return (
@@ -186,11 +188,12 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
                 when the shell is the response root. On a document render the
                 top-level Layout owns it instead (the shell is then inlined in
                 that Layout, either directly on a POST re-render or through the
-                blocking self-relay frame), so render it only for a frame
-                response — see `currentRequestIsInlinedFrame()`. */}
-            {isFrameRequest() ? <FlashBanner compact /> : null}
-            <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
-            {children}
+                blocking self-relay frame), so `FlashFragment` only renders it
+                for a frame response — see `app/ui/flash-fragment.tsx`. */}
+            <FlashFragment>
+              <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
+              {children}
+            </FlashFragment>
           </section>
           <SidebarToggle />
         </div>

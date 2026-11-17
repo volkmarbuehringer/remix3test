@@ -47,6 +47,7 @@ import { hashPassword } from '../../../utils/password-hash.ts'
 import { sendAccountDeletionEmail } from '../../../utils/send-email.ts'
 
 import { getPageSize, getPageSizeOverride, PAGE_SIZE_KEYS } from '../../../utils/get-page-size.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 const USERS_PAGE_SIZE = 15
 
@@ -645,7 +646,7 @@ export default createController(routes.admin.users, {
       let baseUrl = routes.admin.users.index.href()
 
       let fail = (message: string): Response => {
-        context.session.flash('error', message)
+        flashError(context.session, message)
         let qs = params.toString()
         return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }

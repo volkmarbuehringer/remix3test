@@ -47,6 +47,7 @@ import {
   uploadErrorMessages,
 } from '../../../utils/upload-validation.ts'
 import type { AppContext } from '../../../types/context.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 const UPLOAD_ACCEPT = [...ALLOWED_EXTENSIONS].join(',')
 
@@ -101,7 +102,7 @@ export default createController(routes.admin.uploadnew, {
       // redirect so a refresh cannot re-submit the multipart body and store the
       // files twice. The count travels in the URL for the success banner; a
       // partially rejected batch keeps its rejection in the one-shot flash.
-      if (error != null) context.session.flash('error', error)
+      if (error != null) flashError(context.session, error)
       let params = new URLSearchParams({ uploaded: String(storedKeys.length) })
       return redirect(`${routes.admin.uploadnew.index.href()}?${params}`, 303)
     },

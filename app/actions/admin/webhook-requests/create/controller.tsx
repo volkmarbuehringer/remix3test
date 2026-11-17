@@ -13,6 +13,7 @@ import { getAdminIdentity } from '../../../../utils/context.ts'
 import { webhookChannel } from '../../../../utils/sse-events.ts'
 import { renderAdminPage } from '../../../../ui/admin-layout.tsx'
 import { AdminWebhookComposerPage } from '../../../../ui/admin-webhook-composer-page.tsx'
+import { flashSuccess } from '../../../../utils/flash.ts'
 
 export default createController(routes.admin.webhookRequests.create, {
   middleware: [requireAuth(), requireAdmin()],
@@ -75,7 +76,7 @@ export default createController(routes.admin.webhookRequests.create, {
       }
 
       webhookChannel.broadcast('invalidate')
-      context.session.flash('success', 'Webhook erstellt.')
+      flashSuccess(context.session, 'Webhook erstellt.')
 
       // 303 (not the redirect() 302 default) keeps the PRG method-safe, matching
       // the update/resend handlers and the pre-relocation behaviour.

@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from './test-router.ts'
 import { frames, routes } from './routes.ts'
+import { readSessionId, sessionStorage } from './middleware/session.ts'
 import { createAuthCookieWithCsrfForUser } from '../test/utils.ts'
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,38 @@ const frameTargets: Array<{ name: string; url: string }> = [
   { name: 'user-detail-1', url: routes.admin.fragments.userDetail.href({ userId: '1' }) },
 ]
 
+/**
+ * Dual-render fragment paths that own the one-shot PRG flash (the in-frame
+ * redirect destinations, the two list shells, and the appointment grid). A
+ * renderer that forgets to wrap its content in `FlashFragment` returns a
+ * fragment without the message, which the old per-renderer
+ * `<FlashBanner compact />` convention allowed silently.
+ */
+const flashFragmentTargets: Array<{ name: string; url: string }> = [
+  { name: frames.adminContent, url: routes.admin.users.index.href() },
+  { name: frames.listsContent, url: routes.admin.lists.index.href() },
+  { name: frames.listsContent, url: routes.lists.index.href() },
+  { name: frames.settingsPanel, url: routes.settings.index.href() },
+  { name: frames.appointmentsNewContent, url: routes.appointmentsNew.index.href() },
+  { name: frames.appointmentContent, url: routes.appointment.index.href() },
+  // The admin shell's content-only branch (a page embedded in an agent panel).
+  { name: frames.supportAgentPanel, url: routes.admin.users.index.href() },
+  // A Verwaltung page accepts all three content-frame targets.
+  { name: frames.agentEventsPanel, url: routes.verwaltung.offerings.index.href() },
+]
+
+/** A fresh admin cookie whose session already carries a one-shot flash. */
+async function cookieWithFlash(message: string): Promise<string> {
+  let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+  assert.ok(auth?.cookie, 'admin session must be created')
+  let sid = await readSessionId(auth.cookie)
+  assert.ok(sid, 'the admin cookie must carry a session id')
+  let session = await sessionStorage.read(sid)
+  session.flash('success', message)
+  await sessionStorage.save(session)
+  return auth.cookie
+}
+
 describe('frame targets render fragments, not documents', () => {
   it('returns no <html> document shell for any named frame target', async () => {
     let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
@@ -62,6 +95,30 @@ describe('frame targets render fragments, not documents', () => {
 
       let html = await response.text()
       assert.doesNotMatch(html, /<html[\s>]/i, `${name} must not include the document shell`)
+    }
+  })
+
+  it('surfaces a session flash in every fragment render path exactly once', async () => {
+    for (let { name, url } of flashFragmentTargets) {
+      let message = `frame-flash:${name}:${url}`
+      let cookie = await cookieWithFlash(message)
+
+      let response = await router.fetch(new URL(url, 'http://localhost'), {
+        headers: {
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': name,
+          Cookie: cookie,
+        },
+      })
+
+      assert.equal(response.status, 200, `${name} (${url}) should render a fragment`)
+      let html = await response.text()
+      assert.doesNotMatch(html, /<html[\s>]/i, `${name} (${url}) must be a fragment`)
+      assert.equal(
+        html.split(message).length - 1,
+        1,
+        `${name} (${url}) must surface the one-shot flash exactly once`,
+      )
     }
   })
 })

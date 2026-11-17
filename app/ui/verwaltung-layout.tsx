@@ -3,7 +3,7 @@ import { css } from 'remix/component'
 import { currentRequestTargetsFrame } from '../utils/frame-target.ts'
 
 import { Layout } from './layout.tsx'
-import { FlashBanner } from './flash-banner.tsx'
+import { FlashFragment } from './flash-fragment.tsx'
 import { frames } from '../routes.ts'
 import { VerwaltungNav } from './verwaltung-nav.tsx'
 
@@ -53,14 +53,8 @@ export function renderVerwaltungPage(
 
   if (isFrame) {
     // The full-document path shows the PRG flash via Layout; the fragment path
-    // renders it here so a message is surfaced by exactly one of them.
-    return render(
-      <>
-        <FlashBanner compact />
-        {content}
-      </>,
-      init,
-    )
+    // shows it via FlashFragment so a message is surfaced by exactly one of them.
+    return render(<FlashFragment>{content}</FlashFragment>, init)
   }
   if (fullHeight) {
     return render(

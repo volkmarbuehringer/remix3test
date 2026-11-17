@@ -46,6 +46,7 @@ import {
   toOfferingConfigRow,
   OFFERING_CONFIGS_SORTABLE_FIELDS,
 } from '../../../data/offering-configs-queries.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 const OFFERING_CONFIGS_PAGE_SIZE = 15
 
@@ -585,13 +586,13 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       let target = await db.findOne(offeringConfigs, { where: { id } })
       if (!target) {
-        context.session.flash('error', 'Eintrag nicht gefunden.')
+        flashError(context.session, 'Eintrag nicht gefunden.')
         return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
@@ -665,13 +666,13 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { id } })
       if (!existing) {
-        context.session.flash('error', 'Eintrag nicht gefunden.')
+        flashError(context.session, 'Eintrag nicht gefunden.')
         return redirect(offeringConfigsGridUrl(formData), 303)
       }
 
@@ -684,8 +685,8 @@ export default createController(routes.verwaltung.offeringConfigs, {
               'Constraint violation during offering config deletion: ' +
                 JSON.stringify({ code: (error as { code?: string }).code }),
             )
-          context.session.flash(
-            'error',
+          flashError(
+            context.session,
             'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
           )
           return redirect(offeringConfigsGridUrl(formData), 303)

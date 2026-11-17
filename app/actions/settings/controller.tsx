@@ -19,7 +19,7 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { getPageSize, pageSizeFormSchema, PAGE_SIZE_DEFAULT } from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
-import { FlashBanner } from '../../ui/flash-banner.tsx'
+import { FlashFragment } from '../../ui/flash-fragment.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import {
@@ -40,6 +40,7 @@ import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
 import { PageSizeCustomInput, PageSizeSelect } from '../../ui/page-size-control.tsx'
 import { buttonLink } from '../../ui/theme/button.ts'
 import { segmentedButton } from '../../ui/mixins/segmented.ts'
+import { flashSuccess } from '../../utils/flash.ts'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
 
@@ -194,7 +195,7 @@ export default createController(routes.settings, {
           let parsed = s.parseSafe(pageSizeFormSchema, context.formData)
           if (parsed.success) {
             session.set('pageSize', parsed.value.pageSize)
-            session.flash('success', 'Einträge pro Seite gespeichert.')
+            flashSuccess(session, 'Einträge pro Seite gespeichert.')
           }
         }
         return redirect(`${routes.settings.index.href()}?tab=display`, 303)
@@ -294,8 +295,8 @@ export default createController(routes.settings, {
 
       changePasswordLimiter.reset(user.id)
 
-      context.session.flash(
-        'success',
+      flashSuccess(
+        context.session,
         'Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet.',
       )
       return redirect(`${routes.settings.index.href()}?tab=password`, 303)
@@ -352,12 +353,11 @@ function SettingsView(handle: Handle<SettingsViewProps>) {
     if (isFrame) {
       // The page-size PRG redirect follows in-frame (frameRedirects), so the
       // one-shot flash has to render here — the document Layout is not part of
-      // this fragment.
+      // this fragment. FlashFragment keeps the "one owner per response" rule.
       return (
-        <>
-          <FlashBanner compact />
+        <FlashFragment>
           <SettingsTabs {...props} />
-        </>
+        </FlashFragment>
       )
     }
     if (inline) {

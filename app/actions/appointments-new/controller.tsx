@@ -15,7 +15,7 @@ import {
 } from '../../data/appointofferings.ts'
 import { parseDuring } from '../../utils/during.ts'
 import { requireAuth } from '../../middleware/auth.ts'
-import { FlashBanner } from '../../ui/flash-banner.tsx'
+import { FlashFragment } from '../../ui/flash-fragment.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
@@ -47,6 +47,7 @@ import {
   getAppointmentRow,
   deleteAppointmentRecord,
 } from '../../data/appointments.ts'
+import { flashSuccess } from '../../utils/flash.ts'
 
 const CACHE_TTL_MS = 60_000
 let resourcesCache: { data: ResourceOption[]; expiresAt: number } | null = null
@@ -382,14 +383,8 @@ function renderAppointmentsNewPage(
   if (isAppointmentsNewFrameRequest(context)) {
     // The create PRG redirect follows in-frame (frameRedirects), so the
     // one-shot success flash must render in this fragment — the document
-    // Layout is not part of a frame response.
-    return context.render(
-      <>
-        <FlashBanner compact />
-        {page}
-      </>,
-      init,
-    )
+    // Layout is not part of a frame response. FlashFragment owns the rule.
+    return context.render(<FlashFragment>{page}</FlashFragment>, init)
   }
 
   return context.render(<Layout>{page}</Layout>, init)
@@ -564,7 +559,7 @@ export default createController(routes.appointmentsNew, {
 
         appointmentChannel.broadcast('invalidate')
 
-        context.session.flash('success', 'Termin angelegt.')
+        flashSuccess(context.session, 'Termin angelegt.')
 
         let params = gridStateToParams({
           ...gridValues,
@@ -629,7 +624,7 @@ export default createController(routes.appointmentsNew, {
 
       appointmentChannel.broadcast('invalidate')
 
-      context.session.flash('success', 'Termin gelöscht.')
+      flashSuccess(context.session, 'Termin gelöscht.')
 
       let params = gridStateToParams({
         ...gridStateFromFormData(formData),

@@ -31,6 +31,7 @@ import {
   ResetErrorPage,
   VerifyErrorPage,
 } from './pages.tsx'
+import { flashSuccess } from '../../utils/flash.ts'
 
 // ── Login ──
 
@@ -509,7 +510,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (session) {
         session.regenerateId(true)
         session.unset('auth')
-        session.flash('success', 'Password reset successfully! Please log in.')
+        flashSuccess(session, 'Password reset successfully! Please log in.')
       }
 
       return redirect(routes.auth.login.index.href(), 303)
@@ -596,9 +597,10 @@ export async function verify(context: AppContext) {
 
   let session = context.session
   if (session) {
-    // The login page's FlashBanner reads only the shared keys; a bespoke key
-    // never renders and is dropped by mergeSessionWrites' flash merge.
-    session.flash('success', 'Email verified successfully! Please log in.')
+    // `flashSuccess` keeps this on the shared `success` tone the login page's
+    // banner reads; a bespoke key would not render and would be dropped by the
+    // session merge.
+    flashSuccess(session, 'Email verified successfully! Please log in.')
   }
 
   return redirect(routes.auth.login.index.href())

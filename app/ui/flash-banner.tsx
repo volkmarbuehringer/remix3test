@@ -1,39 +1,38 @@
 import { css, type Handle } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
 import { currentRequestIsInlinedFrame } from '../utils/frame-target.ts'
+import { readFlash, type FlashState } from '../utils/flash.ts'
 import { theme } from './theme/theme.ts'
-
-type FlashState = { error?: string; success?: string }
 
 /**
  * Reads the one-shot PRG flash for this response.
  *
- * A flash is surfaced by exactly one layout/component per response: the
- * top-level `Layout` on document renders, or the fragment renderer (sidebar
- * shell, verwaltung fragment branch, settings/appointments-new frame branch)
- * on frame renders. A frame the renderer resolves *inside* another response is
+ * A flash is surfaced by exactly one owner per response: the document `Layout`
+ * on document renders, or `FlashFragment` (`app/ui/flash-fragment.tsx`) on
+ * frame renders. A frame the renderer resolves *inside* another response is
  * part of that document, so the document `Layout` surfaces the flash there and
  * the inlined fragment must not — see `currentRequestIsInlinedFrame()`.
  */
-function readFlash(): FlashState {
-  let flash: FlashState = {}
+function readFlashState(): FlashState {
   try {
-    let session = getContext().session
-    if (!session) return flash
-    let error = session.get('error')
-    if (typeof error === 'string') flash.error = error
-    let success = session.get('success')
-    if (typeof success === 'string') flash.success = success
+    return readFlash(getContext().session)
   } catch {
     /* no session context */
   }
-  return flash
+  return {}
 }
 
 /**
  * Renders the pending flash banner(s). `compact` adds the rounded in-panel
  * treatment used by frame fragments; the document layout uses the plain
  * full-width variant.
+ *
+ * The error banner carries `role="alert"` so it is announced when it is
+ * inserted (a frame swap) or parsed (a PRG document load). The success banner
+ * deliberately has no live role: a `role="status"` node introduced by a frame
+ * swap is a brand-new live region and is not reliably announced. The persistent
+ * `FlashAnnouncer` in the document shell mirrors it into a live region that
+ * existed before the swap — see `app/ui/flash-announcer.browser.tsx`.
  */
 export function FlashBanner(handle: Handle<{ compact?: boolean }>) {
   return () => {
@@ -41,13 +40,31 @@ export function FlashBanner(handle: Handle<{ compact?: boolean }>) {
     // full page load would otherwise render the same one-shot flash twice: once
     // here and once in the document `Layout`. The document owns it.
     if (currentRequestIsInlinedFrame()) return null
-    let { error, success } = readFlash()
+    let { error, success } = readFlashState()
     if (!error && !success) return null
     let compactMix = handle.props.compact ? [compactCss] : []
     return (
       <>
-        {error ? <div mix={[bannerCss, errorCss, ...compactMix]}>{error}</div> : null}
-        {success ? <div mix={[bannerCss, successCss, ...compactMix]}>{success}</div> : null}
+        {error ? (
+          <div
+            data-flash-banner=""
+            data-flash-tone="error"
+            role="alert"
+            aria-atomic="true"
+            mix={[bannerCss, errorCss, ...compactMix]}
+          >
+            {error}
+          </div>
+        ) : null}
+        {success ? (
+          <div
+            data-flash-banner=""
+            data-flash-tone="success"
+            mix={[bannerCss, successCss, ...compactMix]}
+          >
+            {success}
+          </div>
+        ) : null}
       </>
     )
   }

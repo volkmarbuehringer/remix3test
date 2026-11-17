@@ -8,6 +8,7 @@ import {
 import { createActorRequestContext } from '../actions/mastra/actor-context.ts'
 import { pipeStream, sseErrorResponse, sseEvent, sseRunResponse } from './agent-sse.ts'
 import type { GateStore } from './agent-gate-store.ts'
+import { flash, type FlashWriter } from './flash.ts'
 import { createLogger } from './logger.ts'
 
 type StreamEndReason = 'complete' | 'suspended' | 'error' | 'aborted'
@@ -610,7 +611,7 @@ export function isSseRequest(request: Request): boolean {
 }
 
 interface NativeFormContext {
-  session: { flash(key: 'success' | 'error', value: string): void }
+  session: FlashWriter
 }
 
 /**
@@ -622,7 +623,7 @@ export function redirectWithFlash(
   result: { ok: boolean; message: string; redirectTo: string },
 ): Response {
   try {
-    context.session.flash(result.ok ? 'success' : 'error', result.message)
+    flash(context.session, result.ok ? 'success' : 'error', result.message)
   } catch (err) {
     nativeFormLog.error('native form flash failed:', sanitizeLog(String(err)))
   }

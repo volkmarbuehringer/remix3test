@@ -5,6 +5,7 @@ import { theme } from '../ui/theme/theme.ts'
 
 import { Layout } from './layout.tsx'
 import { FrameShell } from './frame-shell.tsx'
+import { FlashFragment } from './flash-fragment.tsx'
 import { NavLink } from './nav-link.tsx'
 import { formatRelativeTimeDE } from '../utils/date-utils.ts'
 import { routes, frames } from '../routes.ts'
@@ -269,7 +270,10 @@ function ShellOrFragment(
           sidebarEntries={sidebarEntries}
           pagination={pagination}
         >
-          {children}
+          {/* The lists editor is its own frame shell, so a PRG that follows
+              in-frame has to surface the flash here; the document path renders
+              through Layout instead. */}
+          <FlashFragment>{children}</FlashFragment>
         </ListsLayout>
       )
     }

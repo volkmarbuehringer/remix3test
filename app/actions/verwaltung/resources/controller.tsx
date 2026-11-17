@@ -33,6 +33,7 @@ import {
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { readAgentPrefill } from '../../../utils/agent-prefill.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Resources
@@ -364,7 +365,7 @@ export default createController(routes.verwaltung.resources, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(resourcesGridUrl(formData), 303)
       }
 
@@ -395,7 +396,7 @@ export default createController(routes.verwaltung.resources, {
         { where: { id } },
       )
       if ((updateResult.affectedRows ?? 0) === 0) {
-        context.session.flash('error', 'Eintrag nicht gefunden.')
+        flashError(context.session, 'Eintrag nicht gefunden.')
         return redirect(resourcesGridUrl(formData), 303)
       }
 
@@ -424,13 +425,13 @@ export default createController(routes.verwaltung.resources, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(resourcesGridUrl(formData), 303)
       }
 
       let existing = await db.findOne(resources, { where: { id } })
       if (!existing) {
-        context.session.flash('error', 'Eintrag nicht gefunden.')
+        flashError(context.session, 'Eintrag nicht gefunden.')
         return redirect(resourcesGridUrl(formData), 303)
       }
 
@@ -443,8 +444,8 @@ export default createController(routes.verwaltung.resources, {
               'Constraint violation during resource deletion: ' +
                 JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }),
             )
-          context.session.flash(
-            'error',
+          flashError(
+            context.session,
             'Ressource wird noch verwendet und kann nicht gelöscht werden',
           )
           return redirect(resourcesGridUrl(formData), 303)

@@ -150,6 +150,7 @@ import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
 import { FilterAutoSubmit } from '../../../ui/filter-autosubmit.browser.tsx'
 import { getQuotaStats, type QuotaStats } from './uploads-quota.ts'
 import type { AppContext } from '../../../types/context.ts'
+import { flashError } from '../../../utils/flash.ts'
 
 const UPLOADS_PAGE_SIZE = 15
 
@@ -517,7 +518,7 @@ export default createController(routes.admin.uploads, {
       // files twice. The new ids travel in the URL so the GET keeps the row
       // highlight and the success banner. A partially rejected batch keeps its
       // rejection in the one-shot flash.
-      if (uploadError != null) context.session.flash('error', uploadError)
+      if (uploadError != null) flashError(context.session, uploadError)
       let params = new URLSearchParams({ uploaded: uploadedIds.join(',') })
       return redirect(`${routes.admin.uploads.index.href()}?${params}`, 303)
     },

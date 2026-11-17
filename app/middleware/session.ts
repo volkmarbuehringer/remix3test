@@ -6,6 +6,7 @@ import { createFsSessionStorage } from 'remix/session-storage/fs'
 import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
 import { envPositiveNumber, envString, isProduction, isTest, requireEnv } from '../config.ts'
+import { FLASH_KEYS } from '../utils/flash.ts'
 import { pruneSessionFiles, resolveSessionDirectory } from '../utils/session-files.ts'
 import { sessionSecrets } from '../utils/session-secrets.ts'
 import { mergeSessionWrites } from '../utils/session-storage-merge.ts'
@@ -51,7 +52,7 @@ export const sessionCookie = createCookie('session', {
 // decorator re-applies this request's keys on the stored session at save time.
 export const sessionStorage = mergeSessionWrites(
   isTest ? createMemorySessionStorage() : createFsSessionStorage(sessionDirectoryPath),
-  { flashKeys: ['success', 'error'] },
+  { flashKeys: FLASH_KEYS },
 )
 
 /**

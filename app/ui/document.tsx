@@ -12,6 +12,7 @@ import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { themeBootstrapScript } from './theme-bootstrap.ts'
 import { viewportBootstrapScript } from './viewport-bootstrap.ts'
+import { FlashAnnouncer } from './flash-announcer.browser.tsx'
 
 interface DocumentProps {
   children?: RemixNode
@@ -180,6 +181,10 @@ export function Document(handle: Handle<DocumentProps>) {
           })}
         >
           <RMX_01_GLYPHS />
+          {/* Persistent live region for the one-shot success flash; it lives
+              outside every frame so a frame swap cannot replace it with a new
+              live region (which screen readers do not announce). */}
+          <FlashAnnouncer />
           {children}
           {(() => {
             let entry = getAssetEntry()

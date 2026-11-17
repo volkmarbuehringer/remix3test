@@ -36,6 +36,7 @@ import {
   gridStateToParams,
 } from '../../../utils/grid-state.ts'
 import type { AppContext } from '../../../types/context.ts'
+import { flashError, flashSuccess } from '../../../utils/flash.ts'
 
 const HERMES_TIMEOUT_MS = 3_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -223,7 +224,7 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
     async update(context) {
       let id = context.params.id
       if (!id || !UUID_RE.test(id)) {
-        context.session.flash('error', 'Ungültige Webhook-ID.')
+        flashError(context.session, 'Ungültige Webhook-ID.')
         return redirectToGrid(context.url)
       }
 
@@ -247,12 +248,12 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
         if (process.env.NODE_ENV !== 'test') {
           console.error('Failed to update webhook request: ' + String(error))
         }
-        context.session.flash('error', 'Fehler beim Speichern.')
+        flashError(context.session, 'Fehler beim Speichern.')
         return redirectToGrid(context.url)
       }
 
       if (!updated) {
-        context.session.flash('error', 'Webhook nicht gefunden.')
+        flashError(context.session, 'Webhook nicht gefunden.')
         return redirectToGrid(context.url)
       }
 
@@ -268,7 +269,7 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
       }
 
       webhookChannel.broadcast('invalidate')
-      context.session.flash('success', 'Webhook gespeichert.')
+      flashSuccess(context.session, 'Webhook gespeichert.')
 
       let params = gridStateToParams(gridStateFromFormData(context.formData))
       params.set('editing', id)
@@ -287,13 +288,13 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
     async resend(context) {
       let id = context.params.id
       if (!id || !UUID_RE.test(id)) {
-        context.session.flash('error', 'Ungültige Webhook-ID.')
+        flashError(context.session, 'Ungültige Webhook-ID.')
         return redirectToGrid(context.url)
       }
 
       let row = await getWebhookRequestPayload(context.db, id)
       if (!row) {
-        context.session.flash('error', 'Webhook nicht gefunden.')
+        flashError(context.session, 'Webhook nicht gefunden.')
         return redirectToGrid(context.url)
       }
 
@@ -333,12 +334,9 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
       webhookChannel.broadcast('invalidate')
 
       if (is2xx(hermesStatusText)) {
-        context.session.flash('success', 'Webhook an Hermes gesendet.')
+        flashSuccess(context.session, 'Webhook an Hermes gesendet.')
       } else {
-        context.session.flash(
-          'error',
-          'Senden an Hermes fehlgeschlagen (' + hermesStatusText + ').',
-        )
+        flashError(context.session, 'Senden an Hermes fehlgeschlagen (' + hermesStatusText + ').')
       }
 
       let params = gridStateToParams(gridStateFromURL(context.url))

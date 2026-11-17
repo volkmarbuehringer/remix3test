@@ -38,6 +38,7 @@ import {
 } from '../../utils/grid-state.ts'
 import { issuesToFieldErrors, readFormFieldValues, trimmedText } from '../../utils/schema-utils.ts'
 import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-grid-error.tsx'
+import { flashError, flashSuccess } from '../../utils/flash.ts'
 
 type Row = Client
 
@@ -398,7 +399,7 @@ export default createController(routes.admin.clients, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige Kunden-ID.')
+        flashError(context.session, 'Ungültige Kunden-ID.')
         return editingRedirect(
           routes.admin.clients.index.href(),
           null,
@@ -412,7 +413,7 @@ export default createController(routes.admin.clients, {
       if (!parsed.success) {
         let existing = (await db.findOne(clients, { where: { id } })) as Row | null
         if (!existing) {
-          context.session.flash('error', 'Kunde nicht gefunden.')
+          flashError(context.session, 'Kunde nicht gefunden.')
           return editingRedirect(
             routes.admin.clients.index.href(),
             null,
@@ -446,7 +447,7 @@ export default createController(routes.admin.clients, {
 
       let result = await db.updateMany(clients, changes, { where: { id } })
       if (result.affectedRows === 0) {
-        context.session.flash('error', 'Kunde nicht gefunden.')
+        flashError(context.session, 'Kunde nicht gefunden.')
         return editingRedirect(
           routes.admin.clients.index.href(),
           null,
@@ -467,7 +468,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
-      context.session.flash('success', 'Kunde gespeichert.')
+      flashSuccess(context.session, 'Kunde gespeichert.')
       return editingRedirect(
         routes.admin.clients.index.href(),
         id,
@@ -484,21 +485,21 @@ export default createController(routes.admin.clients, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        context.session.flash('error', 'Ungültige Kunden-ID.')
+        flashError(context.session, 'Ungültige Kunden-ID.')
         return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
       }
 
       try {
         let deleted = await db.delete(clients, { id })
         if (!deleted) {
-          context.session.flash('error', 'Kunde nicht gefunden.')
+          flashError(context.session, 'Kunde nicht gefunden.')
           return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
         }
       } catch (error) {
         let message = isConstraintViolation(error)
           ? 'Kunde kann nicht gelöscht werden: abhängige Datensätze vorhanden.'
           : 'Löschen fehlgeschlagen. Bitte erneut versuchen.'
-        context.session.flash('error', message)
+        flashError(context.session, message)
         return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
       }
 
@@ -513,7 +514,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
-      context.session.flash('success', 'Kunde gelöscht.')
+      flashSuccess(context.session, 'Kunde gelöscht.')
       return editingRedirect(routes.admin.clients.index.href(), null, redirectState, 303)
     },
 
@@ -526,7 +527,7 @@ export default createController(routes.admin.clients, {
       let baseUrl = routes.admin.clients.index.href()
 
       let fail = (message: string): Response => {
-        context.session.flash('error', message)
+        flashError(context.session, message)
         let qs = params.toString()
         return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }
@@ -556,8 +557,8 @@ export default createController(routes.admin.clients, {
         })
       }
 
-      context.session.flash(
-        'success',
+      flashSuccess(
+        context.session,
         newStatus === 'Active' ? 'Kunde aktiviert.' : 'Kunde deaktiviert.',
       )
       let qs = params.toString()
@@ -624,7 +625,7 @@ export default createController(routes.admin.clients, {
         })
       }
 
-      context.session.flash('success', 'Kunde angelegt.')
+      flashSuccess(context.session, 'Kunde angelegt.')
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))

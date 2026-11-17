@@ -42,6 +42,7 @@ import {
   countPastOfferings,
 } from '../../../data/offerings-queries.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../../../data/offerings-queries.ts'
+import { flashError, flashSuccess } from '../../../utils/flash.ts'
 
 const hd = new Holidays('DE', 'rp')
 
@@ -337,7 +338,7 @@ export default createController(routes.verwaltung.offerings, {
       let formData = context.formData
       let id = context.params.id
       if (id === undefined || parseId(id) === undefined) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(offeringsGridUrl(formData), 303)
       }
 
@@ -406,7 +407,7 @@ export default createController(routes.verwaltung.offerings, {
         })
 
         if (!updated) {
-          context.session.flash('error', 'Eintrag nicht gefunden.')
+          flashError(context.session, 'Eintrag nicht gefunden.')
           return redirect(offeringsGridUrl(formData), 303)
         }
 
@@ -444,7 +445,7 @@ export default createController(routes.verwaltung.offerings, {
       let id = context.params.id
       let formData = context.formData
       if (id === undefined || parseId(id) === undefined) {
-        context.session.flash('error', 'Ungültige ID.')
+        flashError(context.session, 'Ungültige ID.')
         return redirect(offeringsGridUrl(formData), 303)
       }
 
@@ -452,7 +453,7 @@ export default createController(routes.verwaltung.offerings, {
         let deleted = await deleteOffering(context.db, id)
 
         if (!deleted) {
-          context.session.flash('error', 'Eintrag nicht gefunden.')
+          flashError(context.session, 'Eintrag nicht gefunden.')
           return redirect(offeringsGridUrl(formData), 303)
         }
 
@@ -468,8 +469,8 @@ export default createController(routes.verwaltung.offerings, {
         }
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          context.session.flash(
-            'error',
+          flashError(
+            context.session,
             'Der Eintrag kann nicht gelöscht werden, da er noch verwendet wird.',
           )
           return redirect(offeringsGridUrl(formData), 303)
@@ -495,7 +496,7 @@ export default createController(routes.verwaltung.offerings, {
       )
 
       if (!result.success) {
-        context.session.flash('error', result.issues[0]?.message ?? 'Ungültige Anfrage.')
+        flashError(context.session, result.issues[0]?.message ?? 'Ungültige Anfrage.')
         return redirect(offeringsGridUrl(formData), 303)
       }
 
@@ -545,7 +546,7 @@ export default createController(routes.verwaltung.offerings, {
       )
 
       if (!result.success) {
-        context.session.flash('error', result.issues[0]?.message ?? 'Ungültige Anfrage.')
+        flashError(context.session, result.issues[0]?.message ?? 'Ungültige Anfrage.')
         return redirect(offeringsGridUrl(formData), 303)
       }
 
@@ -565,13 +566,13 @@ export default createController(routes.verwaltung.offerings, {
       }
 
       if (allErrors.length > 0) {
-        context.session.flash(
-          'error',
+        flashError(
+          context.session,
           `${totalCreated} erstellt, ${totalSkipped} übersprungen. Fehler: ${allErrors[0]}`,
         )
       } else {
-        context.session.flash(
-          'success',
+        flashSuccess(
+          context.session,
           `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`,
         )
       }
@@ -606,7 +607,7 @@ export default createController(routes.verwaltung.offerings, {
         })
       }
 
-      context.session.flash('success', `${count} vergangene Angebote gelöscht.`)
+      flashSuccess(context.session, `${count} vergangene Angebote gelöscht.`)
       return redirect(offeringsGridUrl(formData), 303)
     },
   },

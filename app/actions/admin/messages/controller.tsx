@@ -34,6 +34,7 @@ import { gridStateFromFormData } from '../../../utils/grid-state.ts'
 import { messagesGridHref } from '../../../utils/messages-grid-url.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
+import { flashSuccess } from '../../../utils/flash.ts'
 
 // The compose form carries the grid state as hidden inputs so a rejected
 // submission can re-render the exact view the admin was looking at.
@@ -316,7 +317,7 @@ export default createController(routes.admin.messages, {
         details: { content_preview: content.slice(0, 100) },
       })
 
-      context.session.flash('success', 'Nachricht gesendet.')
+      flashSuccess(context.session, 'Nachricht gesendet.')
       broadcastInvalidate()
 
       return redirect(messagesGridUrl(formData), 303)
@@ -342,7 +343,7 @@ export default createController(routes.admin.messages, {
         target_id: messageId,
       })
 
-      context.session.flash('success', 'Nachricht gelöscht.')
+      flashSuccess(context.session, 'Nachricht gelöscht.')
       broadcastInvalidate()
 
       // Preserve the current grid state (offset, sort, order, filter) so the
