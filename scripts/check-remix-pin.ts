@@ -1,14 +1,17 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+import { sortReleasesByPublishedAt } from './preview-release-order.ts'
+
 // ---------------------------------------------------------------------------
 // Check that the remix preview pin is still installable.
 //
 // Since #12174, upstream publishes each `main` preview build as a GitHub
 // release in `remix-run/previews`, tagged
-// `v0.<date>.<time>-main-<source-sha-8>`, with one tarball asset per package.
-// Main releases are pruned after roughly seven days (the newest is kept), so a
-// lockfile pointed at an old release URL installs until it suddenly 404s.
+// `v0.<date>.<counter>-main-<source-sha-8>` (main builds use counter `0`),
+// with one tarball asset per package. Since #12311 main releases are retained
+// for 30 days (the latest publication is kept indefinitely), so a lockfile
+// pointed at an old release URL installs until it 404s.
 //
 // This check:
 //   1. reads the two release asset URLs from package.json,
@@ -16,7 +19,8 @@ import * as path from 'node:path'
 //      tag (a half-applied update fails before any network call),
 //   3. HEADs both URLs (404/410 means the pin expired),
 //   4. reads the latest main preview release and warns when the pin is not the
-//      newest release or is older than the five-day refresh window.
+//      newest release or is older than the refresh window (five days before
+//      the retention boundary).
 //
 // It is dependency-free and offline-safe: network/HTTP failures that are not
 // the tarball's own 404 are warnings, not failures. `--strict` upgrades the
@@ -41,8 +45,9 @@ const LOCK_LEGACY_TARBALL_REF_RE =
   /raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\//g
 const LOCK_CODELOAD_REF_RE = /codeload\.github\.com\/remix-run\/remix\/tar\.gz\/([0-9a-f]{40})/g
 const LOCK_PACKAGE_KEY_RE = /^ {2}'(@remix-run\/[^@'\s]+)@([^']+)':$/gm
-const REFRESH_AFTER_DAYS = 5
-const RETENTION_DAYS = 7
+const RETENTION_DAYS = 30
+// Leave five days to react before a non-latest pin reaches the pruning boundary.
+const REFRESH_AFTER_DAYS = RETENTION_DAYS - 5
 const DAY_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 15_000
 const USER_AGENT = 'remix3test-check-remix-pin'
@@ -98,13 +103,13 @@ function usage(): void {
   console.log(`Usage: npm run remix:pin:check -- [options]
 
 Verify the remix preview release assets pinned in package.json still exist and
-are inside the five-day refresh window. Also verifies pnpm-lock.yaml resolves
+are inside the refresh window. Also verifies pnpm-lock.yaml resolves
 every remix ref to the same release. Exits nonzero on lock drift or when the pin
 has expired (HTTP 404/410) so CI catches it before an install fails.
 
 Options:
   --strict   Fail on refresh-window warnings (pin is not the newest main
-             preview or is older than 5 days), not just on 404s
+             preview or is older than the refresh window), not just on 404s
   -h, --help Show this help
 
 Network failures are warnings: the check is safe to run offline.
@@ -337,11 +342,6 @@ function githubHeaders(): Record<string, string> {
   return headers
 }
 
-function previewTagTime(tag: string): number {
-  let match = /^v0\.(\d{8})\.(\d{1,6})-/.exec(tag)
-  return match ? Number(match[1]) * 1_000_000 + Number(match[2]) : 0
-}
-
 async function fetchJson(url: string): Promise<unknown> {
   let response = await fetch(url, {
     headers: githubHeaders(),
@@ -378,7 +378,7 @@ async function fetchLatestMainRelease(): Promise<PreviewRelease | undefined> {
       typeof (release as PreviewRelease).tag_name === 'string' &&
       RELEASE_TAG_RE.test((release as PreviewRelease).tag_name),
   )
-  return releases.toSorted((a, b) => previewTagTime(b.tag_name) - previewTagTime(a.tag_name))[0]
+  return sortReleasesByPublishedAt(releases)[0]
 }
 
 async function checkReleaseWindow(tag: string, strict: boolean): Promise<boolean> {
@@ -442,7 +442,7 @@ async function checkReleaseWindow(tag: string, strict: boolean): Promise<boolean
     warnOrFail(
       strict,
       `${tag} was published ${published} (${ageDays.toFixed(1)} days ago); ` +
-        `main previews are pruned after ~${RETENTION_DAYS} days. ` +
+        `main previews are retained for ~${RETENTION_DAYS} days before pruning. ` +
         'Run: npm run update:remix',
     )
     return strict
@@ -476,7 +476,7 @@ async function main(): Promise<void> {
   if (results.some((result) => result.status === 'expired')) {
     console.error('')
     console.error(`Remix pin expired: ${tag} is no longer served for one or more packages.`)
-    console.error(`Main preview releases are pruned after ~${RETENTION_DAYS} days.`)
+    console.error(`Main preview releases are retained for ~${RETENTION_DAYS} days before pruning.`)
     console.error('Run: npm run update:remix')
     process.exitCode = 1
     return

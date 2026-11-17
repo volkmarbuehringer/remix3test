@@ -25,10 +25,10 @@ migrates the old `github:` and
 ## Current release-asset flow (2026-11-04+)
 
 Every push to `remix` `main` publishes a release in `remix-run/previews`,
-tagged `v0.<date>.<time>-main-<source-sha-8>`. The assets are one tarball per
-package (`remix.tgz`, `ui.tgz`, `component.tgz`, …) plus `remix.url`; each
-tarball rewrites its `@remix-run/*` dependencies to the same release's asset
-URLs. The update script:
+tagged `v0.<date>.<counter>-main-<source-sha-8>` (main builds use counter
+`0`). The assets are one tarball per package (`remix.tgz`, `ui.tgz`,
+`component.tgz`, …) plus `remix.url`; each tarball rewrites its `@remix-run/*`
+dependencies to the same release's asset URLs. The update script:
 
 1. `git ls-remote` the `remix` `main` tip for reporting.
 2. Read `https://api.github.com/repos/remix-run/previews/releases/latest`; PR
@@ -53,10 +53,10 @@ checks. Fix the source, run typecheck/lint/format/tests and the learned-anchor r
 yourself, and write the pin-history entry by hand (see `remix3-tooling` →
 `upstream-dependency-analysis.md` § "Bumping across a breaking change").
 
-**Retention matters.** Main preview releases are pruned after about seven days
-(the newest is kept), so a lockfile that points at an old release tag can 404
-after retention. Refresh the pin before the assets disappear; an expired
-release needs a newer tag and lock update.
+**Retention matters.** Since #12311 main preview releases are retained for 30
+days (the latest publication is kept indefinitely), so a lockfile that points
+at an old release tag can 404 after retention. Refresh the pin before the
+assets disappear; an expired release needs a newer tag and lock update.
 
 Run `npm run remix:pin:check` to verify the pin: it checks that every
 `@remix-run/*` ref in `pnpm-lock.yaml` uses the same release tag as

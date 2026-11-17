@@ -18,13 +18,13 @@ type PinDocsResult = {
 const LEARNED_DIR = path.join('.opencode', 'skills', 'learned')
 const AGENTS_FILE = 'AGENTS.md'
 
-// Lines such as "Since preview build `3273a048` (#12153)" or
-// "Since remix #12203 (pin `0cab1903`)" describe when a behavior landed;
-// bumping the pin must not rewrite that history. The same applies to
-// "Revalidated: … against preview release `…`" headers: they record when a
-// skill was last checked, so a later bump is not a revalidation.
-const HISTORICAL_LINE =
-  /\b(?:Since\s+(?:(?:preview\s+)?(?:build|release)|remix\s+#\d+)|Re-?validated|Validated)\b/i
+// Lines such as "Since preview build `3273a048` (#12153)",
+// "Since #12183 (pin `848e2fbe`)", "since #12290 (preview `5af14d52`)",
+// "Since the `b4a0aa9a` pin …", or "on a pin older than `5af14d52`" describe
+// when a behavior landed; bumping the pin must not rewrite that history. The
+// same applies to "Revalidated: … against preview release `…`" headers: they
+// record when a skill was last checked, so a later bump is not a revalidation.
+const HISTORICAL_LINE = /\b(?:Since|Re-?validated|Validated)\b|\bolder\s+than\b/i
 
 function source8(source: string): string {
   return /^[0-9a-f]{8,}$/i.test(source) ? source.slice(0, 8) : source

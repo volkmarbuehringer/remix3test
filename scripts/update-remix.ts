@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+import { sortReleasesByPublishedAt } from './preview-release-order.ts'
 import { refreshPinDocs } from './remix-pin-docs.ts'
 
 // ---------------------------------------------------------------------------
@@ -9,8 +10,9 @@ import { refreshPinDocs } from './remix-pin-docs.ts'
 //
 // Since #12174, upstream no longer pushes preview builds to a `preview/main`
 // branch. Every push to `main` publishes a GitHub release in
-// `remix-run/previews`, tagged `v0.<date>.<time>-main-<source-sha-8>`, with one
-// tarball asset per package (`remix.tgz`, `ui.tgz`, ...). Each tarball rewrites
+// `remix-run/previews`, tagged `v0.<date>.<counter>-main-<source-sha-8>` (main
+// builds use counter `0`), with one tarball asset per package (`remix.tgz`,
+// `ui.tgz`, ...). Each tarball rewrites
 // its `@remix-run/*` dependencies to the same release's asset URLs, so the
 // lock pins one unified build.
 //
@@ -565,11 +567,6 @@ function short(sha: string): string {
   return sha.slice(0, 10)
 }
 
-function previewTagTime(tag: string): number {
-  let match = /^v0\.(\d{8})\.(\d{1,6})-/.exec(tag)
-  return match ? Number(match[1]) * 1_000_000 + Number(match[2]) : 0
-}
-
 async function fetchJson(url: string): Promise<unknown> {
   let response = await fetch(url, {
     headers: githubHeaders(),
@@ -605,9 +602,7 @@ async function fetchLatestMainRelease(): Promise<PreviewRelease> {
   }
 
   let releases = await listMainReleases()
-  let newest = releases.toSorted(
-    (a, b) => previewTagTime(b.tag_name) - previewTagTime(a.tag_name),
-  )[0]
+  let newest = sortReleasesByPublishedAt(releases)[0]
   if (!newest) throw new Error('No main preview releases found in remix-run/previews')
   return validateRelease(newest)
 }

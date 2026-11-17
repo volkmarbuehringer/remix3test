@@ -46,6 +46,10 @@ describe('refreshPinDocs', () => {
         'Since remix #12203 (pin `aaaaaaaa`) stays put.',
         'Re-validated (2026-11-12): against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
         '**Validated:** re-checked against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
+        'Since the `' + OLD_TAG + '` pin the app delegates.',
+        'Since #12183 (pin `' + OLD_TAG + '`) is history.',
+        'A fix landed since #12290 (preview `' + OLD_TAG + '`).',
+        'Only applies on a pin older than `' + OLD_SOURCE + '`.',
       ].join('\n'),
       'AGENTS.md':
         'The pin is release `' +
@@ -62,6 +66,10 @@ describe('refreshPinDocs', () => {
       learned + ':5',
       learned + ':6',
       learned + ':7',
+      learned + ':8',
+      learned + ':9',
+      learned + ':10',
+      learned + ':11',
     ])
 
     let learnedText = fs.readFileSync(path.join(root, learned), 'utf8')
@@ -90,6 +98,22 @@ describe('refreshPinDocs', () => {
         '**Validated:** re-checked against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
       ),
       'validated header history kept',
+    )
+    assert.ok(
+      learnedText.includes('Since the `' + OLD_TAG + '` pin the app delegates.'),
+      'adoption-time pin kept',
+    )
+    assert.ok(
+      learnedText.includes('Since #12183 (pin `' + OLD_TAG + '`) is history.'),
+      'issue pin kept',
+    )
+    assert.ok(
+      learnedText.includes('A fix landed since #12290 (preview `' + OLD_TAG + '`).'),
+      'mid-sentence preview history kept',
+    )
+    assert.ok(
+      learnedText.includes('Only applies on a pin older than `' + OLD_SOURCE + '`.'),
+      'older-than history kept',
     )
 
     let agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
