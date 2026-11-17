@@ -280,11 +280,16 @@ export function createSupportAgentStreamController(
       })
       ui.setPreviewVisible(true, href)
       if (!historyMode || historyMode !== 'skip') {
-        if (historyMode === 'replace') {
-          window.history.replaceState({}, '', href)
-        } else {
-          window.history.pushState({}, '', href)
-        }
+        // updateUrl (not a raw history write) waits for the frame navigation
+        // and keeps Remix's top-frame source in step with the address bar;
+        // otherwise a later reload fetches the pre-navigation URL (guide 05
+        // §"Client navigation").
+        void updateUrl(href, {
+          ...(historyMode === 'push' ? { history: 'push' as const } : {}),
+          signal,
+        }).catch(() => {
+          /* URL reflection is best-effort; the frame already navigated */
+        })
       }
     } else {
       ui.appendStatusMessage('Fehler: Frame nicht gefunden', true)

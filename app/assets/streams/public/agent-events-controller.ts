@@ -1,3 +1,5 @@
+import { updateUrl } from 'remix/component'
+
 import { readEventStream, fetchSseStream, type SseInit } from './sse-post.ts'
 import { frames } from '../../../routes.ts'
 import {
@@ -49,6 +51,8 @@ interface AgentEventsControllerOptions {
   getPipelineFrame(): AgentEventsFrame | null
   /** Resolves a named frame, or the component's own frame for no target. */
   getFrame(target?: string | null): AgentEventsFrame | null
+  /** Component lifetime signal: a torn-down entry stops its stream and URL updates. */
+  signal: AbortSignal
   /** Resume endpoint for a suspended workflow run. */
   resumeHref: string
   /** Reconnect probe endpoint. */
@@ -74,9 +78,16 @@ export function createAgentEventsStreamController(
   ui: AgentEventsUiDelegate,
   options: AgentEventsControllerOptions,
 ): AgentEventsStreamController {
-  let { getPipelineFrame, getFrame, resumeHref, reconnectHref } = options
+  let { getPipelineFrame, getFrame, signal: lifetimeSignal, resumeHref, reconnectHref } = options
 
   let abortController: AbortController | null = null
+
+  // The entry owns the stream: disposing it must not leave the SSE fetch loop
+  // writing into detached DOM (guide 05 §"Async work and cancellation").
+  if (!lifetimeSignal.aborted) {
+    lifetimeSignal.addEventListener('abort', () => abort(), { once: true })
+  }
+
   let didNavigate = false
   let currentRunId: string | null = null
   let currentWorkflowId: string | null = null
@@ -218,11 +229,16 @@ export function createAgentEventsStreamController(
                 )
                 let historyMode = parsed.history as string | undefined
                 if (!historyMode || historyMode !== 'skip') {
-                  if (historyMode === 'replace') {
-                    window.history.replaceState({}, '', href)
-                  } else {
-                    window.history.pushState({}, '', href)
-                  }
+                  // updateUrl waits for the frame navigation and keeps Remix's
+                  // top-frame source in step with the address bar; raw history
+                  // writes left a later reload fetching the pre-navigation URL
+                  // (guide 05 §"Client navigation").
+                  void updateUrl(href, {
+                    ...(historyMode === 'push' ? { history: 'push' as const } : {}),
+                    signal: lifetimeSignal,
+                  }).catch(() => {
+                    /* URL reflection is best-effort; the frame already navigated */
+                  })
                 }
               }
             } else if (eventType === 'message') {

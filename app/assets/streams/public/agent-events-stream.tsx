@@ -152,6 +152,7 @@ export const AgentEventsStream = clientEntry(
     }
 
     let controller = createAgentEventsStreamController(delegate, {
+      signal: handle.signal,
       getPipelineFrame,
       getFrame: (target) => (target ? (handle.frames.get(target) ?? null) : (handle.frame ?? null)),
       resumeHref: routes.admin.agentEvents.resume.href(),

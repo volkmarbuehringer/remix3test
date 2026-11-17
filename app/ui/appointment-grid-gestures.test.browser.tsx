@@ -689,3 +689,79 @@ describe('Trashcan delete gesture', () => {
     assert.equal(result.changes[0]!.kind, 'deleted')
   })
 })
+
+// -----------------------------------------------------------------------
+// 11. Gesture listener lifetime
+// -----------------------------------------------------------------------
+
+describe('Gesture listener lifetime', () => {
+  let cleanup: (() => void) | undefined
+
+  afterEach(() => {
+    cleanup?.()
+    cleanup = undefined
+    interactionState.active = false
+    removeFixtureData()
+    uninstallFetchCapture()
+  })
+
+  it('unbinds window gesture listeners when the entry is disposed mid-drag', async (t) => {
+    installFetchCapture()
+    removeFixtureData()
+    let result = render(<AppointmentGrid data={createFixtureData()} />)
+    cleanup = result.cleanup
+
+    await t.waitFor(
+      () => {
+        assert.ok(
+          result.container.querySelector('[data-block-id="1"]'),
+          'the appointment grid block',
+        )
+      },
+      { timeout: 3000 },
+    )
+
+    let block = result.container.querySelector<HTMLElement>('[data-block-id="1"]')
+    assert.ok(block, 'appointment block 1 must render')
+    let rect = block.getBoundingClientRect()
+    let startX = rect.left + rect.width / 2
+    let startY = rect.top + rect.height / 2
+
+    let pointer = (type: string, target: EventTarget, clientX: number, clientY: number) => {
+      target.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          pointerId: 1,
+          clientX,
+          clientY,
+        }),
+      )
+    }
+
+    await result.act(() => pointer('pointerdown', block!, startX, startY))
+    // Past DRAG_THRESHOLD: the gesture is live and its window listeners are bound.
+    await result.act(() => pointer('pointermove', window, startX + 40, startY + 40))
+    assert.equal(getCapturedMutations().length, 0, 'no mutation before the drop')
+
+    // A frame reload disposes the entry without a pointerup.
+    result.cleanup()
+    cleanup = undefined
+
+    pointer('pointermove', window, startX + 60, startY + 60)
+    pointer('pointerup', window, startX + 60, startY + 60)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    assert.deepEqual(
+      getCapturedMutations(),
+      [],
+      'a disposed entry must not save or reload through leaked window listeners',
+    )
+    assert.equal(
+      interactionState.active,
+      false,
+      'disposal must release the shared interaction flag so SSE reloads resume',
+    )
+  })
+})

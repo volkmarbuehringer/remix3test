@@ -26,13 +26,15 @@ describe('AgentEventsStreamController', () => {
       },
       reload: async () => {},
     }
+    let lifecycle = new AbortController()
     let controller = createAgentEventsStreamController(delegate, {
+      signal: lifecycle.signal,
       getPipelineFrame: (): AgentEventsFrame | null => (pipelineFrame ? dummyFrame : null),
       getFrame: (): AgentEventsFrame | null => null,
       resumeHref: '/admin/agent-events/resume',
       reconnectHref: '/admin/agent-events/reconnect',
     })
-    return { recorded, controller, replaced }
+    return { recorded, controller, replaced, lifecycle }
   }
 
   function calls(state: { recorded: Array<Record<string, unknown>> }, op: string) {
@@ -219,6 +221,37 @@ describe('AgentEventsStreamController', () => {
       await pending
 
       assert.equal(calls(state, 'renderConfirmGate').length, 0, 'an aborted probe renders no gate')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+  it('cancels an in-flight stream when the entry lifetime signal aborts', async () => {
+    let state = make()
+    let signals: AbortSignal[] = []
+    let originalFetch = globalThis.fetch
+    globalThis.fetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+      let requestSignal = init?.signal
+      assert.ok(requestSignal, 'the stream request must carry the controller signal')
+      signals.push(requestSignal)
+      return new Promise<Response>((_, reject) => {
+        requestSignal.addEventListener('abort', () =>
+          reject(new DOMException('The operation was aborted', 'AbortError')),
+        )
+      })
+    }) as typeof fetch
+    try {
+      state.controller.beginCommand('/admin/agent-events/command', new FormData())
+      await new Promise((r) => setTimeout(r, 5))
+      assert.equal(signals.length, 1)
+      assert.equal(signals[0]!.aborted, false)
+
+      // A frame reload / navigation disposes the client entry. Its stream must
+      // stop with it instead of writing into detached DOM (guide 05 §"Async work
+      // and cancellation").
+      state.lifecycle.abort()
+      await new Promise((r) => setTimeout(r, 5))
+
+      assert.equal(signals[0]!.aborted, true, 'disposing the entry aborts the stream')
     } finally {
       globalThis.fetch = originalFetch
     }

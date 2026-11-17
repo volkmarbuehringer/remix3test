@@ -52,19 +52,22 @@ function payloadToRows(payload: Record<string, unknown>): Row[] {
   return rows
 }
 
+/** Editable rows for a server-rendered payload, with one empty row for a new request. */
+function initialRows(serializedPayload: string | undefined): Row[] {
+  let payload: Record<string, unknown> = {}
+  if (serializedPayload) {
+    try {
+      payload = JSON.parse(serializedPayload)
+    } catch {}
+  }
+  return Object.keys(payload).length > 0 ? payloadToRows(payload) : [newRow()]
+}
+
 export const WebhookComposer = clientEntry(
   import.meta.url + '#WebhookComposer',
   function WebhookComposer(handle: Handle<WebhookComposerProps>) {
-    let props = handle.props
-    let isEdit = !!props.editId
-    let initialPayload: Record<string, unknown> = {}
-    if (props.initialPayload) {
-      try {
-        initialPayload = JSON.parse(props.initialPayload)
-      } catch {}
-    }
-    let rows: Row[] =
-      Object.keys(initialPayload).length > 0 ? payloadToRows(initialPayload) : [newRow()]
+    let loadedEditId = handle.props.editId
+    let rows = initialRows(handle.props.initialPayload)
 
     function assembledPayload(): Record<string, string> {
       let obj: Record<string, string> = {}
@@ -98,6 +101,18 @@ export const WebhookComposer = clientEntry(
     }
 
     return () => {
+      // A frame reload reconciles in place: this entry keeps its local rows
+      // while receiving the reloaded page's props (guide 05 §"Client
+      // navigation"). When the reused entry now edits a different row, adopt
+      // that row's payload instead of submitting the previous draft to it; a
+      // same-row reload keeps the in-progress draft.
+      let props = handle.props
+      if (props.editId !== loadedEditId) {
+        loadedEditId = props.editId
+        rows = initialRows(props.initialPayload)
+      }
+      let isEdit = !!props.editId
+
       let json = assembledPayload()
       let jsonStr = JSON.stringify(json, null, 2)
       let action = props.editId

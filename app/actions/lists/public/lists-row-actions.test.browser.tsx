@@ -189,6 +189,27 @@ describe('sidebar row action menu', () => {
     assert.equal(document.activeElement, menuButton(host, '1', 'Löschen'))
   })
 
+  it('stops handling document events after the entry is disposed', async () => {
+    let host = mountRows()
+    let result = mountEntry()
+    await openMenu(host, '1')
+
+    result.cleanup()
+    cleanup = null
+
+    // The document-level dismissal listeners belong to the entry, not the
+    // page: a torn-down entry must not mutate the live rows it no longer owns.
+    pointerDown(document.body)
+    pressEscape()
+    await settle()
+
+    assert.equal(
+      menuOf(host, '1').hasAttribute('data-list-menu-open'),
+      true,
+      'a disposed entry must not close the menu through leaked document listeners',
+    )
+  })
+
   it('closes after choosing an action and returns focus to the trigger', async () => {
     let host = mountRows()
     let result = mountEntry()

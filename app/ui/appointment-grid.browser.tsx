@@ -116,6 +116,9 @@ export const AppointmentGrid = clientEntry(
     let dragState: DragState | null = null
     let resizeState: ResizeState | null = null
     let activeGesture: GestureKind | null = null
+    // Window listeners for the gesture in progress. They must not outlive the
+    // gesture or the entry (guide 05 §"Async work and cancellation").
+    let gestureWindowEvents: AbortController | null = null
 
     /**
      * Grid data for the current render. Props are the server-rendered source;
@@ -194,6 +197,24 @@ export const AppointmentGrid = clientEntry(
       document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
       document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
       document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
+
+      // A frame reload disposes the entry mid-gesture without a pointerup.
+      // Unbind the gesture's window listeners and release the shared
+      // interaction flag, or the SSE subscriber would never reload the grid
+      // again (guide 05 §"Async work and cancellation").
+      handle.signal.addEventListener(
+        'abort',
+        () => {
+          unbindWindowEvents()
+          dragState = null
+          resizeState = null
+          preview = null
+          activeGesture = null
+          draftState.active = false
+          interactionState.active = false
+        },
+        { once: true },
+      )
     })
 
     return () => {
@@ -1047,6 +1068,7 @@ export const AppointmentGrid = clientEntry(
           },
         })
           .then((r) => {
+            if (handle.signal.aborted) return
             if (handleMutationResponse(r, reloadAfterMutation)) return
           })
           .catch((err) => console.warn('Failed to delete appointment:', err))
@@ -1095,6 +1117,8 @@ export const AppointmentGrid = clientEntry(
         void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
+          // The entry may have been disposed while the PUTs were in flight.
+          if (handle.signal.aborted) return
           activeGesture = null
           syncInteractionState()
           handleBatchMutationResponses(results, reloadAfterMutation)
@@ -1210,6 +1234,8 @@ export const AppointmentGrid = clientEntry(
         void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
+          // The entry may have been disposed while the PUTs were in flight.
+          if (handle.signal.aborted) return
           activeGesture = null
           syncInteractionState()
           handleBatchMutationResponses(results, reloadAfterMutation)
@@ -1234,15 +1260,19 @@ export const AppointmentGrid = clientEntry(
     // ── Window event binding ──
 
     function bindWindowEvents() {
-      window.addEventListener('pointermove', onWindowPointerMove)
-      window.addEventListener('pointerup', onWindowPointerEnd)
-      window.addEventListener('pointercancel', onWindowPointerCancel)
+      // One controller per gesture: the listeners end with the gesture and are
+      // also aborted from `handle.signal` when the entry is disposed.
+      unbindWindowEvents()
+      let events = new AbortController()
+      gestureWindowEvents = events
+      window.addEventListener('pointermove', onWindowPointerMove, { signal: events.signal })
+      window.addEventListener('pointerup', onWindowPointerEnd, { signal: events.signal })
+      window.addEventListener('pointercancel', onWindowPointerCancel, { signal: events.signal })
     }
 
     function unbindWindowEvents() {
-      window.removeEventListener('pointermove', onWindowPointerMove)
-      window.removeEventListener('pointerup', onWindowPointerEnd)
-      window.removeEventListener('pointercancel', onWindowPointerCancel)
+      gestureWindowEvents?.abort()
+      gestureWindowEvents = null
     }
 
     function onWindowPointerMove(event: PointerEvent) {

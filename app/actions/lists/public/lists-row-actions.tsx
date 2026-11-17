@@ -34,9 +34,18 @@ export const ListsRowActions = clientEntry(
       if (restoreFocus) current.trigger.focus()
     }
 
-    function init() {
+    // Every listener batch belongs to this entry. Aborting on disposal (not
+    // only before the next `init`) keeps a torn-down entry from handling
+    // document pointerdown/keydown/click after its rows are gone (guide 05
+    // §"DOM references, global events, and cleanup").
+    function abortListeners() {
       for (let ac of controllers) ac.abort()
       controllers = []
+      open = null
+    }
+
+    function init() {
+      abortListeners()
       // A frame reload replaces the sidebar rows; drop any transient state from
       // the previous render instead of leaving a menu open on a detached row.
       open = null
@@ -142,8 +151,9 @@ export const ListsRowActions = clientEntry(
       <div
         mix={[
           css({ display: 'none' }),
-          ref((element) => {
+          ref((element, signal) => {
             if (typeof document === 'undefined') return
+            signal.addEventListener('abort', abortListeners, { once: true })
             init()
             // Hydration signal for e2e: the trigger listeners attach with this
             // deferred client entry, so a click in the hydration gap (or right
