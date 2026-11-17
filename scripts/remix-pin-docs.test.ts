@@ -50,6 +50,7 @@ describe('refreshPinDocs', () => {
         'Since #12183 (pin `' + OLD_TAG + '`) is history.',
         'A fix landed since #12290 (preview `' + OLD_TAG + '`).',
         'Only applies on a pin older than `' + OLD_SOURCE + '`.',
+        'Current range (`aaaaaaaa` → `' + OLD_TAG + '`, 3 commits): hand-authored.',
       ].join('\n'),
       'AGENTS.md':
         'The pin is release `' +
@@ -70,6 +71,7 @@ describe('refreshPinDocs', () => {
       learned + ':9',
       learned + ':10',
       learned + ':11',
+      learned + ':12',
     ])
 
     let learnedText = fs.readFileSync(path.join(root, learned), 'utf8')
@@ -114,6 +116,12 @@ describe('refreshPinDocs', () => {
     assert.ok(
       learnedText.includes('Only applies on a pin older than `' + OLD_SOURCE + '`.'),
       'older-than history kept',
+    )
+    assert.ok(
+      learnedText.includes(
+        'Current range (`aaaaaaaa` → `' + OLD_TAG + '`, 3 commits): hand-authored.',
+      ),
+      'hand-authored range kept',
     )
 
     let agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')

@@ -19,11 +19,11 @@ For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, s
 
 A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
 
-> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/scheduler.ts:112`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
+> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/vdom.ts:377`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
 
 **Root cause chain:**
 
-1. All `clientEntry` hydrations within a single Frame share that Frame's scheduler (`scheduler.ts`)
+1. All `clientEntry` hydrations within a single Frame share that Frame's scheduler (`vdom.ts`)
 2. The scheduler's `cascadingUpdateCount` increments on every `flush()` call
 3. On the **first load**, modules aren't cached yet — hydrations happen asynchronously in separate microtasks, giving `setTimeout(0)` a chance to reset the counter
 4. On **subsequent loads** (pagination), modules are already in `context.moduleCache`, so all hydrations run **synchronously** without yielding to the event loop, accumulating the counter past `MAX_CASCADING_UPDATES = 50`
@@ -237,7 +237,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires after the frame's active reload settles (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261117.163354-main-9b0ff351`: `completeLoad` is defined at `:1385` and dispatches at `:1036`; the inherited-reload variant is `completeInheritedReload` at `:1405`, dispatching at `:1124`). Since #12183 (pin `848e2fbe`) `reloadStart` is a `FrameReloadStartEvent` carrying the request details and a `finished` promise. Each direct `frame.reload()` announces its own `reloadStart`; a superseded reload finishes aborted and gets **no** `reloadComplete`, while the active reload completes. Ancestor-inherited reloads continue that active event pair. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:862`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires after the frame's active reload settles (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/frame.ts` at preview release `v0.20261117.0-main-ab790c88`: `completeLoad` is defined at `:1375` and dispatches at `:1026`; the inherited-reload variant is `completeInheritedReload` at `:1395`, dispatching at `:1114`). Since #12183 (pin `848e2fbe`) `reloadStart` is a `FrameReloadStartEvent` carrying the request details and a `finished` promise. Each direct `frame.reload()` announces its own `reloadStart`; a superseded reload finishes aborted and gets **no** `reloadComplete`, while the active reload completes. Ancestor-inherited reloads continue that active event pair. #12288/#12289 centralized loading ownership and moved the state transitions into `transitionLoad` (`:862`); initial lazy-frame viewport loads do **not** dispatch this pair. At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Keeping focus in a field that lives inside the reloaded frame
 
@@ -277,7 +277,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261117.163354-main-9b0ff351`: `startLoad` at `:1304` enters `transitionLoad` at `:862`, whose `start` case dispatches the direct event at `:992`; inherited reloads start with `startInheritedReload` at `:1393` and dispatch in the `inherit` case at `:1100`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.20261117.0-main-ab790c88`: `startLoad` at `:1294` enters `transitionLoad` at `:852`, whose `start` case dispatches the direct event at `:982`; inherited reloads start with `startInheritedReload` at `:1383` and dispatch in the `inherit` case at `:1090`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -380,7 +380,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `diffClientEntryBoundary`
    commits the new node and `updateClientEntryBoundary` calls
    `owner.root.render(jsx(node.type, node.props, node.key))`
-   (`runtime/reconcile.ts:1477-1515` at preview release `9b0ff351`). The factory closure
+   (`runtime/reconcile.ts:1477-1515` at preview release `ab790c88`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client

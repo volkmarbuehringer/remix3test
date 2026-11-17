@@ -24,7 +24,9 @@ const AGENTS_FILE = 'AGENTS.md'
 // when a behavior landed; bumping the pin must not rewrite that history. The
 // same applies to "Revalidated: … against preview release `…`" headers: they
 // record when a skill was last checked, so a later bump is not a revalidation.
-const HISTORICAL_LINE = /\b(?:Since|Re-?validated|Validated)\b|\bolder\s+than\b/i
+// "Current range (`old` → `new`, N commits)" is hand-authored too: rewriting
+// only its trailing pin leaves a range whose body describes the previous bump.
+const HISTORICAL_LINE = /\b(?:Since|Re-?validated|Validated|Current range)\b|\bolder\s+than\b/i
 
 function source8(source: string): string {
   return /^[0-9a-f]{8,}$/i.test(source) ? source.slice(0, 8) : source

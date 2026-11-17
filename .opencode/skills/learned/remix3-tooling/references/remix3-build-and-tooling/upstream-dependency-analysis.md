@@ -3,7 +3,7 @@
 **Source:** `remix-upstream-dependency-analysis`
 
 **Extracted:** 2026-07-10
-**Re-validated:** 2026-11-17 (current pin is preview release `v0.20261117.163354-main-9b0ff351` / source `9b0ff351`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
+**Re-validated:** 2026-11-17 (current pin is preview release `v0.20261117.0-main-ab790c88` / source `ab790c88`; the retained-tarball and `github:…#preview/main&path:` flows below are historical)
 **Context:** A project pins a dependency to a preview build — `remix-run/previews` release asset tarballs since #12174, retained `t/<sha>/<pkg>.tgz` tarballs since #12126, or the old `github:owner/repo#branch&path:subdir` layout — and upstream commits land. Need to determine whether updating the dependency would break the project.
 
 ## Problem
@@ -92,9 +92,9 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261117.163354-main-9b0ff351` (source `9b0ff351`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.20261117.0-main-ab790c88` (source `ab790c88`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
-Current range (`a5cc1ea2` → `9b0ff351`, 3 commits): #12310 removes the never-used third `styles` argument from the exported `createScheduler(doc, rootTarget)` signature (runtime behavior unchanged; TypeScript callers passing three arguments now fail); #12268 is an internal component-runtime size/allocation refactor (~1.8 KB smaller minified, ~0.4 KB gzip) with no behavior change; #12313 scopes the Playwright browser caches in the CI workflows to the runner image and architecture. Versions are unchanged, and `packages/ui` plus all 15 guides are byte-identical. The prior `3fac48ab` → `a5cc1ea2` range was #12306's `rmx:navigation` rename, #12308's mixin phase-listener scaling, and #12309's mock lint types; earlier ranges are in `docs/remix-pin-history.md`.
+Current range (`9b0ff351` → `ab790c88`, 4 commits): #12314 folds seven browser-only component runtime modules into `frame.ts`/`vdom.ts`/`core/props.ts`/`mixins/mixin.ts` (no behavior or root-export change; `run()` hydration loads 35 → 23 component modules and `clientEntry`/`css`/`on`/`ref`-only code 13 → 9 with ~6%/~19% less gzip; `updateUrl()` and `spaResponse` now load only when imported); #12311 simplifies main preview tags to `v0.<date>.0-main-<sha>` and extends main-build retention to 30 days; #12187 uses full SHAs for PR preview assets; #12316 makes a failed-navigation scroll-cleanup test deterministic. Versions are unchanged, and `packages/ui` plus all 15 guides are byte-identical. The prior `a5cc1ea2` → `9b0ff351` range was #12310's `createScheduler()` arity change, #12268's component-runtime size refactor, and #12313's CI Playwright cache scoping; earlier ranges are in `docs/remix-pin-history.md`.
 
 App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. **Both prefetch/resolve hooks were already adopted before this pin**: `app/assets/frame-response.browser.tsx` delegates to `defaultResolveFrame(..., { fetch, commit })` and keeps only `classifyFrameResponse` plus the request policy; `app/assets/frame-prefetch.browser.ts` delegates to `defaultPrefetch(src, options, { fetch, processFrame })`, stores a clone in the one-shot cache, and feeds the vendor's parsed assets into the app hint creator. The scoped admin-lists grid ⇄ editor frame swap uses the commit hook (`app/assets/frame-transition.browser.ts`). #12277's per-caller `options.signal` is deliberately not forwarded to the shared warm fetch: the navigation claims the response before unmounting the anchor, so aborting the fetch with the caller's signal errors the cached body mid-render (fixed after a week-nav e2e regression; see `remix3-ui` → `frame-prefetch-cache.md`). The store is still refused when the caller aborts before the response arrives. Neither `options.navigationType`/`options.from` (nor their removed `transition` predecessor) is used for caching: fragments are `no-store` and the in-memory one-shot cache already covers the useful case, with no measured win to gate on (Task 4 decision). **Navigation UI adoption:** `app/ui/pending-submit.browser.tsx` uses `on('rmx:navigation', …)` + `event.finished` (renamed from `rmx:submission` at #12306); `app/ui/filter-autosubmit.browser.tsx` checks `navigation.element` is its own form before remembering the filter and uses `reloadStart` metadata only for programmatic reloads. Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
 
@@ -167,8 +167,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.20261117.163354-main-9b0ff351/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261117.163354-main-9b0ff351/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.20261117.0-main-ab790c88/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.20261117.0-main-ab790c88/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

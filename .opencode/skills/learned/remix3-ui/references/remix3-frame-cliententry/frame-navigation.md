@@ -129,12 +129,12 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 against the installed preview release `v0.20261117.163354-main-9b0ff351` (source `9b0ff351`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 against the installed preview release `v0.20261117.0-main-ab790c88` (source `ab790c88`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:992`); inherited reloads dispatch in the `inherit` case at `:1100` (`startInheritedReload` at `:1393`).
-- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:1036`; inherited at `:1124`, `completeInheritedReload` at `:1405`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
+- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:982`); inherited reloads dispatch in the `inherit` case at `:1090` (`startInheritedReload` at `:1383`).
+- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:1026`; inherited at `:1114`, `completeInheritedReload` at `:1395`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
 
 Initial lazy-frame viewport loads and viewport retries do **not** dispatch a `reloadStart`/`reloadComplete` pair; only explicit and ancestor-driven reloads do (see `references/remix3-frame-cliententry/lazy-frames.md`).
 
@@ -156,7 +156,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 
 Tests: `app/assets/frame-transition.test.browser.ts` (decision matrix, every fallback, name cleanup, no-stall with a never-resolving `finished`) and `app/actions/admin/lists/lists-frame-transition.test.e2e.ts` (real runtime: one transition per grid ⇄ editor swap, no document load, cleanup after settle).
 
-Never reach into the internal `onCommit` option (`frame.ts:467`, invoked at `:647`/`:732`), which is not exported; use the exported commit override.
+Never reach into the internal `onCommit` option (`frame.ts:457`, invoked at `:637`/`:722`), which is not exported; use the exported commit override.
 
 Status: one flow is animated; everything else stays instant by design.
 
@@ -251,7 +251,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 **Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered. When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
-**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:787`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
+**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:644`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 

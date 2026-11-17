@@ -3,14 +3,14 @@
 **Source:** `remix3-firefox-single-import-map`
 
 **Extracted:** 2026-09-09
-**Revalidated:** 2026-11-11 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (same runtime behavior; the CSP fix below now relies on the entry/preload nonces added by #12098).
+**Revalidated:** 2026-11-17 against preview release `v0.20261117.0-main-ab790c88` / source `ab790c88` (same runtime behavior; #12314 folded `import-map-manager.ts` into `frame.ts`; the CSP fix below relies on the entry/preload nonces added by #12098).
 **Context:** After the remix rc.2 / import-map upgrade (#11706), the /lists page broke in Firefox only: adding items did nothing, the row-action hover overlay stayed hidden, drag to the sidebar failed, and a hydrated textarea (Beschreibung) rendered empty. Chromium was fine.
 
 ## Problem
 
 Firefox allows **one** `<script type="importmap">` per document; any additional import maps are ignored (console warning: "Multiple import maps are not allowed."). Chromium merges multiple import maps.
 
-The component runtime renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (import-map-manager's `appendImportMapScript`: `@remix-run/component/src/runtime/import-map-manager.ts:114` calls it, defined at `:238`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
+The component runtime renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (`appendImportMapScript`: `@remix-run/component/src/runtime/frame.ts:3411` calls it, defined at `:3535`; #12314 folded `import-map-manager.ts` into `frame.ts`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
 
 In Firefox the second map is ignored, so the affected client entries cannot resolve their bare-specifier imports. Symptoms:
 

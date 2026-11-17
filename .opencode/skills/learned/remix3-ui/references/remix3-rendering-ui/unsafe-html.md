@@ -21,14 +21,14 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-11-14 against preview release `v0.20261113.215858-main-848e2fbe` / source `848e2fbe` (#12183/#12302 shifted `reconcile.ts` and `server/stream.ts`; previously `9ceaeb82`/`b4a0aa9a`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
+**Re-validated:** 2026-11-17 against preview release `v0.20261117.0-main-ab790c88` / source `ab790c88` (#12314 folded `core/mix.ts` into `mixins/mixin.ts`; the `reconcile.ts`/`server/stream.ts` anchors are unchanged; previously `848e2fbe`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
 
 Enforcement sites in the installed source:
 
 - `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/reconcile.ts:369` — `parseHostProps` calls `normalizeUnsafeHTMLProps` (`:370`), and is itself invoked at `:327`/`:337`; #12159 folded the former `to-vnode.ts` into `reconcile.ts`
 - `.../src/runtime/unsafe-html.ts:61-94` — the invariants: `Invalid innerHTML prop: expected a value created with unsafeHTML()` (`:67`), the same wording for `srcDoc` (`:73`) and `srcdoc` (`:79`), and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:84`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
 - `.../src/server/stream.ts:713` — the SSR path applies the same normalization
-- `.../src/runtime/core/mix.ts:95-111` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:95`) and logged (`sanitizeReturnedMixinProps` at `:108`)
+- `.../src/runtime/mixins/mixin.ts:922-946` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:922`) and logged (`sanitizeReturnedMixinProps` at `:935`)
 
 ## Solution
 

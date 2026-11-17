@@ -2,7 +2,7 @@
 
 **Source:** session 2026-10-16 (interactivity item #3 research; implemented the
 same day). Mechanism re-checked against the current pin (remix 3.2.0, `@remix-run/component` 1.2.0)
-(`@remix-run/component` `src/runtime/form-navigation.ts`, `src/runtime/navigation.ts`).
+(`@remix-run/component` `src/runtime/frame.ts`, `src/runtime/navigation.ts`).
 
 ## Problem
 
@@ -28,7 +28,7 @@ real attribute bug (fixed in item #3):
 Vendor form interception resolves through an **uncanceled** native submit:
 `createFormNavigationResolver`'s `onFormData` bails on
 `event.eventPhase !== Event.NONE || event.defaultPrevented`
-(`form-navigation.ts:86`), so
+(`frame.ts:3037`), so
 
 - an app listener that calls `e.preventDefault()` in the `submit` handler
   cancels the submission entirely — no `formdata`, no runtime frame fetch;
