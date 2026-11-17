@@ -133,6 +133,32 @@ release or is older than five days. Install retries use the universal
 `--config.fetch-retries=…` / `--config.fetch-retry-*-timeout=…` form because
 pnpm 12 removed the dedicated `--fetch-retries`/`--fetch-retry-*` flags.
 
+### Bumping across a breaking change (`update:remix` is not atomic)
+
+The script installs and refreshes docs **before** it runs the checks, and it has no
+resume path. A consumer-breaking bump therefore stops it at `== Checks ==` with the
+pin already applied:
+
+- Expect the stop at `typecheck`. `package.json`, `pnpm-lock.yaml`, the skill
+  symlinks, and the current-pin strings are already at the new tag; lint, format,
+  tests, and the pin-history scaffold are what did not run. `--no-tests` does not
+  skip `typecheck`.
+- Do not re-run `update:remix` to finish. When the tag already matches and the lock
+  is unified it prints `Already up to date; nothing to do.` and returns **before**
+  the checks, so it cannot rerun them.
+- Fix the source, then run `npm run typecheck`, `npm run lint`, `npm run format`,
+  and the suites yourself, and write the pin-history entry and AGENTS paragraph by
+  hand — the scaffold never prints on this path.
+- Re-audit the learned anchors by hand: the docs refresh rewrites current-pin
+  strings only, so `Revalidated: <date>`, `Current range (old → new, N commits)`
+  and every `file.ts:NNN` anchor stay stale. List candidates with
+  `grep -rnE '(frame|navigation|component|diff-dom|frame-runtime|form-navigation)\.ts:[0-9]' .opencode/skills/learned`,
+  resolve the installed tree with
+  `readlink -f node_modules/.pnpm/node_modules/@remix-run/component`, and check
+  each hit with `sed -n '<start>,<end>p'` before changing the number.
+- Review the lines the refresher reports as skipped (`Left N historical/ambiguous
+  line(s) unchanged`) instead of assuming they are current.
+
 ## Preview release pair
 
 Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not

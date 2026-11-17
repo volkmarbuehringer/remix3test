@@ -46,6 +46,13 @@ URLs. The update script:
    `.opencode/skills/remix`, refresh the current-pin strings (`--no-docs` opts
    out), then typecheck/lint/format/tests and print the pin-history scaffold.
 
+**The script is not atomic and cannot resume.** It installs and refreshes docs before
+the checks, so a consumer-breaking bump stops it at `typecheck` with the pin already
+applied; re-running prints `Already up to date; nothing to do.` and returns before the
+checks. Fix the source, run typecheck/lint/format/tests and the learned-anchor re-pin
+yourself, and write the pin-history entry by hand (see `remix3-tooling` →
+`upstream-dependency-analysis.md` § "Bumping across a breaking change").
+
 **Retention matters.** Main preview releases are pruned after about seven days
 (the newest is kept), so a lockfile that points at an old release tag can 404
 after retention. Refresh the pin before the assets disappear; an expired
