@@ -144,6 +144,38 @@ describe('refreshPinDocs', () => {
     assert.deepEqual(refreshPinDocs(root, change).updated, [])
   })
 
+  it('refreshes the guide-coverage anchor but not its audit lines', () => {
+    let doc = 'docs/guide-skill-coverage.md'
+    let root = fixture({
+      [doc]: [
+        '**Anchor:** installed `remix 3.2.0` at preview release `' +
+          OLD_TAG +
+          '` (source `aaaaaaaa`; all 15 guides byte-identical to `a5cc1ea2`).',
+        '**2026-11-15 re-audit.** Re-checked against `' +
+          OLD_TAG +
+          '` / source `aaaaaaaa`; the pinned build is history here.',
+      ].join('\n'),
+    })
+
+    let result = refreshPinDocs(root, change)
+
+    assert.deepEqual(result.updated, [doc])
+    assert.deepEqual(result.skipped, [])
+    let text = fs.readFileSync(path.join(root, doc), 'utf8')
+    assert.ok(
+      text.startsWith(
+        '**Anchor:** installed `remix 3.2.0` at preview release `' +
+          NEW_TAG +
+          '` (source `bbbbbbbb`',
+      ),
+      'anchor refreshed',
+    )
+    assert.ok(
+      text.includes('Re-checked against `' + OLD_TAG + '` / source `aaaaaaaa`'),
+      'audit line kept',
+    )
+  })
+
   it('reports without writing in dry-run mode', () => {
     let learned = '.opencode/skills/learned/example.md'
     let original = 'preview release `' + OLD_TAG + '` / source `aaaaaaaa`\n'

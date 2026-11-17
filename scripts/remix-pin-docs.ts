@@ -17,6 +17,10 @@ type PinDocsResult = {
 
 const LEARNED_DIR = path.join('.opencode', 'skills', 'learned')
 const AGENTS_FILE = 'AGENTS.md'
+// Docs whose "**Anchor:**" line names the current install. Only that line is
+// refreshed; the audit entries around it are history and must not be rewritten.
+const DOC_ANCHOR_FILES = [path.join('docs', 'guide-skill-coverage.md')]
+const DOC_ANCHOR_MARKER = '**Anchor:**'
 
 // Lines such as "Since preview build `3273a048` (#12153)",
 // "Since #12183 (pin `848e2fbe`)", "since #12290 (preview `5af14d52`)",
@@ -58,9 +62,10 @@ function replacePins(
 }
 
 /**
- * Rewrites the mechanical "current pin" strings in the learned skills and the
- * AGENTS.md pin sentence. Historical statements ("Since preview build …") and
- * the editorial bump summaries are left alone; the caller prints those TODOs.
+ * Rewrites the mechanical "current pin" strings in the learned skills, the
+ * AGENTS.md pin sentence, and the guide-coverage anchor. Historical statements
+ * ("Since preview build …") and the editorial bump summaries are left alone;
+ * the caller prints those TODOs.
  *
  * `dryRun` reports what would change without writing anything.
  */
@@ -75,7 +80,13 @@ export function refreshPinDocs(
   let skipped: string[] = []
 
   let learnedRoot = path.join(root, LEARNED_DIR)
-  let files = fs.existsSync(learnedRoot) ? walkMarkdown(learnedRoot) : []
+  let learnedFiles = fs.existsSync(learnedRoot) ? walkMarkdown(learnedRoot) : []
+  let docAnchorFiles = DOC_ANCHOR_FILES.map((file) => path.join(root, file)).filter((file) =>
+    fs.existsSync(file),
+  )
+  let docAnchorSet = new Set(docAnchorFiles)
+  let files = [...learnedFiles, ...docAnchorFiles]
+
   for (let file of files) {
     let before = fs.readFileSync(file, 'utf8')
     let lines = before.split('\n')
@@ -83,6 +94,8 @@ export function refreshPinDocs(
 
     for (let index = 0; index < lines.length; index++) {
       let line = lines[index] ?? ''
+      // A doc's audit entries are history; only its Anchor line is current.
+      if (docAnchorSet.has(file) && !line.startsWith(DOC_ANCHOR_MARKER)) continue
       let mentionsOldPin =
         (change.oldTag.length > 0 && line.includes(change.oldTag)) ||
         (oldSource.length > 0 && line.includes(oldSource))
