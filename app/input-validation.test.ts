@@ -143,7 +143,7 @@ describe('untrusted grid inputs', () => {
 
   it('rejects an exponential list id on the JSON API instead of 500ing', async () => {
     let response = await router.fetch(BASE + '/lists/1e30', {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         Cookie: adminCookie,
         'Content-Type': 'application/json',

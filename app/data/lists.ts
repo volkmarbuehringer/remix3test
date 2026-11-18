@@ -945,7 +945,7 @@ export async function moveItemBetweenLists(
       let item = parsedSource.list[matchIndex]
 
       // Moving the last item is allowed: the source list is left empty, which is
-      // a valid state (the editor and PUT /lists/:id both allow clearing every
+      // a valid state (the editor and PATCH /lists/:id both allow clearing every
       // item). It used to be rejected when empty lists were forbidden.
       let now = Date.now()
       let nextSource = [...parsedSource.list]
