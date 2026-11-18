@@ -1,13 +1,13 @@
 ---
 name: dev-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly (async function returning void resolving early, TS7 recursive assignability flipping with module ordering, typeof import() rejected by consistent-type-imports, ES-module imports tests cannot substitute, exactOptionalPropertyTypes TS23xx errors, spread Maximum call stack size exceeded, copy-pasted multi-line object blocks, process.env snapshots breaking test overrides, narrowing lost in nested functions, as-unknown-as bridges, opt-in lint rules like consistent-return), a rate limiter blocks unexpectedly (default maxAttempts=1 breaking multi-step flows, windowMs=0 silently blocking same-ms requests), or a repo-wide format:fix (oxfmt/prettier/black/gofmt) rewrote files you never edited (classify format-only vs content by whitespace-stripped hash, revert only provably format-only files)."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly (async function returning void resolving early, TS7 recursive assignability flipping with module ordering, typeof import() rejected by consistent-type-imports, ES-module imports tests cannot substitute, exactOptionalPropertyTypes TS23xx errors, spread Maximum call stack size exceeded, copy-pasted multi-line object blocks, process.env snapshots breaking test overrides, narrowing lost in nested functions, as-unknown-as bridges, opt-in lint rules like consistent-return), a rate limiter blocks unexpectedly (default maxAttempts=1 breaking multi-step flows, windowMs=0 silently blocking same-ms requests), a repo-wide format:fix (oxfmt/prettier/black/gofmt) rewrote files you never edited (classify format-only vs content by whitespace-stripped hash, revert only provably format-only files), a tools.write payload dies with a bare parse error or generated source lost a backslash (backtick and dollar-brace transport table, read-back verification), or a whole-file write persisted a harness line-truncated marker (detect, recover from the pre-corruption commit, re-apply later edits)."
 user-invocable: false
 origin: consolidated
 ---
 
-# Dev Gotchas: TypeScript, Rate Limiter & Format Triage
+# Dev Gotchas: TypeScript, Rate Limiter, Format Triage & Agent Write Safety
 
-Consolidated from 3 former learned skills (`typescript-gotchas`, `rate-limiter-pitfalls`, `format-fix-diff-triage`) on 2026-10-17. TypeScript/rate-limiter references are namespaced under `references/<former-skill>/`; the format-triage guide is inline below. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
+Consolidated from 5 former learned skills (`typescript-gotchas`, `rate-limiter-pitfalls`, `format-fix-diff-triage`, `truncated-output-write-recovery`, `file-write-payload-escapes`) between 2026-10-17 and 2026-11-18. TypeScript/rate-limiter references are namespaced under `references/<former-skill>/`; the format-triage guide is inline below; the two write-safety skills share one digest under `references/agent-write-safety/`. Everything vendor-supplied (guides, package READMEs, the vendor `remix` / `mastra` skills) stays authoritative — sections below are deltas only.
 
 ## Load Only The Sections You Need
 
@@ -16,6 +16,7 @@ Consolidated from 3 former learned skills (`typescript-gotchas`, `rate-limiter-p
 | A TS/JS pattern behaves unexpectedly — async void, TS7 assignability, exactOptionalPropertyTypes, spread overflow, env snapshots, lost narrowing, lint rules | § TypeScript | `references/typescript-gotchas/` |
 | A rate limiter blocks unexpectedly — maxAttempts=1 default, windowMs=0 same-ms trap | § Rate Limiter | `references/rate-limiter-pitfalls/` |
 | format:fix rewrote files you never edited — classify format-only vs content by whitespace-stripped hash before reverting | § Format Triage | this file |
+| A generated write died with a parse error or lost a backslash, or a whole-file write persisted a display-truncation marker | § Agent Write Safety | `references/agent-write-safety/` |
 
 ## TypeScript
 
@@ -217,3 +218,42 @@ Prevention and companion traps:
 - After a repo-wide format run, `git status` lists files outside your edit set.
 - Asked to "revert the formatter noise" on a tree that also contains someone's uncommitted work.
 - Before committing from a shared/dirty working tree, to separate your change from the baseline.
+
+---
+
+## Agent Write Safety
+
+_(formerly `file-write-payload-escapes` and `truncated-output-write-recovery` — one digest under `references/agent-write-safety/`)_
+
+**Consolidated from:** `file-write-payload-escapes`, `truncated-output-write-recovery`
+
+Two failure modes that leave a file which parses, formats, and type-checks: a `tools.write` payload is a program literal first (backticks and `${` can break or silently rewrite it), and a whole-file write built from `Read`/display output can persist a display-truncation marker. Both need read-back verification, not just `tsc`.
+
+### Load Only The References You Need
+
+| Task involves... | Start with |
+| --- | --- |
+| A `tools.write`/`run_code` payload dies with a bare parse error, or generated source lost a backslash (`/s+/` for `/\s+/`) | `references/agent-write-safety/write-payload-and-truncation.md` § Payload escapes |
+| A file contains a literal `... (line truncated to N chars)` marker or dropped trailing sections after a whole-file write | `references/agent-write-safety/write-payload-and-truncation.md` § Truncation recovery |
+| Deciding whether a scratch probe may stay in the tree before the typecheck/lint gate | `references/agent-write-safety/write-payload-and-truncation.md` § Keep scratch programs out of the checked-in tree |
+
+### Core Rules
+
+- **Pick the transport from the payload**: `String.raw` only when the payload has no backticks and no `${`; otherwise single-quoted lines, with `String.fromCharCode(96)` for backticks. Never "escape harder" inside one template literal.
+- **A successful write is not a correct write**: read the file back and grep the high-risk lines (regexes, `\u`, backticks); `/s+/g` for `/\s+/g` is valid TypeScript.
+- **Treat a truncation marker as corruption, never as content**: find the introducing commit with `git log -S`, restore from `<bad-commit>^`, and re-apply only the intended later edits.
+- **Prefer `edit` over whole-file writes for existing files**, especially when the source came from `Read`/display output; regenerate large table rows from git/JSON/database.
+- **Delete probes before the gate**: `tmp/` is gitignored but still typechecked, and an untracked root file still fails `oxlint`.
+
+### When to Use
+
+- A `run_code`/`tools.write` call dies with `Expected ',', got 'ident'` or `Expected a semicolon` while the payload looks correct.
+- You are about to write TS/TSX/Markdown whose content contains backticks or `${`.
+- Generated source compiles but behaves oddly — check for a lost backslash first.
+- A file contains a literal line-truncation marker, or a whole-file rewrite was based on tool output.
+- A scratch probe exists before the repo's verification gate.
+
+### Related
+
+- `dev-gotchas § Format Triage` — the adjacent tool-induced corruption: a repo-wide formatter rewrote files outside the session's edit set.
+- `remix3-tooling § Testing` → `references/remix3-testing/testing-hygiene.md` — `/tmp` is private to one command execution; scratch artifacts belong under the repo's gitignored `tmp/`.
