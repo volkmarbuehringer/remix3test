@@ -14,7 +14,7 @@ import { createAuthCookieWithCsrfForUser, isFirefox } from '../../../test/utils.
 // Keeps only the flows that a browser component test cannot prove:
 //  - creating a list through "+ Liste hinzufügen" (real Frame reload + row),
 //  - the unsaved-draft lifecycle across a real Frame navigation,
-//  - one representative autosave round trip (hydrated client -> debounced PUT
+//  - one representative autosave round trip (hydrated client -> debounced PATCH
 //    -> real server -> database row),
 //  - the one-shot sort control, whose native <select> change event does not
 //    reach the remix handler from a synthetic dispatch, so it needs
@@ -273,7 +273,7 @@ describe('lists autosave persistence', () => {
   })
 
   // The single representative round trip: two different client mutations (a
-  // title edit and an item added through Enter) ride the same debounced PUT and
+  // title edit and an item added through Enter) ride the same debounced PATCH and
   // must both reach the real server and database. The per-mutation DOM behavior
   // and request payloads are asserted in the browser suite; repeating the
   // server half for every mutation lives here once.
@@ -303,7 +303,7 @@ describe('lists autosave persistence', () => {
       let label = `autosave item ${Date.now()}`
       let saved = page.waitForResponse(
         (response) =>
-          response.request().method() === 'PUT' &&
+          response.request().method() === 'PATCH' &&
           new URL(response.url()).pathname === `/lists/${listId}` &&
           (response.request().postData() ?? '').includes(label),
         { timeout: 15_000 },
@@ -433,7 +433,7 @@ describe('lists sort control', () => {
       assert.deepEqual(
         (await listItems(listId)).map((item) => item.id),
         ['sort-b', 'sort-a', 'sort-c'],
-        'the view-only sort must not PUT a reordered list',
+        'the view-only sort must not PATCH a reordered list',
       )
 
       // Manual restores the persisted order and removes the view-only marker.

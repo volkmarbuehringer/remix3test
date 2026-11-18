@@ -21,7 +21,7 @@ function isoDate(offsetDays: number): string {
 }
 
 function mount(items: ListInitialState['items']) {
-  // Any accidental autosave PUT must not leave the test.
+  // Any accidental autosave PATCH must not leave the test.
   window.fetch = (async () =>
     new Response(
       JSON.stringify({ id: 7, title: 'Ansicht', description: '', items, updated_at: 222 }),

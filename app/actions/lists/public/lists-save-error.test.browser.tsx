@@ -9,7 +9,7 @@ import type { ListInitialState } from './lists-state.ts'
 // editor with red text and no way forward. It surfaces as an in-place banner
 // with an "Erneut versuchen" action, the save-status pill becomes actionable,
 // and an offline/online transition keeps the dirty state and retries on
-// reconnect. fetch is stubbed so the failing PUT is deterministic.
+// reconnect. fetch is stubbed so the failing PATCH is deterministic.
 
 const originalFetch = window.fetch
 let calls: Array<{ url: string; init: RequestInit }> = []

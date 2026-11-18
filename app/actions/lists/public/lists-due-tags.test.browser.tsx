@@ -27,7 +27,7 @@ function stateWith(items: ListInitialState['items']): ListInitialState {
 }
 
 function mount(items: ListInitialState['items']) {
-  // Stub fetch so the dirty-triggered autosave PUT cannot escape the test.
+  // Stub fetch so the dirty-triggered autosave PATCH cannot escape the test.
   window.fetch = (async () =>
     new Response(
       JSON.stringify({ id: 7, title: 'Einkauf', description: '', items, updated_at: 222 }),

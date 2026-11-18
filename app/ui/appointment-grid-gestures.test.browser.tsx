@@ -467,8 +467,8 @@ describe('Mutation reload', () => {
     })
 
     await waitForTaskState(
-      () => getCapturedMutationsByMethod('PUT').length === 1,
-      'the title edit PUT',
+      () => getCapturedMutationsByMethod('PATCH').length === 1,
+      'the title edit PATCH',
     )
     await waitForTaskState(
       () => resolveCalls.length > callsBefore,
@@ -476,7 +476,7 @@ describe('Mutation reload', () => {
     )
 
     assert.deepEqual(
-      getCapturedMutationsByMethod('PUT').map((mutation) => mutation.url),
+      getCapturedMutationsByMethod('PATCH').map((mutation) => mutation.url),
       ['/appointments/1'],
       'the title edit must be saved',
     )

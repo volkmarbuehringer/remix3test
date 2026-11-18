@@ -50,7 +50,7 @@ Root cause is vendor hydration timing — do not chase an app-side "fix".
 - **Never retry with Playwright `fill()`**: it sets the DOM value without firing remix
   `on('input')` (runtime change-detection ignores programmatic sets — the file-header
   note in `lists-client-edit.test.e2e.ts`). A fill-"pass" is a false green: the field
-  looks right, the editor stays clean, and the PUT never carries the text — the symptom
+  looks right, the editor stays clean, and the PATCH never carries the text — the symptom
   just relocates to the DB assertion.
 - Guard the poll: wrap `inputValue()` in try/catch and break out to the retype if the
   node is replaced mid-settle.

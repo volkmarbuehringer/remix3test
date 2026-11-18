@@ -21,7 +21,7 @@ export const ListNameEdit = clientEntry(
               if (errorTimer) clearTimeout(errorTimer)
               // Detach the refs before removing the input: Chromium fires
               // `blur` when a focused element is removed, which would otherwise
-              // re-enter finishEdit() and issue a second PUT for the same rename.
+              // re-enter finishEdit() and issue a second PATCH for the same rename.
               let input = activeInput
               let span = originalSpan
               activeInput = null
@@ -62,7 +62,7 @@ export const ListNameEdit = clientEntry(
               if (updatedAt) headers['If-Match'] = updatedAt
 
               fetch(routes.lists.update.href({ id: listId }), {
-                method: 'PUT',
+                method: 'PATCH',
                 headers,
                 body: JSON.stringify({ title: trimmed }),
                 signal: requestSignal,
@@ -170,7 +170,7 @@ export const ListNameEdit = clientEntry(
                 if (errorTimer) clearTimeout(errorTimer)
                 renameController?.abort()
                 // Detach before removing, like cancelEdit(): a removed focused
-                // input can fire blur, which must not start another PUT.
+                // input can fire blur, which must not start another PATCH.
                 let input = activeInput
                 let span = originalSpan
                 activeInput = null

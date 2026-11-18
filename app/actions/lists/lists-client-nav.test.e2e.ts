@@ -165,7 +165,7 @@ describe('lists frame navigation', () => {
       await typeInto(page, '#lists-title', marker)
       let flushed = page.waitForResponse(
         (response) =>
-          response.request().method() === 'PUT' &&
+          response.request().method() === 'PATCH' &&
           new URL(response.url()).pathname === `/lists/${a}`,
         { timeout: 15_000 },
       )

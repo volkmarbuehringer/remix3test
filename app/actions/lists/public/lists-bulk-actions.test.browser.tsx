@@ -86,7 +86,7 @@ function stubFetch() {
       })
     }
 
-    if (url === '/lists/7' && method === 'PUT') {
+    if (url === '/lists/7' && method === 'PATCH') {
       let items = Array.isArray(body?.items) ? body.items : currentItems
       currentItems = items as ListInitialState['items']
       return json({ id: 7, title: 'Bulk', description: '', items: currentItems, updated_at: 999 })

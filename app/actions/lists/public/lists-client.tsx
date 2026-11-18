@@ -76,7 +76,7 @@ export const ListsClient = clientEntry(
     let loadedUpdatedAt: number | null = null
     let saving = false
     // A single in-flight save. Autosave, manual flush and keepalive all await
-    // this so two PUTs cannot race the same If-Match precondition.
+    // this so two PATCHes cannot race the same If-Match precondition.
     let savingPromise: Promise<boolean> | null = null
     // Last failed write (create/patch/keepalive/drag). Rendered as an in-place
     // banner with a retry action; never a full-editor takeover. Cleared by a
@@ -543,7 +543,7 @@ export const ListsClient = clientEntry(
               // The server now holds the state captured at send time. Rebase
               // the clean baseline onto that server echo before re-arming the
               // debounce: an edit that reverts to the pre-save snapshot (for
-              // example undo while a clear PUT is in flight) would otherwise
+              // example undo while a clear PATCH is in flight) would otherwise
               // look clean, and the follow-up save would be skipped.
               cleanTitle = state.title
               cleanDescription = state.description
@@ -587,7 +587,7 @@ export const ListsClient = clientEntry(
     }
 
     // Serialize saves: a second call while one is in flight reuses the same
-    // promise instead of firing another PUT against the same If-Match, which
+    // promise instead of firing another PATCH against the same If-Match, which
     // would 409 against the updated_at the first request just bumped.
     let saveNow = (manual = false): Promise<boolean> => {
       if (savingPromise) return savingPromise
@@ -1659,7 +1659,7 @@ export const ListsClient = clientEntry(
     }
 
     // Best-effort keepalive flush of any pending edit to the currently loaded
-    // list. The update route is PUT, which navigator.sendBeacon cannot send (it
+    // list. The update route is PATCH, which navigator.sendBeacon cannot send (it
     // is always POST), so use fetch with keepalive: true instead. keepalive lets
     // custom headers ride along (CSRF + If-Match), so we no longer need the
     // query-param CSRF or the _if_match body fallback.

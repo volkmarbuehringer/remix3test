@@ -769,7 +769,7 @@ export const AppointmentGrid = clientEntry(
       void handle.update()
 
       fetch(`${apptHref}/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
@@ -1105,7 +1105,7 @@ export const AppointmentGrid = clientEntry(
 
       if (finalPreview) {
         event.preventDefault()
-        // Save ALL changed blocks from solver result — wait for all PUTs before reload
+        // Save ALL changed blocks from solver result — wait for all PATCHes before reload
         let saves: Promise<Response>[] = []
         let csrfToken = currentData().csrfToken
         for (let change of finalPreview.changes) {
@@ -1117,7 +1117,7 @@ export const AppointmentGrid = clientEntry(
         void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
-          // The entry may have been disposed while the PUTs were in flight.
+          // The entry may have been disposed while the PATCHes were in flight.
           if (handle.signal.aborted) return
           activeGesture = null
           syncInteractionState()
@@ -1234,7 +1234,7 @@ export const AppointmentGrid = clientEntry(
         void handle.update()
         if (saves.length > 0) {
           let results = await Promise.allSettled(saves)
-          // The entry may have been disposed while the PUTs were in flight.
+          // The entry may have been disposed while the PATCHes were in flight.
           if (handle.signal.aborted) return
           activeGesture = null
           syncInteractionState()
@@ -1308,7 +1308,7 @@ export const AppointmentGrid = clientEntry(
       csrfToken: string,
     ): Promise<Response> {
       return fetch(`${apptHref}/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',

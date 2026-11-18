@@ -14,7 +14,7 @@ import { routes } from '../routes.ts'
 // Requires a running PostgreSQL database seeded with demo users.
 //
 // These tests verify the appointment calendar API contract:
-//   - Multiline titles are accepted and preserved through POST/PUT/GET
+//   - Multiline titles are accepted and preserved through POST/PATCH/GET
 //   - Title validation (empty, whitespace, length) enforces constraints
 //   - Page rendering includes embedded JSON with correct appointment data
 //   - Auth gating redirects unauthenticated requests
@@ -159,7 +159,7 @@ describe('Appointment Grid', () => {
     let mondayMs = currentMonday() + 7 * 86_400_000
     saturdayMs = mondayMs + 5 * 86_400_000
     sundayMs = mondayMs + 6 * 86_400_000
-    // Date guaranteed >24h from now for PUT tests (Sunday after next).
+    // Date guaranteed >24h from now for PATCH tests (Sunday after next).
     // This avoids flakiness with the 24h cancellation policy when tests
     // run late on Saturday/Sunday.
     farFutureDateMs = mondayMs + 13 * 86_400_000
@@ -225,7 +225,7 @@ describe('Appointment Grid', () => {
   // -----------------------------------------------------------------------
   // Section 1: Gating
   // GET without auth → 302 redirect (requireAuth middleware redirects).
-  // POST/PUT without CSRF → 403 (CSRF middleware blocks mutation requests).
+  // POST/PATCH without CSRF → 403 (CSRF middleware blocks mutation requests).
   // -----------------------------------------------------------------------
 
   it('GET /appointment redirects to login when not authenticated', async () => {
@@ -244,7 +244,7 @@ describe('Appointment Grid', () => {
   it('POST /appointment returns 403 when not authenticated (CSRF missing)', async () => {
     // Arrange
     // (no cookie, no CSRF token)
-    // POST/PUT without CSRF token is rejected by the CSRF middleware (403)
+    // POST/PATCH without CSRF token is rejected by the CSRF middleware (403)
     // before the auth middleware is reached.
 
     // Act
@@ -264,18 +264,18 @@ describe('Appointment Grid', () => {
     assert.equal(response.status, 403, 'unauthenticated POST without CSRF should return 403')
   })
 
-  it('PUT /appointment/:id returns 403 when not authenticated (CSRF missing)', async () => {
+  it('PATCH /appointment/:id returns 403 when not authenticated (CSRF missing)', async () => {
     // Arrange
 
     // Act
     let response = await router.fetch(`${APPT_URL}/9999999`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Updated' }),
     })
 
     // Assert
-    assert.equal(response.status, 403, 'unauthenticated PUT without CSRF should return 403')
+    assert.equal(response.status, 403, 'unauthenticated PATCH without CSRF should return 403')
   })
 
   // -----------------------------------------------------------------------
@@ -617,11 +617,11 @@ describe('Appointment Grid', () => {
   })
 
   // -----------------------------------------------------------------------
-  // Section 4: Title update — PUT /appointment/:id
+  // Section 4: Title update — PATCH /appointment/:id
   // Multiline titles must be accepted and preserved on update.
   // -----------------------------------------------------------------------
 
-  it('PUT /appointment/:id with multiline title updates successfully', async () => {
+  it('PATCH /appointment/:id with multiline title updates successfully', async () => {
     // Arrange: create an appointment on a date >24h from now
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -645,7 +645,7 @@ describe('Appointment Grid', () => {
 
     // Act: update to multiline
     let updateResponse = await router.fetch(`${APPT_URL}/${appointment.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -655,7 +655,7 @@ describe('Appointment Grid', () => {
     })
 
     // Assert
-    assert.equal(updateResponse.status, 200, 'multiline PUT should return 200')
+    assert.equal(updateResponse.status, 200, 'multiline PATCH should return 200')
     let updateBody = await updateResponse.json()
     assert.ok(updateBody.appointment, 'response should include appointment')
     assert.equal(
@@ -665,7 +665,7 @@ describe('Appointment Grid', () => {
     )
   })
 
-  it('PUT /appointment/:id preserves existing title when no title sent', async () => {
+  it('PATCH /appointment/:id preserves existing title when no title sent', async () => {
     // Arrange: create appointment
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -686,9 +686,9 @@ describe('Appointment Grid', () => {
     let { appointment: created } = await createResponse.json()
     testAppointmentIds.push(created.id)
 
-    // Act: PUT with date/start_min/end_min (no title)
+    // Act: PATCH with date/start_min/end_min (no title)
     let updateResponse = await router.fetch(`${APPT_URL}/${created.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -713,11 +713,11 @@ describe('Appointment Grid', () => {
     assert.equal(updateBody.appointment.start_min, 600, 'start_min should update')
   })
 
-  it('PUT /appointment/:id for non-existent appointment returns 404', async () => {
+  it('PATCH /appointment/:id for non-existent appointment returns 404', async () => {
     // Arrange
     // Act
     let response = await router.fetch(`${APPT_URL}/9999999`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -946,11 +946,11 @@ describe('Appointment Grid', () => {
   })
 
   // -----------------------------------------------------------------------
-  // Section 8: Multiline editing via PUT
+  // Section 8: Multiline editing via PATCH
   // Verify that a single-line title can be changed to multiline and back.
   // -----------------------------------------------------------------------
 
-  it('PUT round-trip: single-line → multiline → single-line preserves content at each step', async () => {
+  it('PATCH round-trip: single-line → multiline → single-line preserves content at each step', async () => {
     // Arrange: create single-line appointment
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -974,7 +974,7 @@ describe('Appointment Grid', () => {
     // Step 1: Update to multiline
     let multilineTitle = 'Updated\nwith\nmultiline'
     let step1 = await router.fetch(`${APPT_URL}/${appt.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -989,7 +989,7 @@ describe('Appointment Grid', () => {
     // Step 2: Update back to single-line
     let singleLineTitle = 'Back to single line'
     let step2 = await router.fetch(`${APPT_URL}/${appt.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1008,7 +1008,7 @@ describe('Appointment Grid', () => {
     // Step 3: Update to multiline with a \n
     let multilineAgain = 'Multiline\nagain'
     let step3 = await router.fetch(`${APPT_URL}/${appt.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1180,11 +1180,11 @@ describe('Appointment Grid', () => {
 
   // -----------------------------------------------------------------------
   // Section 10: Server-side offering validation — Update
-  // Verify that PUT /appointment/:id rejects moves outside the offering
+  // Verify that PATCH /appointment/:id rejects moves outside the offering
   // range and accepts moves within it.
   // -----------------------------------------------------------------------
 
-  it('PUT /appointment/:id moving slot outside offering range returns 403', async () => {
+  it('PATCH /appointment/:id moving slot outside offering range returns 403', async () => {
     // Arrange: narrow offerings to [480,1080), then create appt at 480-540
     await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [saturdayMs])
     await pool.query(
@@ -1212,9 +1212,9 @@ describe('Appointment Grid', () => {
     let { appointment } = await createResponse.json()
     testAppointmentIds.push(appointment.id)
 
-    // Act: PUT to move the slot to 0-60 (outside [480,1080))
+    // Act: PATCH to move the slot to 0-60 (outside [480,1080))
     let response = await router.fetch(`${APPT_URL}/${appointment.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1232,7 +1232,7 @@ describe('Appointment Grid', () => {
     assert.ok(body.error, 'should include error message')
   })
 
-  it('PUT /appointment/:id moving to date with no offerings returns 403', async () => {
+  it('PATCH /appointment/:id moving to date with no offerings returns 403', async () => {
     // Arrange: create appt at 480-540 on saturdayMs (full-day offering [0,1440))
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -1256,9 +1256,9 @@ describe('Appointment Grid', () => {
     // Remove the offering for sundayMs so that date has no bookable slots
     await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [sundayMs])
 
-    // Act: PUT to move the appt to sundayMs (no offerings)
+    // Act: PATCH to move the appt to sundayMs (no offerings)
     let response = await router.fetch(`${APPT_URL}/${appointment.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1278,7 +1278,7 @@ describe('Appointment Grid', () => {
     assert.ok(body.error, 'should include error message')
   })
 
-  it('PUT /appointment/:id moving slot within offering range returns 200', async () => {
+  it('PATCH /appointment/:id moving slot within offering range returns 200', async () => {
     // Arrange: create appt at 480-540 on farFutureDateMs (full-day offering).
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -1299,9 +1299,9 @@ describe('Appointment Grid', () => {
     let { appointment } = await createResponse.json()
     testAppointmentIds.push(appointment.id)
 
-    // Act: PUT to move slot to 540-600 (still within [0,1440))
+    // Act: PATCH to move slot to 540-600 (still within [0,1440))
     let response = await router.fetch(`${APPT_URL}/${appointment.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,

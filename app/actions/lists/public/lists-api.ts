@@ -58,7 +58,7 @@ export async function patchListRequest(
 ): Promise<PatchOutcome> {
   try {
     let response = await fetch(routes.lists.update.href({ id }), {
-      method: 'PUT',
+      method: 'PATCH',
       headers,
       body: JSON.stringify(partial),
     })
@@ -253,7 +253,7 @@ export async function mergeListRequest(
 
 /**
  * Best-effort keepalive flush for the unload / frame-swap paths. The update
- * route is PUT, which navigator.sendBeacon cannot send, so use keepalive fetch.
+ * route is PATCH, which navigator.sendBeacon cannot send, so use keepalive fetch.
  */
 export function sendKeepalivePatch(
   headers: Record<string, string>,
@@ -262,7 +262,7 @@ export function sendKeepalivePatch(
 ): void {
   try {
     void fetch(routes.lists.update.href({ id }), {
-      method: 'PUT',
+      method: 'PATCH',
       keepalive: true,
       headers,
       body: JSON.stringify(partial),

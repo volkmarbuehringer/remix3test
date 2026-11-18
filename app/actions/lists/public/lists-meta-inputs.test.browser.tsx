@@ -17,7 +17,7 @@ import type { ListInitialState } from './lists-state.ts'
 // it (the "adding date or tags is very slow / never shows up" bug).
 //
 // This pins the correct behaviour: typed value survives without a re-render, and
-// it reaches the debounced PUT exactly as typed.
+// it reaches the debounced PATCH exactly as typed.
 // ---------------------------------------------------------------------------
 
 const originalFetch = window.fetch
@@ -142,20 +142,20 @@ describe('lists metadata editor (date + tags)', () => {
     ) as HTMLButtonElement
     await result.act(() => save.click())
 
-    // Wait for the debounced PUT to fire.
+    // Wait for the debounced PATCH to fire.
     let deadline = Date.now() + 8000
     while (calls.length === 0 && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 25))
       await actFlush(result)
     }
 
-    let put = calls.find((c) => c.method === 'PUT')
-    assert.ok(put, 'a commit must issue a PUT')
-    let sent = put!.body as {
+    let patch = calls.find((c) => c.method === 'PATCH')
+    assert.ok(patch, 'a commit must issue a PATCH')
+    let sent = patch!.body as {
       items: Array<{ id: string; tags?: string[]; due?: string }>
     }
     let itemA = sent.items.find((i) => i.id === 'a')!
-    assert.deepEqual(itemA.tags, ['urgent', 'home'], 'typed tags must reach the PUT payload')
-    assert.equal(itemA.due, '2026-05-06', 'picked date must reach the PUT payload')
+    assert.deepEqual(itemA.tags, ['urgent', 'home'], 'typed tags must reach the PATCH payload')
+    assert.equal(itemA.due, '2026-05-06', 'picked date must reach the PATCH payload')
   })
 })

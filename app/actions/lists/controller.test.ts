@@ -848,10 +848,10 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // PUT /lists/:id — partial update (patch) with If-Match
+  // PATCH /lists/:id — partial update with If-Match
   // -----------------------------------------------------------------------
 
-  it('PUT /lists/:id (patch) description-only updates description', async () => {
+  it('PATCH /lists/:id (partial) description-only updates description', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -868,7 +868,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -885,7 +885,7 @@ describe('Lists controller', () => {
     assert.ok(body.updated_at > updated_at, 'updated_at should increase')
   })
 
-  it('PUT /lists/:id (patch) items-only updates items', async () => {
+  it('PATCH /lists/:id (partial) items-only updates items', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -902,7 +902,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -923,9 +923,9 @@ describe('Lists controller', () => {
     assert.ok(body.updated_at > updated_at, 'updated_at should increase')
   })
 
-  it('PUT /lists/invalid (patch) returns 400 for invalid ID', async () => {
+  it('PATCH /lists/invalid returns 400 for invalid ID', async () => {
     let response = await router.fetch(`${LISTS_URL}/invalid`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -938,9 +938,9 @@ describe('Lists controller', () => {
     assert.equal(response.status, 400)
   })
 
-  it('PUT /lists/9999999 (patch) returns 404 for non-existent list', async () => {
+  it('PATCH /lists/9999999 returns 404 for non-existent list', async () => {
     let response = await router.fetch(`${LISTS_URL}/9999999`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -955,7 +955,7 @@ describe('Lists controller', () => {
     assert.equal(response.status, 404)
   })
 
-  it("PUT /lists/:id (patch) returns 404 for another user's list", async () => {
+  it("PATCH /lists/:id (partial) returns 404 for another user's list", async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -972,7 +972,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -984,7 +984,7 @@ describe('Lists controller', () => {
     assert.equal(patchResponse.status, 404)
   })
 
-  it('PUT /lists/:id (patch) with stale If-Match returns 409', async () => {
+  it('PATCH /lists/:id (partial) with stale If-Match returns 409', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -1002,7 +1002,7 @@ describe('Lists controller', () => {
 
     // Advance updated_at via a successful patch
     let firstPatch = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1015,7 +1015,7 @@ describe('Lists controller', () => {
 
     // Now try patch with the original stale updated_at
     let conflictResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1034,7 +1034,7 @@ describe('Lists controller', () => {
     )
   })
 
-  it('PUT /lists/:id (patch) force overwrite after conflict', async () => {
+  it('PATCH /lists/:id (partial) force overwrite after conflict', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -1052,7 +1052,7 @@ describe('Lists controller', () => {
 
     // Advance updated_at
     let firstPatch = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1065,7 +1065,7 @@ describe('Lists controller', () => {
 
     // Get conflict with stale If-Match
     let conflictResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1079,7 +1079,7 @@ describe('Lists controller', () => {
 
     // Retry with the updated_at from the 409 body → should succeed
     let retryResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1097,7 +1097,7 @@ describe('Lists controller', () => {
     )
   })
 
-  it('PUT /lists/:id (patch) with empty body returns 400', async () => {
+  it('PATCH /lists/:id (partial) with empty body returns 400', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -1114,7 +1114,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let response = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1128,7 +1128,7 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('PUT /lists/:id (patch) with empty items array clears all items', async () => {
+  it('PATCH /lists/:id (partial) with empty items array clears all items', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -1145,7 +1145,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let response = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -1164,7 +1164,7 @@ describe('Lists controller', () => {
 
     // The cleared list must remain writable: adding an item back still succeeds.
     let refill = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -2234,7 +2234,7 @@ describe('Lists controller', () => {
     )
   })
 
-  it('PUT /lists/:id (patch) clears an existing title to empty', async () => {
+  it('PATCH /lists/:id (partial) clears an existing title to empty', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -2252,7 +2252,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -2296,7 +2296,7 @@ describe('Lists controller', () => {
     assert.equal(body.items[1]!.priority, undefined)
   })
 
-  it('PUT /lists/:id (patch) rejects an invalid priority', async () => {
+  it('PATCH /lists/:id (partial) rejects an invalid priority', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -2310,7 +2310,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -2324,7 +2324,7 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'invalid priority should be rejected')
   })
 
-  it('PUT /lists/:id (patch) rejects an item label over the export cap', async () => {
+  it('PATCH /lists/:id (partial) rejects an item label over the export cap', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -2339,7 +2339,7 @@ describe('Lists controller', () => {
 
     try {
       let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-Csrf-Token': userCsrfToken,
@@ -2358,7 +2358,7 @@ describe('Lists controller', () => {
     }
   })
 
-  it('PUT /lists/:id (patch) persists and clears per-item metadata', async () => {
+  it('PATCH /lists/:id (partial) persists and clears per-item metadata', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -2372,7 +2372,7 @@ describe('Lists controller', () => {
     let { id, updated_at } = await saveResponse.json()
 
     let setResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
@@ -2388,7 +2388,7 @@ describe('Lists controller', () => {
     assert.equal(setBody.items[0]!.priority, 'medium')
 
     let clearResponse = await router.fetch(`${LISTS_URL}/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,

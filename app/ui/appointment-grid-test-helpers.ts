@@ -148,7 +148,7 @@ export function installFetchCapture() {
     let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     let method = (init?.method ?? 'GET').toUpperCase()
 
-    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+    if (method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE') {
       capturedMutations.push({
         method,
         url,

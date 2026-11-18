@@ -11,7 +11,7 @@
 Three failure modes:
 
 1. **Dead validation on derived/stripped columns.** An `appointments`-style `beforeWrite` folds `start_min`/`end_min` into `during` and deletes the pair. A `validate` that checks `value.start_min`/`value.end_min` therefore always sees `undefined` and silently passes; only the DB CHECK remains. Validate the derived column instead.
-2. **One-sided partial update throws.** A `beforeWrite` that enforces a pair (`if exactly one bound is present → throw`) rejects a legitimate one-sided update (`PUT { start_min }`) with `DataTableConstraintError` before `validate` runs — surfacing as an unhandled 500. Merge the stored counterpart at the data-layer boundary.
+2. **One-sided partial update throws.** A `beforeWrite` that enforces a pair (`if exactly one bound is present → throw`) rejects a legitimate one-sided update (`PATCH { start_min }`) with `DataTableConstraintError` before `validate` runs — surfacing as an unhandled 500. Merge the stored counterpart at the data-layer boundary.
 3. **Required fields reject every update.** A `validate` that unconditionally requires create-only fields (`resource_id`, `day`, `during`) fails every partial `db.update` with `DataTableValidationError`. Gate each requirement on `operation === 'create'` — hook context is exactly `{ operation: 'create' | 'update' }` (README), even though the write methods include `insert`/`upsert`/`*Many`.
 
 ## Solution
@@ -45,4 +45,4 @@ If a rule must hold for every write regardless of partiality, put it in SQL (CHE
 - Adding required-field checks to a table whose rows are also partially updated (`db.update`, `updateMany`, PATCH handlers).
 - Reviewing a data-table write path for validation completeness.
 
-**App anchors:** `app/data/schema.ts` (`appointments` validate/beforeWrite, `appointofferings` validate), `app/data/appointments.ts` (`updateAppointment`), `app/actions/appointment/controller.tsx` (merged-duration guard); tests `app/actions/appointment/controller.test.ts` ("PUT /appointment/:id (partial slot update)") and `app/data/appointofferings.test.ts` ("accepts a partial typed update that changes only day").
+**App anchors:** `app/data/schema.ts` (`appointments` validate/beforeWrite, `appointofferings` validate), `app/data/appointments.ts` (`updateAppointment`), `app/actions/appointment/controller.tsx` (merged-duration guard); tests `app/actions/appointment/controller.test.ts` ("PATCH /appointment/:id (partial slot update)") and `app/data/appointofferings.test.ts` ("accepts a partial typed update that changes only day").

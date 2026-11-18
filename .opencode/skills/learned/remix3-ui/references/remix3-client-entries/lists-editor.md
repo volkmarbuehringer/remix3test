@@ -7,7 +7,7 @@
 ## When to use
 
 - A list view has status/hide-done/search filters or a view-only sort, and the persisted manual order must not change.
-- Undo must survive a debounced PUT, or a list switch must not carry the snapshot to another list.
+- Undo must survive a debounced PATCH, or a list switch must not carry the snapshot to another list.
 - A touch row needs a kebab/inline menu instead of a hover cluster, or focus is lost after a transient menu closes.
 - Bulk actions span rows a filter hides, or targets live beyond the rendered sidebar page.
 - Sidebar search/sort/page-size/result-count must survive navigation, or a fixed dialog sits inside the sticky sidebar.
@@ -36,9 +36,9 @@
 - Undo is the last destructive action, not a timer. `showUndo(kind, snapshot)` stores the snapshot and sets `keepUndoForMutation = true`; the immediately following `setDirty()` consumes it instead of clearing. Any other mutation clears the chip; autosave must not.
 - Bind Ctrl/Cmd+Z on `document`: ignore Alt/Shift, other keys, and events targeting `input, textarea, select, [contenteditable]` (native text undo stays). With no snapshot, do nothing. No redo; document the policy in the chip title and the help sheet.
 - `resetUndoState()` (clears the fields without rendering) on a list switch: `hydrateFromInitialState` **and** both no-initial-state branches (restored draft, empty new list). Do not call `clearUndo()` there if its `handle.update()` renders during hydration. A snapshot that outlives a frame navigation makes `undo()` write list A's items into list B under B's `If-Match` (silent data loss).
-- Drifted save: when a PUT response drifts (live state no longer equals what was sent), rebase the clean baseline onto the server echo (`cleanTitle`/`cleanDescription`/`cleanItemsJSON` from `state`), set `dirty`, and re-arm autosave. Do **not** call `snapshotClean()`: the server holds the sent state, and an undo during the in-flight PUT restores exactly the old clean state, so a snapshotClean baseline would skip the follow-up save.
+- Drifted save: when a PATCH response drifts (live state no longer equals what was sent), rebase the clean baseline onto the server echo (`cleanTitle`/`cleanDescription`/`cleanItemsJSON` from `state`), set `dirty`, and re-arm autosave. Do **not** call `snapshotClean()`: the server holds the sent state, and an undo during the in-flight PATCH restores exactly the old clean state, so a snapshotClean baseline would skip the follow-up save.
 - Pin async target actions to their source list: capture `sourceId = loadedListId` before `flushNow()`, pass it to the request, and check `loadedListId === sourceId` after every await and again before applying `outcome.source`. Applies to bulk copy, bulk move, single-row move, and the sidebar copy-here confirm (capture the id at confirmation time, not inside `run()`). A stale response otherwise replaces list B's editor, and `snapshotClean()` marks B clean with A's content.
-- Deterministic reproduction of the undo-during-PUT race: `app/actions/lists/public/lists-autosave.test.browser.tsx` holds the first PUT with a deferred fetch, undoes while it is pending, releases it, then advances fake timers for the re-armed save. `Response.json()` resolves through real browser tasks, so capture the real `setTimeout` before `t.useFakeTimers()` and flush a few 0 ms tasks (`flushAsyncWork`); fake timers alone leave the save unsettled.
+- Deterministic reproduction of the undo-during-PATCH race: `app/actions/lists/public/lists-autosave.test.browser.tsx` holds the first PATCH with a deferred fetch, undoes while it is pending, releases it, then advances fake timers for the re-armed save. `Response.json()` resolves through real browser tasks, so capture the real `setTimeout` before `t.useFakeTimers()` and flush a few 0 ms tasks (`flushAsyncWork`); fake timers alone leave the save unsettled.
 - Autosave is the default; the header `Speichern` button is the quiet secondary escape hatch and is disabled while clean. A keepalive flush (`flushWithKeepalive`) runs from the frame's `reloadStart` and `beforeunload`, so switching lists does not discard a pending debounce.
 
 ## 4. Bulk actions and the styled merge confirm
@@ -93,7 +93,7 @@
 ## Tests
 
 - `app/actions/lists/public/lists-polish.test.browser.tsx` — help focus/Escape/overlay, document undo vs native input undo, chip cleared by the next mutation, double-click row vs nested control, two-step clear disarmed by a bulk action, manual save secondary.
-- `app/actions/lists/public/lists-autosave.test.browser.tsx` — debounce/coalescing and the deferred-PUT undo race.
+- `app/actions/lists/public/lists-autosave.test.browser.tsx` — debounce/coalescing and the deferred-PATCH undo race.
 - `app/actions/lists/public/lists-view-controls.test.browser.tsx` — tabs/counts, filter composition, hide-done visible-step reorder, hidden-selection labeling, filtered-empty reset, view-only sort/reverse/shuffle.
 - `app/actions/lists/public/lists-item-menu.test.browser.tsx` — outside pointerdown, Escape focus, move/delete focus, filtered move guard.
 - `app/actions/lists/public/lists-bulk-actions.test.browser.tsx` — bulk done/open over hidden rows, picker loading/empty/error/arrow/Escape, single-row move route.

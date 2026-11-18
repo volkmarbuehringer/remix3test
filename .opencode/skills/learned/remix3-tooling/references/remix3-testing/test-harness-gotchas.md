@@ -180,7 +180,7 @@ elapsed duration. This repo's app-side surfaces:
   and flushes with `act(() => realSetTimeout(resolve, 0))`.
 
 Retained time-based waits are negative observations with no completion event: a CSP
-violation window, a view-only sort proving no PUT after the debounce, a promise contract
+violation window, a view-only sort proving no PATCH after the debounce, a promise contract
 that must never settle, and animation/WAAPI settling loops. Give each one a comment
 saying why no observable signal exists.
 

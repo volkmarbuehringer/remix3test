@@ -415,7 +415,7 @@ describe('lists copy selected items into another list', () => {
 //
 // Dragging the last remaining item of a list onto another list's sidebar row
 // must move it and leave the source list empty: an empty list is a valid state
-// (the editor and PUT /lists/:id both allow clearing every item). Uses
+// (the editor and PATCH /lists/:id both allow clearing every item). Uses
 // synthetic DragEvents plus the client-only bulk-bar hydration marker, like the
 // copy-selected tests.
 // ---------------------------------------------------------------------------

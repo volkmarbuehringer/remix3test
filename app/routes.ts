@@ -1,4 +1,4 @@
-import { del, get, post, put, route, form, resources } from 'remix/routes'
+import { del, get, patch, post, put, route, form, resources } from 'remix/routes'
 
 export const frames = {
   adminContent: 'admin-content',
@@ -39,7 +39,7 @@ export const routes = route({
     targets: get('/targets'),
     pdf: get('/:id/pdf'),
     create: post('/'),
-    update: put('/:id'),
+    update: patch('/:id'),
     move: post('/:id/move'),
     moveItems: post('/:id/move-items'),
     copy: post('/:id/copy'),
@@ -86,7 +86,7 @@ export const routes = route({
   appointment: route('appointment', {
     index: get('/'),
     create: post('/'),
-    update: put('/:id'),
+    update: patch('/:id'),
     destroy: del('/:id'),
     events: get('/events'),
     types: resources('types', { exclude: ['new', 'show', 'edit'] }),

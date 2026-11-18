@@ -118,7 +118,7 @@ describe('Appointment controller', () => {
     })
   })
 
-  describe('PUT /appointment/:id (partial slot update)', () => {
+  describe('PATCH /appointment/:id (partial slot update)', () => {
     it('merges a start_min-only update with the stored end_min', async () => {
       let env = await setupTestEnvironment()
       let auth = { cookie: env.adminCookie, csrfToken: env.adminCsrfToken }
@@ -146,7 +146,7 @@ describe('Appointment controller', () => {
         appointmentId = created.appointment.id as number
 
         let update = await router.fetch(`${APPOINTMENT_URL}/${appointmentId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
             Cookie: auth.cookie,
             'X-Csrf-Token': auth.csrfToken,
@@ -162,7 +162,7 @@ describe('Appointment controller', () => {
         assert.equal(body.appointment.during, '[615,660)')
 
         let tooShort = await router.fetch(`${APPOINTMENT_URL}/${appointmentId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
             Cookie: auth.cookie,
             'X-Csrf-Token': auth.csrfToken,

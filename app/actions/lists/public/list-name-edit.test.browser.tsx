@@ -5,7 +5,7 @@ import { render } from 'remix/component/test'
 import { ListNameEdit } from './list-name-edit.tsx'
 
 // ListNameEdit turns a sidebar row into an inline rename field: clicking the
-// rename button injects an input, Escape cancels, Enter/blur PUT the new title
+// rename button injects an input, Escape cancels, Enter/blur PATCH the new title
 // with CSRF + If-Match, and a 409 flashes the name. fetch is stubbed; the frame
 // reload on success is left to the e2e suite (the root frame in a component
 // test cannot resolve a navigation).
@@ -155,7 +155,7 @@ describe('ListNameEdit', () => {
     assert.equal(calls.length, 0)
   })
 
-  it('PUTs a changed title exactly once with CSRF + If-Match', async (t) => {
+  it('PATCHes a changed title exactly once with CSRF + If-Match', async (t) => {
     let host = mount()
     mountEntry()
     stubFetch(200)
@@ -168,7 +168,7 @@ describe('ListNameEdit', () => {
 
     assert.equal(calls.length, 1, 'removing the input must not re-submit')
     assert.equal(calls[0]!.url, '/lists/7')
-    assert.equal(calls[0]!.init.method, 'PUT')
+    assert.equal(calls[0]!.init.method, 'PATCH')
     let headers = calls[0]!.init.headers as Record<string, string>
     assert.equal(headers['Content-Type'], 'application/json')
     assert.equal(headers['X-Csrf-Token'], 'tok123')

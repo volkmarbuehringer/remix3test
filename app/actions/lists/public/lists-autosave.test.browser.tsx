@@ -6,7 +6,7 @@ import { ListsClient } from './lists-client.tsx'
 import type { ListInitialState } from './lists-state.ts'
 
 // ListsClient autosave + undo against a loaded list. fetch is stubbed so the
-// debounced PUT is observable; the real round-trip and the frame reloadStart
+// debounced PATCH is observable; the real round-trip and the frame reloadStart
 // flush stay in the e2e suite. The pure transitions are in lists-state.test.ts.
 
 const originalFetch = window.fetch
@@ -139,7 +139,7 @@ describe('ListsClient autosave', () => {
     await flushAsyncWork(result)
     assert.equal(calls.length, 1, 'the edit should autosave')
     assert.equal(calls[0]!.url, '/lists/7')
-    assert.equal(calls[0]!.init.method, 'PUT')
+    assert.equal(calls[0]!.init.method, 'PATCH')
     let headers = calls[0]!.init.headers as Record<string, string>
     assert.equal(headers['Content-Type'], 'application/json')
     assert.equal(headers['X-Csrf-Token'], 'tok')
@@ -147,7 +147,7 @@ describe('ListsClient autosave', () => {
     assert.equal(calls[0]!.init.body, JSON.stringify({ title: 'Neu' }))
   })
 
-  it('coalesces rapid edits into a single PUT', async (t) => {
+  it('coalesces rapid edits into a single PATCH', async (t) => {
     let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
     let result = renderEditor({
       id: 7,
@@ -305,7 +305,7 @@ describe('ListsClient undo', () => {
 
     await result.act(() => buttonByText(result.container, 'Nur Erledigte löschen')!.click())
 
-    // Fire the 1.5s autosave but leave its PUT pending.
+    // Fire the 1.5s autosave but leave its PATCH pending.
     timers.advance(1500)
     await flushAsyncWork(result)
     assert.equal(calls.length, 1, 'the clear should autosave')
@@ -316,7 +316,7 @@ describe('ListsClient undo', () => {
       'open',
     )
 
-    // Undo while the clear PUT is still in flight: the slowest legitimate
+    // Undo while the clear PATCH is still in flight: the slowest legitimate
     // path, where saveNow serializes the second save and the save's drift
     // branch re-arms the debounce. Nothing here waits on a wall clock.
     await result.act(() => buttonByText(result.container, 'Rückgängig')!.click())
@@ -332,7 +332,7 @@ describe('ListsClient undo', () => {
       'done,open',
     )
 
-    // Settle the second PUT and prove no third autosave was armed.
+    // Settle the second PATCH and prove no third autosave was armed.
     await respondToNextFetch(result)
     timers.advance(5000)
     await flushAsyncWork(result)
