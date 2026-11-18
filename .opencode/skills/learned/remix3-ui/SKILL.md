@@ -194,7 +194,7 @@ Delta index for browser behavior that lives in a `clientEntry`; the entry/`Frame
 
 ### Core Rules
 
-- `handle.update()` only from an event handler or `handle.queueTask()` — never from setup, render, or a `dragover`/resize/scroll handler (the runtime phase-guards it and throws on a cascading loop).
+- `handle.update()` only from an event handler or `handle.queueTask()` — never from setup or render (the runtime warns/throws there). Event handlers are supported; don't call it per `dragover`/scroll event for performance, and the cascade guard is per component (50 updates in one turn), not a frame-wide hydration limit.
 - Post-update DOM work (focus, scroll, measure) is a `queueTask`, not `requestAnimationFrame`: it is abortable on re-render. A task only drains on a render, so an entry that patches DOM imperatively must `void handle.update()` after queueing, and a focus restore queues **before** the update that renders the target.
 - Register global listeners, observers, `matchMedia`, and `EventSource` in `handle.queueTask`, not setup: the queued task is a no-op during SSR, so it replaces the `typeof document` guard (detail: `remix3-tooling` § Bun runtime → SSR `handle.signal`).
 - `clientEntry(entryId, component)` only tags; hydration resolves the entry id's module `#ExportName`, not function identity. Keep `clientEntry(import.meta.url + '#Name', …)` at each call site, and remember direct-render browser tests bypass hydration.
@@ -272,7 +272,7 @@ Delta index for `remix/component` JSX: verbatim attributes, the untyped-props bl
 
 - `remix/component` passes attributes through **verbatim** — there is no React-style name translation, so SVG presentation attributes are kebab-case (`stroke-width`, `stop-color`), never camelCase.
 - `ElementProps = Record<string, any>` means renames and typos compile, and render tests pass because they assert what a component *emits* rather than what the runtime *reads*. Verify runtime attribute contracts at the runtime layer: grep the installed package, sweep with a negative-lookbehind regex, add a render test, then exercise the real browser flow.
-- Since #12152 boolean `aria-*`/`data-*` serialize to `"true"`/`"false"` on server and client, so prefer boolean ARIA over a string ternary. Presence-based markers (`data-rmx-document`, `data-rmx-preserve-dom`, `popover`, `value`, plain boolean props) are unchanged — assert those with `hasAttribute`.
+- Since #12152 boolean `aria-*`/`data-*` serialize to `"true"`/`"false"` on server and client, so prefer boolean ARIA over a string ternary. Presence-based markers (`data-rmx-document`, `data-rmx-preserve-dom`, `popover`, plain boolean props) are unchanged — assert those with `hasAttribute`; `value` is stringified, not presence-based.
 
 ### When to Use
 

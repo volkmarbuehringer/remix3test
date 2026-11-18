@@ -84,7 +84,7 @@ The period/status switchers were fixed by marking the two contested declarations
 
 **Context:** Adding an editable email column to a server-rendered admin table using one `clientEntry` component (not per-row).
 
-A naive approach creates one `clientEntry` per row (`N` hydrations, `N` closured states), causing `handle.update()` issues. Use a **single** `clientEntry` per page. Since the table is owned by the server component, the clientEntry cannot re-render individual cells via its render function. Instead, use **DOM manipulation** to replace cell content with an `<input>`.
+A naive approach creates one `clientEntry` per row (`N` hydrations, `N` closured states), which is worth avoiding for no-JS and payload reasons — the runtime's cascade guard is per component, not a 50-hydration frame limit. Use a **single** `clientEntry` per page. Since the table is owned by the server component, the clientEntry cannot re-render individual cells via its render function. Instead, use **DOM manipulation** to replace cell content with an `<input>`.
 
 #### Architecture
 
@@ -161,15 +161,15 @@ Use when the `on` mixin compiles but the handler doesn't fire (suspect missing `
 
 **Context:** Implementing drag-and-drop reordering of list items in a `clientEntry` component.
 
-Adding HTML5 Drag and Drop (`dragstart`, `dragover`, `drop`, `dragend`) to a Remix 3 `clientEntry` hits three issues:
+Three points matter for HTML5 drag and drop in a `clientEntry`; the first is no longer a type problem:
 
-1. **`on()` mixin rejects drag events** — `on('dragstart', handler)` fails TypeScript because `EventType<Element>` (the target type for JSX elements) does not include HTML5 drag events. Only `HTMLElementEventMap` includes them, but the template system targets `Element`.
-2. **`handle.update()` during drag causes infinite loop** — calling `handle.update()` inside `dragover` (which fires on every mouse pixel) triggers a re-render that the scheduler detects as cascading updates and throws `Error: handle.update() infinite loop detected`.
+1. **`on()` accepts drag events at the current pin** — `on('dragstart', handler)` typechecks on an HTML element (`EventMap<HTMLElement>` includes `HTMLElementEventMap`). Use `on()` for per-element handlers; use one delegated listener on a container when rows are created/reordered. The app's lists use delegation, not a type workaround.
+2. **A render per `dragover` is a performance trap, not a runtime error** — `dragover` fires per mouse movement; calling `handle.update()` on every event re-renders the list continuously. The cascade guard only errors after one component updates more than 50 times in a single event-loop turn. Mutate the drag indicator/transform directly and defer or throttle the render.
 3. **Stale closures after key-based reorder** — after a successful drop, `handle.update()` re-renders the list. Key-based reconciliation reuses DOM elements, so `ref()` callbacks **don't re-fire**. Event listener closures keep the **old** `index` value, corrupting subsequent drag operations.
 
-#### 1. Use `ref()` + `addEventListener` instead of `on()`
+#### 1. Use `ref()` + `addEventListener` for delegation and per-gesture cleanup
 
-Attach drag event listeners via `ref()` with an `AbortController` for cleanup:
+Attach delegated drag listeners on the container via `ref()` with an `AbortController` for cleanup:
 
 ```ts
 export const MyList = clientEntry(import.meta.url + '#MyList', (handle) => {
@@ -195,7 +195,7 @@ export const MyList = clientEntry(import.meta.url + '#MyList', (handle) => {
 })
 ```
 
-#### 2. Never call `handle.update()` during active drag
+#### 2. Don't render per `dragover` — mutate the DOM directly
 
 Visual feedback must use **direct DOM manipulation**:
 
@@ -263,7 +263,7 @@ let elByIndex = (i: number): HTMLElement | null => {
 </div>
 ```
 
-Use when implementing drag-and-drop reordering in a `clientEntry`, getting TypeScript errors from `on('dragstart', ...)`/`on('dragover', ...)`, getting `handle.update() infinite loop detected` during drag, or drag working once then breaking after reordering.
+Use when implementing drag-and-drop reordering in a `clientEntry`, a drag handler renders on every `dragover` (performance/jank), drag works once then breaks after reordering, or you need one delegated container listener with per-gesture cleanup.
 
 ## Fragment Scrolling Inside Overflow Containers
 

@@ -26,7 +26,7 @@ csrf({
 
 ### Common Pitfall: Every POST Form Needs a CSRF Token Input
 
-When `csrf()` is installed globally, every non-GET request is validated. A `<form method="POST">` without a hidden `_csrf` field will get a **403 Forbidden** with "Forbidden: missing CSRF token" in the server log.
+When `csrf()` is installed globally, every unsafe request (safe methods default to GET/HEAD/OPTIONS) is validated. A `<form method="POST">` without a hidden `_csrf` field will get a **403 Forbidden** whose body is `Forbidden: missing CSRF token`.
 
 Add `<CsrfTokenInput />` inside every `<form method="POST">`:
 
@@ -61,7 +61,7 @@ fetch('/chat', {
 
 ### Gotcha: New `createAction`/`router.post()` Routes Also Need CSRF Bypass
 
-When you add a new POST route via `createAction` + `router.post()` (not a form), it still goes through CSRF middleware and silently returns 403 — not with "Forbidden: missing CSRF token" but a bare 403 that looks like an auth/IP rejection.
+When you add a new POST route via `createAction` + `router.post()` (not a form), it still goes through CSRF middleware and returns a 403 whose body is `Forbidden: missing CSRF token` (or `Forbidden: invalid CSRF token` / `Forbidden: invalid CSRF origin`), which can look like an auth/IP rejection.
 
 **Scenario:** You add:
 

@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createSession } from 'remix/session'
-import { MaxFileSizeExceededError } from 'remix/form-data-parser'
+import { MaxFileSizeExceededError, MaxHeaderSizeExceededError } from 'remix/form-data-parser'
 import { ContentDisposition, ContentType } from 'remix/headers'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
@@ -350,6 +350,7 @@ describe('Admin Uploads controller', () => {
 
   it('uploadLimitErrorCode maps parser limit errors to stable codes', async () => {
     assert.equal(uploadLimitErrorCode(new MaxFileSizeExceededError(1)), 'file_too_large')
+    assert.equal(uploadLimitErrorCode(new MaxHeaderSizeExceededError(8192)), 'header_too_large')
     assert.equal(uploadLimitErrorCode(new Error('nope')), null)
   })
 

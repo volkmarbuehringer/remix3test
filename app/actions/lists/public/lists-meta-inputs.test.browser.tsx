@@ -78,7 +78,7 @@ afterEach(() => {
   cleanup = null
 })
 
-describe('lists metadata editor (date + tags)', () => {
+describe('lists metadata editor (date + tags + priority)', () => {
   it('keeps typed tags in the DOM without a re-render', async () => {
     let result = render(<ListsClient initialState={state} />)
     cleanup = result.cleanup
@@ -157,5 +157,50 @@ describe('lists metadata editor (date + tags)', () => {
     let itemA = sent.items.find((i) => i.id === 'a')!
     assert.deepEqual(itemA.tags, ['urgent', 'home'], 'typed tags must reach the PATCH payload')
     assert.equal(itemA.due, '2026-05-06', 'picked date must reach the PATCH payload')
+  })
+
+  it('seeds the priority select and sends the changed priority', async () => {
+    let stateWithPriority: ListInitialState = {
+      ...state,
+      items: [
+        { id: 'a', label: 'Alpha', priority: 'high' },
+        { id: 'b', label: 'Beta' },
+      ],
+    }
+    let result = render(<ListsClient initialState={stateWithPriority} />)
+    cleanup = result.cleanup
+    await actFlush(result)
+
+    await result.act(() => editButtonFor(result.container, 0).click())
+    await actFlush(result)
+
+    let priority = result.container.querySelector(
+      'select[aria-label="Priorität"]',
+    ) as HTMLSelectElement
+    assert.ok(priority, 'priority field should render when editing a member')
+    assert.equal(priority.value, 'high', 'defaultValue must seed the item priority')
+
+    priority.value = 'low'
+    await result.act(() => priority.dispatchEvent(new Event('change', { bubbles: true })))
+
+    let save = [...result.container.querySelectorAll('button')].find(
+      (b) => b.getAttribute('title') === 'Speichern',
+    ) as HTMLButtonElement
+    await result.act(() => save.click())
+
+    let deadline = Date.now() + 8000
+    while (calls.length === 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 25))
+      await actFlush(result)
+    }
+
+    let patch = calls.find((c) => c.method === 'PATCH')
+    assert.ok(patch, 'a commit must issue a PATCH')
+    let sent = patch!.body as { items: Array<{ id: string; priority?: string }> }
+    assert.equal(
+      sent.items.find((i) => i.id === 'a')?.priority,
+      'low',
+      'changed priority must reach the PATCH payload',
+    )
   })
 })

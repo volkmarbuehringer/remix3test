@@ -21,13 +21,18 @@ Use the guide's `parseSafe` re-render pattern (`node_modules/remix/guides/09-for
 
 ### Select Fields: Preserve Selection
 
-When `formValues` are present (validation failure), use them for `selected`; otherwise fall back to the row value:
+`<select value>`/`<select defaultValue>` are supported since #12204: the renderer matches the select's winning value against each option's value (as strings) and marks the option `selected` on the server; hydration preserves it. Precedence is select `value` → `defaultValue` → option `selected`.
+
+Use `defaultValue` for the initial choice on a server-rendered or validation re-render:
 
 ```tsx
-<option value="Admin" selected={formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'}>
+<select name="role" defaultValue={formValues?.role ?? row.role}>
+  <option value="customer">Customer</option>
+  <option value="admin">Admin</option>
+</select>
 ```
 
-**Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. `remix/component` compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it.
+`defaultValue` is initialization-only: a select that is reused with a new value still needs per-option `selected` (or a `ref`). For a controlled select, pass `value` and call `handle.update()` in the change handler.
 
 ## Schema Validation
 
@@ -117,6 +122,8 @@ f.field(
 **Related: PostgreSQL integer vs URL string type coercion in `<option selected>`**
 
 `<option selected={resolvedId === res.id}>` silently fails when `res.id` is a `number` from PostgreSQL but `resolvedId` is a `string` from URL params. PostgreSQL `integer` columns return as JS `number` through `pg`, while `URLSearchParams.get()` and `FormData.get()` always return strings. `===` is strict — `"5" === 5` → `false`.
+
+With select-level `value`/`defaultValue` the renderer compares as strings, so this coercion disappears; keep the `String()` guards only for per-option `selected`.
 
 Use `String()` on both sides:
 

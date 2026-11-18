@@ -26,8 +26,8 @@ headers.contentDisposition = {
 
 The `toString()` → `quote()` chain:
 
-- Only escapes `"` → `\"` when the value contains `"`, `;`, or space
-- Does not escape backslashes
+- Quotes when the value contains `"`, `\`, `;`, or a space
+- Escapes both `"` and `\` inside the quotes
 - Only wraps in quotes when necessary
 
 Similarly, `Content-Length` accepts `number` directly — no `String()` wrapping needed:

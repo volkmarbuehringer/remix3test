@@ -168,4 +168,5 @@ export const uploadErrorMessages: Record<string, string> = {
   too_many_files: UPLOAD_TOO_MANY_FILES_MESSAGE,
   total_too_large: 'Der Upload überschreitet die maximale Gesamtgröße.',
   too_many_parts: 'Zu viele Formularfelder in der Anfrage.',
+  header_too_large: 'Ein Formularfeld-Header ist zu lang.',
 }

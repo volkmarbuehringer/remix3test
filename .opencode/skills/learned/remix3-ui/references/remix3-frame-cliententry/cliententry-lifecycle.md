@@ -4,7 +4,7 @@
 
 The mount, hydration, re-render, and disposal traps of a `clientEntry`. Read this when the task involves:
 
-- A frame with many `clientEntry` components crashing with `handle.update() infinite loop detected`
+- A component that updates repeatedly in one turn (`handle.update()` cascade warning/error), or deciding between per-row entries and delegation
 - Interaction that silently stops working after sort/paginate/filter in a frame
 - Loading data when the enclosing frame navigates to a different URL
 - Registering global `document`/`window` listeners from an entry
@@ -15,29 +15,15 @@ For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, s
 
 ## clientEntry Cascade Limit
 
-**Context:** A Remix 3 Frame that hosts 50+ `clientEntry` components (e.g., per-row delete buttons in a grid table) crashes on pagination with `handle.update() infinite loop detected`.
+**Context:** A frame with many `clientEntry` components, or one component that calls `handle.update()` repeatedly from an event handler.
 
-A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
+The runtime's cascade guard is **per component**, not per frame: `trackCascadingUpdate()` counts each component's updates within one event-loop turn (`vdom.ts:300-301`, `:350-377`). It logs a warning when the **total** reaches 50 (`CASCADING_UPDATE_WARN_THRESHOLD`) and throws `handle.update() infinite loop detected in <name> after N cascading updates` only when **one component** exceeds `MAX_CASCADING_COMPONENT_UPDATES` (50). Many distinct entries that hydrate once each are not this bug. Avoiding per-row `clientEntry`s is still reasonable for no-JS, payload, and delegation reasons — not because 50 hydrations crash the frame.
 
-> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/vdom.ts:377`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
+> **Phase guard:** `handle.update()` during setup warns and skips; during render it throws `Cannot call handle.update() while <name> is running its <phase> function` (`component.ts:526-545`). Call it from an event handler or `handle.queueTask()`; event handlers themselves are supported. Avoid a render per `dragover`/scroll/resize for performance, not because the runtime rejects it.
 
-**Root cause chain:**
+**Server-rendered forms / delegation** remain the right shape for row actions (no-JS, smaller payload, one client entry). Server-rendered forms inside a Frame need `<CsrfTokenInput />`, `<input type="hidden" name="_method" value="DELETE" />` for method override, hidden inputs for offset/sort/order/filter state, `data-rmx-target="<frame-name>"` for frame-aware submission without full page navigation, and a redirect to the grid fragment URL (e.g., `/client/grid`) not the full page URL (`/client`).
 
-1. All `clientEntry` hydrations within a single Frame share that Frame's scheduler (`vdom.ts`)
-2. The scheduler's `cascadingUpdateCount` increments on every `flush()` call
-3. On the **first load**, modules aren't cached yet — hydrations happen asynchronously in separate microtasks, giving `setTimeout(0)` a chance to reset the counter
-4. On **subsequent loads** (pagination), modules are already in `context.moduleCache`, so all hydrations run **synchronously** without yielding to the event loop, accumulating the counter past `MAX_CASCADING_UPDATES = 50`
-5. The error fires at counter value 51 (`> 50`), even though no actual infinite loop exists
-
-**Solution:** reduce the number of `clientEntry` components within the Frame to stay below the 50 threshold:
-
-1. **Replace per-row clientEntry with server-rendered forms** — use standard `<form method="POST" data-rmx-target="<frame-name>" data-confirm="...">` instead of per-row `clientEntry` delete buttons
-2. **Use event delegation** — a single `clientEntry` can handle all row actions via DOM event delegation (e.g., `target.closest('tr[data-row-id]')`)
-3. **Embed row data as JSON** in a `<script id="...-table-data" type="application/json">` tag for the delegated handler to read
-
-Server-rendered forms inside a Frame need `<CsrfTokenInput />`, `<input type="hidden" name="_method" value="DELETE" />` for method override, hidden inputs for offset/sort/order/filter state, `data-rmx-target="<frame-name>"` for frame-aware submission without full page navigation, and a redirect to the grid fragment URL (e.g., `/client/grid`) not the full page URL (`/client`).
-
-Use when a frame crashes with `handle.update() infinite loop detected` during pagination, you have many `clientEntry` components (50+) inside a single Frame, or the error appears only on cached (second+) renders.
+Use when a frame logs the cascade warning/error, a single component updates repeatedly in one turn, or you are deciding between per-row `clientEntry`s and delegated/server-rendered row actions.
 
 ## mounted Guard After Frame Reload
 
@@ -431,17 +417,16 @@ What actually breaks is **timing**. Client entries hydrate lazily (deferred impo
 
 ### Solution
 
-For one-time global setup, register the delegated listener once in the `clientEntry` factory body, guarded by `typeof document !== 'undefined'`:
+Register one-time global setup in `handle.queueTask()`, which is a no-op during SSR and runs after the client commit:
 
 ```typescript
-// ... all handlers defined above ...
-if (typeof document !== 'undefined') {
+handle.queueTask(() => {
   document.addEventListener('dragstart', onDocumentDragStart, { signal: handle.signal })
   document.addEventListener('dragend', onDocumentDragEnd, { signal: handle.signal })
-}
+})
 ```
 
-The factory body runs **once per mount** — only the returned render function re-runs on `handle.update()` — so a separate `installed` flag is not load-bearing. The `document` guard makes it a no-op during SSR, and on the client it runs before the first render. `ref()` on a stable root is equally valid; pick whichever owns the element.
+A queued task runs after the next commit; `handle.signal` cleans the listeners up on disposal. If the listener owns a specific element, `ref()` on the stable root is equally valid. Do not use `typeof document` to guard listener registration — reserve it for render-time DOM reads with a server fallback.
 
 ### Testing a clientEntry drag gesture (e2e)
 

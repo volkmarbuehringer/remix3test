@@ -20,7 +20,7 @@
 - Hide-done is independent of the tabs. Selecting `Erledigt` clears hide-done, otherwise the explicit done tab could be silently emptied.
 - Selection persists across filters: `selectedItemIds` may point at hidden rows. The bulk bar renders `N ausgewählt (inkl. X verborgener)`, labels bulk done/open/delete/copy as including hidden rows, switches the select-all label to `Sichtbare abwählen` while hidden rows stay selected, and uses the full `items` for the progress counter, not `visibleItems()`.
 - The filtered empty state renders `Filter zurücksetzen`, which clears text + status + hide-done (not the view sort). The unfiltered empty state has its own message and CTA (§8).
-- The `sortMode` select is uncontrolled. `syncSortSelect()` writes the DOM value from state in the change handler and after load; a controlled `value` fights the re-render (same reflection trap as the metadata selects). A visible `Ansicht` badge plus a title states that the order is not persisted.
+- The `sortMode` select stays uncontrolled: `syncSortSelect()` writes the DOM value from state in the change handler and after load/reset. Select-level `value` is supported since #12204, but converting it to controlled would require every reset path (`resetViewState()`, `reloadFromFrame()`) to call `handle.update()`; this is an app choice, not a framework limitation. A visible `Ansicht` badge plus a title states that the order is not persisted.
 - `resetViewState()` clears all five view fields in `hydrateFromInitialState` and in both no-initial-state branches of `reloadFromFrame` (restored draft, empty new list), so a status/sort cannot leak into the next list.
 
 ## 2. Two reorder locks: array-adjacent vs visible-step

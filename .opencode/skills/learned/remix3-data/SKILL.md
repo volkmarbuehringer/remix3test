@@ -211,7 +211,7 @@ Handle form validation errors with the **direct re-render** pattern (preferred):
 
 The URL-param roundtrip pattern (`fv_`/`fe_` encoding) is **deprecated** — `form-params.ts` has been removed and all forms use direct re-render. Frame-based forms that once needed URL params are handled by the `ShellOrFragment` patch in `remix3-ui § Frames`.
 
-The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) canonically shows the `parseSafe` + preserved-`values`/`issues` + status-400 pattern (§"Return validation failures with the form", §"Parse and save the submitted form") and the `readText()` display-values helper. This skill keeps the app-specific deltas the guide cannot know: the shared admin-grid `renderGridFormError` helper (also 400), `<select>` `selected` over `defaultValue`, and the `coerce.number()` empty-select trap.
+The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) canonically shows the `parseSafe` + preserved-`values`/`issues` + status-400 pattern (§"Return validation failures with the form", §"Parse and save the submitted form") and the `readText()` display-values helper. This skill keeps the app-specific deltas the guide cannot know: the shared admin-grid `renderGridFormError` helper (also 400), `<select>` `value`/`defaultValue` selection (string-matched, initialization-only), and the `coerce.number()` empty-select trap.
 
 ### When To Use This Skill
 
@@ -242,7 +242,7 @@ The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored
 - Extract raw string values from `FormData` **before** validation and pass them back as `formValues` so the user never re-types input.
 - `formValues` (from a failed submit) take priority over row data (from the DB); fall back to the row only when absent. For optional update fields, make absence real with `formData.has(key)`; otherwise `readFormFieldValues()` fills `''` and the row is overwritten.
 - Never overload one grid param: status tabs get `status`, free-text search gets `filter` (trimmed, LIKE-escaped, ORed with a numeric id). Grid navigation links must re-append an open `editing`/`creating` panel.
-- `<select>` does not honor `defaultValue` in Remix 3 — use `selected` on each `<option>`.
+- **`<select>` selection**: `<select value>`/`<select defaultValue>` are supported (a scalar, or an array for `multiple`). Precedence is select `value` → `defaultValue` → option `selected`; values match as strings. `defaultValue` is initialization-only, so a select that is reused with a new value still needs per-option `selected` (or a `ref`).
 - A cleared select submits `""`, and `"" != null` is true: normalize the preserved id to `""` and select a disabled placeholder option when empty, or the browser shows the first option while the field error says required.
 - Server-rendered errors need `role="alert"`, `aria-invalid`/`aria-describedby` on the control, and a focus-first-invalid `clientEntry`; the markup alone is silent to screen readers.
 - Validation re-renders use `{ status: 400 }` for full-page forms and for every admin/Verwaltung grid editor (`renderGridFormError` and the panel helpers); the frame transport renders HTML 4xx fragments, so inline errors still appear in-frame.

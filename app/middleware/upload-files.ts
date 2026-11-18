@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   MaxFilesExceededError,
   MaxFileSizeExceededError,
+  MaxHeaderSizeExceededError,
   MaxPartsExceededError,
   MaxTotalSizeExceededError,
   type FileUpload,
@@ -97,6 +98,7 @@ export function uploadLimitErrorCode(error: unknown): string | null {
   if (error instanceof MaxFilesExceededError) return 'too_many_files'
   if (error instanceof MaxTotalSizeExceededError) return 'total_too_large'
   if (error instanceof MaxPartsExceededError) return 'too_many_parts'
+  if (error instanceof MaxHeaderSizeExceededError) return 'header_too_large'
   return null
 }
 

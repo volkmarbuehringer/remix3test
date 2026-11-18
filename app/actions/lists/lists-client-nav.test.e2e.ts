@@ -70,36 +70,24 @@ describe('lists frame navigation', () => {
     return (row.rows[0]?.title as string | undefined) ?? null
   }
 
-  // Playwright's `fill()` does not fire the remix `on('input')` handler in this
-  // e2e environment (see lists-client-importmap.test.e2e.ts), so the value must
-  // be typed with real keystrokes to mark the editor dirty. Under full-suite
-  // load the client-entry mount/patch pipeline can also swallow the first
-  // keystrokes; verify the field settled at the intended value (waitForFunction
-  // re-checks the live node) and re-type, bounded, when it did not.
+  // Use real keystrokes: this exercises the runtime's pre-hydration replay
+  // (#12294) and marks the editor dirty. No retry loop is needed; a typed value
+  // that fails to settle is a real regression.
   async function typeInto(
     page: { locator: Function; waitForFunction: Function },
     selector: string,
     value: string,
   ) {
-    for (let round = 0; round < 3; round++) {
-      let field = page.locator(selector)
-      await field.click()
-      await field.press('Control+a')
-      await field.pressSequentially(value, { delay: 5 })
-      try {
-        await page.waitForFunction(
-          ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
-            (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value ===
-            wantedValue,
-          { selector, value },
-          { timeout: 1500 },
-        )
-        return
-      } catch {
-        // node replaced mid-settle — retype below
-      }
-    }
-    throw new Error(`typeInto could not settle ${JSON.stringify(value)} into ${selector}`)
+    let field = page.locator(selector)
+    await field.click()
+    await field.press('Control+a')
+    await field.pressSequentially(value, { delay: 5 })
+    await page.waitForFunction(
+      ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
+        (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value === wantedValue,
+      { selector, value },
+      { timeout: 1500 },
+    )
   }
 
   it('shows the opened list title/description after switching away from an edited list', async (t) => {

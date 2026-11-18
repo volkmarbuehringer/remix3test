@@ -57,8 +57,10 @@ on **both** the server and the browser. Before that, SSR emitted an empty
 attribute for `true` and omitted `false`, while the browser runtime wrote
 strings — hydration changed the DOM, and pre-hydration ARIA state was wrong.
 `data-rmx-document`/`data-rmx-preserve-dom` remain presence-based (true =
-empty, false = omitted), as do `popover` and `value`; plain boolean host props
-(`disabled`, `hidden`, …) are still presence-only.
+empty, false = omitted), as does `popover`; plain boolean host props
+(`disabled`, `hidden`, …) are still presence-only. `value` is stringified like
+`aria-*`/`data-*` — `value={true}` renders `value="true"`, so do not use a
+boolean `value` for presence/absence.
 
 Consequences:
 

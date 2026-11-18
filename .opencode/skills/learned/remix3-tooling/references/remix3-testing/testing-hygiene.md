@@ -105,6 +105,12 @@ assert.ok(
 - `&` → `&amp;` (and `"` → `&quot;`) in rendered attribute values; absence assertions need the escaped form too.
 - Prefer asserting a redirect `Location` header when possible — headers keep the raw `&` and are not HTML-escaped.
 
+## Attribute a flaky e2e to the baseline before changing app code
+
+Before spending a fix budget on a flaky e2e, reproduce it at the parent commit in a throwaway worktree: `git worktree add /tmp/opencode/bisect HEAD~2`, copy the project's `.env`, symlink `node_modules`, then run the single failing `*.test.e2e.ts` there 3×. Same failures at the baseline prove the flake predates the session's changes. Measure honestly: 5 repeat runs single-file, plus one batch at the suite's `--concurrency`. One green run under noise is not a fix. Keep the `.env` copy local to the scratch worktree — never quote secrets into skill text, commits, or logs.
+
+E2E typing is not a flake class anymore: since #12294 the runtime keeps text/checkbox/radio edits made before a control hydrates and replays them as synthetic `input`/`change` after handlers bind. Do not add type-settle/retype loops or avoid `fill()` for that reason; if a typed value still fails a DB/derived assertion, re-read the pre-hydration replay path and confirm the entry binds its handler before diagnosing hydration.
+
 ## When to Use
 
 - You are about to verify a UI change against the running dev server and the path includes a delete/reset/confirm control.

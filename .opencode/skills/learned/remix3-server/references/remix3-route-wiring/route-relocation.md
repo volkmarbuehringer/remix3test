@@ -21,9 +21,9 @@ When moving a route from one tree to another (e.g. `adminRoutes.admin.foo` → `
 ### 2. Router Mapping (router.ts)
 
 - [ ] Update `router.map(<newRouteRef>, <controller>)` to reference the new location
-- [ ] Register **static** children (`create`, `events`) before the parent group's dynamic `:id`
-      resolver, and add a test proving the static child hits its own handler — an SSE `events`
-      route must return `text/event-stream`, not the `:id` resolver's redirect.
+- [ ] Add a test proving a **static** child (`create`, `events`) hits its own handler — an SSE `events`
+      route must return `text/event-stream`, not the `:id` resolver's redirect. Declaration order is
+      irrelevant: route matching sorts by specificity (`route-pattern` `matchAll`).
 
 ### 3. Navigation Updates
 

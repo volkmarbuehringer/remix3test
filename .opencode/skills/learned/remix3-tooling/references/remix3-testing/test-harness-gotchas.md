@@ -57,7 +57,7 @@ If a dormant `.tsx` browser test starts hanging after the glob widens, run that 
 - The identical synthetic dispatch **does** reach handlers on `<input type="checkbox">`; host element type matters.
 - Keyboard ArrowDown/typeahead on a closed dropdown works in Chromium only.
 
-Drive native selects with `page.selectOption` (Chromium), **retry until the DOM reflects the change** (the listener is attached by the client entry's render pass, so a click in the hydration gap is a silent no-op), and scope mutation assertions to Chromium with `isFirefox(page)` plus a render smoke check. Same pattern as `selectItems` in the lists e2e files. This is the same family as the documented `fill()`/`on('input')` gap and the hover-reveal pointer-event issue.
+Drive native selects with `page.selectOption` (Chromium), **retry until the DOM reflects the change** (the listener is attached by the client entry's render pass, so a click in the hydration gap is a silent no-op), and scope mutation assertions to Chromium with `isFirefox(page)` plus a render smoke check. Same pattern as `selectItems` in the lists e2e files. This is the same hydration-gap family as the hover-reveal pointer-event issue.
 
 ## Wait for content, not existence
 

@@ -1,7 +1,7 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createTestServer } from 'remix/node-fetch-server/test'
-import type { Locator, Page } from 'playwright'
+import type { Page } from 'playwright'
 
 import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
@@ -56,49 +56,25 @@ async function readItemIds(page: { evaluate: Function }): Promise<string[]> {
   )) as string[]
 }
 
-// Playwright's `fill()` does not fire the remix `on('input')` handler in this
-// e2e environment, so the value must be typed with real keystrokes to mark the
-// editor dirty (see lists-client-nav.test.e2e.ts).
+// Use real keystrokes: this exercises the runtime's pre-hydration replay (#12294)
+// and marks the editor dirty. No retry loop is needed; a typed value that fails
+// to settle is a real regression, not a hydration flake.
 async function typeInto(
   page: Pick<Page, 'locator' | 'waitForFunction'>,
   selector: string,
   value: string,
-  opts: { delay?: number; retries?: number; settleMs?: number } = {},
+  opts: { delay?: number; settleMs?: number } = {},
 ) {
-  let delay = opts.delay ?? 5
-  let retries = opts.retries ?? 2
-  let settleMs = opts.settleMs ?? 1500
-
-  async function attempt(fill: (field: Locator) => Promise<void>) {
-    let field = page.locator(selector)
-    await field.click()
-    await field.press('Control+a')
-    await fill(field)
-    try {
-      await page.waitForFunction(
-        ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
-          (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value ===
-          wantedValue,
-        { selector, value },
-        { timeout: settleMs },
-      )
-      return true
-    } catch {
-      return false // node replaced mid-settle or keystrokes swallowed — retry below
-    }
-  }
-
-  // Under full-suite load the client-entry mount/patch pipeline can swallow
-  // the first keystrokes (they land before the on('input') handler is bound,
-  // and the first flush then stamps the field with stale state), leaving the
-  // field one or more characters short. Type, verify the field settled at the
-  // intended value, and re-type — bounded — when it did not. Every retry must
-  // use real keystrokes: Playwright `fill()` does not fire the remix
-  // on('input') handler, so it would fix the DOM without fixing app state.
-  for (let round = 0; round <= retries; round++) {
-    if (await attempt((field) => field.pressSequentially(value, { delay }))) return
-  }
-  throw new Error(`typeInto could not settle ${JSON.stringify(value)} into ${selector}`)
+  let field = page.locator(selector)
+  await field.click()
+  await field.press('Control+a')
+  await field.pressSequentially(value, { delay: opts.delay ?? 5 })
+  await page.waitForFunction(
+    ({ selector: wantedSelector, value: wantedValue }: { selector: string; value: string }) =>
+      (document.querySelector(wantedSelector) as HTMLInputElement | null)?.value === wantedValue,
+    { selector, value },
+    { timeout: opts.settleMs ?? 1500 },
+  )
 }
 
 // ---------------------------------------------------------------------------

@@ -35,7 +35,7 @@ Must stay eager:
 ## Built-in `loading="lazy"` behavior (pin `b4185ba2`)
 
 - Eager is the default. `loading="lazy"` requires a fallback that renders at least one DOM element; a text-only or empty fallback logs a warning and loads immediately (the runtime does not insert a placeholder).
-- Without `run()` or `IntersectionObserver`, lazy frames load immediately. Deferred frames do not delay `app.ready()` or ancestor navigation completion.
+- Lazy loading requires `run()` in the browser: without it the fallback stays and the frame never resolves. With `run()` but no `IntersectionObserver`, it loads immediately. Deferred frames do not delay `app.ready()` or ancestor navigation completion.
 - The loading boundary extends one viewport in each direction and updates on resize; there is no custom `rootMargin`.
 - Initial lazy viewport loads and viewport retries do **not** dispatch `reloadStart`/`reloadComplete`. Only explicit `frame.reload()`/`replace()`, targeted navigations, and ancestor reloads do.
 - Ancestor reloads refresh loaded lazy frames in the background while keeping their content visible; changing `loading` to `'eager'` starts a deferred load immediately.

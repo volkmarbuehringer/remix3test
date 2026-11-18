@@ -1772,22 +1772,16 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           <select
                             mix={[
                               metaFieldStyle,
-                              // Uncontrolled: the initial choice is asserted once on
-                              // mount (like the label textarea's `defaultValue`), and the
-                              // user's selection lives in the DOM until `saveEdit` reads
-                              // `editPriority`. Keeping a controlled `value=` here would
-                              // make the runtime's controlled-reflection listener snap the
-                              // selection back on the next render, but the fields below are
-                              // the ones that actually broke (see the input/change notes).
-                              ref((el: HTMLSelectElement) => {
-                                if (el && el.value !== editPriority) el.value = editPriority
-                              }),
+                              // Uncontrolled: `defaultValue` seeds the per-row choice and
+                              // `saveEdit` reads the DOM value. The editor remounts when a
+                              // different item opens, so no post-mount ref is needed.
                               on('change', (e) => {
                                 view.setEditPriority(
                                   (e.currentTarget.value || '') as '' | ItemPriority,
                                 )
                               }),
                             ]}
+                            defaultValue={editPriority}
                             aria-label="Priorität"
                           >
                             <option value="">Priorität…</option>
