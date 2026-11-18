@@ -51,7 +51,9 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 **Route Contract and Resource Helpers (`references/remix-controllers/route-contract-and-controllers.md`)**
 
-- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` (`app/routes.ts:87,295,297`) — do not rewrite to `only`.
+- `resources()`/`resource()` accept `exclude` as well as `only` (mutually exclusive); this app uses `exclude` at `app/routes.ts:313,315`. `appointment.types` is an explicit map (`app/routes.ts:92`) because `resources()` hardcodes PUT for `update`; do not rewrite the generated maps to `only`.
+- **Mutation methods:** PATCH for partial payloads (lists editor, client appointment, appointment type rename), PUT for full editable forms (admin clients/users/lists, offerings, verwaltung appointments, generated resources/offering-configs, `/api/lists/:id`), and POST for commands (row toggles, move/copy/merge/delete, mark-read, page-size). `RestfulForm` + `methodOverride()` support PATCH; `navigator.sendBeacon` cannot send it, so keepalive stays `fetch(..., { keepalive: true })`.
+- **Retry-safe row actions:** submit the promised state in a hidden field (`desired_status`/`desired_disabled`), apply it, and no-op when already current; skip the write/audit/`token_version` bump, fall back for stale forms without the field, and reject invalid explicit values.
 - A route param is a string, not a number: `:id` matches `abc`, `1.5`, and `1e30`, and a raw value in an `int4` comparison makes PostgreSQL throw (`Database execution failed` → 500). Guard with `parseId` + a bound check and PRG/redirect; probe every id leaf through the test router (a `THREW` line is the 500) — snippet in the reference.
 - A controller owns only the direct `Route` leaves of its map; register nested maps (e.g. `routes.appointment.types`) separately. A missing, unknown, or nested key throws a `TypeError` at `router.map(...)` (startup), not on the first request.
 - `controller.middleware` reaches only that controller's direct leaves, not a separately-mapped nested map; repeat the boundary there.
