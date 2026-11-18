@@ -5,7 +5,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import * as s from 'remix/data-schema'
 
-import { routes } from '../../routes.ts'
+import { frames, routes } from '../../routes.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import {
@@ -18,11 +18,13 @@ import {
 } from '../../utils/get-page-size.ts'
 import { parseId } from '../../utils/ids.ts'
 import { parseOffsetParam } from '../../utils/query-params.ts'
-import { Layout } from '../../ui/layout.tsx'
+import { isFrameTargeted } from '../../utils/frame-target.ts'
+import { FrameShell } from '../../ui/frame-shell.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { PageSizeControl } from '../../ui/page-size-control.tsx'
 import { notificationsChannel, broadcastNotificationRead } from '../../utils/notifications-sse.ts'
+import { NotificationsLive } from './public/notifications-live.tsx'
 import {
   listUserNotifications,
   markRead,
@@ -45,14 +47,22 @@ export default createController(routes.notifications, {
         pageSize,
         offset,
       })
-      return context.render(
-        <NotificationsPage
+      let panel = (
+        <NotificationsPanel
           notifications={rows}
           offset={offset}
           pageSize={pageSize}
           pageSizeOverride={pageSizeOverride}
           hasMore={hasMore}
-        />,
+        />
+      )
+      if (isFrameTargeted(context.request, frames.notificationsContent)) {
+        return context.render(panel)
+      }
+      // The full document is just the shell: a blocking self-relay frame inlines
+      // the panel for the initial response and the live entry reloads only it.
+      return context.render(
+        <FrameShell name={frames.notificationsContent} title="Benachrichtigungen" />,
       )
     },
 
@@ -116,7 +126,7 @@ const TYPE_LABELS: Record<string, string> = {
   cancellation: 'Storno',
 }
 
-type NotificationsPageProps = {
+type NotificationsPanelProps = {
   notifications: Notification[]
   offset: number
   pageSize: number
@@ -125,7 +135,7 @@ type NotificationsPageProps = {
   hasMore: boolean
 }
 
-function NotificationsPage(handle: Handle<NotificationsPageProps>) {
+function NotificationsPanel(handle: Handle<NotificationsPanelProps>) {
   return () => {
     let { notifications, offset, pageSize, pageSizeOverride, hasMore } = handle.props
     let base = routes.notifications.index.href()
@@ -133,94 +143,107 @@ function NotificationsPage(handle: Handle<NotificationsPageProps>) {
     let nextHref = `${base}?offset=${offset + pageSize}`
 
     return (
-      <Layout title="Benachrichtigungen">
-        <PageSection
-          title="Benachrichtigungen"
-          description="Bestätigungen, Erinnerungen und Stornierungen zu Ihren Terminen."
-        >
-          <div mix={panelCss}>
-            {notifications.length === 0 ? (
-              <p mix={emptyCss}>Keine Benachrichtigungen.</p>
-            ) : (
-              <>
-                <div mix={toolbarCss}>
-                  <form action={routes.notifications.markAllRead.href()} method="POST">
-                    <CsrfTokenInput />
-                    <input type="hidden" name="_action" value="mark-all-read" />
-                    <button type="submit" mix={markAllBtnCss}>
-                      Alle als gelesen markieren
-                    </button>
-                  </form>
-                </div>
+      <PageSection
+        title="Benachrichtigungen"
+        description="Bestätigungen, Erinnerungen und Stornierungen zu Ihren Terminen."
+      >
+        <div mix={panelCss} data-notifications-panel>
+          {/*
+            The toolbar renders even with an empty inbox so the live entry stays
+            mounted: it must observe the first notification that arrives.
+          */}
+          <div mix={toolbarCss}>
+            <NotificationsLive eventsUrl={routes.notifications.events.href()} />
+            {notifications.length === 0 ? null : (
+              <form action={routes.notifications.markAllRead.href()} method="POST">
+                <CsrfTokenInput />
+                <input type="hidden" name="_action" value="mark-all-read" />
+                <button type="submit" mix={markAllBtnCss}>
+                  Alle als gelesen markieren
+                </button>
+              </form>
+            )}
+          </div>
 
-                <ul mix={listCss} data-notifications-list>
-                  {notifications.map((n) => (
-                    <li
-                      key={n.id}
-                      mix={[itemCss, n.read_at == null ? unreadCss : readCss]}
-                      data-notification-id={n.id}
+          {notifications.length === 0 ? (
+            <p mix={emptyCss}>Keine Benachrichtigungen.</p>
+          ) : (
+            <>
+              <ul mix={listCss} data-notifications-list>
+                {notifications.map((n) => (
+                  <li
+                    key={n.id}
+                    mix={[itemCss, n.read_at == null ? unreadCss : readCss]}
+                    data-notification-id={n.id}
+                  >
+                    <div mix={itemMainCss}>
+                      <span mix={badgeCss}>{TYPE_LABELS[n.type] ?? n.type}</span>
+                      <div mix={itemTextCss}>
+                        <strong mix={titleCss}>{n.title}</strong>
+                        <span mix={bodyCss}>{n.body}</span>
+                        <span mix={timeCss}>{formatTimestamp(n.created_at)}</span>
+                      </div>
+                    </div>
+                    <div mix={itemActionsCss}>
+                      {n.appointment_id != null ? (
+                        <a href={routes.appointment.index.href()} mix={linkCss}>
+                          Zum Termin
+                        </a>
+                      ) : null}
+                      {n.read_at == null ? (
+                        <form
+                          action={routes.notifications.markRead.href({ id: n.id })}
+                          method="POST"
+                        >
+                          <CsrfTokenInput />
+                          <input type="hidden" name="_action" value="mark-read" />
+                          <button type="submit" mix={readBtnCss}>
+                            Als gelesen
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div mix={paginationCss}>
+                {offset > 0 ? (
+                  <a
+                    href={prevHref}
+                    data-rmx-target={frames.notificationsContent}
+                    mix={pageLinkCss}
+                  >
+                    Zurück
+                  </a>
+                ) : (
+                  <span />
+                )}
+                <div mix={paginationEndCss}>
+                  {hasMore ? (
+                    <a
+                      href={nextHref}
+                      data-rmx-target={frames.notificationsContent}
+                      mix={pageLinkCss}
                     >
-                      <div mix={itemMainCss}>
-                        <span mix={badgeCss}>{TYPE_LABELS[n.type] ?? n.type}</span>
-                        <div mix={itemTextCss}>
-                          <strong mix={titleCss}>{n.title}</strong>
-                          <span mix={bodyCss}>{n.body}</span>
-                          <span mix={timeCss}>{formatTimestamp(n.created_at)}</span>
-                        </div>
-                      </div>
-                      <div mix={itemActionsCss}>
-                        {n.appointment_id != null ? (
-                          <a href={routes.appointment.index.href()} mix={linkCss}>
-                            Zum Termin
-                          </a>
-                        ) : null}
-                        {n.read_at == null ? (
-                          <form
-                            action={routes.notifications.markRead.href({ id: n.id })}
-                            method="POST"
-                          >
-                            <CsrfTokenInput />
-                            <input type="hidden" name="_action" value="mark-read" />
-                            <button type="submit" mix={readBtnCss}>
-                              Als gelesen
-                            </button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-
-                <div mix={paginationCss}>
-                  {offset > 0 ? (
-                    <a href={prevHref} mix={pageLinkCss}>
-                      Zurück
+                      Weiter
                     </a>
                   ) : (
                     <span />
                   )}
-                  <div mix={paginationEndCss}>
-                    {hasMore ? (
-                      <a href={nextHref} mix={pageLinkCss}>
-                        Weiter
-                      </a>
-                    ) : (
-                      <span />
-                    )}
-                    <PageSizeControl
-                      action={routes.notifications.pageSize.href()}
-                      pageKey={PAGE_SIZE_KEYS.notifications}
-                      pageSize={pageSize}
-                      pageSizeOverride={pageSizeOverride}
-                      controlId="notifications-page-size"
-                    />
-                  </div>
+                  <PageSizeControl
+                    action={routes.notifications.pageSize.href()}
+                    pageKey={PAGE_SIZE_KEYS.notifications}
+                    pageSize={pageSize}
+                    pageSizeOverride={pageSizeOverride}
+                    controlId="notifications-page-size"
+                  />
                 </div>
-              </>
-            )}
-          </div>
-        </PageSection>
-      </Layout>
+              </div>
+            </>
+          )}
+        </div>
+      </PageSection>
     )
   }
 }
@@ -241,7 +264,9 @@ const emptyCss = css({
 
 const toolbarCss = css({
   display: 'flex',
-  justifyContent: 'flex-end',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
   marginBottom: '1rem',
 })
 

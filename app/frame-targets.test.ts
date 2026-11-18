@@ -35,6 +35,7 @@ const frameTargets: Array<{ name: string; url: string }> = [
   { name: frames.appointmentsNewContent, url: routes.appointmentsNew.index.href() },
   { name: frames.appointTypes, url: routes.appointment.types.index.href() },
   { name: frames.settingsPanel, url: routes.settings.index.href() },
+  { name: frames.notificationsContent, url: routes.notifications.index.href() },
   { name: frames.agentEventsPanel, url: routes.admin.agentEvents.panel.href() },
   { name: frames.supportAgentPanel, url: routes.admin.supportAgent.panel.href() },
   { name: 'user-detail-1', url: routes.admin.fragments.userDetail.href({ userId: '1' }) },

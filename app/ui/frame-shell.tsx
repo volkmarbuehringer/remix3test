@@ -15,6 +15,9 @@ import { Layout } from './layout.tsx'
  * must return the fragment directly and non-GET responses must render inline
  * (POST validation state is lost to the frame's separate GET).
  *
+ * `title` forwards the page title to `Layout` for the full GET; the frame's
+ * fragment render has no document to title.
+ *
  * `blocking` drops the fallback: the frame awaits its content and renders it
  * inline, so a JavaScript-disabled browser sees the page (no `<template>` swap
  * and no client runtime). A blocking frame must render HTML on every response,
@@ -23,11 +26,13 @@ import { Layout } from './layout.tsx'
  * blocking; pass `blocking={false}` to stream the content behind
  * `FrameFallback` instead.
  */
-export function FrameShell(handle: Handle<{ name: string; blocking?: boolean | undefined }>) {
+export function FrameShell(
+  handle: Handle<{ name: string; title?: string | undefined; blocking?: boolean | undefined }>,
+) {
   return () => {
     let blocking = handle.props.blocking ?? true
     return (
-      <Layout>
+      <Layout title={handle.props.title}>
         <Frame
           name={handle.props.name}
           src={getContext().request.url}

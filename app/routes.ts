@@ -11,6 +11,7 @@ export const frames = {
   appointmentsNewContent: 'appointments-new-content',
   appointTypes: 'appoint-types',
   settingsPanel: 'settings-panel',
+  notificationsContent: 'notifications-content',
 
   agentEventsPanel: 'agent-events-panel',
   supportAgentPanel: 'support-agent-panel',

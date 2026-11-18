@@ -53,11 +53,36 @@ describe('Notifications controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('Benachrichtigungen'), 'page should contain the inbox heading')
+    assert.ok(
+      html.includes('<title>Benachrichtigungen</title>'),
+      'the frame shell should keep the page title',
+    )
     assert.ok(html.includes('data-notifications-list'), 'page should render the list container')
     assert.ok(html.includes('Bestätigung'), 'page should render the notification type badge')
     assert.ok(
       html.includes('data-current-page-size="15"'),
       'the global default page size should be rendered',
+    )
+    assert.ok(
+      html.includes('data-notifications-live'),
+      'the live refresh entry should be server-rendered',
+    )
+  })
+
+  it('GET /notifications renders the live entry for an empty inbox', async () => {
+    let { email } = await createFreshUser()
+    let session = await getSessionFor(email)
+
+    let response = await router.fetch(`${BASE}${routes.notifications.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Keine Benachrichtigungen.'), 'the empty state should render')
+    assert.ok(
+      html.includes('data-notifications-live'),
+      'the live entry must stay mounted so the first notification is observed',
     )
   })
 
