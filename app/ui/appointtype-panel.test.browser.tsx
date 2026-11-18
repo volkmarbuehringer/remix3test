@@ -11,7 +11,7 @@ import { getTypeDragState, setTypeDragState } from '../utils/appointtype-drag.ts
 //
 // Self-contained client entry: it renders its own DOM and reads the type list
 // from the server-embedded #appointtype-data JSON on every render. The tests
-// stub window.fetch (POST/PUT contracts) and drive the real state machine:
+// stub window.fetch (POST/PATCH contracts) and drive the real state machine:
 // click row → focused inline rename input, Enter/blur → commit, Escape →
 // cancel; "+ Typ hinzufügen" → focused add row, empty title → silently
 // cancelled; pointerdown/up → the shared drag store the calendar grid reads.
@@ -174,7 +174,7 @@ describe('AppointTypePanel', () => {
     assert.equal(document.activeElement, input, 'the entry focuses it for immediate typing')
   })
 
-  it('Enter commits a renamed title via PUT with the csrf header', async () => {
+  it('Enter commits a renamed title via PATCH with the csrf header', async () => {
     mountData()
     stubFetch()
     await mountPanel()
@@ -186,10 +186,10 @@ describe('AppointTypePanel', () => {
     await result!.act(() => key(input, 'Enter'))
     assert.equal(renameInput('Typnamen bearbeiten'), null, 'editing closed on commit')
 
-    await waitForTaskState(() => calls.length === 1, 'the PUT request')
+    await waitForTaskState(() => calls.length === 1, 'the PATCH request')
     assert.deepEqual(
       calls.map((c) => [c.method, c.url]),
-      [['PUT', '/admin/appointment-types/1']],
+      [['PATCH', '/admin/appointment-types/1']],
     )
     assert.equal(calls[0]!.body, JSON.stringify({ title: 'Termine' }))
     assert.equal(calls[0]!.headers['X-Csrf-Token'], 'csrf-panel')
@@ -232,9 +232,9 @@ describe('AppointTypePanel', () => {
     input.value = 'Blur gespeichert'
     await result!.act(() => input.blur())
 
-    await waitForTaskState(() => calls.length === 1, 'the blur PUT request')
+    await waitForTaskState(() => calls.length === 1, 'the blur PATCH request')
     assert.equal(calls.length, 1)
-    assert.equal(calls[0]!.method, 'PUT')
+    assert.equal(calls[0]!.method, 'PATCH')
   })
 
   it('the add button opens a focused add input; Enter POSTs the new type', async () => {
@@ -308,7 +308,7 @@ describe('AppointTypePanel', () => {
     input.value = 'Kaputt'
     await result!.act(() => key(input, 'Enter'))
 
-    await waitForTaskState(() => calls.length === 1, 'the failing PUT request')
+    await waitForTaskState(() => calls.length === 1, 'the failing PATCH request')
     assert.equal(reloads, 0)
   })
 

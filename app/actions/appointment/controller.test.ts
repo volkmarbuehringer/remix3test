@@ -118,6 +118,50 @@ describe('Appointment controller', () => {
     })
   })
 
+  describe('appointment types', () => {
+    it('PATCH /appointment/types/:id renames the type', async () => {
+      let env = await setupTestEnvironment()
+      let auth = { cookie: env.adminCookie, csrfToken: env.adminCsrfToken }
+      let typeId: number | undefined
+
+      try {
+        let create = await router.fetch(`${APPOINTMENT_URL}/types`, {
+          method: 'POST',
+          headers: {
+            Cookie: auth.cookie,
+            'X-Csrf-Token': auth.csrfToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: `Type rename ${Date.now()}` }),
+        })
+        assert.equal(create.status, 201)
+        let created = await create.json()
+        typeId = created.type.id as number
+
+        let update = await router.fetch(`${APPOINTMENT_URL}/types/${typeId}`, {
+          method: 'PATCH',
+          headers: {
+            Cookie: auth.cookie,
+            'X-Csrf-Token': auth.csrfToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: 'Renamed type' }),
+        })
+        assert.equal(update.status, 200)
+        let body = await update.json()
+        assert.equal(body.type.title, 'Renamed type')
+      } finally {
+        if (typeId !== undefined) {
+          await router.fetch(`${APPOINTMENT_URL}/types/${typeId}`, {
+            method: 'DELETE',
+            headers: { Cookie: auth.cookie, 'X-Csrf-Token': auth.csrfToken },
+          })
+        }
+        await teardownTestEnvironment(env.resourceId, env.resource2Id, [])
+      }
+    })
+  })
+
   describe('PATCH /appointment/:id (partial slot update)', () => {
     it('merges a start_min-only update with the stored end_min', async () => {
       let env = await setupTestEnvironment()

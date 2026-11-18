@@ -89,7 +89,12 @@ export const routes = route({
     update: patch('/:id'),
     destroy: del('/:id'),
     events: get('/events'),
-    types: resources('types', { exclude: ['new', 'show', 'edit'] }),
+    types: route('types', {
+      index: get('/'),
+      create: post('/'),
+      update: patch('/:id'),
+      destroy: del('/:id'),
+    }),
   }),
 
   appointmentsNew: route('appointments/new', {

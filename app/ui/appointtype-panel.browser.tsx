@@ -264,7 +264,7 @@ export const AppointTypePanel = clientEntry(
       void handle.update()
 
       fetch(`${typesBaseHref}/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
