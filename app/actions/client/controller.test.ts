@@ -209,6 +209,10 @@ describe('Client lab controller', () => {
       html.includes('toggle-status') || html.includes('data-toggle-form'),
       'should render a server-rendered toggle form',
     )
+    assert.ok(
+      html.includes('name="desired_status" value="Inactive"'),
+      'an Active row should submit the Inactive desired state, not a blind flip',
+    )
   })
 
   it('resets the page offset when switching status filter tabs', async () => {
@@ -985,6 +989,60 @@ describe('Client lab controller', () => {
 
     let result = await pool.query('SELECT status FROM clients WHERE id = $1', [id])
     assert.equal(result.rows[0]?.status, 'Inactive', 'status should flip to Inactive')
+  })
+
+  it('POST /admin/clients/:id/toggle-status applies the desired status idempotently', async () => {
+    let createBody = new URLSearchParams({
+      name: 'Desired State Client',
+      email: `desired-toggle-${Date.now()}@example.com`,
+      role: 'Viewer',
+      status: 'Active',
+      registered: '2026-05-01',
+      _csrf: csrfToken!,
+    })
+    let createRes = await router.fetch(CLIENTS_URL, {
+      method: 'POST',
+      body: createBody,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+    assert.equal(createRes.status, 303, 'create should redirect (PRG)')
+    let createLoc = createRes.headers.get('Location') || ''
+    let id = Number(new URL(createLoc, BASE).searchParams.get('editing'))
+    assert.ok(id > 0, 'create should return a valid client id')
+
+    let body = new URLSearchParams({
+      _csrf: csrfToken!,
+      _offset: '0',
+      _sort: 'name',
+      _order: 'asc',
+      _filter: '',
+      desired_status: 'Inactive',
+    })
+
+    let first = await router.fetch(`${CLIENTS_URL}/${id}/toggle-status`, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+    assert.equal(first.status, 303, 'first desired-state POST should redirect')
+    let afterFirst = await pool.query('SELECT status FROM clients WHERE id = $1', [id])
+    assert.equal(afterFirst.rows[0]?.status, 'Inactive', 'first POST applies the desired state')
+
+    let second = await router.fetch(`${CLIENTS_URL}/${id}/toggle-status`, {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+    assert.equal(second.status, 303, 'retried desired-state POST should redirect')
+    let afterSecond = await pool.query('SELECT status FROM clients WHERE id = $1', [id])
+    assert.equal(
+      afterSecond.rows[0]?.status,
+      'Inactive',
+      'a retried POST must not flip the client back',
+    )
   })
 
   it('POST /admin/clients/:id/toggle-status redirects with a flash error for a missing client', async () => {

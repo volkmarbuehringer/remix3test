@@ -60,6 +60,13 @@ const CLIENT_OPTIONAL_FORM_KEYS = ['role', 'status', 'registered'] as const
 const CLIENT_ROLES = ['Admin', 'Editor', 'Viewer'] as const
 const CLIENT_STATUSES = ['Active', 'Inactive'] as const
 
+type ClientStatus = (typeof CLIENT_STATUSES)[number]
+
+/** The desired state submitted by the row toggle; absent on stale pre-deploy forms. */
+function parseDesiredClientStatus(value: unknown): ClientStatus | undefined {
+  return value === 'Active' || value === 'Inactive' ? value : undefined
+}
+
 /**
  * The lab's registered-date rule: a real calendar date in 2026. Date-only
  * strings parse as UTC midnight; comparing the round-trip catches rollovers
@@ -532,6 +539,12 @@ export default createController(routes.admin.clients, {
         return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }
 
+      let hasDesiredStatus = context.formData.has('desired_status')
+      let desiredStatus = parseDesiredClientStatus(context.formData.get('desired_status'))
+      if (hasDesiredStatus && desiredStatus === undefined) {
+        return fail('Ungültiger Status.')
+      }
+
       if (id === undefined || id < 1) {
         return fail('Ungültige Kunden-ID.')
       }
@@ -542,19 +555,23 @@ export default createController(routes.admin.clients, {
       }
 
       let client = existing as Client
-      let newStatus = client.status === 'Active' ? 'Inactive' : 'Active'
-      await db.updateMany(clients, { status: newStatus }, { where: { id } })
+      // The row form submits the state its button promises, so a retried POST
+      // after a lost response is a no-op instead of flipping the row back.
+      let newStatus = desiredStatus ?? (client.status === 'Active' ? 'Inactive' : 'Active')
+      if (client.status !== newStatus) {
+        await db.updateMany(clients, { status: newStatus }, { where: { id } })
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'update',
-          target_type: 'clients',
-          target_id: id,
-          details: { status: newStatus },
-        })
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'clients',
+            target_id: id,
+            details: { status: newStatus },
+          })
+        }
       }
 
       flashSuccess(

@@ -187,6 +187,10 @@ describe('Admin Users Controller', () => {
         'should render per-row toggle forms (no JSON fetch button)',
       )
       assert.ok(
+        text.includes('name="desired_disabled" value="true"'),
+        'an enabled row should submit the disabled desired state, not a blind flip',
+      )
+      assert.ok(
         text.includes('data-confirm') && text.includes('löschen'),
         'should render confirmed delete forms',
       )
@@ -804,6 +808,7 @@ describe('Admin Users Controller', () => {
         _sort: 'name',
         _order: 'asc',
         _filter: '',
+        desired_disabled: 'true',
       })
       let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
         method: 'POST',
@@ -821,6 +826,59 @@ describe('Admin Users Controller', () => {
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
+    })
+
+    it('applies the desired disabled state idempotently', async () => {
+      let email = `test-toggle-idempotent-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        desired_disabled: 'true',
+      })
+      let headers = {
+        Cookie: adminCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': adminCsrfToken,
+      }
+
+      let first = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers,
+        body: body.toString(),
+      })
+      assert.equal(first.status, 303, 'first desired-state POST should redirect')
+      let afterFirst = await pool.query(
+        'SELECT disabled_at, token_version FROM users WHERE id = $1',
+        [id],
+      )
+      assert.ok(afterFirst.rows[0]?.disabled_at != null, 'disabled_at should be set')
+      let firstVersion = afterFirst.rows[0]?.token_version
+
+      let second = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers,
+        body: body.toString(),
+      })
+      assert.equal(second.status, 303, 'retried desired-state POST should redirect')
+      let afterSecond = await pool.query(
+        'SELECT disabled_at, token_version FROM users WHERE id = $1',
+        [id],
+      )
+      assert.ok(
+        afterSecond.rows[0]?.disabled_at != null,
+        'a retried POST must keep the user disabled',
+      )
+      assert.equal(
+        afterSecond.rows[0]?.token_version,
+        firstVersion,
+        'a no-op retry must not bump token_version',
+      )
     })
 
     it('preserves the status filter in the toggle redirect', async () => {
@@ -851,6 +909,11 @@ describe('Admin Users Controller', () => {
         location.includes('status=disabled'),
         'PRG should return to the disabled tab, got: ' + location,
       )
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
+      assert.ok(
+        result.rows[0]?.disabled_at != null,
+        'a form without desired_disabled should still toggle',
+      )
     })
 
     it('enables a disabled user', async () => {
@@ -865,6 +928,7 @@ describe('Admin Users Controller', () => {
         _sort: 'name',
         _order: 'asc',
         _filter: '',
+        desired_disabled: 'false',
       })
       let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
         method: 'POST',
@@ -927,6 +991,7 @@ describe('Admin Users Controller', () => {
         _sort: 'name',
         _order: 'asc',
         _filter: '',
+        desired_disabled: 'true',
       })
       let response = await router.fetch(`${BASE}/admin/users/${adminId}/toggle-disabled`, {
         method: 'POST',

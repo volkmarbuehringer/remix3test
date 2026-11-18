@@ -135,6 +135,11 @@ async function disableGuardReason(
   return null
 }
 
+/** The desired state submitted by the row toggle; absent on stale pre-deploy forms. */
+function parseDesiredDisabled(value: unknown): boolean | undefined {
+  return value === 'true' ? true : value === 'false' ? false : undefined
+}
+
 /** Minimal structural view of the action context that this render adapter needs. */
 type UsersRenderContext = {
   db: Database
@@ -651,6 +656,12 @@ export default createController(routes.admin.users, {
         return redirect(baseUrl + (qs ? '?' + qs : ''), 303)
       }
 
+      let hasDesiredDisabled = context.formData.has('desired_disabled')
+      let desiredDisabled = parseDesiredDisabled(context.formData.get('desired_disabled'))
+      if (hasDesiredDisabled && desiredDisabled === undefined) {
+        return fail('Ungültiger Status.')
+      }
+
       if (id === undefined || id < 1) {
         return fail('Ungültige Benutzer-ID.')
       }
@@ -665,30 +676,34 @@ export default createController(routes.admin.users, {
       if (!authIdentity) {
         return fail('Nicht autorisiert.')
       }
+      // The row form submits the state its button promises, so a retried POST
+      // after a lost response is a no-op instead of flipping the row back.
+      let targetDisabled = desiredDisabled ?? user.disabled_at == null
       // Guard self-disable / last-admin-disable (mirrors the destroy guards)
       // before turning an active account into a disabled one.
-      if (user.disabled_at == null) {
+      if (targetDisabled && user.disabled_at == null) {
         let reason = await disableGuardReason(db, user, authIdentity)
         if (reason) {
           return fail(reason)
         }
       }
-      let now = user.disabled_at ? null : Date.now()
-      await db.exec(
-        `UPDATE users SET disabled_at = $1, token_version = token_version + 1 WHERE id = $2`,
-        [now, id],
-      )
+      if (targetDisabled !== (user.disabled_at != null)) {
+        let now = targetDisabled ? Date.now() : null
+        await db.exec(
+          `UPDATE users SET disabled_at = $1, token_version = token_version + 1 WHERE id = $2`,
+          [now, id],
+        )
 
-      let newDisabledState = now !== null
-      if (authIdentity) {
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'update',
-          target_type: 'users',
-          target_id: id,
-          details: { disabled_at: newDisabledState ? 'set' : 'cleared' },
-        })
+        if (authIdentity) {
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'users',
+            target_id: id,
+            details: { disabled_at: targetDisabled ? 'set' : 'cleared' },
+          })
+        }
       }
 
       let qs = params.toString()

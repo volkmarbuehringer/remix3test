@@ -475,6 +475,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                           mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
                           <GridStateHiddenInputs state={gridState} />
+                          <input
+                            type="hidden"
+                            name="desired_status"
+                            value={row.status === 'Active' ? 'Inactive' : 'Active'}
+                          />
                           <button
                             type="submit"
                             aria-label={row.status === 'Active' ? 'Deaktivieren' : 'Aktivieren'}

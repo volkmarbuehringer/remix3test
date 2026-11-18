@@ -996,6 +996,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                                 status: activeStatus ?? '',
                               }}
                             />
+                            <input
+                              type="hidden"
+                              name="desired_disabled"
+                              value={isDisabled ? 'false' : 'true'}
+                            />
                             <button
                               type={toggleBlocked ? 'button' : 'submit'}
                               aria-disabled={toggleBlocked ? 'true' : undefined}
