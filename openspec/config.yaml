@@ -24,3 +24,4 @@ context: |
   use @ContextScout for context finding
   We use conventional commits
   Domain: e-commerce platform
+skillsScope: project
