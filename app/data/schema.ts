@@ -283,14 +283,20 @@ export const lists = table({
   },
   afterRead({ value }) {
     let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'user_id')
-    if (typeof next.list === 'string') {
+    // Legacy and hand-serialized rows store the array as JSONB text; a repeated
+    // pre-serialization nests one layer deeper, so unwrap until it is a value.
+    while (typeof next.list === 'string') {
       try {
         next.list = JSON.parse(next.list)
       } catch (error) {
         log.error('lists.list contained invalid JSON; returning [] for list', next.id, error)
         next.list = []
+        break
       }
     }
+    // The column is user data: shape drift (an object/scalar) renders as empty
+    // instead of reaching a caller that iterates it. Mirrors admin-lists.ts.
+    if (!Array.isArray(next.list)) next.list = []
     return { value: next }
   },
 })
@@ -519,7 +525,9 @@ export const offeringConfigs = table({
   },
   afterRead({ value }) {
     let next = decodeInt8Fields(value, 'created_at', 'updated_at', 'resource_id')
-    if (typeof next.rules === 'string') {
+    // Same nested-unwrap rule as `lists.list`: the rules object may have been
+    // hand-serialized before 3.3.0, possibly more than once.
+    while (typeof next.rules === 'string') {
       try {
         next.rules = JSON.parse(next.rules)
       } catch (error) {
@@ -529,7 +537,13 @@ export const offeringConfigs = table({
           error,
         )
         next.rules = {}
+        break
       }
+    }
+    // Rules are a day->range record; a scalar, array, or JSON null from another
+    // writer degrades to {} like the invalid-text case above.
+    if (next.rules == null || typeof next.rules !== 'object' || Array.isArray(next.rules)) {
+      next.rules = {}
     }
     return { value: next }
   },

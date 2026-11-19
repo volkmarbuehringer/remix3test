@@ -2,8 +2,10 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../db.ts'
+import { pool } from '../../test/pool.ts'
 import { lists } from '../data/schema.ts'
 import {
+  getAllLists,
   getListById,
   getListSummaries,
   getListSummariesByIds,
@@ -814,6 +816,80 @@ describe('lists-api lib', () => {
 
     await db.delete(lists, { id: a.id })
     await db.delete(lists, { id: b.id })
+  })
+
+  // -----------------------------------------------------------------------
+  // Stored JSON shape and malformed-payload tolerance
+  // -----------------------------------------------------------------------
+
+  it('createList and patchList store items as a JSON array, not JSON text', async () => {
+    let created = await createList(db, {
+      description: 'Stored json type',
+      items: [{ id: 'a', label: 'Stored' }],
+    })
+    let inserted = await pool.query('SELECT jsonb_typeof(list) AS type FROM lists WHERE id = $1', [
+      created.id,
+    ])
+    assert.equal(inserted.rows[0]?.type, 'array', 'create must store a JSON array')
+
+    await patchList(db, created.id, { items: [{ id: 'b', label: 'Patched' }] })
+    let updated = await pool.query('SELECT jsonb_typeof(list) AS type FROM lists WHERE id = $1', [
+      created.id,
+    ])
+    assert.equal(updated.rows[0]?.type, 'array', 'update must store a JSON array')
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('reads tolerate a double-encoded, object, or broken list payload', async () => {
+    let stamp = Date.now()
+    let prefix = `lib-poison-${stamp}`
+    let inserted = await pool.query(
+      `INSERT INTO lists (description, list, created_at, updated_at)
+       VALUES ($1, to_jsonb('[{"id":"a","label":"Poison"}]'::text), $4, $4),
+              ($2, '{"nope":true}'::jsonb, $4, $4),
+              ($3, to_jsonb('[not json'::text), $4, $4)
+       RETURNING id`,
+      [`${prefix}-encoded`, `${prefix}-object`, `${prefix}-broken`, stamp],
+    )
+    let [encodedId, objectId, brokenId] = inserted.rows.map((row) => row.id as number)
+
+    // The typed read path unwraps a JSONB string and falls back to [] for text
+    // that is not JSON.
+    let encoded = await getListById(db, encodedId!)
+    assert.equal(encoded?.list.length, 1)
+    assert.equal(encoded?.list[0]?.label, 'Poison')
+    assert.deepEqual((await getListById(db, objectId!))?.list, [])
+    assert.deepEqual((await getListById(db, brokenId!))?.list, [])
+
+    // Summary and page queries compute counts in SQL: a malformed payload must
+    // count as empty instead of failing jsonb_array_length/jsonb_array_elements.
+    let summaries = await getListSummaries(db, { filter: prefix, limit: 50 })
+    assert.equal(summaries.data.length, 3)
+    assert.equal(summaries.total, 3)
+    assert.deepEqual(
+      summaries.data.map((summary) => [summary.count, summary.doneCount]),
+      [
+        [0, 0],
+        [0, 0],
+        [0, 0],
+      ],
+    )
+
+    let page = await getAllLists(db, { filter: prefix, limit: 50 })
+    assert.equal(page.data.length, 3)
+    for (let row of page.data) {
+      assert.deepEqual(row.list, [], 'a malformed payload must page as an empty list')
+    }
+
+    let byIds = await getListSummariesByIds(db, [encodedId!, objectId!, brokenId!])
+    assert.equal(byIds.length, 3)
+    assert.deepEqual(
+      byIds.map((summary) => summary.count),
+      [0, 0, 0],
+    )
+
+    await pool.query('DELETE FROM lists WHERE description LIKE $1', [`${prefix}%`])
   })
 
   // -----------------------------------------------------------------------

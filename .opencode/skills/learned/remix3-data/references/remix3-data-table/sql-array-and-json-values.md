@@ -75,15 +75,18 @@ Keep `JSON.stringify` only where the value is a **raw SQL parameter with an expl
 await db.exec('insert into offering_configs (rules) values ($1::jsonb)', [JSON.stringify(rules)])
 ```
 
-Reads: PostgreSQL `jsonb` arrives parsed (the mysql/sqlite drivers now decode json text through their `decodeValue` hook). Keeping a `typeof value === 'string'` parse in `afterRead` is harmless as a legacy-row fallback, but do not rely on it for new writes.
+Reads: PostgreSQL `jsonb` arrives parsed (the mysql/sqlite drivers now decode json text through their `decodeValue` hook). Keeping a `typeof value === 'string'` parse in `afterRead` is harmless as a legacy-row fallback, but do not rely on it for new writes. Because a stale write path can nest one layer deeper, unwrap in a loop (`while (typeof value === 'string')`) and then normalize a non-container to the shape the caller expects (`[]` / `{}`); a single `if` lets a triple-encoded string or an object payload reach code that iterates it.
 
-**Existing data:** rows written before 3.3.0 are single-encoded and read correctly. A row written on 3.3.0 with the old pre-serialization is double-encoded; detect it with `jsonb_typeof(column) = 'string'` and unwrap once (`(column #>> '{}')::jsonb`) if any such writes landed.
+**Existing data:** rows written before 3.3.0 are single-encoded and read correctly. A row written on 3.3.0 with the old pre-serialization is double-encoded; detect it with `jsonb_typeof(column) = 'string'` and unwrap once (`(column #>> '{}')::jsonb`) if any such writes landed. This app ships that repair as `db/migrations/20261119120000_unwrap_double_encoded_json` — a per-row loop that only touches text starting with `[`/`{`, warns instead of aborting on unparseable text, and is a no-op on clean data. The read guards make the migration non-blocking: a missed row degrades to empty instead of a 500.
+
+**Read-side guard:** every query that calls `jsonb_array_length(col)` / `jsonb_array_elements(col)` on user data must wrap the column in `CASE WHEN jsonb_typeof(col) = 'array' THEN col ELSE '[]'::jsonb END` (and a record column in the equivalent `'{}'` form). One malformed or double-encoded row otherwise 500s the whole page. `app/data/admin-lists.ts` and `app/data/lists.ts` both do this; keep the `SELECT` of a filtered page normalized too, or a strict row schema rejects the row before the SQL guard can help.
 
 ## When to Use
 
 - You are writing `` = ANY(${array}) `` or `in ${array}` in a `sql` tag on the 3.3.0+ pin.
 - A `data-table` call accepts a `SqlStatement` built elsewhere (cached, copied, deserialized, or imported from another package copy).
 - A `c.json()` column write still calls `JSON.stringify` from the pre-3.3.0 pattern, or a read errors with `array length/elements of a scalar`.
+- A read computes counts over a `jsonb` array column that holds user data — guard it with the `jsonb_typeof` CASE before `jsonb_array_length`/`jsonb_array_elements`.
 - A raw-SQL JSON write casts to `jsonb` — keep `JSON.stringify` there and nowhere else.
 
 ## Related

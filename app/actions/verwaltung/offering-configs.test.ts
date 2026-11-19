@@ -157,6 +157,15 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs?editing='))
+
+      // The typed `db.create` write must leave a JSONB object behind; a stray
+      // JSON.stringify would store a string and break the row schema on read.
+      let stored = await pool.query(
+        'SELECT jsonb_typeof(rules) AS type, rules FROM offering_configs WHERE resource_id = $1',
+        [seedResourceId],
+      )
+      assert.equal(stored.rows[0]?.type, 'object', 'rules must be stored as a JSON object')
+      assert.deepEqual(stored.rows[0]?.rules, { monday: [480, 1020], wednesday: [540, 1200] })
     })
 
     it('rejects duplicate resource_id', async () => {
@@ -385,6 +394,13 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 303)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
+
+      let stored = await pool.query(
+        'SELECT jsonb_typeof(rules) AS type, rules FROM offering_configs WHERE id = $1',
+        [testConfigId],
+      )
+      assert.equal(stored.rows[0]?.type, 'object', 'an update must keep rules a JSON object')
+      assert.deepEqual(stored.rows[0]?.rules, { monday: [540, 1080] })
     })
 
     it('re-renders the edit panel with a linked resource error', async () => {

@@ -108,13 +108,18 @@ function toSummary(row: z.output<typeof listSummaryWireSchema>): ListSummary {
 
 function parseRow(row: Record<string, unknown>): ListRow {
   let list = row.list
-  if (typeof list === 'string') {
+  // A row written while the column was serialized by hand is stored as a JSONB
+  // string (and a repeated mistake could nest one layer deeper), so unwrap until
+  // the value is no longer JSON text. Mirrors the `lists` afterRead hook.
+  while (typeof list === 'string') {
     try {
       list = JSON.parse(list)
     } catch {
       list = []
+      break
     }
   }
+  if (!Array.isArray(list)) list = []
   return {
     id: Number(row.id),
     user_id: row.user_id != null ? Number(row.user_id) : null,
@@ -153,6 +158,16 @@ function assignStableIds(items: ListItemInput[]): ListItem[] {
   }))
 }
 
+/**
+ * The JSONB `list` column is user data, so shape drift (an object/scalar
+ * instead of an array) is tolerated at read time. Guarding here keeps a
+ * malformed row — including one double-encoded by the pre-3.3.0
+ * `JSON.stringify` write path — from 500ing `/lists` through
+ * `jsonb_array_elements` / `jsonb_array_length`. Mirrors `admin-lists.ts`; the
+ * `lists` afterRead hook covers typed reads, this covers raw SQL.
+ */
+const LIST_ITEMS_ARRAY = `CASE WHEN jsonb_typeof(list) = 'array' THEN list ELSE '[]'::jsonb END`
+
 export async function getAllLists(
   db: Database,
   options: { offset?: number; limit?: number; filter?: string | undefined },
@@ -179,11 +194,12 @@ export async function getAllLists(
       await queryRows(
         db,
         rawSql(
-          `SELECT * FROM lists
+          `SELECT id, user_id, ${LIST_ITEMS_ARRAY} AS list, title, description, created_at, updated_at
+       FROM lists
        WHERE (title ILIKE $1
           OR description ILIKE $1
           OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements(list) item
+            SELECT 1 FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) item
             WHERE item->>'label' ILIKE $1
           )) ${ownerClause}
        ORDER BY created_at DESC, id DESC
@@ -218,8 +234,8 @@ export async function getAllLists(
 // the whole `list` JSON array — so a page of lists costs one row per list with
 // scalar columns instead of deserializing every item into JS.
 const summaryColumns = `SELECT id, title, description, updated_at,
-       COALESCE(jsonb_array_length(list), 0) AS item_count,
-       COALESCE((SELECT count(*) FROM jsonb_array_elements(list) e WHERE e->>'done' = 'true'), 0) AS done_count
+       COALESCE(jsonb_array_length(${LIST_ITEMS_ARRAY}), 0) AS item_count,
+       COALESCE((SELECT count(*) FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) e WHERE e->>'done' = 'true'), 0) AS done_count
     FROM lists`
 
 export async function getListSummaries(
@@ -268,7 +284,7 @@ export async function getListSummaries(
        WHERE (title ILIKE $1
           OR description ILIKE $1
           OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements(list) item
+            SELECT 1 FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) item
             WHERE item->>'label' ILIKE $1
           )) ${ownerClause}
        ORDER BY ${orderBy}
@@ -288,7 +304,7 @@ export async function getListSummaries(
        WHERE (title ILIKE $1
           OR description ILIKE $1
           OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements(list) item
+            SELECT 1 FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) item
             WHERE item->>'label' ILIKE $1
           )) ${countOwnerClause}`,
         countArgs,
@@ -345,8 +361,8 @@ export async function getListSummariesByIds(
     db,
     rawSql(
       `SELECT id, title, description, updated_at,
-         COALESCE(jsonb_array_length(list), 0) AS item_count,
-         COALESCE((SELECT count(*) FROM jsonb_array_elements(list) e WHERE e->>'done' = 'true'), 0) AS done_count
+         COALESCE(jsonb_array_length(${LIST_ITEMS_ARRAY}), 0) AS item_count,
+         COALESCE((SELECT count(*) FROM jsonb_array_elements(${LIST_ITEMS_ARRAY}) e WHERE e->>'done' = 'true'), 0) AS done_count
        FROM lists WHERE id = ANY($1::integer[]) ${ownerClause}
        ORDER BY array_position($1::integer[], id)`,
       params,

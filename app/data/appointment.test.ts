@@ -34,6 +34,14 @@ describe('appointment', () => {
     assert.equal(rows.length, 0)
   })
 
+  it('listUserEmails accepts an empty id list', async () => {
+    // `sql` expands interpolated arrays, so the whole-array parameter is wrapped
+    // in `rawSql('?', [ids])`. An empty array must still bind as one pgsql
+    // array parameter instead of throwing "Cannot interpolate an empty array".
+    let rows = await listUserEmails(db, [])
+    assert.equal(rows.length, 0)
+  })
+
   it('createAppointmentFromType creates appointment from appointtype', async () => {
     let userResult = await pool.query(
       "SELECT id FROM users WHERE email = 'test-appt-a@example.com'",

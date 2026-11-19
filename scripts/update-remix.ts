@@ -69,6 +69,18 @@ const LEGACY_TARBALL_SPEC_RE =
   /^https:\/\/raw\.githubusercontent\.com\/remix-run\/remix\/preview\/main\/t\/([0-9a-f]{8})\/([^/]+)\.tgz$/
 const RELEASE_SPEC_RE = releaseAssetUrlRe('[^/]+')
 
+// Upstream's changesets-generated changelogs are the only place a "minor" that
+// changes behavior is called out (data-table 1.1.0 expanded `sql` arrays and
+// started `JSON.stringify`-ing `column.json()` values). The tarballs do not
+// ship them, so fetch them from the target source commit before installing.
+const CHANGELOG_PACKAGES = ['data-table', 'component', 'ui', 'remix'] as const
+const INSTALLED_PACKAGE_PATHS: Record<(typeof CHANGELOG_PACKAGES)[number], string> = {
+  'data-table': 'node_modules/.pnpm/node_modules/@remix-run/data-table',
+  component: 'node_modules/.pnpm/node_modules/@remix-run/component',
+  ui: 'node_modules/@remix-run/ui',
+  remix: 'node_modules/remix',
+}
+
 // pnpm runs a nested `pnpm install` to prepare a git-hosted package. That child
 // does not inherit --store-dir/--cache-dir flags, only the environment, so set
 // the npm_config_* equivalents for every pnpm invocation. Tarball installs do
@@ -154,7 +166,7 @@ lock has one unified release, repoint the vendor skill links, then run
 typecheck, lint, format and (by default) the full test suite.
 
 Options:
-  --dry-run           Resolve and print the target release/commits; change nothing
+  --dry-run           Resolve and print the target release, commits and package changelog
   --no-tests          Skip the full \`npm test\` run
   --no-docs           Skip refreshing the current-pin strings in AGENTS.md/learned skills
   --allow-dirty       Allow an uncommitted working tree
@@ -334,7 +346,7 @@ function printPinHistoryScaffold(args: ScaffoldArgs): void {
   console.log('- **Versions:** ' + args.versions + '.')
   console.log('- **Package delta:** TODO — diff the old and new installed trees before recording.')
   console.log(
-    '- **Breaking:** TODO — read the target package CHANGELOG Minor/Patch entries; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
+    '- **Breaking:** TODO — review the Minor/Patch changelog entries printed above; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
   )
   console.log('- **Behavior:** TODO — one bullet per runtime/API change.')
   console.log('- **App-side clearance:** TODO — call sites, or "no production source change".')
@@ -510,6 +522,93 @@ function installedVersions(): string {
     .filter(([, version]) => version)
     .map(([name, version]) => `${name} ${version}`)
     .join(', ')
+}
+
+function installedPackageVersion(name: (typeof CHANGELOG_PACKAGES)[number]): string | undefined {
+  return versionAt(INSTALLED_PACKAGE_PATHS[name], 'package.json')
+}
+
+type ChangelogSection = { version: string; body: string }
+
+function parseChangelogSections(text: string): ChangelogSection[] {
+  let sections: ChangelogSection[] = []
+  let current: ChangelogSection | undefined
+  for (let line of text.split('\n')) {
+    let heading = /^##\s+v?(\S+)\s*$/.exec(line)
+    if (heading) {
+      current = { version: heading[1] ?? '', body: '' }
+      sections.push(current)
+      continue
+    }
+    if (current) current.body += line + '\n'
+  }
+  return sections
+}
+
+/** Sections newer than the installed version; the changelog is newest-first. */
+function newChangelogSections(text: string, installed: string | undefined): ChangelogSection[] {
+  let sections = parseChangelogSections(text)
+  if (!installed) return sections.slice(0, 1)
+  let at = sections.findIndex((section) => section.version === installed)
+  return at === -1 ? sections.slice(0, 1) : sections.slice(0, at)
+}
+
+/**
+ * Keep the Minor/Patch change blocks with their prose. A semver glance is not
+ * enough: upstream has shipped consumer-breaking behavior as a minor (see the
+ * `sql` array / `column.json()` entries in data-table 1.1.0).
+ */
+function changelogHighlights(body: string): string {
+  let lines: string[] = []
+  let keep = false
+  for (let line of body.split('\n')) {
+    let heading = /^###\s+(.+?)\s*$/.exec(line)
+    if (heading) {
+      let title = heading[1] ?? ''
+      keep = /change/i.test(title) && !/^major/i.test(title)
+      if (keep) lines.push('### ' + title)
+      continue
+    }
+    if (keep) lines.push(line)
+  }
+  return lines.join('\n').trim()
+}
+
+async function fetchChangelog(name: string, source: string): Promise<string | undefined> {
+  let url = `https://raw.githubusercontent.com/remix-run/remix/${source}/packages/${name}/CHANGELOG.md`
+  try {
+    let response = await fetch(url, {
+      headers: githubHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!response.ok) return undefined
+    return await response.text()
+  } catch {
+    return undefined
+  }
+}
+
+async function printUpcomingChangelog(source: string): Promise<void> {
+  let changelogs = await Promise.all(
+    CHANGELOG_PACKAGES.map(async (name) => [name, await fetchChangelog(name, source)] as const),
+  )
+  let printed = false
+  for (let [name, text] of changelogs) {
+    if (!text) continue
+    for (let section of newChangelogSections(text, installedPackageVersion(name))) {
+      let notes = changelogHighlights(section.body)
+      if (!notes) continue
+      if (!printed) {
+        console.log('\nChangelog Minor/Patch entries above the installed versions:')
+        printed = true
+      }
+      console.log(`\n[${name} ${section.version}]`)
+      console.log(notes)
+    }
+  }
+  if (!printed) {
+    console.log('\nNo new Minor/Patch changelog entries found (or changelogs unavailable).')
+  }
 }
 
 function githubHeaders(): Record<string, string> {
@@ -823,6 +922,12 @@ async function main(): Promise<void> {
       console.log('Commits:')
       for (let subject of subjects) console.log(`  - ${subject}`)
     }
+  }
+
+  // Surface the changelog before any install: this is the only signal that a
+  // minor/patch changed consumer behavior.
+  if (oldPin.source !== targetSource) {
+    await printUpcomingChangelog(targetSource)
   }
 
   let lockAtTarget =
