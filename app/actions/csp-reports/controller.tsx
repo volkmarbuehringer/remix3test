@@ -13,10 +13,11 @@ import { connectionIp } from '../../utils/request-ip.ts'
  * untrusted: cap the body, trim every string, strip control characters before
  * logging, and never echo anything back.
  *
- * The report-only Trusted Types policy fires on every vendor frame parse
- * (`innerHTML`/`document.write`), so identical sinks are logged at most once per
- * window instead of once per navigation, and a per-IP cap bounds log flooding
- * through the public endpoint.
+ * The report-only Trusted Types policy fires on every vendor frame parse and
+ * import-map write. Those vendor sinks are a fixed baseline the app cannot
+ * change, so `isVendorTrustedTypesBaseline()` drops them; any other identical
+ * sink is logged at most once per window instead of once per navigation, and a
+ * per-IP cap bounds log flooding through the public endpoint.
  */
 const MAX_CSP_REPORT_BYTES = 16 * 1024
 const MAX_FIELD_LENGTH = 256
@@ -142,6 +143,41 @@ export function normalizeReportingApiReports(body: unknown): CspReportFields[] {
 }
 
 /**
+ * The pinned `@remix-run/component` runtime is a known Trusted Types baseline:
+ * the frame parser assigns the response document to `template.innerHTML` and
+ * the scoped import-map writer assigns JSON to `script.textContent`
+ * (`dist/runtime/frame.js`; `prefetch.js` parses prefetched fragments the same
+ * way). No app-level fix exists — a Trusted Types policy can wrap app-owned
+ * strings, but it cannot rewrite a vendor module's direct assignment — so the
+ * report-only policy would otherwise re-log the same unavoidable sinks forever.
+ * Drop only that baseline: an app-owned sink or another file still logs.
+ */
+function isVendorTrustedTypesBaseline(report: CspReportFields): boolean {
+  if (report.directive !== 'require-trusted-types-for') return false
+  if (report.disposition !== 'report') return false
+  if (!report.source) return false
+
+  let pathname: string
+  try {
+    pathname = new URL(report.source, 'http://localhost').pathname
+  } catch {
+    return false
+  }
+
+  // The mount path differs by installer (`/assets/npm/@remix-run/…` when
+  // hoisted, a `/node_modules/@remix-run/…` tail under pnpm), so match the
+  // package path itself. The scope arrives percent-encoded when the URL comes
+  // from the pnpm layout's `@remix-run+component@…` directory name.
+  if (pathname.includes('/%40remix-run/component/dist/runtime/')) return true
+
+  try {
+    return decodeURIComponent(pathname).includes('/@remix-run/component/dist/runtime/')
+  } catch {
+    return false
+  }
+}
+
+/**
  * Whether this sink should be logged now. Identical reports (same directive,
  * blocked URI, source file and sample prefix) are suppressed for a window, so a
  * runtime that violates on every navigation logs once instead of forever.
@@ -207,6 +243,7 @@ export default createAction(system.cspReports, {
 
     let now = Date.now()
     for (let report of reports) {
+      if (isVendorTrustedTypesBaseline(report)) continue
       if (!shouldLogReport(report, now)) continue
       context.logger?.(
         JSON.stringify({

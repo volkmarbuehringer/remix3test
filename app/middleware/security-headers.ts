@@ -103,7 +103,9 @@ export function contentSecurityPolicy({ nonce }: { nonce: string }): ContentSecu
  * Trusted Types would break them without a sanitizing policy. Monitor first:
  * the report-only policy sends every would-be violation to `/csp-reports`
  * without blocking, and names the polyfill's policy (the only one the app
- * creates).
+ * creates). The report endpoint drops the vendor runtime's fixed sinks
+ * (`isVendorTrustedTypesBaseline()`), so the log keeps only actionable,
+ * app-owned violations.
  */
 export const reportOnlyContentSecurityPolicy: ContentSecurityPolicyInit = {
   requireTrustedTypesFor: ["'script'"],

@@ -44,6 +44,25 @@ function reportingApiReport(overrides: Record<string, unknown> = {}): string {
   ])
 }
 
+/**
+ * The exact shape the pinned runtime reports for a frame parse: the frame
+ * document string assigned to `template.innerHTML` in the served `frame.js`.
+ */
+const VENDOR_FRAME_SOURCE =
+  'http://127.0.0.1:44100/assets/npm/.pnpm/%40remix-run%2Bcomponent%40https%2B%2B%2Bgithub.com%2Bremix-run%2Bpreviews%2Breleases%2Bdownload%2Bv0.0.20261119-main-74f06706%2Bcomponent.tgz/node_modules/%40remix-run/component/dist/runtime/frame.js'
+
+function trustedTypesReport(overrides: Record<string, unknown> = {}): string {
+  return legacyReport({
+    'effective-directive': 'require-trusted-types-for',
+    'blocked-uri': 'trusted-types-sink',
+    disposition: 'report',
+    'script-sample': 'Element innerHTML|<!DOCTYPE html><head><script data-rmx-im',
+    'source-file': VENDOR_FRAME_SOURCE,
+    'line-number': 1898,
+    ...overrides,
+  })
+}
+
 describe('POST /csp-reports', () => {
   it('accepts a legacy csp-report', async () => {
     let response = await router.fetch(CSP_REPORTS_URL, {
@@ -218,5 +237,84 @@ describe('CSP report log discipline', () => {
 
     assert.ok(lines.length <= 120, `expected at most 120 logged reports, got ${lines.length}`)
     assert.ok(lines.length > 0, 'reports under the cap should log')
+  })
+
+  it('drops the pinned vendor runtime Trusted Types baseline', async (t) => {
+    resetCspReportState()
+    let lines = captureCspLogs(t)
+
+    // Both sinks the frame runtime reports: document parse and import map.
+    await postLegacy(trustedTypesReport())
+    await postLegacy(
+      trustedTypesReport({
+        'script-sample': 'HTMLScriptElement textContent|{"scopes":{"/assets/app/":{"@remix-run/u',
+        'line-number': 2374,
+      }),
+    )
+    // Hoisted installs serve the same package without the pnpm `.pnpm` tail.
+    await postLegacy(
+      trustedTypesReport({
+        'source-file':
+          'http://127.0.0.1:44100/assets/npm/@remix-run/component/dist/runtime/frame.js',
+      }),
+    )
+
+    assert.equal(lines.length, 0, 'the known vendor sinks must not flood the log')
+  })
+
+  it('drops the vendor baseline from a Reporting API batch too', async (t) => {
+    resetCspReportState()
+    let lines = captureCspLogs(t)
+
+    await router.fetch(CSP_REPORTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/reports+json' },
+      body: reportingApiReport({
+        effectiveDirective: 'require-trusted-types-for',
+        blockedURL: 'trusted-types-sink',
+        disposition: 'report',
+        sourceFile: VENDOR_FRAME_SOURCE,
+        sample: 'Element innerHTML|<!DOCTYPE html>',
+      }),
+    })
+
+    assert.equal(lines.length, 0)
+  })
+
+  it('still logs app-owned Trusted Types sinks', async (t) => {
+    resetCspReportState()
+    let lines = captureCspLogs(t)
+
+    await postLegacy(
+      trustedTypesReport({
+        'source-file': 'http://127.0.0.1:44100/assets/app/assets/frame-asset-prefetch.browser.js',
+        'script-sample': 'Element innerHTML|<frame fragment>',
+      }),
+    )
+
+    assert.equal(lines.length, 1, 'only the fixed vendor baseline is suppressed')
+  })
+
+  it('still logs non-Trusted-Types violations from the vendor runtime', async (t) => {
+    resetCspReportState()
+    let lines = captureCspLogs(t)
+
+    await postLegacy(
+      trustedTypesReport({
+        'effective-directive': 'script-src-elem',
+        'script-sample': 'alert(1)',
+      }),
+    )
+
+    assert.equal(lines.length, 1)
+  })
+
+  it('still logs a vendor Trusted Types sink once enforcement is on', async (t) => {
+    resetCspReportState()
+    let lines = captureCspLogs(t)
+
+    await postLegacy(trustedTypesReport({ disposition: 'enforce' }))
+
+    assert.equal(lines.length, 1, 'an enforced violation would break rendering')
   })
 })
