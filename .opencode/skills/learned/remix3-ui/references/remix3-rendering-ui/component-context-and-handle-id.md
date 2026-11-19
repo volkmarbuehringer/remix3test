@@ -3,6 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Props, local state, context, and updates".
 
 **Extracted:** 2026-09-26
+**Revalidated:** 2026-11-19 against source `9e4da4d3`: guide 04 §"Props, local state, context, and updates" is unchanged, and the app still has zero `handle.context` / `handle.id` / `TypedEventTarget` occurrences under `app/` (request context via `remix/middleware/async-context` remains the app seam).
 
 **Context:** A reusable Remix component needs to share a value with descendants, generate a stable DOM id, or expose context that can change in the browser.
 
@@ -19,7 +20,7 @@ Follow the guide for the API; keep these two contexts distinct.
 - **`handle.id`** (guide §"Props, local state, context, and updates"): a stable per-instance identifier for wiring `label`/`input` or ARIA relationships without requiring an `id` prop.
 - **`TypedEventTarget`** (guide §"Props, local state, context, and updates"): the recommended carrier for browser-reactive shared context.
 
-**App status (re-check before relying):** as of extraction, `handle.context`, `handle.id`, and `TypedEventTarget` have **zero** occurrences under `app/`. Treat this as new surface; when you introduce it, prefer a browser component test that drives the update (see `remix3-testing` and `remix3-client-entries`).
+**App status (re-check before relying):** `handle.context`, `handle.id`, and `TypedEventTarget` have **zero** occurrences under `app/` (re-checked 2026-11-19). Treat this as new surface; when you introduce it, prefer a browser component test that drives the update (see `remix3-testing` and `remix3-client-entries`).
 
 ## When to Use
 

@@ -3,7 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
-**Revalidated:** 2026-11-14 against preview release `v0.20261113.215858-main-848e2fbe` / source `848e2fbe` (sections re-walked; no shell behavior change since `5af14d52` — `Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps)
+**Revalidated:** 2026-11-19 against source `9e4da4d3` (`remix` 3.3.0; guide 04 §"Document shells, head content, and HTML responses" unchanged at this source). Re-checked `app/ui/document.tsx`, `app/middleware/asset-entry.ts` (frame skip, entry-failure policy), `app/router.test.ts:176`; no behavior change since `848e2fbe` — `Document` head slot, explicit light theme, `panelEntrance`, nonce inherited for generated import maps.
 
 **Context:** Editing the shared document shell, adding head tags/preloads/styles, wiring the browser entry script or import map, or returning a rendered page with a status/headers.
 

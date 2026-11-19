@@ -389,11 +389,15 @@ const listsGridWrapStyle = css({
  * below the table's 880px floor until roughly 1200px, which left the row
  * actions behind a horizontal scrollbar on tablets and small laptops. The
  * rules below are the shared card layout at the wider breakpoint; keep them in
- * sync with `table.mobileCards` in mixins/admin-table.ts.
+ * sync with `table.mobileCards` in mixins/admin-table.ts, including the
+ * `!important` boosts: this descriptor is applied to the wrapper, so its
+ * `@layer rmx.*` sub-layer precedes each cell's own `table.td`/`table.row`
+ * sub-layer and a later sub-layer wins regardless of specificity (guide 04
+ * §"Styling with css and dynamic style values").
  */
 const listsCardsStyle = css({
   '@media (max-width: 1199px), (hover: none)': {
-    '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
+    '& table': { display: 'block', tableLayout: 'auto !important', minWidth: '0 !important' },
     '& thead': { display: 'none' },
     '& tbody': { display: 'block' },
     '& tbody tr': {
@@ -404,18 +408,25 @@ const listsCardsStyle = css({
       marginBottom: theme.space.sm,
       border: `1px solid ${theme.colors.border.default}`,
       borderRadius: theme.radius.md,
-      background: theme.surface.lvl1,
+      background: `${theme.surface.lvl1} !important`,
     },
+    // Same sub-layer, higher specificity: hover feedback survives the boosted
+    // card background.
+    '& tbody tr:hover': { background: `${theme.surface.lvl3} !important` },
     '& tbody td': {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       gap: theme.space.sm,
-      padding: `${theme.space.xs} 0`,
-      borderBottom: 'none',
-      overflow: 'visible',
-      textOverflow: 'clip',
-      whiteSpace: 'normal',
+      // Without `min-width: 0` the cell's automatic minimum size is its
+      // min-content width (the card rules no longer clip), so one long
+      // unbreakable value widened the grid track past the viewport.
+      minWidth: 0,
+      padding: `${theme.space.xs} 0 !important`,
+      borderBottom: 'none !important',
+      overflow: 'visible !important',
+      textOverflow: 'clip !important',
+      whiteSpace: 'normal !important',
       '&::before': {
         content: 'attr(data-label)',
         flexShrink: 0,

@@ -23,19 +23,21 @@ learned delta drifts. This is the workflow behind the §06 re-audit (2026-10-31)
 
 ### 1. Separate guide drift from app drift
 
-Only one build is installed at a time since the 2026-11-03 tarball migration.
-Diff the installed chapter against the previous build's tarball (or against a
-coexisting codeload install on an old pin):
+pnpm keeps every preview release that was ever installed under
+`node_modules/.pnpm/remix@…` (the active one is linked at `node_modules/remix`),
+so the previous build's chapter usually remains on disk to diff against; only a
+pruned store needs the previous release asset. The 2026-11-19 §04 audit diffed
+`74f06706` → `9e4da4d3` this way (three hunks):
 
 ```bash
-# current tarball layout
-diff -u <(tar -xzOf /tmp/old-remix.tgz package/guides/06-streaming-ui-with-frames.md) \
-        node_modules/remix/guides/06-streaming-ui-with-frames.md
-
-# old branch layout, when both installs remain
+# find the retained install for the previous pin by a tag/sha fragment
 ls -d node_modules/.pnpm/remix@*
-diff -u node_modules/.pnpm/remix@<old>/node_modules/remix/guides/06-streaming-ui-with-frames.md \
-        node_modules/remix/guides/06-streaming-ui-with-frames.md
+old=$(ls -d node_modules/.pnpm/remix@*'<old-tag-or-sha>'*/node_modules/remix | head -1)
+diff -u "$old/guides/04-rendering-ui.md" node_modules/remix/guides/04-rendering-ui.md
+
+# fallback: the previous release's asset, when no old install remains
+diff -u <(tar -xzOf /tmp/old-remix.tgz package/guides/04-rendering-ui.md) \
+        node_modules/remix/guides/04-rendering-ui.md
 ```
 
 No output → the chapter is unchanged; record "byte-identical between builds `<old>` and `<new>`" in

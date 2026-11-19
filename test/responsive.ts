@@ -156,12 +156,79 @@ export async function assertMobilePage(
   return metrics
 }
 
-/** Asserts that a table has switched to the shared stacked-card mobile layout. */
+/**
+ * Asserts that a table has switched to the shared stacked-card mobile layout.
+ *
+ * The cell assertions are the cascade-layer guard: the card rules live on the
+ * wrapper's `@layer rmx.*` sub-layer, which is inserted before the cells' own
+ * `table.td`/`table.row` sub-layer, so a contested declaration without
+ * `!important` silently loses (guide 04 §"Styling with css and dynamic style
+ * values"). A probe measured 8px/12px padding, a 1px cell divider,
+ * `white-space: nowrap`, and zebra card backgrounds before the boost.
+ */
 export async function assertMobileCards(page: Page, tableSelector: string): Promise<void> {
-  let styles = await page.locator(tableSelector).evaluate((table) => ({
-    display: getComputedStyle(table).display,
-    headDisplay: getComputedStyle(table.querySelector('thead') as HTMLElement).display,
-  }))
+  let styles = await page.locator(tableSelector).evaluate((table) => {
+    let root = getComputedStyle(document.documentElement)
+    let firstCell = table.querySelector('tbody td') as HTMLElement
+    let cellStyles = getComputedStyle(firstCell)
+    let rows = [...table.querySelectorAll('tbody tr')] as HTMLElement[]
+    return {
+      display: getComputedStyle(table).display,
+      headDisplay: getComputedStyle(table.querySelector('thead') as HTMLElement).display,
+      expectedCellPadding: `${root.getPropertyValue('--rmx-space-xs').trim()} 0px`,
+      cell: {
+        display: cellStyles.display,
+        justifyContent: cellStyles.justifyContent,
+        padding: cellStyles.padding,
+        borderBottomWidth: cellStyles.borderBottomWidth,
+        overflowX: cellStyles.overflowX,
+        textOverflow: cellStyles.textOverflow,
+        whiteSpace: cellStyles.whiteSpace,
+      },
+      rowBackgrounds: rows.slice(0, 2).map((row) => getComputedStyle(row).backgroundColor),
+    }
+  })
   assert.equal(styles.display, 'block', `${tableSelector} must switch to the stacked card layout`)
   assert.equal(styles.headDisplay, 'none', `${tableSelector} must hide its column headers`)
+  assert.equal(
+    styles.cell.display,
+    'flex',
+    `${tableSelector} card cells must become label/value rows`,
+  )
+  assert.equal(
+    styles.cell.justifyContent,
+    'space-between',
+    `${tableSelector} card cells must separate label and value`,
+  )
+  assert.equal(
+    styles.cell.padding,
+    styles.expectedCellPadding,
+    `${tableSelector} card cells must use the compact padding`,
+  )
+  assert.equal(
+    styles.cell.borderBottomWidth,
+    '0px',
+    `${tableSelector} card cells must not draw a divider`,
+  )
+  assert.equal(
+    styles.cell.overflowX,
+    'visible',
+    `${tableSelector} card cells must not clip their text`,
+  )
+  assert.equal(
+    styles.cell.textOverflow,
+    'clip',
+    `${tableSelector} card cells must not ellipsize their text`,
+  )
+  assert.equal(styles.cell.whiteSpace, 'normal', `${tableSelector} card cell text must wrap`)
+  assert.equal(
+    styles.rowBackgrounds.length,
+    2,
+    `${tableSelector} needs at least two rows for the card background check`,
+  )
+  assert.equal(
+    styles.rowBackgrounds[0],
+    styles.rowBackgrounds[1],
+    `${tableSelector} cards must not keep the table's zebra background`,
+  )
 }

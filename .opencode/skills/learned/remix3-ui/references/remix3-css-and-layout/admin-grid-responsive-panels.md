@@ -157,11 +157,15 @@ const descriptionLineStyle = css({ maxWidth: '100%' })
 `max-width: 100%` on each line is also load-bearing: `align-items: flex-end`
 stops cross-axis stretch, so the lines stay max-content until they are capped.
 
-Two cascade notes measured on `/verwaltung/resources` at 390px:
+Two layout notes measured on `/verwaltung/resources` at 390px:
 
-- `mobileCards`' `white-space: normal` loses to `table.td`'s `nowrap` in the
-  layered cascade (`getComputedStyle(td).whiteSpace` evaluates to `nowrap`), so
-  the lines stay single-line and the ellipsis has to do the truncation.
+- Since the 2026-11-19 §04 audit the card cell's contested declarations are
+  `!important` and the cell carries `min-width: 0` (see
+  `cascade-layer-overrides.md`), so `white-space: normal` / `overflow: visible` /
+  `text-overflow: clip` now apply. The two-line stack still needs its own
+  `min-width: 0` + per-line `max-width: 100%`: each line is `nowrap`, so as a
+  flex item it sizes to max-content and would overflow the cell that no longer
+  clips.
 - When the second line is optional (a nullable `capabilities` text), render an
   empty span with `min-height: 1.2em` instead of omitting it; otherwise row
   heights alternate between one and two lines.
@@ -183,8 +187,8 @@ table height instead of the 918px page scroller.
 
 ## Related
 
-- `references/cascade-layer-overrides.md` — why the `min-width` override needs
-  `!important`
+- `references/cascade-layer-overrides.md` — why the card/`min-width` overrides need
+  `!important`, and the parent→child layer contest
 - `references/plain-layout-bounded-grid.md` — the `dataGrid*` fill chain and
   `flex: 1 1 auto`
 - `remix3-data-table` — the data layer behind these grids

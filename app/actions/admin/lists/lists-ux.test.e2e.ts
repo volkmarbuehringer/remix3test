@@ -168,11 +168,29 @@ describe('admin lists: UX', () => {
       let firstActions = document.querySelector(
         '[data-lists-table] tbody [data-row-actions]',
       ) as HTMLElement | null
+      let firstCellStyle = getComputedStyle(cells[0] as HTMLElement)
+      let expectedCellPadding = `${getComputedStyle(document.documentElement)
+        .getPropertyValue('--rmx-space-xs')
+        .trim()} 0px`
+      let rowBackgrounds = [...document.querySelectorAll('[data-lists-table] tbody tr')]
+        .slice(0, 2)
+        .map((row) => getComputedStyle(row as HTMLElement).backgroundColor)
       return {
         headerDisplay: getComputedStyle(
           document.querySelector('[data-lists-table] thead') as HTMLElement,
         ).display,
         unlabelledCells: cells.filter((cell) => !cell.getAttribute('data-label')).length,
+        firstCell: {
+          display: firstCellStyle.display,
+          justifyContent: firstCellStyle.justifyContent,
+          padding: firstCellStyle.padding,
+          borderBottomWidth: firstCellStyle.borderBottomWidth,
+          overflowX: firstCellStyle.overflowX,
+          textOverflow: firstCellStyle.textOverflow,
+          whiteSpace: firstCellStyle.whiteSpace,
+        },
+        expectedCellPadding,
+        rowBackgrounds,
         horizontalOverflow: wrap.scrollWidth - wrap.clientWidth,
         wrapOverflowY: wrap.scrollHeight - wrap.clientHeight,
         pageOverflow: scroller.scrollHeight - scroller.clientHeight,
@@ -186,6 +204,29 @@ describe('admin lists: UX', () => {
 
     assert.equal(layout.headerDisplay, 'none', 'phones should hide the table header')
     assert.equal(layout.unlabelledCells, 0, 'every card cell needs a data-label')
+    // Card-cell cascade guard: the wrapper's `@layer rmx.*` rules lose to the
+    // cells' later `table.td` sub-layer unless contested declarations are
+    // `!important` (guide 04 §"Styling with css and dynamic style values").
+    assert.equal(layout.firstCell.display, 'flex', 'card cells must become label/value rows')
+    assert.equal(
+      layout.firstCell.justifyContent,
+      'space-between',
+      'card cells must separate label and value',
+    )
+    assert.equal(
+      layout.firstCell.padding,
+      layout.expectedCellPadding,
+      'card cells must use the compact padding',
+    )
+    assert.equal(layout.firstCell.borderBottomWidth, '0px', 'card cells must not draw a divider')
+    assert.equal(layout.firstCell.overflowX, 'visible', 'card cells must not clip their text')
+    assert.equal(layout.firstCell.textOverflow, 'clip', 'card cells must not ellipsize their text')
+    assert.equal(layout.firstCell.whiteSpace, 'normal', 'card cell text must wrap')
+    assert.equal(
+      layout.rowBackgrounds[0],
+      layout.rowBackgrounds[1],
+      'cards must not keep the table zebra background',
+    )
     assert.ok(
       layout.horizontalOverflow <= 1,
       `cards must not overflow, got ${layout.horizontalOverflow}`,

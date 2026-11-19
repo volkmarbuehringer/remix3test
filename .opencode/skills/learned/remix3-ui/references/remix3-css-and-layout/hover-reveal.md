@@ -3,7 +3,7 @@
 **Source:** `remix3-css-hover-reveal`
 
 **Extracted:** 2026-08-24
-**Revalidated:** 2026-10-26 against the installed `@remix-run/component@1.1.0` (build `8ae2f755`, shipped in `remix` 3.1.0).
+**Revalidated:** 2026-11-19 against source `9e4da4d3` (`@remix-run/component` 1.3.0). Guide 04 §"Styling with css and dynamic style values" gained the per-style `@layer rmx.*` paragraph at #12352; the reveal mechanics below are unchanged, and the app's hover reveals are exercised by `app/actions/admin/admin-grid-floating-actions.test.e2e.ts` and `app/actions/lists/lists-row-toolbar.test.e2e.ts` on the current pin.
 
 ## Current behavior
 
@@ -51,7 +51,8 @@ const itemActionsStyle = css({
 
 The delegated `mouseover`/`mouseleave`/`focusin`/`focusout` block has been removed. Current wiring:
 
-- `app/actions/lists/public/lists-view.tsx` — the row's `:hover` / `:focus-visible` / `:has(:focus-visible)` reveal rules; ↑/↓ click handlers call `moveUp`/`moveDown` then `focusItemAction(item.id, label)`.
+- `app/actions/lists/public/lists-view.tsx` — the row's `:hover` / `:focus-visible` / `:has(:focus-visible)` reveal rules (contested properties carry `!important`); ↑/↓ click handlers call `moveUp`/`moveDown` then `focusItemAction(item.id, label)`.
+- `app/ui/mixins/admin-table.ts` — `floatingRowReveal` (the same reveal for the shared admin grids; `!important`) and `floatingTrailingFade` (fades the covered trailing cell; no `!important` because that cell sets no `opacity`).
 - `app/actions/lists/public/lists-client.tsx` — `focusItemAction` re-focuses the same arrow button after the queued update, falling back to the row at list boundaries.
 - `app/actions/lists/public/lists-styles.ts` — `itemActionsStyle` resting state; no opacity transition on the view cluster.
 - `app/actions/lists/public/lists-row-actions.tsx` is **not** the hover reveal — it is the kebab/inline menu controller (touch/dense-row alternative), still needed.

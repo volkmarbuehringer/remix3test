@@ -3,6 +3,7 @@
 **Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Optional headless UI primitives", with the styling sections §"Styling with css and dynamic style values" and §"Cascade layers and app-owned design tokens".
 
 **Extracted:** 2026-09-26
+**Revalidated:** 2026-11-19 against source `9e4da4d3` (`@remix-run/ui` 0.14.0): the primitive export list is unchanged, and the CSP/style-prop and single-site-styling deltas still hold (spot-checked `app/ui/theme/upstream-button.ts`, `app/ui/theme/menu/index.tsx`, `app/ui/toast.ts`).
 
 **Context:** Choosing a `remix/component/*` building block, or deciding whether to use, wrap, or replace a vendor component.
 
@@ -14,17 +15,17 @@ No skill names `app/ui/theme/upstream-button.ts`, `@remix-run/ui/accordion`, or 
 
 Use the guide's selection model, then this app's concrete decisions.
 
-**Selection order (installed `@remix-run/ui` 0.13.1):**
+**Selection order (installed `@remix-run/ui` 0.14.0):**
 
 1. **Native elements styled with `css()`** — keep the real `<button>`/`<input>`/checkbox/radio and style it with `remix/component` style descriptors (guide §"Styling with css and dynamic style values"). The former `@remix-run/ui` styled `button`/`input`/`checkbox`/`radio` mixins and the `breadcrumbs` module were deleted in the 0.11 → 0.12 cleanup (#11986), so there is no vendor style mixin to import; the app vendors its own button (`app/ui/theme/upstream-button.ts`).
-2. **Headless primitives** — `@remix-run/ui` 0.13.1 ships `accordion`, `anchor`, `combobox`, `form`, `listbox`, `menu`, `popover`, `select`, `tabs`, `toast`, and `toggle` (ui README "Primitives"; `animation` is the separate motion module). `toast` arrived with #12084 and the package version string stayed 0.13.1. They own structural attributes, keyboard/focus behavior, and disclosure/selection state. Use `default*` for uncontrolled and the controlled prop/callback when the parent owns state (names differ by component). Use them only when the product needs their behavior or different markup, not just different colors; the app then owns labels, ARIA, and pointer/keyboard behavior. Select/combobox still need a hidden input to participate in a form. There are no `/primitives` subpaths in this build.
+2. **Headless primitives** — `@remix-run/ui` 0.14.0 ships `accordion`, `anchor`, `combobox`, `form`, `listbox`, `menu`, `popover`, `select`, `tabs`, `toast`, and `toggle` (ui README "Primitives"; `animation` is the separate motion module). `toast` arrived with #12084 and the 0.13→0.14 bump changed no primitive exports. They own structural attributes, keyboard/focus behavior, and disclosure/selection state. Use `default*` for uncontrolled and the controlled prop/callback when the parent owns state (names differ by component). Use them only when the product needs their behavior or different markup, not just different colors; the app then owns labels, ARIA, and pointer/keyboard behavior. Select/combobox still need a hidden input to participate in a form. There are no `/primitives` subpaths in this build.
 
 Interactive controls must sit inside a `clientEntry(...)` boundary, directly or via an interactive ancestor (see `remix3-client-entries`).
 
 **Styling deltas:**
 
 - **JSX `style` props are blocked by the app CSP.** The guide recommends the `style` prop for values that change continuously (progress, coordinates, transforms), but `contentSecurityPolicy()` sets `style-src-attr 'none'` and the component runtime writes a `style` prop with `setAttribute('style', …)` (`@remix-run/component/src/runtime/core/props.ts`), so a `style` prop never reaches the page. Use `css()` for bounded value sets (generated classes are content-addressed and cached by serialized style, so a repeated value reuses its class) and CSSOM (`el.style.x = …` in a ref/handler) for continuously changing geometry. Examples: `app/ui/scaffold-home-page.tsx` (bounded progress widths/tones), `app/actions/admin/uploads/controller.tsx` (quota bar), `app/ui/appointment-grid.browser.tsx` (drag transforms). Policy detail: `remix3-server` § Security → `security-gotchas/security-checks.md`.
-- **Single-site named styles are a pre-#12193 convention.** The guide's placement rule (keep a descriptor used at one JSX site inline; name it when multiple sites share it or a variant map clarifies; extract at the second use) postdates most of this app: 472 of 1,068 `css()` descriptors are named constants used at exactly one site. Follow the guide for new code; do not churn the existing set without a dedicated sweep. The variant half of the rule is live: `app/actions/lists/public/lists-view.tsx` puts the grabbed-row highlight behind `&[data-grabbed]` in the row style instead of a second `css()` call.
+- **Single-site named styles are a pre-#12193 convention.** The guide's placement rule (keep a descriptor used at one JSX site inline; name it when multiple sites share it or a variant map clarifies; extract at the second use) postdates most of this app: 472 of 1,068 `css()` descriptors were named constants used at exactly one site at the 2026-11-14 audit, and the population has grown to ~1,390 raw `css({` sites since. Follow the guide for new code; do not churn the existing set without a dedicated sweep. The variant half of the rule is live: `app/actions/lists/public/lists-view.tsx` puts the grabbed-row highlight behind `&[data-grabbed]` in the row style instead of a second `css()` call.
 
 **App-specific deltas:**
 

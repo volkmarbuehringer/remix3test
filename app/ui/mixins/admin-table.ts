@@ -483,14 +483,19 @@ export const table = {
    * each cell prefixed by its `data-label` — so the row actions stay on screen
    * instead of scrolling off the right edge of the 840px grid.
    *
-   * The `min-width` override is `!important` on purpose: the shared `table`
-   * mixin sets it, and the two rules land in sibling `@layer rmx.*` sub-layers
-   * where declaration order, not specificity, decides the winner (the same
-   * cascade caveat documented in segmented.ts).
+   * Every declaration below that contests a property the cell/row mixins also
+   * set is `!important` on purpose: these rules live on the wrapper's
+   * `@layer rmx.*` sub-layer, which is inserted before the descendant's own
+   * style, and a later sub-layer wins regardless of specificity (guide 04
+   * §"Styling with css and dynamic style values"; the same cascade caveat as
+   * segmented.ts). Without the boost `table.td`'s padding/border/ellipsis and
+   * `table.row`'s zebra background won — a probe measured 8px/12px padding,
+   * a 1px cell divider, `white-space: nowrap`, and alternating card
+   * backgrounds. `tableLayout` is `auto` because `table.table` pins `fixed`.
    */
   mobileCards: css({
     '@media (max-width: 768px)': {
-      '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
+      '& table': { display: 'block', tableLayout: 'auto !important', minWidth: '0 !important' },
       '& thead': { display: 'none' },
       '& tbody': { display: 'block' },
       '& tbody tr': {
@@ -501,18 +506,25 @@ export const table = {
         marginBottom: theme.space.sm,
         border: `1px solid ${theme.colors.border.default}`,
         borderRadius: theme.radius.md,
-        background: theme.surface.lvl1,
+        background: `${theme.surface.lvl1} !important`,
       },
+      // Keep the row's hover feedback even though the card background above is
+      // boosted: same sub-layer, higher specificity.
+      '& tbody tr:hover': { background: `${surface.lvl3} !important` },
       '& tbody td': {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: theme.space.sm,
-        padding: `${theme.space.xs} 0`,
-        borderBottom: 'none',
-        overflow: 'visible',
-        textOverflow: 'clip',
-        whiteSpace: 'normal',
+        // Without `min-width: 0` the cell's automatic minimum size is its
+        // min-content width (the card rules no longer clip), so one long
+        // unbreakable value widened the grid track past the viewport.
+        minWidth: 0,
+        padding: `${theme.space.xs} 0 !important`,
+        borderBottom: 'none !important',
+        overflow: 'visible !important',
+        textOverflow: 'clip !important',
+        whiteSpace: 'normal !important',
         '&::before': {
           content: 'attr(data-label)',
           flexShrink: 0,
