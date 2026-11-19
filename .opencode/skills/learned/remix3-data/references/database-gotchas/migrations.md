@@ -2,8 +2,8 @@
 
 **Source:** consolidated from `ddl-migration-dedicated-client` and `data-table-migration-drift-recovery`.
 **Extracted:** 2026-07-17 … 2026-08-18
-**Revalidated:** 2026-11-11 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/data-table` 1.0.0).
-**Context:** DDL/migrations in a `remix/data-table` app: the runner's journal/checksums, startup drift/orphan errors, boot and test-time DDL races, and the config-backed pool tradeoff.
+**Revalidated:** 2026-11-19 against preview release `v0.0.20261119-main-74f06706` / source `74f06706` (`@remix-run/data-table` 1.1.0).
+**Context:** DDL/migrations in a `remix/data-table` app: the runner's journal/checksums, startup drift/orphan errors, data-repair/backfill migrations and their transactional test, boot and test-time DDL races, and the config-backed pool tradeoff.
 
 ## Current app state (2026-11)
 
@@ -64,6 +64,67 @@ Do not delete the legacy journal row or edit its table. Isolate the new runner i
 
 The Postgres driver's `withMigrationLock` serializes concurrent boots. The app pool's `statement_timeout: 30000` also applies to boot migrations; run heavy changes with `npm run db:migrate` out of band (the CLI connection has no statement timeout).
 
+## Data-repair/backfill migrations
+
+A migration that rewrites existing rows (a backfill, a normalization, or a repair after a bad write path) is a data migration. The runner wraps each file in a transaction, a failure aborts boot, and a migration that failed (or whose process died before journaling) is retried on the next boot — so the SQL must be idempotent and must not let one bad row stop the app from starting.
+
+**Prefer read-time tolerance first.** Guard the readers (`CASE WHEN jsonb_typeof(col) = 'array' ...`, `afterRead` nested unwrap) so a missed row degrades to empty instead of 500ing. Repair at leisure; the two are independent. See `../remix3-data-table/sql-array-and-json-values.md` for the JSONB case.
+
+**Shape** (`db/migrations/20261119120000_unwrap_double_encoded_json/up.sql`):
+
+```sql
+-- One DO block per table; guard by stored type and by the expected shape.
+DO $$
+DECLARE
+  target record;
+BEGIN
+  FOR target IN
+    SELECT id, list FROM lists
+    WHERE jsonb_typeof(list) = 'string'
+      AND left(btrim(list #>> '{}'), 1) = '['
+  LOOP
+    BEGIN
+      UPDATE lists SET list = (target.list #>> '{}')::jsonb WHERE id = target.id;
+    EXCEPTION WHEN others THEN
+      RAISE WARNING 'lists.id=% keeps its JSONB string value: % (%)',
+        target.id, SQLERRM, SQLSTATE;
+    END;
+  END LOOP;
+END $$;
+```
+
+- **Type guard** (`jsonb_typeof(col) = 'string'`) makes a second run a no-op.
+- **Text-prefix guard** (`left(btrim(...), 1) = '['`) keeps the `::jsonb` cast away from unrelated strings.
+- **Per-row `EXCEPTION`** turns a corrupt third-party row into a warning. Without it, one unparseable row aborts every subsequent boot.
+- **Do not touch `created_at`/`updated_at`.** A repair is not an edit; bumping `updated_at` reorders `updated_at`-sorted lists/grids.
+- **`down.sql` is a no-op** (`SELECT 1;` + comment). Re-encoding restores the bug; roll back the code, not the data.
+- **Cost:** two scans and one `UPDATE` per repaired row, under the boot `statement_timeout: 30000`. Run `npm run db:migrate` out of band for a large table (the CLI connection has no timeout). Record that cost in `docs/remix-pin-history.md`, not in the migration — an applied `up.sql` must never be edited (checksum drift).
+
+### Testing an applied data migration
+
+A fresh test database has no rows to repair, so the migration's SQL is otherwise unexercised. Run the real `up.sql` body against seeded rows and **roll the transaction back**:
+
+```ts
+let upSql = fs.readFileSync(path.join(MIGRATIONS_DIR, '<id>/up.sql'), 'utf8')
+class Rollback extends Error {}
+
+try {
+  await db.transaction(async (tx) => {
+    await tx.exec(`INSERT INTO lists (...) VALUES (...)`, [...])
+    await tx.executeScript(upSql)
+    // assert: repaired value + unchanged timestamps, skipped text, untouched payload
+    await tx.executeScript(upSql) // idempotency
+    throw new Rollback()
+  })
+} catch (error) {
+  if (!(error instanceof Rollback)) throw error
+}
+```
+
+`tx` is a full `Database` bound to the transaction token (`database.ts:915-923`), so `tx.executeScript` runs on the transaction's connection via the simple-query path — multi-statement files and `DO $$` blocks work. `tx.exec` is the extended protocol; use it for single parameterized statements.
+
+Roll back rather than commit: the scan touches **every** matching row, including rows another test worker owns, and committing leaks fixtures. The private sentinel keeps real assertion failures visible (only `Rollback` is swallowed). `app/db-migrations.test.ts` is the reference test.
+
 ## Diagnosing an intermittent catalog duplicate-key in tests
 
 `initializeAppDatabase()` / Mastra `PostgresStoreVNext` runs DDL on the shared local test DB. When several test files each init the store concurrently (default parallel workers), their `CREATE TABLE/EXTENSION` can collide on the Postgres **catalog**, surfacing as an intermittent `duplicate key value violates unique constraint "pg_class_relname_nsp_index"` (or the sibling `pg_extension_name_index`). The failing test **varies between runs** — it is whichever worker happened to race, not a logic bug in the code under test.
@@ -93,6 +154,7 @@ Config-backed construction makes the driver own the pool internally (`this.#clie
 
 - App startup fails with `Migration checksum drift detected` or `Applied migration ... is missing from current migrations`.
 - You need to edit or delete a previously-applied `data-table` migration, or revert applied migrations on a runner-based app.
+- A data migration must backfill or repair existing rows, or its applied `up.sql` needs a test (a fresh test database has no rows for it).
 - You are re-adopting the runner on a database that still has a legacy `data_table_migrations` journal.
 - A test fails only with multiple files in parallel, with a `pg_class_…` / `pg_extension…` duplicate-key catalog error, and passes in isolation. For Mastra memory tests (`ensureChatThread`'s first `recall`), check that `test/setup.ts` still calls `initializeMastraStorage()`.
 - An unhandled pool `'error'` crash surfaces under config-backed construction (fix: caller-owned pool with a listener, or a driver `onPoolError` option).

@@ -80,7 +80,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 | Task involves... | Start with |
 | --- | --- |
-| Migration baseline via `db/migrations`, checksum drift/orphaned journal, `remix db rollback`, legacy-journal adoption, parallel-init catalog duplicate-key, or a config-backed pool without an `'error'` listener | `references/database-gotchas/migrations.md` |
+| Migration baseline via `db/migrations`, checksum drift/orphaned journal, `remix db rollback`, legacy-journal adoption, a data-repair/backfill migration (guarded per-row `DO $$`, no-op down, boot cost), the rolled-back `up.sql` test, parallel-init catalog duplicate-key, or a config-backed pool without an `'error'` listener | `references/database-gotchas/migrations.md` |
 | A controller catches a PostgreSQL constraint violation (`23001`/`23503`/`23505`/`23P01`), the adapter wraps the real error, or you must re-render the page with `formError` instead of returning JSON | `references/database-gotchas/database-errors.md` |
 | A raw `db.exec` query returns untyped rows and you are about to write `as unknown as SomeRow[]`; decoding `int4`/`int8`/aggregate/JSONB/UUID columns | `references/database-gotchas/raw-sql-wire-honest-rows.md` |
 
@@ -92,6 +92,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 - `remix/data-table` journals each applied migration and checksums its `up.sql`. Editing an applied migration throws `Migration checksum drift detected ...` (`runner.ts:118-123`); deleting it throws `Applied migration ... is missing from current migrations` (`runner.ts:110`). Forward runs hard-error on orphans; only `down` runs ignore them (`runner.ts:105`).
 - Recovery, preferred first: revert the edit; `remix db rollback` (`--step`/`--to`/`--dry-run`, orphan-tolerant; an empty `--to ""` throws); clear the journal only as a last resort.
 - **Adoption over a legacy journal:** isolate the runner in a distinct `journalTable`, make the first migration an idempotent baseline, keep `data_table_migrations` untouched, and test orphan adoption + `loadConfig()` parity.
+- **Data repair:** harden the readers first, then ship a per-row `DO $$` repair (type + prefix guard, `EXCEPTION` → `RAISE WARNING`, timestamps untouched, no-op `down.sql`). Test the applied `up.sql` inside a `db.transaction` and roll it back — the scan touches rows other test workers own. See `migrations.md`.
 - An intermittent catalog duplicate (`pg_class_relname_nsp_index`/`pg_extension_name_index`) that passes alone but varies across the suite is an infra race: pre-initialize shared storage (Mastra does this in `test/setup.ts`) or serialize DDL with `--concurrency 1`.
 
 **Constraint violations and controller error handling (`references/database-gotchas/database-errors.md`)**
@@ -108,6 +109,7 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 - You are writing or debugging any Postgres access in a Remix 3 app: DDL/migrations, constraint-violation handling in controllers, or raw `db.exec` queries.
 - A migration timeout or catalog duplicate-key appears during test setup or concurrent boot; startup fails with a migration checksum-drift or orphaned-journal error; a delete/update throws a constraint violation and the action returns an unhelpful JSON 500; or raw-SQL rows have the wrong shapes (string `int8`, number `int4`, dropped "today" rows).
+- A shipped write path stored the wrong shape for a window and existing rows need a backfill/repair, or a data migration must be tested against rows a fresh test DB never has.
 - Before adding a DDL migration, editing or deleting an applied migration, adding a controller catch around a write, or writing an aggregate/join via `db.exec`.
 
 ### Related Skills
