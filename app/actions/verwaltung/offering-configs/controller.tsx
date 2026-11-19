@@ -471,7 +471,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
         try {
           row = await db.create(
             offeringConfigs,
-            { resource_id: resourceId, rules: JSON.stringify(rules) },
+            { resource_id: resourceId, rules },
             { returnRow: true },
           )
         } catch (error) {
@@ -538,7 +538,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           offeringConfigs,
           {
             resource_id: resourceId,
-            rules: JSON.stringify(rules),
+            rules,
           },
           { returnRow: true },
         )
@@ -618,11 +618,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
       let { parsed, resourceId, rules } = validation
 
       try {
-        await db.updateMany(
-          offeringConfigs,
-          { resource_id: resourceId, rules: JSON.stringify(rules) },
-          { where: { id } },
-        )
+        await db.updateMany(offeringConfigs, { resource_id: resourceId, rules }, { where: { id } })
       } catch (error) {
         if (isConstraintViolation(error)) {
           if (process.env.NODE_ENV !== 'test')

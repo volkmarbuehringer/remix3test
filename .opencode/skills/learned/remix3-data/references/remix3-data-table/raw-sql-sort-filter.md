@@ -47,7 +47,9 @@ function whereStatement(userId?: number, filter?: string): SqlStatement {
 ```
 
 ### 3. Compose them into one statement; the `sql` tag aligns placeholders for you
-The `sql` tag walks the template, appending each nested `SqlStatement`'s text and its `values`, so `?` placeholders and the values array stay aligned across the whole statement. Drop the manual `WHERE uploaded_by = $1` / `ORDER BY ...` branches.
+The `sql` tag walks the template, appending each nested `SqlStatement`'s text and its `values`, so `?` placeholders and the values array stay aligned across the whole statement. Only statements created by the same loaded `sql`/`rawSql` copy inline (the module tracks them in a `WeakSet`); copied/deserialized/other-copy statements bind as one parameter, so rehydrate them with `rawSql(statement.text, statement.values)`. Drop the manual `WHERE uploaded_by = $1` / `ORDER BY ...` branches.
+
+**Arrays are not values in the `sql` tag (`#12332`, 3.3.0+):** an interpolated array expands into `(?, ?)` and an empty array throws. Use `` in ${ids} `` for an IN list, or wrap a whole array parameter in `rawSql('?', [ids])` for `= ANY(...)`. See `sql-array-and-json-values.md`.
 
 ```ts
 let where = whereStatement(userId, filter)
@@ -83,5 +85,6 @@ let total = await countUploads(db, userId, filter) // uses whereStatement(userId
 ## Related
 - `query-patterns.md` (this index) — the typed `db.findMany({ orderBy })` TS2322 counterpart (same whitelist discipline)
 - `query-patterns.md` (this index) — `inList` / `= ANY($1)` multi-ID filter
+- `sql-array-and-json-values.md` (this index) — 3.3.0 array interpolation (`in ${ids}`, `rawSql('?', [ids])`) and `c.json()` write serialization
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas (`references/raw-sql-wire-honest-rows.md`)
 - `typescript-gotchas` (`references/exact-optional-property-types.md`) — the general `exactOptionalPropertyTypes` widening pattern

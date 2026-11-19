@@ -2,7 +2,7 @@ import type { Dirent, Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
-import { sql, type Database } from 'remix/data-table'
+import { sql, rawSql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { envPositiveNumber } from '../config.ts'
@@ -183,7 +183,7 @@ async function referencedStorageKeys(
     let rows = await queryRows(
       db,
       sql`SELECT storage_key FROM upload_files
-         WHERE storage_key = ANY(${chunk.map((candidate) => candidate.key)}::text[])`,
+         WHERE storage_key = ANY(${rawSql('?', [chunk.map((candidate) => candidate.key)])}::text[])`,
       z.object({ storage_key: z.string() }),
     )
     for (let row of rows) referenced.add(row.storage_key)

@@ -115,5 +115,5 @@ Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointme
 
 - `node_modules/remix/guides/07-animation.md` — §"Springs, tweens, and easing", §"Interruptible interactions", §"Entrance and exit animations", §"Layout animations", §"CSS-first visual states", §"Reduced-motion behavior"
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/README.md` — per-property `transition` section
-- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/animate-mixins.ts` — `transition` type at `:20` and the `beforeRemove` handler at `:477` at source `b4185ba2`
+- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/animation/animate-mixins.ts` — `transition` type at `:20` and the `beforeRemove` handler at `:477` at source `74f06706`
 - `app/utils/motion.ts`, `app/ui/document.tsx`, `app/ui/mixins/panel-entrance.ts`, `app/ui/mixins/card-lift.ts`, `app/ui/appointment-grid.browser.tsx`, `app/ui/message-expand.browser.tsx`, `app/assets/fade-out-body.ts`, `app/ui/confirm-delete.browser.tsx`

@@ -269,10 +269,6 @@ export const lists = table({
       next.description = next.description.trim()
     }
 
-    if (Array.isArray(next.list)) {
-      next.list = JSON.stringify(next.list)
-    }
-
     if (operation === 'create') {
       let now = Date.now()
       if (next.created_at === undefined) next.created_at = now

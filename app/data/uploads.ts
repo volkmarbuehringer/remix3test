@@ -392,7 +392,7 @@ export async function claimUploads(
 
     let sizeRows = await queryRows(
       tx,
-      sql`SELECT id, size FROM uploads WHERE id = ANY(${uploadIds}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
+      sql`SELECT id, size FROM uploads WHERE id = ANY(${rawSql('?', [uploadIds])}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
       z.object({ id: z.number(), size: int8 }),
     )
     if (sizeRows.length === 0) return false
@@ -513,8 +513,8 @@ export async function getUploadsByIds(
   let rows = await queryRows(
     db,
     userId !== undefined
-      ? sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${uniqueIds}::int[]) AND uploaded_by = ${userId}`
-      : sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${uniqueIds}::int[])`,
+      ? sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${rawSql('?', [uniqueIds])}::int[]) AND uploaded_by = ${userId}`
+      : sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${rawSql('?', [uniqueIds])}::int[])`,
     uploadDownloadBatchRowSchema,
   )
   return rows.map((row) => ({

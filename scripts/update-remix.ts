@@ -333,6 +333,9 @@ function printPinHistoryScaffold(args: ScaffoldArgs): void {
   )
   console.log('- **Versions:** ' + args.versions + '.')
   console.log('- **Package delta:** TODO — diff the old and new installed trees before recording.')
+  console.log(
+    '- **Breaking:** TODO — read the target package CHANGELOG Minor/Patch entries; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
+  )
   console.log('- **Behavior:** TODO — one bullet per runtime/API change.')
   console.log('- **App-side clearance:** TODO — call sites, or "no production source change".')
   console.log('- **Verification (' + date + '):** ' + args.tests + '.')

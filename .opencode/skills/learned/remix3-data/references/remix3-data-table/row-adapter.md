@@ -59,5 +59,6 @@ Adjacent gotchas this fixes in the same stroke:
 
 ## Related
 
+- `sql-array-and-json-values.md` (this index) — the write-side counterpart: `c.json()` serializes once, so do not pre-`JSON.stringify` values
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas, the raw-SQL sibling of this adapter (`references/raw-sql-wire-honest-rows.md`)
 - `typescript-gotchas` (`references/exact-optional-property-types.md`) — building optional fields under `exactOptionalPropertyTypes`

@@ -1,4 +1,4 @@
-import { sql, type Database } from 'remix/data-table'
+import { sql, rawSql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { queryRows, queryRow } from './rows.ts'
@@ -13,7 +13,7 @@ type UserEmailRow = z.output<typeof userEmailRowSchema>
 export async function listUserEmails(db: Database, userIds: number[]): Promise<UserEmailRow[]> {
   return await queryRows(
     db,
-    sql`SELECT id, email FROM users WHERE id = ANY(${userIds}::int[])`,
+    sql`SELECT id, email FROM users WHERE id = ANY(${rawSql('?', [userIds])}::int[])`,
     userEmailRowSchema,
   )
 }
