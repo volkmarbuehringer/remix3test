@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { createCsrfSession } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
+import { pool } from '../../../test/pool.ts'
 
 const BASE = 'https://remix.run'
 
@@ -102,7 +103,7 @@ describe('Auth Register controller', () => {
   // -----------------------------------------------------------------------
   // POST /register — duplicate email
   // -----------------------------------------------------------------------
-  it('POST /register with duplicate email returns 400 with error', async () => {
+  it('POST /register with duplicate email returns the same generic response (M5)', async () => {
     let { cookie, csrfToken } = await createCsrfSession(
       `${BASE}${routes.auth.register.index.href()}`,
     )
@@ -123,7 +124,9 @@ describe('Auth Register controller', () => {
     })
     assert.equal(createResponse.status, 303, 'first creation should succeed')
 
-    // Try to register again with the same email (reuse same cookie + token)
+    // Try to register again with the same email (reuse same cookie + token).
+    // M5: the response must be byte-identical to a successful registration so it
+    // cannot be used to enumerate accounts; the owner is notified by email.
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
@@ -137,9 +140,46 @@ describe('Auth Register controller', () => {
       redirect: 'manual',
     })
 
-    assert.equal(response.status, 400, 'duplicate should return 400')
-    let html = await response.text()
-    assert.ok(html.includes('existiert bereits'), 'should show duplicate email error')
+    assert.equal(response.status, 303, 'duplicate must look identical to a successful registration')
+    assert.equal(
+      response.headers.get('Location'),
+      routes.auth.registerSent.href(),
+      'the duplicate must PRG to the same register-sent page (no enumeration signal)',
+    )
+
+    // Only one account may exist for the email.
+    let count = await pool.query('SELECT count(*)::int AS n FROM users WHERE email = $1', [email])
+    assert.equal(count.rows[0].n, 1, 'the duplicate attempt must not create a second account')
+  })
+
+  it('stores only the SHA-256 hash of the verification token (M1)', async () => {
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
+    let email = `${TEST_PREFIX}hashed-verify@example.com`
+
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: new URLSearchParams({
+        name: 'Hashed Verify User',
+        email,
+        password: 'securePassword123!',
+        confirmPassword: 'securePassword123!',
+        _csrf: csrfToken,
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 303)
+
+    let row = await pool.query('SELECT verification_token FROM users WHERE email = $1', [email])
+    let stored = row.rows[0].verification_token as string
+    assert.ok(stored, 'a verification token must be stored')
+    assert.match(
+      stored,
+      /^[0-9a-f]{64}$/,
+      'the stored value must be a SHA-256 hex digest, not the raw base64url token',
+    )
   })
 
   // -----------------------------------------------------------------------

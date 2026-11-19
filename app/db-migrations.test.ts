@@ -7,6 +7,7 @@ import { before, describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase, migrationsJournalTable } from './db.ts'
+import { hashToken } from './utils/api-token.ts'
 
 const MIGRATIONS_DIR = path.join(import.meta.dirname, '../db/migrations')
 
@@ -193,6 +194,90 @@ describe('app database migrations', () => {
         assert.equal(rerun?.type, 'array')
         assert.deepEqual(rerun?.list, [{ id: 'a', label: 'Repair me' }])
         assert.equal(Number(rerun?.updated_at), stamp)
+
+        throw new Rollback()
+      })
+    } catch (error) {
+      if (!(error instanceof Rollback)) throw error
+    }
+  })
+
+  it('hashes plaintext verification/reset tokens and skips already-hashed ones (M1)', async () => {
+    let upSql = fs.readFileSync(
+      path.join(MIGRATIONS_DIR, '20261119130000_hash_auth_tokens', 'up.sql'),
+      'utf8',
+    )
+    let prefix = `test-hash-migration-${Date.now()}`
+    let rawVerify = 'raw-verify-token-' + Date.now()
+    let rawReset = 'raw-reset-token-' + Date.now()
+    let alreadyHashed = hashToken('already-hashed-' + Date.now())
+
+    class Rollback extends Error {}
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx.exec(
+          `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, verification_token, password_reset_token)
+           VALUES
+             ($1, 'x', 'Hash Migration A', 'customer', 1, $4, $5, $6),
+             ($2, 'x', 'Hash Migration B', 'customer', 1, $4, $7, NULL),
+             ($3, 'x', 'Hash Migration C', 'customer', 1, $4, NULL, NULL)`,
+          [
+            `${prefix}-a`,
+            `${prefix}-b`,
+            `${prefix}-c`,
+            Date.now(),
+            rawVerify,
+            rawReset,
+            alreadyHashed,
+          ],
+        )
+
+        await tx.executeScript(upSql)
+
+        let a = (
+          (await tx.exec(
+            'SELECT verification_token, password_reset_token FROM users WHERE email = $1',
+            [`${prefix}-a`],
+          )) as { rows: Array<{ verification_token: string; password_reset_token: string }> }
+        ).rows[0]!
+        assert.equal(a.verification_token, hashToken(rawVerify), 'raw verify token must be hashed')
+        assert.equal(a.password_reset_token, hashToken(rawReset), 'raw reset token must be hashed')
+
+        let b = (
+          (await tx.exec('SELECT verification_token FROM users WHERE email = $1', [
+            `${prefix}-b`,
+          ])) as {
+            rows: Array<{ verification_token: string }>
+          }
+        ).rows[0]!
+        assert.equal(
+          b.verification_token,
+          alreadyHashed,
+          'an already-hashed value must not be re-hashed',
+        )
+
+        let c = (
+          (await tx.exec(
+            'SELECT verification_token, password_reset_token FROM users WHERE email = $1',
+            [`${prefix}-c`],
+          )) as {
+            rows: Array<{ verification_token: string | null; password_reset_token: string | null }>
+          }
+        ).rows[0]!
+        assert.equal(c.verification_token, null, 'NULL tokens stay NULL')
+        assert.equal(c.password_reset_token, null, 'NULL tokens stay NULL')
+
+        // A boot retry must be idempotent: the 64-hex guard prevents double-hashing.
+        await tx.executeScript(upSql)
+        let rerun = (
+          (await tx.exec(
+            'SELECT verification_token, password_reset_token FROM users WHERE email = $1',
+            [`${prefix}-a`],
+          )) as { rows: Array<{ verification_token: string; password_reset_token: string }> }
+        ).rows[0]!
+        assert.equal(rerun.verification_token, hashToken(rawVerify))
+        assert.equal(rerun.password_reset_token, hashToken(rawReset))
 
         throw new Rollback()
       })

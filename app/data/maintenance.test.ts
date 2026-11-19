@@ -7,6 +7,7 @@ import {
   deleteExpiredChatRuns,
   deleteExpiredWebhookRequests,
   deleteExpiredAuditLogs,
+  deleteExpiredSecurityEvents,
   deleteExpiredUploads,
 } from './maintenance.ts'
 
@@ -25,6 +26,7 @@ describe('maintenance', () => {
     await pool.query("DELETE FROM chat_runs WHERE run_id LIKE 'test-maint-%'")
     await pool.query("DELETE FROM webhook_requests WHERE source_ip = 'test-maintenance'")
     await pool.query("DELETE FROM audit_logs WHERE action_type = 'test-maintenance'")
+    await pool.query("DELETE FROM security_events WHERE event_type = 'test-maintenance'")
     await pool.query("DELETE FROM uploads WHERE filename LIKE 'test-maint-%'")
   })
 
@@ -72,6 +74,21 @@ describe('maintenance', () => {
       "SELECT id FROM audit_logs WHERE action_type = 'test-maintenance'",
     )
     assert.equal(remaining.rows.length, 0)
+  })
+
+  it('deleteExpiredSecurityEvents deletes rows older than the retention window', async () => {
+    await pool.query(
+      `INSERT INTO security_events (event_type, email, created_at)
+       VALUES ('test-maintenance', 'test-maint@example.com', $1),
+              ('test-maintenance', 'test-maint@example.com', $2)`,
+      [Date.now() - 91 * 24 * HOUR_MS, Date.now()],
+    )
+    let deleted = await deleteExpiredSecurityEvents(db, 90 * 24 * HOUR_MS)
+    assert.ok(deleted >= 1)
+    let remaining = await pool.query(
+      "SELECT id FROM security_events WHERE event_type = 'test-maintenance'",
+    )
+    assert.equal(remaining.rows.length, 1, 'only the expired event is removed; the fresh one stays')
   })
 
   it('deleteExpiredUploads deletes rows older than the retention window', async () => {

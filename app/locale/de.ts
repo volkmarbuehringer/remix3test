@@ -63,6 +63,39 @@ export const email = {
       ].join('\n')
     },
   },
+  alreadyRegistered: {
+    subject: 'Registrierungsversuch mit Ihrer E-Mail-Adresse',
+    html(name: string) {
+      return String(html`
+        <h1>Registrierungsversuch mit Ihrer E-Mail-Adresse</h1>
+        <p>Hallo ${name},</p>
+        <p>
+          jemand hat versucht, sich mit Ihrer E-Mail-Adresse zu registrieren. Es existiert bereits
+          ein Konto mit dieser Adresse.
+        </p>
+        <p>
+          Falls Sie sich anmelden möchten, nutzen Sie bitte die Login-Seite. Falls Sie Ihr Passwort
+          vergessen haben, können Sie es über die „Passwort vergessen“-Funktion zurücksetzen.
+        </p>
+        <p>
+          Falls Sie diesen Versuch nicht selbst ausgelöst haben, können Sie diese E-Mail ignorieren.
+        </p>
+      `)
+    },
+    text(name: string) {
+      return [
+        'Registrierungsversuch mit Ihrer E-Mail-Adresse',
+        '',
+        `Hallo ${name},`,
+        '',
+        'jemand hat versucht, sich mit Ihrer E-Mail-Adresse zu registrieren. Es existiert bereits ein Konto mit dieser Adresse.',
+        '',
+        'Falls Sie sich anmelden möchten, nutzen Sie bitte die Login-Seite. Falls Sie Ihr Passwort vergessen haben, können Sie es über die „Passwort vergessen“-Funktion zurücksetzen.',
+        '',
+        'Falls Sie diesen Versuch nicht selbst ausgelöst haben, können Sie diese E-Mail ignorieren.',
+      ].join('\n')
+    },
+  },
   accountDeletion: {
     subject: 'Ihr Konto wurde gelöscht',
     self: {

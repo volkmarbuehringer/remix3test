@@ -5,6 +5,8 @@ import { routes } from '../../../routes.ts'
 import { hashToken } from '../../../utils/api-token.ts'
 import { parseBearerToken } from '../../../utils/auth-header.ts'
 import { apiTokens } from '../../../data/schema.ts'
+import { logSecurityEvent } from '../../../data/security-events.ts'
+import { connectionIp } from '../../../utils/request-ip.ts'
 export default createAction(routes.api.logout, {
   middleware: [],
 
@@ -27,6 +29,13 @@ export default createAction(routes.api.logout, {
     }
 
     await db.update(apiTokens, apiToken.id, { revoked_at: Date.now() })
+
+    await logSecurityEvent(db, {
+      event_type: 'api_token_revoked',
+      user_id: apiToken.user_id,
+      ip: connectionIp(context.request),
+      details: { via: 'api_logout' },
+    })
 
     return Response.json({ success: true })
   },

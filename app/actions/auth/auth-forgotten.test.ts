@@ -7,6 +7,7 @@ import { routes } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
 
 import { pool } from '../../../test/pool.ts'
+import { hashToken } from '../../utils/api-token.ts'
 const BASE = 'https://remix.run'
 
 const TEST_PREFIX = `frgt-${Date.now()}-`
@@ -65,6 +66,35 @@ describe('Auth Forgot Password controller', () => {
       let html = await follow.text()
       assert.ok(html.includes('Check your email'), 'should show success message')
       assert.ok(html.includes('sent a password reset link'), 'should mention reset link sent')
+    })
+
+    it('stores only the SHA-256 hash of the reset token, never the raw token (M1)', async () => {
+      let email = `${TEST_PREFIX}hashed-at-rest@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [email, 'old-hash', 'Hashed At Rest', 'customer', Date.now()],
+      )
+
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
+      let response = await router.fetch(`${BASE}${routes.auth.forgotten.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: cookie },
+        body: new URLSearchParams({ email, _csrf: csrfToken }),
+        redirect: 'manual',
+      })
+      assert.equal(response.status, 303)
+
+      let row = await pool.query('SELECT password_reset_token FROM users WHERE email = $1', [email])
+      let stored = row.rows[0].password_reset_token as string
+      assert.ok(stored, 'a reset token must be stored')
+      assert.match(
+        stored,
+        /^[0-9a-f]{64}$/,
+        'the stored value must be a SHA-256 hex digest, not the raw base64url token',
+      )
     })
 
     it('with non-existing email returns same success page (no user enumeration)', async () => {
@@ -204,7 +234,7 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
          ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
-        [email, 'old-hash', 'Valid Token User', 'customer', Date.now(), token, expires],
+        [email, 'old-hash', 'Valid Token User', 'customer', Date.now(), hashToken(token), expires],
       )
 
       let response = await router.fetch(
@@ -230,7 +260,7 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
          ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
-        [email, 'old-hash', 'Expired User', 'customer', Date.now(), token, expires],
+        [email, 'old-hash', 'Expired User', 'customer', Date.now(), hashToken(token), expires],
       )
 
       let response = await router.fetch(
@@ -263,7 +293,7 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
          ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
-        [email, 'old-hash', 'Reset Test User', 'customer', Date.now(), token, expires],
+        [email, 'old-hash', 'Reset Test User', 'customer', Date.now(), hashToken(token), expires],
       )
 
       let { cookie, csrfToken } = await createCsrfSession(
@@ -329,7 +359,7 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, 1, $5, $6, $7)
          RETURNING id`,
-        [email, 'old-hash', 'Token Wipe User', 'customer', Date.now(), token, expires],
+        [email, 'old-hash', 'Token Wipe User', 'customer', Date.now(), hashToken(token), expires],
       )
       let userId = insert.rows[0].id
 
@@ -392,7 +422,15 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
          ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
-        [email, 'old-hash', 'Short PW Test User', 'customer', Date.now(), token, expires],
+        [
+          email,
+          'old-hash',
+          'Short PW Test User',
+          'customer',
+          Date.now(),
+          hashToken(token),
+          expires,
+        ],
       )
 
       let { cookie, csrfToken } = await createCsrfSession(
@@ -427,7 +465,15 @@ describe('Auth Forgot Password controller', () => {
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
          VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
          ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
-        [email, 'old-hash', 'Mismatch Test User', 'customer', Date.now(), token, expires],
+        [
+          email,
+          'old-hash',
+          'Mismatch Test User',
+          'customer',
+          Date.now(),
+          hashToken(token),
+          expires,
+        ],
       )
 
       let { cookie, csrfToken } = await createCsrfSession(

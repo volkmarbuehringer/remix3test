@@ -23,10 +23,18 @@ import {
 } from '../../utils/login-rate-limit.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { issuesToFieldErrors, readFormFieldValues, trimmedText } from '../../utils/schema-utils.ts'
-import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendAlreadyRegisteredEmail,
+} from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
+import { hashToken } from '../../utils/api-token.ts'
+import { isUniqueViolation } from '../../utils/db-errors.ts'
 import { connectionIp } from '../../utils/request-ip.ts'
 import { getPublicOrigin } from '../../utils/public-origin.ts'
+import { logSecurityEvent } from '../../data/security-events.ts'
+import { getCurrentUserSafely } from '../../utils/context.ts'
 
 import {
   LoginPage,
@@ -94,8 +102,15 @@ export const authLogin = createController(routes.auth.login, {
       }
 
       let ip = connectionIp(context.request)
+      let email = parsed.value.email.toLowerCase()
       let block = checkLoginRateLimit(parsed.value.email, ip)
       if (block) {
+        await logSecurityEvent(context.db, {
+          event_type: 'login_locked',
+          email,
+          ip,
+          details: { reason: block.reason },
+        })
         return context.render(
           <LoginPage
             error={LOGIN_BLOCK_MESSAGES[block.reason]}
@@ -112,6 +127,7 @@ export const authLogin = createController(routes.auth.login, {
 
       if (user == null) {
         recordLoginFailure(parsed.value.email, ip)
+        await logSecurityEvent(context.db, { event_type: 'login_failed', email, ip })
         return context.render(
           <LoginPage error="Invalid email or password." returnTo={returnTo} values={values} />,
           { status: 401 },
@@ -122,6 +138,13 @@ export const authLogin = createController(routes.auth.login, {
 
       let session = completeAuth(context)
       session.set('auth', { userId: user.id, tv: user.token_version })
+
+      await logSecurityEvent(context.db, {
+        event_type: 'login_success',
+        user_id: user.id,
+        email: user.email,
+        ip,
+      })
 
       returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? '/'
       return redirect(returnTo, 303)
@@ -201,14 +224,9 @@ export const authRegister = createController(routes.auth.register, {
         )
       }
 
-      if (await context.db.findOne(users, { where: { email: normalizedEmail } })) {
-        return context.render(
-          <RegisterPage
-            error="Ein Konto mit dieser E-Mail-Adresse existiert bereits."
-            formValues={formValues}
-          />,
-          { status: 400 },
-        )
+      let existing = await context.db.findOne(users, { where: { email: normalizedEmail } })
+      if (existing) {
+        return await respondAlreadyRegistered(context, existing, password)
       }
 
       let token = generateToken()
@@ -224,22 +242,20 @@ export const authRegister = createController(routes.auth.register, {
             password_hash: await hashPassword(password),
             role: 'customer',
             email_verified: process.env.NODE_ENV === 'test' ? 1 : 0,
-            verification_token: token,
+            // M1: only the SHA-256 hash is stored; the raw token lives solely in
+            // the emailed link, so a DB read cannot yield a usable link.
+            verification_token: hashToken(token),
             verification_expires: expires,
             created_at: Date.now(),
           },
           { returnRow: true },
         )
       } catch (err) {
-        let code = (err as { code?: string }).code
-        if (code === '23505') {
-          return context.render(
-            <RegisterPage
-              error="Ein Konto mit dieser E-Mail-Adresse existiert bereits."
-              formValues={formValues}
-            />,
-            { status: 400 },
-          )
+        if (isUniqueViolation(err)) {
+          // Lost the race with a concurrent registration: same enumeration-safe
+          // response as the pre-check above.
+          let winner = await context.db.findOne(users, { where: { email: normalizedEmail } })
+          return await respondAlreadyRegistered(context, winner, password)
         }
         throw err
       }
@@ -273,6 +289,30 @@ export const authRegister = createController(routes.auth.register, {
 
 export async function registerSent(context: AppContext) {
   return context.render(<RegisterSentPage />)
+}
+
+/**
+ * Enumeration-safe response for an email that already has an account (M5).
+ * Identical to a successful registration (303 -> register-sent); the account
+ * owner is notified by email instead of the response revealing existence. A
+ * dummy PBKDF2 hash equalizes the dominant timing cost with the create path so
+ * response time cannot be used as an oracle either. The rate limiter is
+ * deliberately NOT reset, so repeated probes still throttle.
+ */
+async function respondAlreadyRegistered(
+  context: AppContext,
+  existing: { name: string; email: string } | null | undefined,
+  password: string,
+): Promise<Response> {
+  await hashPassword(password)
+  if (existing && process.env.NODE_ENV !== 'test') {
+    try {
+      await sendAlreadyRegisteredEmail(context.mailer, existing)
+    } catch (err) {
+      context.logger?.('Failed to send already-registered email: ' + String(err))
+    }
+  }
+  return redirect(routes.auth.registerSent.href(), 303)
 }
 
 // ── Forgot / Reset ──
@@ -334,7 +374,8 @@ export const authForgotten = createController(routes.auth.forgotten, {
         let expires = resetExpires()
 
         await context.db.update(users, user.id, {
-          password_reset_token: token,
+          // M1: store only the hash; the raw token lives solely in the emailed link.
+          password_reset_token: hashToken(token),
           password_reset_expires: expires,
         })
 
@@ -376,7 +417,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (!resetLimiter.attempt(token)) {
         try {
           let userByToken = await context.db.findOne(users, {
-            where: { password_reset_token: token },
+            where: { password_reset_token: hashToken(token ?? '') },
           })
           if (userByToken) {
             await context.db.update(users, (userByToken as { id: number }).id, {
@@ -491,7 +532,7 @@ async function validateResetToken(
     return { error: { title: 'Invalid reset link', message: 'This reset link is invalid.' } }
   }
 
-  let user = await db.findOne(users, { where: { password_reset_token: token } })
+  let user = await db.findOne(users, { where: { password_reset_token: hashToken(token) } })
   if (!user) {
     return {
       error: {
@@ -530,7 +571,11 @@ export async function verify(context: AppContext) {
   }
   let token = (context.params as Record<string, string>).token
 
-  let user = await context.db.findOne(users, { where: { verification_token: token } })
+  // M1: the column stores only the hash; compare against the hash of the raw
+  // token from the link.
+  let user = token
+    ? await context.db.findOne(users, { where: { verification_token: hashToken(token) } })
+    : undefined
   if (!user) {
     return context.render(
       <VerifyErrorPage
@@ -570,12 +615,20 @@ export async function verify(context: AppContext) {
 
 // ── Logout ──
 
-export const authLogout = createAction(routes.auth.logout, () => {
-  let session = getContext().session
+export const authLogout = createAction(routes.auth.logout, async () => {
+  let context = getContext()
+  let session = context.session
   if (session == null) {
     throw new Error('Expected session() middleware before auth logout')
   }
+  let user = getCurrentUserSafely()
   session.unset('auth')
   session.regenerateId(true)
+  await logSecurityEvent(context.db, {
+    event_type: 'logout',
+    user_id: user?.id ?? null,
+    email: user?.email ?? null,
+    ip: connectionIp(context.request),
+  })
   return redirect(routes.home.href(), 303)
 })

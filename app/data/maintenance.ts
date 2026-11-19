@@ -18,6 +18,7 @@ const chatRunsTtlMs = envPositiveNumber('CHAT_RUNS_TTL_MS', DAY_MS)
 
 const webhookRequestsRetentionMs = envPositiveNumber('WEBHOOK_REQUESTS_RETENTION_MS', 30 * DAY_MS)
 const auditLogsRetentionMs = envPositiveNumber('AUDIT_LOGS_RETENTION_MS', 90 * DAY_MS)
+const securityEventsRetentionMs = envPositiveNumber('SECURITY_EVENTS_RETENTION_MS', 90 * DAY_MS)
 const uploadsRetentionMs = envPositiveNumber('UPLOADS_RETENTION_MS', 90 * DAY_MS)
 
 const maintenanceIntervalMs = envPositiveNumber('DATABASE_MAINTENANCE_INTERVAL_MS', HOUR_MS)
@@ -51,7 +52,7 @@ const maxBatchesPerSweep = Math.max(
  */
 export async function deleteExpiredBatched(
   db: Database,
-  table: 'chat_runs' | 'webhook_requests' | 'audit_logs' | 'uploads',
+  table: 'chat_runs' | 'webhook_requests' | 'audit_logs' | 'security_events' | 'uploads',
   keyColumn: 'run_id' | 'id',
   cutoff: number,
   batchSize: number = retentionBatchSize,
@@ -96,6 +97,13 @@ export async function deleteExpiredAuditLogs(db: Database, retentionMs: number):
   return await deleteExpiredBatched(db, 'audit_logs', 'id', Date.now() - retentionMs)
 }
 
+export async function deleteExpiredSecurityEvents(
+  db: Database,
+  retentionMs: number,
+): Promise<number> {
+  return await deleteExpiredBatched(db, 'security_events', 'id', Date.now() - retentionMs)
+}
+
 export async function deleteExpiredUploads(db: Database, retentionMs: number): Promise<number> {
   return await deleteExpiredBatched(db, 'uploads', 'id', Date.now() - retentionMs)
 }
@@ -110,6 +118,7 @@ async function runDatabaseMaintenance(db: Database): Promise<void> {
     chatRuns: 0,
     webhookRequests: 0,
     auditLogs: 0,
+    securityEvents: 0,
     uploads: 0,
     uploadFileRows: 0,
     uploadFiles: 0,
@@ -132,6 +141,11 @@ async function runDatabaseMaintenance(db: Database): Promise<void> {
     console.error('audit_logs retention cleanup failed:', error)
   }
   try {
+    deleted.securityEvents = await deleteExpiredSecurityEvents(db, securityEventsRetentionMs)
+  } catch (error) {
+    console.error('security_events retention cleanup failed:', error)
+  }
+  try {
     deleted.uploads = await deleteExpiredUploads(db, uploadsRetentionMs)
   } catch (error) {
     console.error('uploads retention cleanup failed:', error)
@@ -149,6 +163,7 @@ async function runDatabaseMaintenance(db: Database): Promise<void> {
     deleted.chatRuns ||
     deleted.webhookRequests ||
     deleted.auditLogs ||
+    deleted.securityEvents ||
     deleted.uploads ||
     deleted.uploadFileRows ||
     deleted.uploadFiles ||
@@ -157,6 +172,7 @@ async function runDatabaseMaintenance(db: Database): Promise<void> {
     console.log(
       `Database maintenance: deleted ${deleted.chatRuns} chat_runs, ` +
         `${deleted.webhookRequests} webhook_requests, ${deleted.auditLogs} audit_logs, ` +
+        `${deleted.securityEvents} security_events, ` +
         `${deleted.uploads} uploads, ${deleted.uploadFileRows} orphaned upload_files rows, ` +
         `${deleted.uploadFiles} orphaned upload files, ` +
         `${deleted.uploadTempFiles} temporary upload files`,

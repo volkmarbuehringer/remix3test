@@ -55,6 +55,24 @@ export async function sendPasswordResetEmail(
   })
 }
 
+/**
+ * M5: sent to the owner of an email that already has an account when someone
+ * tries to register with it again. The registration response itself stays
+ * generic (identical to a successful sign-up) so it cannot be used to enumerate
+ * accounts; this notice is the only signal, and it goes to the address owner.
+ */
+export async function sendAlreadyRegisteredEmail(
+  sendEmail: SendEmailFn,
+  user: { name: string; email: string },
+): Promise<void> {
+  await sendEmail({
+    to: user.email,
+    subject: de.alreadyRegistered.subject,
+    text: de.alreadyRegistered.text(user.name),
+    html: de.alreadyRegistered.html(user.name),
+  })
+}
+
 export async function sendAccountDeletionEmail(
   sendEmail: SendEmailFn,
   user: { name: string; email: string },

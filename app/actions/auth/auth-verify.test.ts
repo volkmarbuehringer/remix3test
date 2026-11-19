@@ -6,6 +6,7 @@ import { extractCookie } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
+import { hashToken } from '../../utils/api-token.ts'
 
 const BASE = 'https://remix.run'
 const TEST_PREFIX = `verify-${Date.now()}-`
@@ -26,7 +27,8 @@ describe('Auth verify controller', () => {
         'hashed-password-for-testing',
         'Verify User',
         'customer',
-        token,
+        // M1: the column stores only the hash; the link carries the raw token.
+        hashToken(token),
         Date.now() + 3_600_000,
         Date.now(),
       ],

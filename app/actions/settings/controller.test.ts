@@ -500,6 +500,16 @@ describe('Settings controller', () => {
         initialTv + 1,
         'token_version must invalidate session cookies too',
       )
+
+      // M6: the password change and the token wipe must be audited.
+      let events = await pool.query(
+        'SELECT event_type FROM security_events WHERE user_id = $1 ORDER BY id',
+        [userId],
+      )
+      let types = events.rows.map((r) => r.event_type as string)
+      assert.ok(types.includes('password_changed'), 'the password change must be audited (M6)')
+      assert.ok(types.includes('api_tokens_revoked'), 'the token wipe must be audited (M6)')
+      await pool.query('DELETE FROM security_events WHERE user_id = $1', [userId])
     })
   })
 

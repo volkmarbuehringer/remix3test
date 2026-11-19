@@ -18,6 +18,8 @@ import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { getPageSize, pageSizeFormSchema, PAGE_SIZE_DEFAULT } from '../../utils/get-page-size.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
+import { logSecurityEvent } from '../../data/security-events.ts'
+import { connectionIp } from '../../utils/request-ip.ts'
 import { deleteUser } from '../../data/settings.ts'
 import { FlashFragment } from '../../ui/flash-fragment.tsx'
 import { Layout } from '../../ui/layout.tsx'
@@ -295,6 +297,23 @@ export default createController(routes.settings, {
           token_version: newTv + 1,
         })
         await tx.deleteMany(apiTokens, { where: { user_id: user.id } })
+      })
+
+      // Best-effort security events, logged after the mutation so an audit
+      // failure can never roll back or block the password change itself.
+      let ip = connectionIp(context.request)
+      await logSecurityEvent(context.db, {
+        event_type: 'password_changed',
+        user_id: user.id,
+        email: user.email,
+        ip,
+      })
+      await logSecurityEvent(context.db, {
+        event_type: 'api_tokens_revoked',
+        user_id: user.id,
+        email: user.email,
+        ip,
+        details: { via: 'password_change' },
       })
 
       let session = context.session
