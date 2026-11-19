@@ -92,7 +92,7 @@ Key focus areas when reviewing diffs:
 
 ## Current pin and history
 
-Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.0.20261119-main-74f06706` (source `74f06706`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
+Current install: `remix` 3.2.0 / `@remix-run/ui` 0.13.1 / `@remix-run/component` 1.2.0 / `component-hmr` 1.0.1 at preview release `v0.0.20261119-main-9e4da4d3` (source `9e4da4d3`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
 Current range (`9cbc5144` → `b4185ba2`, 3 commits): no package source change — `@remix-run/component`/`ui` `src/` and all 15 guides are byte-identical; only two README prose edits (`src/cli/README.md` Windows `cross-env` note, `src/route-pattern/README.md` docs URL), package metadata/dependency-URL rewrites, and the lock changed. The previous range (`ab790c88` → `9cbc5144`, 4 commits): #12294 is the only package change — `@remix-run/component` `mountHostNode` keeps text/checkbox/radio edits made before a control hydrates (and values the browser restores after a reload/traversal) and replays them as synthetic `input`/`change` events once handlers are attached, instead of overwriting them with the server-rendered `value`/`checked`; `event.isTrusted` is `false`, handlers run at hydration time, and `autocomplete="off"` opts out. #12319 moves main preview tags to `v0.0.<date>-main-<sha>` and aligns build revisions (the repo's pin tooling now accepts both tag shapes); #12315 is post-release tooling and #12228 is the bookstore demo. Versions are unchanged, and `packages/ui`, the CLI/template, and all 15 guides are byte-identical. The prior `9b0ff351` → `ab790c88` range was #12314's browser-runtime module fold, #12311's tag/retention change, #12187's full-SHA PR assets, and #12316's test fix; earlier ranges are in `docs/remix-pin-history.md`.
 
@@ -169,8 +169,8 @@ declare `@remix-run/component`(-hmr) directly; they arrive transitively and
 dedupe to one copy:
 
 ```jsonc
-"remix": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-74f06706/remix.tgz",
-"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-74f06706/ui.tgz"
+"remix": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-9e4da4d3/remix.tgz",
+"@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-9e4da4d3/ui.tgz"
 ```
 
 Both must come from the same release. Do not hand-pin one and leave the other

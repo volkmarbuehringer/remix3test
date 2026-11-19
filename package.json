@@ -48,12 +48,12 @@
     "@mastra/memory": "^1.41.2",
     "@mastra/observability": "^1.24.1",
     "@mastra/pg": "^1.37.0",
-    "@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-74f06706/ui.tgz",
+    "@remix-run/ui": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-9e4da4d3/ui.tgz",
     "date-holidays": "^3.39.2",
     "nodemailer": "^10.6.0",
     "pdfmake": "^0.3.14",
     "pg": "^8.23.1",
-    "remix": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-74f06706/remix.tgz",
+    "remix": "https://github.com/remix-run/previews/releases/download/v0.0.20261119-main-9e4da4d3/remix.tgz",
     "zod": "^4.6.7"
   },
   "devDependencies": {

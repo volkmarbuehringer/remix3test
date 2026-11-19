@@ -45,11 +45,14 @@ function reportingApiReport(overrides: Record<string, unknown> = {}): string {
 }
 
 /**
- * The exact shape the pinned runtime reports for a frame parse: the frame
- * document string assigned to `template.innerHTML` in the served `frame.js`.
+ * The shape the pinned runtime reports for a frame parse: the frame document
+ * string assigned to `template.innerHTML` in the served `frame.js`, under the
+ * pnpm `.pnpm` directory name. The release tag in that directory name is
+ * arbitrary — the matcher keys off the `@remix-run/component` package path, not
+ * the pin — so this fixture does not need re-pinning on a bump.
  */
 const VENDOR_FRAME_SOURCE =
-  'http://127.0.0.1:44100/assets/npm/.pnpm/%40remix-run%2Bcomponent%40https%2B%2B%2Bgithub.com%2Bremix-run%2Bpreviews%2Breleases%2Bdownload%2Bv0.0.20261119-main-74f06706%2Bcomponent.tgz/node_modules/%40remix-run/component/dist/runtime/frame.js'
+  'http://127.0.0.1:44100/assets/npm/.pnpm/%40remix-run%2Bcomponent%40https%2B%2B%2Bgithub.com%2Bremix-run%2Bpreviews%2Breleases%2Bdownload%2Bv0.0.20260101-main-00000000%2Bcomponent.tgz/node_modules/%40remix-run/component/dist/runtime/frame.js'
 
 function trustedTypesReport(overrides: Record<string, unknown> = {}): string {
   return legacyReport({
