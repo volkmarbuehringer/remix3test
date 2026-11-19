@@ -85,3 +85,11 @@ new migrations with `down.sql` files for reversible changes.
 `initializeAppDatabase()`, so every test run applies the same migrations as
 production. The Postgres driver holds an advisory lock for the run, which
 serializes parallel test workers and concurrent cold boots.
+
+A data-repair migration needs its own coverage: a fresh database has no rows to
+repair, so nothing exercises its SQL. Read the migration's `up.sql` and run it
+inside a `db.transaction` against seeded rows, assert the repaired/skipped/
+untouched branches, then roll the transaction back. Committing would leak the
+fixtures, and the scan touches every matching row — including rows another test
+worker owns. `app/db-migrations.test.ts` does this for
+`20261119120000_unwrap_double_encoded_json`.
