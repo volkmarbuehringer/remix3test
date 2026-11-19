@@ -8,6 +8,7 @@ import { routes } from '../../routes.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
+import { hashToken } from '../../utils/api-token.ts'
 
 const BASE = 'https://remix.run'
 
@@ -411,6 +412,94 @@ describe('Settings controller', () => {
         'the custom input should post pageSizeCustom',
       )
       assert.ok(!html.includes('type="range"'), 'the range slider must be gone')
+    })
+  })
+
+  // H2: a self-service password change must revoke every API bearer token,
+  // exactly like the password-reset and admin user-update flows. apiTokenAuth()
+  // only checks token_hash/revoked_at/expires_at, so leaving the rows behind
+  // would keep a leaked token valid after the victim changes their password.
+  describe('password change revokes API tokens (H2)', () => {
+    let tokenEmail: string
+    let userId: number
+    let rawToken: string
+    let tokenHash: string
+    let initialTv: number
+
+    before(async () => {
+      tokenEmail = `${TEST_PREFIX}api-token-revoke@example.com`
+      let inserted = await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5) RETURNING id, token_version`,
+        [
+          tokenEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Token Revoke User',
+          'customer',
+          Date.now(),
+        ],
+      )
+      userId = inserted.rows[0].id as number
+      initialTv = inserted.rows[0].token_version as number
+
+      let login = await router.fetch(`${BASE}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: tokenEmail, password: INITIAL_PASSWORD }),
+      })
+      assert.equal(login.status, 200, 'the token must be issued before the password change')
+      let body = await login.json()
+      rawToken = body.token
+      tokenHash = hashToken(rawToken)
+    })
+
+    async function listsWithToken(): Promise<number> {
+      let response = await router.fetch(`${BASE}${routes.apiLists.index.href()}`, {
+        headers: { Authorization: `Bearer ${rawToken}` },
+      })
+      return response.status
+    }
+
+    it('wipes the token rows so the old bearer token stops authenticating', async () => {
+      let beforeChange = await pool.query('SELECT token_hash FROM api_tokens WHERE user_id = $1', [
+        userId,
+      ])
+      assert.equal(beforeChange.rows.length, 1, 'the issued token must exist before the change')
+      assert.equal(await listsWithToken(), 200, 'the token must authenticate before the change')
+
+      let session = await createAuthCookieWithCsrfForUser(tokenEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          currentPassword: INITIAL_PASSWORD,
+          newPassword: NEW_PASSWORD,
+          confirmPassword: NEW_PASSWORD,
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+      assert.equal(response.status, 303, 'password change must PRG')
+
+      let afterChange = await pool.query('SELECT token_hash FROM api_tokens WHERE user_id = $1', [
+        userId,
+      ])
+      assert.equal(afterChange.rows.length, 0, 'all bearer tokens must be wiped (H2)')
+
+      let exactToken = await pool.query('SELECT token_hash FROM api_tokens WHERE token_hash = $1', [
+        tokenHash,
+      ])
+      assert.equal(exactToken.rows.length, 0, 'the exact issued token must be gone')
+      assert.equal(await listsWithToken(), 401, 'the wiped token must no longer authenticate')
+
+      let userRow = await pool.query('SELECT token_version FROM users WHERE id = $1', [userId])
+      assert.equal(
+        userRow.rows[0].token_version as number,
+        initialTv + 1,
+        'token_version must invalidate session cookies too',
+      )
     })
   })
 

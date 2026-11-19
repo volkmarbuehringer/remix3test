@@ -12,7 +12,7 @@ import { frames, routes } from '../../routes.ts'
 import { isFrameTargeted } from '../../utils/frame-target.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
-import { users, type User } from '../../data/schema.ts'
+import { apiTokens, users, type User } from '../../data/schema.ts'
 import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
@@ -282,9 +282,19 @@ export default createController(routes.settings, {
 
       let newTv = (user as { token_version?: number }).token_version ?? 0
 
-      await context.db.update(users, user.id, {
-        password_hash: await hashPassword(newPassword),
-        token_version: newTv + 1,
+      // Hash outside the transaction so PBKDF2 does not hold the transaction
+      // connection (~100 ms). Credential rotation and the API-token wipe are
+      // one atomic mutation: a failed wipe must roll the password change back
+      // rather than leaving every previously issued bearer token valid. This
+      // mirrors the self-service password-reset flow (auth/controller.tsx).
+      let passwordHash = await hashPassword(newPassword)
+
+      await context.db.transaction(async (tx) => {
+        await tx.update(users, user.id, {
+          password_hash: passwordHash,
+          token_version: newTv + 1,
+        })
+        await tx.deleteMany(apiTokens, { where: { user_id: user.id } })
       })
 
       let session = context.session

@@ -14,6 +14,13 @@ import type { AppContext } from '../../types/context.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
 import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import {
+  checkLoginRateLimit,
+  recordLoginFailure,
+  resetLoginFailures,
+  __resetLoginRateLimits,
+  type LoginBlockReason,
+} from '../../utils/login-rate-limit.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { issuesToFieldErrors, readFormFieldValues, trimmedText } from '../../utils/schema-utils.ts'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
@@ -40,72 +47,22 @@ const loginSchema = f.object({
   password: f.field(s.defaulted(s.string(), '')),
 })
 
-const shortLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
-const mediumLimiter = createRateLimiter({ windowMs: 5 * 60_000, perKey: true, maxAttempts: 15 })
-const longLimiter = createRateLimiter({ windowMs: 60 * 60_000, perKey: true, maxAttempts: 30 })
-const ipLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 20 })
-
-function checkRateLimit(
-  email: string,
-  ip: string,
-): { allowed: boolean; error: string; retryMs: number } | null {
-  let long = longLimiter.check(email)
-  if (!long.allowed) {
-    return {
-      allowed: false,
-      error: 'Account is locked due to too many failed attempts. Please try again later.',
-      retryMs: (long.retryAfter ?? 3600) * 1000,
-    }
-  }
-  let medium = mediumLimiter.check(email)
-  if (!medium.allowed) {
-    return {
-      allowed: false,
-      error: 'Account is temporarily locked. Please try again in a few minutes.',
-      retryMs: (medium.retryAfter ?? 300) * 1000,
-    }
-  }
-  let short = shortLimiter.check(email)
-  if (!short.allowed) {
-    return {
-      allowed: false,
-      error: 'Too many attempts. Please try again later.',
-      retryMs: (short.retryAfter ?? 15) * 1000,
-    }
-  }
-  let ipCheck = ipLimiter.check(ip)
-  if (!ipCheck.allowed) {
-    return {
-      allowed: false,
-      error: 'Too many attempts from this IP. Please try again later.',
-      retryMs: (ipCheck.retryAfter ?? 60) * 1000,
-    }
-  }
-  return null
-}
-
-function incrementFailedAttempts(email: string, ip: string): void {
-  shortLimiter.set(email)
-  mediumLimiter.set(email)
-  longLimiter.set(email)
-  ipLimiter.set(ip)
-}
-
-function resetFailedAttempts(email: string): void {
-  shortLimiter.reset(email)
-  mediumLimiter.reset(email)
-  longLimiter.reset(email)
+// The login lockout state is shared with /api/login (see login-rate-limit.ts),
+// so both endpoints enforce the same escalating per-account tiers.
+const LOGIN_BLOCK_MESSAGES: Record<LoginBlockReason, string> = {
+  long: 'Account is locked due to too many failed attempts. Please try again later.',
+  medium: 'Account is temporarily locked. Please try again in a few minutes.',
+  short: 'Too many attempts. Please try again later.',
+  ip: 'Too many attempts from this IP. Please try again later.',
 }
 
 /**
- * Test-only helper: clear the per-email login rate-limit state so e2e tests
- * that log in as seed users are not flaked by parallel workers sharing the
- * in-process limiter. Not used in production request paths.
+ * Test-only helper retained for the auth journey tests. Clears all shared login
+ * lockout state (email tiers and the IP bucket) so tests that reuse seed
+ * accounts are deterministic. Not used in production request paths.
  */
-export function __resetAuthRateLimits(email: string): void {
-  shortLimiter.reset(email)
-  mediumLimiter.reset(email)
-  longLimiter.reset(email)
+export function __resetAuthRateLimits(_email: string): void {
+  __resetLoginRateLimits()
 }
 
 export const authLogin = createController(routes.auth.login, {
@@ -136,10 +93,15 @@ export const authLogin = createController(routes.auth.login, {
         )
       }
 
-      let rateLimit = checkRateLimit(parsed.value.email, connectionIp(context.request))
-      if (rateLimit) {
+      let ip = connectionIp(context.request)
+      let block = checkLoginRateLimit(parsed.value.email, ip)
+      if (block) {
         return context.render(
-          <LoginPage error={rateLimit.error} returnTo={returnTo} values={values} />,
+          <LoginPage
+            error={LOGIN_BLOCK_MESSAGES[block.reason]}
+            returnTo={returnTo}
+            values={values}
+          />,
           {
             status: 429,
           },
@@ -149,14 +111,14 @@ export const authLogin = createController(routes.auth.login, {
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
-        incrementFailedAttempts(parsed.value.email, connectionIp(context.request))
+        recordLoginFailure(parsed.value.email, ip)
         return context.render(
           <LoginPage error="Invalid email or password." returnTo={returnTo} values={values} />,
           { status: 401 },
         )
       }
 
-      resetFailedAttempts(parsed.value.email)
+      resetLoginFailures(parsed.value.email)
 
       let session = completeAuth(context)
       session.set('auth', { userId: user.id, tv: user.token_version })

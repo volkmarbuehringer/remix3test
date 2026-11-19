@@ -6,14 +6,13 @@ import { routes } from '../../../routes.ts'
 import { users, apiTokens } from '../../../data/schema.ts'
 import { verifyPassword } from '../../../utils/password-hash.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../../utils/api-token.ts'
-import { createRateLimiter } from '../../../utils/rate-limiter.ts'
+import {
+  checkLoginRateLimit,
+  recordLoginFailure,
+  resetLoginFailures,
+} from '../../../utils/login-rate-limit.ts'
 import { connectionIp } from '../../../utils/request-ip.ts'
 import { isUniqueViolation } from '../../../utils/db-errors.ts'
-// Rate limiters are in-memory per-process. In multi-instance deployments,
-// each instance has independent state. Use a shared store (Redis, PostgreSQL)
-// if horizontal scaling is needed.
-const emailLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 10 })
-const ipLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 20 })
 
 const loginSchema = s.object({
   email: s.string(),
@@ -52,16 +51,18 @@ export default createAction(routes.api.login, {
       return Response.json({ error: 'Email and password are required' }, { status: 400 })
     }
 
-    if (!emailLimiter.attempt(email)) {
-      return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
-    }
-
     // The server boundary always stamps X-Client-Ip from the TCP socket; the
     // 'unknown' fallback only catches internal re-entries that skip the
     // boundary (shared bucket — fails toward lockout, never toward bypass).
+    // The lockout state is shared with the browser login, so alternating
+    // endpoints cannot double the guessing budget.
     let ip = connectionIp(context.request) || 'unknown'
-    if (!ipLimiter.attempt(ip)) {
-      return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
+    let block = checkLoginRateLimit(email, ip)
+    if (block) {
+      return Response.json(
+        { error: 'Too many requests. Try again later.' },
+        { status: 429, headers: { 'Retry-After': String(block.retryAfterSeconds) } },
+      )
     }
 
     let db = context.get(databaseContext)
@@ -72,17 +73,24 @@ export default createAction(routes.api.login, {
     let user = await db.findOne(users, { where: { email } })
 
     if (!user) {
+      recordLoginFailure(email, ip)
       return Response.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
     let valid = await verifyPassword(password, user.password_hash)
     if (!valid) {
+      recordLoginFailure(email, ip)
       return Response.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
     if (user.email_verified !== 1) {
+      recordLoginFailure(email, ip)
       return Response.json({ error: 'Email not verified' }, { status: 403 })
     }
+
+    // Only failures consume the budget; a successful login clears the
+    // per-account failure state (matching the browser login).
+    resetLoginFailures(email)
 
     let token = generateApiToken()
     let tokenHash = hashToken(token)

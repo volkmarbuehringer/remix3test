@@ -26,6 +26,10 @@ export interface RateLimiter {
   /** Atomically checks and sets. Returns false if rate-limited. */
   attempt(key?: number | string): boolean
 
+  /** Remove every tracked entry. Used by test isolation helpers that must
+   *  clear a shared limiter without knowing each key it has seen. */
+  clear(): void
+
   /** Return the current state for a key (count, remaining, reset seconds), or null if no entry. */
   state(key?: number | string): { count: number; remaining: number; reset: number } | null
 }
@@ -102,6 +106,7 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
         return { count: 0, remaining: maxAttempts, reset: 0 }
       },
       reset(): void {},
+      clear(): void {},
     }
   }
 
@@ -163,6 +168,10 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
       } else {
         entries.delete(GLOBAL_KEY)
       }
+    },
+
+    clear(): void {
+      entries.clear()
     },
   }
 }
