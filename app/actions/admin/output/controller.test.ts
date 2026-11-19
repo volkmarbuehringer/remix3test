@@ -1,15 +1,24 @@
-import { describe, it, before } from 'remix/test'
+import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 import { ContentDisposition, ContentType } from 'remix/headers'
 
 import { router } from '../../../test-router.ts'
 import { initializeAppDatabase } from '../../../db.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../../test/utils.ts'
+import { pool } from '../../../../test/pool.ts'
 import { routes } from '../../../routes.ts'
 
 const BASE = 'https://remix.run'
 const USERS_URL = BASE + routes.admin.users.index.href()
 const OUTPUT_URL = BASE + routes.admin.output.index.href()
+
+/**
+ * Marker for rows this suite owns. The offset test compares two exports, so
+ * its view must not change between the two requests; the global user table
+ * does, because suites running in other workers create and delete users
+ * concurrently. A self-owned search term keeps this suite's row set stable.
+ */
+const EXPORT_MARKER = `output-offset-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 function expectPdf(response: Response, buffer: ArrayBuffer): void {
   assert.equal(response.status, 200)
@@ -28,6 +37,23 @@ describe('Admin users PDF output (/admin/output)', () => {
     let userAuth = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!userAuth) throw new Error('user@newapp.com not found in seed')
     userCookie = userAuth.cookie
+
+    for (let index = 1; index <= 3; index += 1) {
+      let createdAt = Date.now()
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+         VALUES ($1, 'hash', $2, 'customer', 1, 1, $3, $3)`,
+        [
+          `${EXPORT_MARKER}-${index}@example.com`,
+          `Offset Export ${EXPORT_MARKER} ${index}`,
+          createdAt,
+        ],
+      )
+    }
+  })
+
+  after(async () => {
+    await pool.query('DELETE FROM users WHERE email LIKE $1', [`${EXPORT_MARKER}-%@example.com`])
   })
 
   async function fetchPdf(path: string): Promise<ArrayBuffer> {
@@ -61,8 +87,12 @@ describe('Admin users PDF output (/admin/output)', () => {
   })
 
   it('exports every matching row regardless of the grid offset', async () => {
-    let full = await fetchPdf('')
-    let offset = await fetchPdf('?offset=15')
+    // Scoped to rows this suite seeded (see EXPORT_MARKER) so both exports see
+    // the same row set no matter what other test suites are doing meanwhile.
+    let view = `?filter=${encodeURIComponent(EXPORT_MARKER)}`
+    let full = await fetchPdf(view)
+    let offset = await fetchPdf(`${view}&offset=15`)
+    assert.ok(full.byteLength > 0)
     assert.equal(offset.byteLength, full.byteLength, 'the offset must not narrow the export')
   })
 
