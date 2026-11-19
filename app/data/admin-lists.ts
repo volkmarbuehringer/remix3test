@@ -2,6 +2,7 @@ import { rawSql, type Database } from 'remix/data-table'
 import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
+import { listItemsArray } from './list-json.ts'
 import { int8, int8Aggregate, queryRow, queryRows } from './rows.ts'
 
 const listWireSchema = z.object({
@@ -70,9 +71,9 @@ LEFT JOIN users u ON u.id = lists.user_id`
  * The JSONB `list` column is user data, so shape drift (an object/scalar
  * instead of an array) is tolerated at read time. Guarding here keeps a
  * malformed row from 500ing the grid through `jsonb_array_elements` /
- * `jsonb_array_length`.
+ * `jsonb_array_length`. See `list-json.ts` for the shared expression.
  */
-const LIST_ITEMS_ARRAY = `CASE WHEN jsonb_typeof(lists.list) = 'array' THEN lists.list ELSE '[]'::jsonb END`
+const LIST_ITEMS_ARRAY = listItemsArray('lists.list')
 
 /** Item count of a well-formed row; a malformed payload counts as empty. */
 const LIST_ITEM_COUNT = `jsonb_array_length(${LIST_ITEMS_ARRAY})`

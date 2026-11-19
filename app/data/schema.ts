@@ -3,6 +3,7 @@ import type { TableRow } from 'remix/data-table'
 import { decodeInt8Fields } from '../utils/schema-utils.ts'
 import { createLogger } from '../utils/logger.ts'
 import { formatDuringRange, parseDuring } from '../utils/during.ts'
+import { toListItems } from './list-json.ts'
 
 const log = createLogger('[schema]')
 
@@ -294,9 +295,10 @@ export const lists = table({
         break
       }
     }
-    // The column is user data: shape drift (an object/scalar) renders as empty
-    // instead of reaching a caller that iterates it. Mirrors admin-lists.ts.
-    if (!Array.isArray(next.list)) next.list = []
+    // The column is user data: a non-object element is dropped and shape drift
+    // (an object/scalar instead of an array) renders as empty instead of
+    // reaching a caller that iterates it. Shared with lists.ts parseRow.
+    next.list = toListItems(next.list)
     return { value: next }
   },
 })

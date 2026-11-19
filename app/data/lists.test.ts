@@ -892,6 +892,44 @@ describe('lists-api lib', () => {
     await pool.query('DELETE FROM lists WHERE description LIKE $1', [`${prefix}%`])
   })
 
+  it('narrows malformed item elements instead of failing the filtered page', async () => {
+    let stamp = Date.now()
+    let prefix = `lib-drift-${stamp}`
+    let inserted = await pool.query(
+      `INSERT INTO lists (description, list, created_at, updated_at)
+       VALUES ($1, '[{"id":"keep","label":"Survivor","priority":"high","tags":["work",1],"updatedAt":12,"due":"2025-01-01"}, "junk", {"label":1,"priority":"urgent","tags":"nope"}]'::jsonb, $2, $2)
+       RETURNING id`,
+      [prefix, stamp],
+    )
+    let id = inserted.rows[0].id as number
+
+    let expected = [
+      {
+        id: 'keep',
+        label: 'Survivor',
+        priority: 'high',
+        due: '2025-01-01',
+        tags: ['work'],
+        updatedAt: 12,
+      },
+      { id: '', label: '' },
+    ]
+    assert.deepEqual((await getListById(db, id))?.list, expected)
+
+    // The filtered page used to reject the whole row in the strict wire schema;
+    // it must now return the narrowed projection.
+    let page = await getAllLists(db, { filter: prefix, limit: 50 })
+    assert.equal(page.data.length, 1)
+    assert.deepEqual(page.data[0]?.list, expected)
+
+    // SQL counts still describe the stored array, not the narrowed projection.
+    let summaries = await getListSummaries(db, { filter: prefix, limit: 50 })
+    assert.equal(summaries.data[0]?.count, 3, 'the stored array has three elements')
+    assert.equal(summaries.data[0]?.doneCount, 0)
+
+    await pool.query('DELETE FROM lists WHERE id = $1', [id])
+  })
+
   // -----------------------------------------------------------------------
   // Per-item metadata
   // -----------------------------------------------------------------------

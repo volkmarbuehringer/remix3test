@@ -14,7 +14,7 @@ interface AuditLogEntry {
 async function insertAuditLog(database: Database, entry: AuditLogEntry): Promise<void> {
   await database.exec(
     `INSERT INTO audit_logs (admin_user_id, admin_email, action_type, target_type, target_id, details, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
     [
       entry.admin_user_id,
       entry.admin_email,

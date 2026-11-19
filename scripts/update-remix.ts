@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+import { changelogHighlights, newChangelogSections } from './changelog-sections.ts'
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
 import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
 import { refreshPinDocs } from './remix-pin-docs.ts'
@@ -346,7 +347,7 @@ function printPinHistoryScaffold(args: ScaffoldArgs): void {
   console.log('- **Versions:** ' + args.versions + '.')
   console.log('- **Package delta:** TODO — diff the old and new installed trees before recording.')
   console.log(
-    '- **Breaking:** TODO — review the Minor/Patch changelog entries printed above; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
+    '- **Breaking:** TODO — review the Major/Minor/Patch changelog entries printed above; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
   )
   console.log('- **Behavior:** TODO — one bullet per runtime/API change.')
   console.log('- **App-side clearance:** TODO — call sites, or "no production source change".')
@@ -528,52 +529,6 @@ function installedPackageVersion(name: (typeof CHANGELOG_PACKAGES)[number]): str
   return versionAt(INSTALLED_PACKAGE_PATHS[name], 'package.json')
 }
 
-type ChangelogSection = { version: string; body: string }
-
-function parseChangelogSections(text: string): ChangelogSection[] {
-  let sections: ChangelogSection[] = []
-  let current: ChangelogSection | undefined
-  for (let line of text.split('\n')) {
-    let heading = /^##\s+v?(\S+)\s*$/.exec(line)
-    if (heading) {
-      current = { version: heading[1] ?? '', body: '' }
-      sections.push(current)
-      continue
-    }
-    if (current) current.body += line + '\n'
-  }
-  return sections
-}
-
-/** Sections newer than the installed version; the changelog is newest-first. */
-function newChangelogSections(text: string, installed: string | undefined): ChangelogSection[] {
-  let sections = parseChangelogSections(text)
-  if (!installed) return sections.slice(0, 1)
-  let at = sections.findIndex((section) => section.version === installed)
-  return at === -1 ? sections.slice(0, 1) : sections.slice(0, at)
-}
-
-/**
- * Keep the Minor/Patch change blocks with their prose. A semver glance is not
- * enough: upstream has shipped consumer-breaking behavior as a minor (see the
- * `sql` array / `column.json()` entries in data-table 1.1.0).
- */
-function changelogHighlights(body: string): string {
-  let lines: string[] = []
-  let keep = false
-  for (let line of body.split('\n')) {
-    let heading = /^###\s+(.+?)\s*$/.exec(line)
-    if (heading) {
-      let title = heading[1] ?? ''
-      keep = /change/i.test(title) && !/^major/i.test(title)
-      if (keep) lines.push('### ' + title)
-      continue
-    }
-    if (keep) lines.push(line)
-  }
-  return lines.join('\n').trim()
-}
-
 async function fetchChangelog(name: string, source: string): Promise<string | undefined> {
   let url = `https://raw.githubusercontent.com/remix-run/remix/${source}/packages/${name}/CHANGELOG.md`
   try {
@@ -599,7 +554,7 @@ async function printUpcomingChangelog(source: string): Promise<void> {
       let notes = changelogHighlights(section.body)
       if (!notes) continue
       if (!printed) {
-        console.log('\nChangelog Minor/Patch entries above the installed versions:')
+        console.log('\nChangelog Major/Minor/Patch entries above the installed versions:')
         printed = true
       }
       console.log(`\n[${name} ${section.version}]`)
@@ -607,7 +562,7 @@ async function printUpcomingChangelog(source: string): Promise<void> {
     }
   }
   if (!printed) {
-    console.log('\nNo new Minor/Patch changelog entries found (or changelogs unavailable).')
+    console.log('\nNo new Major/Minor/Patch changelog entries found (or changelogs unavailable).')
   }
 }
 

@@ -1,20 +1,9 @@
 import { rawSql, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
-import { lists } from './schema.ts'
+import { listItemsArray, toListItems, type ItemPriority, type ListItem } from './list-json.ts'
 import { int8, queryRows } from './rows.ts'
-
-type ItemPriority = 'low' | 'medium' | 'high'
-
-interface ListItem {
-  id: string
-  label: string
-  done?: boolean
-  priority?: ItemPriority
-  due?: string
-  tags?: string[]
-  updatedAt?: number
-}
+import { lists } from './schema.ts'
 
 /**
  * Longest item label a list may store. Longer pasted text is rejected at the
@@ -23,20 +12,13 @@ interface ListItem {
  */
 export const LIST_ITEM_LABEL_MAX_CHARS = 2_000
 
-const listItemWireSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  done: z.boolean().optional(),
-  priority: z.enum(['low', 'medium', 'high']).optional(),
-  due: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  updatedAt: z.number().optional(),
-})
-
 const listWireSchema = z.object({
   id: z.number(),
   user_id: z.number().nullable(),
-  list: z.array(listItemWireSchema),
+  // Any JSON value: the column is user data, so shape drift is tolerated at
+  // read time and narrowed by parseRow/toListItems instead of failing the whole
+  // page through RawRowError.
+  list: z.json(),
   title: z.string(),
   description: z.string(),
   created_at: int8,
@@ -108,9 +90,8 @@ function toSummary(row: z.output<typeof listSummaryWireSchema>): ListSummary {
 
 function parseRow(row: Record<string, unknown>): ListRow {
   let list = row.list
-  // A row written while the column was serialized by hand is stored as a JSONB
-  // string (and a repeated mistake could nest one layer deeper), so unwrap until
-  // the value is no longer JSON text. Mirrors the `lists` afterRead hook.
+  // Raw SQL bypasses the `lists` afterRead hook, so repeat its unwrap here. The
+  // element projection is shared with afterRead via toListItems.
   while (typeof list === 'string') {
     try {
       list = JSON.parse(list)
@@ -119,11 +100,10 @@ function parseRow(row: Record<string, unknown>): ListRow {
       break
     }
   }
-  if (!Array.isArray(list)) list = []
   return {
     id: Number(row.id),
     user_id: row.user_id != null ? Number(row.user_id) : null,
-    list: list as ListItem[],
+    list: toListItems(list),
     title: String(row.title ?? ''),
     description: String(row.description ?? ''),
     created_at: Number(row.created_at),
@@ -158,15 +138,8 @@ function assignStableIds(items: ListItemInput[]): ListItem[] {
   }))
 }
 
-/**
- * The JSONB `list` column is user data, so shape drift (an object/scalar
- * instead of an array) is tolerated at read time. Guarding here keeps a
- * malformed row — including one double-encoded by the pre-3.3.0
- * `JSON.stringify` write path — from 500ing `/lists` through
- * `jsonb_array_elements` / `jsonb_array_length`. Mirrors `admin-lists.ts`; the
- * `lists` afterRead hook covers typed reads, this covers raw SQL.
- */
-const LIST_ITEMS_ARRAY = `CASE WHEN jsonb_typeof(list) = 'array' THEN list ELSE '[]'::jsonb END`
+// Guarded reads: see `list-json.ts`. Element drift is narrowed by parseRow.
+const LIST_ITEMS_ARRAY = listItemsArray('list')
 
 export async function getAllLists(
   db: Database,
