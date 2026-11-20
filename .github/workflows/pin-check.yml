@@ -1,0 +1,39 @@
+# Daily pin-expiry guard.
+#
+# Preview release tarballs are pruned ~30 days after publication and no other
+# workflow runs on a schedule: ci.yml is manual and webkit.yml's nightly was
+# disabled (its runner never started a test file). This job is network-only and
+# needs no install, so it is cheap: it fails when a pinned tarball 404s (an
+# install would then fail too) and warns when the pin is not the newest main
+# preview or is inside the last five days before pruning.
+#
+# GitHub disables scheduled workflows on inactive repositories; use the manual
+# dispatch when validation has not run for a while.
+name: Pin Check
+
+on:
+  schedule:
+    # 04:17 UTC, before the preview-release cleanup job at 04:23.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pin-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+      - name: Check the pinned preview release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node ./scripts/check-remix-pin.ts

@@ -64,6 +64,9 @@ and skip the checks.
 days (the latest publication is kept indefinitely), so a lockfile that points
 at an old release tag can 404 after retention. Refresh the pin before the
 assets disappear; an expired release needs a newer tag and lock update.
+`.github/workflows/pin-check.yml` runs `remix:pin:check` daily (plus manual
+dispatch) as the only scheduled workflow; it is network-only, so a pruned pin
+fails the job before anyone's install does.
 
 Run `npm run remix:pin:check` to verify the pin: it checks that every
 `@remix-run/*` ref in `pnpm-lock.yaml` uses the same release tag as
@@ -73,7 +76,8 @@ versions and "Current range" endpoint match the pin (the editorial summary is
 never rewritten automatically, so it used to drift), then HEADs both tarball
 URLs and reads the latest main preview release to warn when the pin is not the
 newest or is older than five days. The check is
-dependency-free and treats network failures as warnings, so it is safe offline;
+dependency-free and treats network failures as warnings, so it is safe offline
+(and is what the daily `pin-check.yml` workflow runs);
 add `-- --strict` to make the refresh warning a failure.
 
 ## Keep the lock; old build dirs are not pruned
