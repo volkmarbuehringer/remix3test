@@ -18,6 +18,7 @@ import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import {
+  editingRedirect,
   gridStateFromFormData,
   gridStateToParams,
   gridStateOverrides,
@@ -198,35 +199,11 @@ function renderOfferingsPage(
   data: OfferingPageData,
   init?: ResponseInit,
 ): Response {
-  return renderVerwaltungPage(
-    context.render,
-    <AdminOfferingsPage
-      rows={data.rows}
-      offset={data.offset}
-      hasMore={data.hasMore}
-      prevOffset={data.prevOffset}
-      nextOffset={data.nextOffset}
-      pageKey={data.pageKey}
-      pageSizeOverride={data.pageSizeOverride}
-      sortColumn={data.sortColumn}
-      sortDirection={data.sortDirection}
-      filter={data.filter}
-      period={data.period}
-      status={data.status}
-      editRow={data.editRow}
-      creating={data.creating}
-      resources={data.resources}
-      error={data.error}
-      configResourceId={data.configResourceId}
-      offeringConfig={data.offeringConfig}
-      addWeek={data.addWeek}
-      pastCount={data.pastCount}
-      formValues={data.formValues}
-      fieldErrors={data.fieldErrors}
-      formError={data.formError}
-    />,
-    { init, title: 'Angebote – Verwaltung', fullHeight: !data.editRow && !data.creating },
-  )
+  return renderVerwaltungPage(context.render, <AdminOfferingsPage {...data} />, {
+    init,
+    title: 'Angebote – Verwaltung',
+    fullHeight: !data.editRow && !data.creating,
+  })
 }
 
 /** Builds the offerings grid index URL from the submitted grid-state form fields. */
@@ -234,6 +211,84 @@ function offeringsGridUrl(formData: FormData): string {
   let params = gridStateToParams(gridStateFromFormData(formData))
   let qs = params.toString()
   return routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '')
+}
+
+const OFFERING_OVERLAP_ERROR = 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.'
+
+interface ValidatedOffering {
+  resource_id: number
+  day: string
+  dayMs: number
+  during: string
+}
+
+/** A validation failure always carries at least one message (field-level or form-level). */
+type OfferingFormError =
+  | { fieldErrors: Record<string, string>; formError?: string }
+  | { formError: string }
+
+/**
+ * Shared validation chain for the create and update actions: schema parse,
+ * end-after-start, holiday, and past-date checks run in the same order with
+ * the same messages. The exclusion-constraint check can only run after the
+ * write — both actions catch it and surface {@link OFFERING_OVERLAP_ERROR}.
+ */
+function validateOfferingForm(
+  formData: FormData,
+): { ok: true; value: ValidatedOffering } | { ok: false; error: OfferingFormError } {
+  let result = s.parseSafe(offeringSaveSchema, formData)
+  if (!result.success) {
+    return { ok: false, error: { fieldErrors: issuesToFieldErrors(result.issues) } }
+  }
+
+  let { resource_id, day, start_min, end_min } = result.value
+
+  if (end_min <= start_min) {
+    return {
+      ok: false,
+      error: {
+        fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+        formError: 'muss nach der Startzeit liegen.',
+      },
+    }
+  }
+
+  let dayMs = new Date(day + 'T00:00:00Z').getTime()
+
+  if (hd.isHoliday(new Date(dayMs))) {
+    return { ok: false, error: { formError: 'Dieses Datum ist ein Feiertag.' } }
+  }
+
+  if (isDateInPast(dayMs)) {
+    return {
+      ok: false,
+      error: {
+        formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+      },
+    }
+  }
+
+  return { ok: true, value: { resource_id, day, dayMs, during: `[${start_min},${end_min})` } }
+}
+
+type OfferingAuditEntry = Omit<
+  Parameters<typeof logAdminAction>[1],
+  'admin_user_id' | 'admin_email'
+>
+
+/** Fire-and-forget audit trail entry, attributed to the acting admin when present. */
+function logOfferingAction(
+  context: Pick<AppContext, 'db' | 'auth'>,
+  entry: OfferingAuditEntry,
+): void {
+  let authIdentity = getAdminIdentity(context.auth)
+  if (authIdentity) {
+    void logAdminAction(context.db, {
+      admin_user_id: authIdentity.id,
+      admin_email: authIdentity.email,
+      ...entry,
+    })
+  }
 }
 
 export default createController(routes.verwaltung.offerings, {
@@ -250,77 +305,35 @@ export default createController(routes.verwaltung.offerings, {
       let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
       let gridValues = gridStateFromFormData(formData)
 
-      let result = s.parseSafe(offeringSaveSchema, formData)
-
-      if (!result.success) {
-        let fieldErrors = issuesToFieldErrors(result.issues)
+      let validated = validateOfferingForm(formData)
+      if (!validated.ok) {
         let data = await loadOfferingPageData(context, {
           creating: true,
           formValues,
-          fieldErrors,
+          ...validated.error,
           ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data, { status: 400 })
       }
 
-      let { resource_id, day, start_min, end_min } = result.value
-
-      if (end_min <= start_min) {
-        let data = await loadOfferingPageData(context, {
-          creating: true,
-          formValues,
-          fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-          formError: 'muss nach der Startzeit liegen.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
-        let data = await loadOfferingPageData(context, {
-          creating: true,
-          formValues,
-          formError: 'Dieses Datum ist ein Feiertag.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      let dayMs = new Date(day + 'T00:00:00Z').getTime()
-
-      if (isDateInPast(dayMs)) {
-        let data = await loadOfferingPageData(context, {
-          creating: true,
-          formValues,
-          formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      let during = `[${start_min},${end_min})`
+      let { resource_id, day, dayMs, during } = validated.value
       let newId: number
 
       try {
         newId = await createOffering(context.db, { dayMs, resourceId: resource_id, during })
 
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          void logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'create',
-            target_type: 'appointoffering',
-            target_id: newId,
-            details: { resource_id, day, during },
-          })
-        }
+        logOfferingAction(context, {
+          action_type: 'create',
+          target_type: 'appointoffering',
+          target_id: newId,
+          details: { resource_id, day, during },
+        })
       } catch (error: unknown) {
         if (isExclusionConstraintError(error)) {
           let data = await loadOfferingPageData(context, {
             creating: true,
             formValues,
-            formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
+            formError: OFFERING_OVERLAP_ERROR,
             ...gridStateOverrides(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
@@ -328,10 +341,7 @@ export default createController(routes.verwaltung.offerings, {
         throw error
       }
 
-      let params = gridStateToParams(gridValues)
-      params.set('editing', String(newId))
-      let qs = params.toString()
-      return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''), 303)
+      return editingRedirect(routes.verwaltung.offerings.index.href(), newId, gridValues, 303)
     },
 
     async update(context) {
@@ -345,59 +355,19 @@ export default createController(routes.verwaltung.offerings, {
       let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
       let gridValues = gridStateFromFormData(formData)
 
-      let result = s.parseSafe(offeringSaveSchema, formData)
-
-      if (!result.success) {
-        let fieldErrors = issuesToFieldErrors(result.issues)
+      let validated = validateOfferingForm(formData)
+      if (!validated.ok) {
         let editRow = await fetchOfferingEditRow(context.db, id)
         let data = await loadOfferingPageData(context, {
           editRow,
           formValues,
-          fieldErrors,
+          ...validated.error,
           ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data, { status: 400 })
       }
 
-      let { resource_id, day, start_min, end_min } = result.value
-
-      if (end_min <= start_min) {
-        let editRow = await fetchOfferingEditRow(context.db, id)
-        let data = await loadOfferingPageData(context, {
-          editRow,
-          formValues,
-          fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-          formError: 'muss nach der Startzeit liegen.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
-        let editRow = await fetchOfferingEditRow(context.db, id)
-        let data = await loadOfferingPageData(context, {
-          editRow,
-          formValues,
-          formError: 'Dieses Datum ist ein Feiertag.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      let dayMs = new Date(day + 'T00:00:00Z').getTime()
-
-      if (isDateInPast(dayMs)) {
-        let editRow = await fetchOfferingEditRow(context.db, id)
-        let data = await loadOfferingPageData(context, {
-          editRow,
-          formValues,
-          formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          ...gridStateOverrides(gridValues),
-        })
-        return renderOfferingsPage(context, data, { status: 400 })
-      }
-
-      let during = `[${start_min},${end_min})`
+      let { resource_id, day, dayMs, during } = validated.value
 
       try {
         let updated = await updateOffering(context.db, id, {
@@ -411,24 +381,19 @@ export default createController(routes.verwaltung.offerings, {
           return redirect(offeringsGridUrl(formData), 303)
         }
 
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          void logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'update',
-            target_type: 'appointoffering',
-            target_id: id,
-            details: { resource_id, day, during },
-          })
-        }
+        logOfferingAction(context, {
+          action_type: 'update',
+          target_type: 'appointoffering',
+          target_id: id,
+          details: { resource_id, day, during },
+        })
       } catch (error: unknown) {
         if (isExclusionConstraintError(error)) {
           let editRow = await fetchOfferingEditRow(context.db, id)
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
-            formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
+            formError: OFFERING_OVERLAP_ERROR,
             ...gridStateOverrides(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
@@ -436,9 +401,7 @@ export default createController(routes.verwaltung.offerings, {
         throw error
       }
 
-      let params = gridStateToParams(gridValues)
-      let qs = params.toString()
-      return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''), 303)
+      return redirect(offeringsGridUrl(formData), 303)
     },
 
     async destroy(context) {
@@ -457,16 +420,11 @@ export default createController(routes.verwaltung.offerings, {
           return redirect(offeringsGridUrl(formData), 303)
         }
 
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          void logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'appointoffering',
-            target_id: id,
-          })
-        }
+        logOfferingAction(context, {
+          action_type: 'destroy',
+          target_type: 'appointoffering',
+          target_id: id,
+        })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
           flashError(
@@ -478,9 +436,7 @@ export default createController(routes.verwaltung.offerings, {
         throw error
       }
 
-      let params = gridStateToParams(gridStateFromFormData(formData))
-      let qs = params.toString()
-      return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''), 303)
+      return redirect(offeringsGridUrl(formData), 303)
     },
 
     async configSave(context) {
@@ -519,17 +475,12 @@ export default createController(routes.verwaltung.offerings, {
 
       await upsertConfig(context.db, resourceId, rules)
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        void logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'config_save',
-          target_type: 'offering_configs',
-          target_id: resourceId,
-          details: { rules },
-        })
-      }
+      logOfferingAction(context, {
+        action_type: 'config_save',
+        target_type: 'offering_configs',
+        target_id: resourceId,
+        details: { rules },
+      })
 
       return redirect(offeringsGridUrl(formData), 303)
     },
@@ -577,16 +528,11 @@ export default createController(routes.verwaltung.offerings, {
         )
       }
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        void logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'week_generate',
-          target_type: 'appointoffering',
-          details: { year, week, totalCreated, totalSkipped },
-        })
-      }
+      logOfferingAction(context, {
+        action_type: 'week_generate',
+        target_type: 'appointoffering',
+        details: { year, week, totalCreated, totalSkipped },
+      })
 
       return redirect(offeringsGridUrl(formData), 303)
     },
@@ -596,16 +542,11 @@ export default createController(routes.verwaltung.offerings, {
 
       let count = await deletePastOfferings(context.db)
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        void logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'delete_past',
-          target_type: 'appointoffering',
-          details: { deletedCount: count },
-        })
-      }
+      logOfferingAction(context, {
+        action_type: 'delete_past',
+        target_type: 'appointoffering',
+        details: { deletedCount: count },
+      })
 
       flashSuccess(context.session, `${count} vergangene Angebote gelöscht.`)
       return redirect(offeringsGridUrl(formData), 303)
