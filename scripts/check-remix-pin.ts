@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
+import { checkAnalysisDoc } from './remix-pin-docs.ts'
 import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
 
 // ---------------------------------------------------------------------------
@@ -469,6 +470,19 @@ async function main(): Promise<void> {
     process.exitCode = 1
     return
   }
+
+  let docIssues = checkAnalysisDoc(ROOT)
+  if (docIssues.length > 0) {
+    for (let issue of docIssues) console.error(`fail    docs: ${issue}`)
+    console.error('')
+    console.error('Remix pin check failed: the analysis reference is not on the current install.')
+    console.error(
+      'Update .opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md',
+    )
+    process.exitCode = 1
+    return
+  }
+  console.log('ok      docs: upstream-dependency-analysis.md matches the current install')
 
   let results = await Promise.all(pins.map((pin) => headPin(pin)))
   for (let result of results) printHeadResult(result)

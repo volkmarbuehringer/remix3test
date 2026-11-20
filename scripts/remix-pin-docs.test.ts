@@ -3,7 +3,12 @@ import * as assert from 'remix/assert'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-import { refreshPinDocs } from './remix-pin-docs.ts'
+import {
+  checkAnalysisDoc,
+  compareAnalysisDoc,
+  refreshPinDocs,
+  type AnalysisExpectation,
+} from './remix-pin-docs.ts'
 
 const OLD_TAG = 'v0.20260101.1-main-aaaaaaaa'
 const NEW_TAG = 'v0.20260102.1-main-bbbbbbbb'
@@ -185,5 +190,88 @@ describe('refreshPinDocs', () => {
 
     assert.deepEqual(result.updated, [learned])
     assert.equal(fs.readFileSync(path.join(root, learned), 'utf8'), original)
+  })
+})
+
+const ROOT = path.resolve(import.meta.dirname, '..')
+
+const expectation: AnalysisExpectation = {
+  tag: 'v0.0.20260102-main-bbbbbbbb',
+  source: 'bbbbbbbb',
+  versions: {
+    remix: '3.3.0',
+    '@remix-run/ui': '0.14.0',
+    '@remix-run/component': '1.3.0',
+    'component-hmr': '1.0.2',
+  },
+}
+
+function analysisDoc(
+  overrides: { tag?: string; source?: string; remix?: string; rangeTo?: string } = {},
+): string {
+  let tag = overrides.tag ?? expectation.tag
+  let source = overrides.source ?? expectation.source
+  let remix = overrides.remix ?? expectation.versions.remix
+  let rangeTo = overrides.rangeTo ?? expectation.source
+
+  return [
+    'Current install: `remix` ' +
+      remix +
+      ' / `@remix-run/ui` ' +
+      expectation.versions['@remix-run/ui'] +
+      ' / `@remix-run/component` ' +
+      expectation.versions['@remix-run/component'] +
+      ' / `component-hmr` ' +
+      expectation.versions['component-hmr'] +
+      ' at preview release `' +
+      tag +
+      '` (source `' +
+      source +
+      '`).',
+    '',
+    'Current range (`aaaaaaaa` → `' + rangeTo + '`, 5 commits): ...',
+  ].join('\n')
+}
+
+describe('analysis doc drift', () => {
+  it('accepts a summary that matches the pin', () => {
+    assert.deepEqual(compareAnalysisDoc(analysisDoc(), expectation), [])
+  })
+
+  it('reports a stale version, source, and range endpoint', () => {
+    let issues = compareAnalysisDoc(
+      analysisDoc({ remix: '3.2.0', source: 'aaaaaaaa', rangeTo: '9e4da4d3' }),
+      expectation,
+    )
+
+    assert.ok(
+      issues.some((issue) => issue.includes('remix 3.2.0')),
+      'stale remix version reported',
+    )
+    assert.ok(
+      issues.some((issue) => issue.includes('source is aaaaaaaa')),
+      'stale source reported',
+    )
+    assert.ok(
+      issues.some((issue) => issue.includes('ends at 9e4da4d3')),
+      'stale range endpoint reported',
+    )
+  })
+
+  it('flags a summary without a current-install or current-range line', () => {
+    let issues = compareAnalysisDoc('no pin summary here', expectation)
+
+    assert.ok(
+      issues.some((issue) => issue.includes('no "Current install:"')),
+      'missing install line reported',
+    )
+    assert.ok(
+      issues.some((issue) => issue.includes('no "Current range')),
+      'missing range line reported',
+    )
+  })
+
+  it('keeps the real analysis reference on the current install', () => {
+    assert.deepEqual(checkAnalysisDoc(ROOT), [])
   })
 })

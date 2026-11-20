@@ -133,3 +133,175 @@ export function refreshPinDocs(
 
   return { updated, skipped }
 }
+
+// ---------------------------------------------------------------------------
+// Current-install drift check
+//
+// `refreshPinDocs` intentionally leaves the editorial "Current install" and
+// "Current range" summary in upstream-dependency-analysis.md alone, so it can
+// lag behind a bump (it has: two ranges behind, and the 3.2.0 version line
+// while 3.3.0 was installed). Compare those claims with package.json and
+// pnpm-lock.yaml so `remix:pin:check` and the test suite fail loudly instead.
+
+const ANALYSIS_DOC = path.join(
+  '.opencode',
+  'skills',
+  'learned',
+  'remix3-tooling',
+  'references',
+  'remix3-build-and-tooling',
+  'upstream-dependency-analysis.md',
+)
+
+const ANALYSIS_PACKAGES = [
+  { label: 'remix', name: 'remix', asset: 'remix' },
+  { label: '@remix-run/ui', name: '@remix-run/ui', asset: 'ui' },
+  { label: '@remix-run/component', name: '@remix-run/component', asset: 'component' },
+  { label: 'component-hmr', name: '@remix-run/component-hmr', asset: 'component-hmr' },
+] as const
+
+type AnalysisLabel = (typeof ANALYSIS_PACKAGES)[number]['label']
+
+export type AnalysisExpectation = {
+  tag: string
+  source: string
+  versions: Record<AnalysisLabel, string>
+}
+
+type AnalysisClaim = {
+  tag: string | undefined
+  source: string | undefined
+  versions: Record<AnalysisLabel, string | undefined>
+  rangeFrom: string | undefined
+  rangeTo: string | undefined
+  rangeCommits: string | undefined
+}
+
+const INSTALL_LINE =
+  /Current install: `remix` (\S+) \/ `@remix-run\/ui` (\S+) \/ `@remix-run\/component` (\S+) \/ `component-hmr` (\S+) at preview release `([^`]+)` \(source `([0-9a-f]{8})`\)/
+const RANGE_LINE = /Current range \(`([0-9a-f]{8})` → `([0-9a-f]{8})`, (\d+) commits?\)/
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function lockVersion(lock: string, name: string, asset: string): string | undefined {
+  // Tarball dependencies key the lock entry by their URL, not by a semver; the
+  // installed version is the `version:` field that follows the resolution.
+  let pattern = new RegExp(
+    `^  '?${escapeRegExp(name)}@https://[^'\\n]*\\/${escapeRegExp(asset)}\\.tgz'?:\\n` +
+      '    resolution: \\{[^\\n]*\\}\\n' +
+      '    version: ([^\\n]+)$',
+    'm',
+  )
+  return pattern.exec(lock)?.[1]
+}
+
+export function readAnalysisExpectation(root: string): AnalysisExpectation {
+  let manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as {
+    dependencies?: Record<string, string>
+  }
+  let spec = manifest.dependencies?.remix ?? ''
+  let tag = /releases\/download\/([^/]+)\/remix\.tgz/.exec(spec)?.[1]
+  if (!tag) throw new Error(`package.json remix spec is not a preview release asset: ${spec}`)
+  let source = /-main-([0-9a-f]{8})/.exec(tag)?.[1]
+  if (!source) throw new Error(`cannot read the source commit from the remix pin tag: ${tag}`)
+
+  let lock = fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8')
+  let versions = {} as Record<AnalysisLabel, string>
+  for (let entry of ANALYSIS_PACKAGES) {
+    let version = lockVersion(lock, entry.name, entry.asset)
+    if (!version) {
+      throw new Error(`pnpm-lock.yaml has no ${entry.name} entry at the pinned release`)
+    }
+    versions[entry.label] = version
+  }
+
+  return { tag, source, versions }
+}
+
+export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
+  let claim: AnalysisClaim = {
+    tag: undefined,
+    source: undefined,
+    versions: {
+      remix: undefined,
+      '@remix-run/ui': undefined,
+      '@remix-run/component': undefined,
+      'component-hmr': undefined,
+    },
+    rangeFrom: undefined,
+    rangeTo: undefined,
+    rangeCommits: undefined,
+  }
+  let install = INSTALL_LINE.exec(doc)
+  if (install) {
+    claim.versions.remix = install[1]
+    claim.versions['@remix-run/ui'] = install[2]
+    claim.versions['@remix-run/component'] = install[3]
+    claim.versions['component-hmr'] = install[4]
+    claim.tag = install[5]
+    claim.source = install[6]
+  }
+  let range = RANGE_LINE.exec(doc)
+  if (range) {
+    claim.rangeFrom = range[1]
+    claim.rangeTo = range[2]
+    claim.rangeCommits = range[3]
+  }
+  return claim
+}
+
+export function compareAnalysisDoc(doc: string, expected: AnalysisExpectation): string[] {
+  let claim = analyzeAnalysisDoc(doc)
+  let issues: string[] = []
+
+  if (!claim.tag) {
+    issues.push('no "Current install:" line with the preview release tag and source')
+  } else {
+    if (claim.tag !== expected.tag) {
+      issues.push(`"Current install" names ${claim.tag}; expected ${expected.tag}`)
+    }
+    if (claim.source !== expected.source) {
+      issues.push(`"Current install" source is ${claim.source}; expected ${expected.source}`)
+    }
+  }
+
+  for (let { label } of ANALYSIS_PACKAGES) {
+    let actual = claim.versions[label]
+    let wanted = expected.versions[label]
+    if (actual !== wanted) {
+      issues.push(
+        `"Current install" says ${label} ${actual ?? '(missing)'}; installed version is ${wanted}`,
+      )
+    }
+  }
+
+  if (!claim.rangeTo) {
+    issues.push('no "Current range (`old` → `new`, N commits)" line')
+  } else if (claim.rangeTo !== expected.source) {
+    issues.push(
+      `"Current range" ends at ${claim.rangeTo}; expected ${expected.source} (the pinned source)`,
+    )
+  }
+
+  return issues
+}
+
+export function checkAnalysisDoc(root: string): string[] {
+  let docPath = path.join(root, ANALYSIS_DOC)
+  if (!fs.existsSync(docPath)) {
+    return [`the analysis reference is missing: ${ANALYSIS_DOC}`]
+  }
+
+  let expected: AnalysisExpectation
+  try {
+    expected = readAnalysisExpectation(root)
+  } catch (error) {
+    return [
+      `cannot derive the installed versions: ${error instanceof Error ? error.message : String(error)}`,
+    ]
+  }
+
+  return compareAnalysisDoc(fs.readFileSync(docPath, 'utf8'), expected)
+}
