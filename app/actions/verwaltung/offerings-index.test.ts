@@ -1,7 +1,9 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
+import Holidays from 'date-holidays'
 
 import { router } from '../../test-router.ts'
+import { MS_PER_DAY, formatIsoDateUtc, getTodayUtcMidnight } from '../../utils/date-utils.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { readSessionId, sessionStorage } from '../../middleware/session.ts'
@@ -325,6 +327,143 @@ describe('Admin Offerings Controller', () => {
           text.includes('aria-describedby="oe-day-error"') &&
           text.includes('id="oe-day-error"'),
         'the day control must be linked to its error message (guide 09)',
+      )
+    })
+
+    it('rejects a non-calendar create date instead of rolling it over to another day', async () => {
+      // 2027-02-31 matches the YYYY-MM-DD shape but is not a real date; the
+      // Date parser rolls it over to 2027-03-03 (future), which would silently
+      // create the offering on the wrong day. It must fail with a day field
+      // error and write nothing.
+      let countBefore = await pool.query(
+        'SELECT COUNT(*) AS count FROM appointoffering WHERE resource_id = $1',
+        [resourceId],
+      )
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        day: '2027-02-31',
+        start_min: '480',
+        end_min: '540',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(ADMIN_OFFERINGS_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400, 'non-calendar date must re-render at 400, not PRG')
+      let text = await response.text()
+      assert.ok(text.includes('Neues Angebot'), 'should re-render the create panel')
+      assert.ok(text.includes('2027-02-31'), 'should preserve the submitted day value')
+      assert.ok(
+        text.includes('aria-invalid="true"') &&
+          text.includes('aria-describedby="oc-day-error"') &&
+          text.includes('id="oc-day-error"'),
+        'the day control must be linked to its error message',
+      )
+
+      let rolled = await pool.query(
+        'SELECT id FROM appointoffering WHERE resource_id = $1 AND day = $2',
+        [resourceId, Date.parse('2027-03-03T00:00:00Z')],
+      )
+      assert.equal(rolled.rows.length, 0, 'no offering may be created on the rolled-over day')
+      let countAfter = await pool.query(
+        'SELECT COUNT(*) AS count FROM appointoffering WHERE resource_id = $1',
+        [resourceId],
+      )
+      assert.equal(
+        Number(countAfter.rows[0].count),
+        Number(countBefore.rows[0].count),
+        'failed validation must not write any offering',
+      )
+    })
+
+    it('rejects a non-calendar edit date with a day field error (no misleading past-date error)', async () => {
+      // 2026-02-31 rolls over to 2026-03-03 (past), which today surfaces the
+      // misleading form-level "Vergangenheit" error instead of a day field error.
+      let row = await pool.query('SELECT id FROM appointoffering WHERE resource_id = $1 LIMIT 1', [
+        resourceId,
+      ])
+      let id = row.rows[0]?.id as number | undefined
+      if (!id) throw new Error('expected a seed offering to edit')
+      let before = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [id])
+
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        day: '2026-02-31',
+        start_min: '480',
+        end_min: '540',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/${id}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400, 'non-calendar date must re-render at 400')
+      let text = await response.text()
+      assert.ok(text.includes('Angebot bearbeiten'), 'should re-render the edit panel')
+      assert.ok(text.includes('2026-02-31'), 'should preserve the submitted day value')
+      assert.ok(
+        text.includes('aria-invalid="true"') &&
+          text.includes('aria-describedby="oe-day-error"') &&
+          text.includes('id="oe-day-error"'),
+        'the day control must be linked to its error message',
+      )
+      let after = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [id])
+      assert.deepEqual(after.rows[0], before.rows[0], 'failed validation must not modify the row')
+    })
+
+    it('creates an offering for a valid future date and PRGs to it (positive control)', async () => {
+      // Pick the next UTC day that is not a DE-RP holiday, mirroring the
+      // controller's rule. [1080,1140) avoids the seeded tomorrow [480,1080).
+      let hd = new Holidays('DE', 'rp')
+      let dayMs = getTodayUtcMidnight() + MS_PER_DAY
+      while (hd.isHoliday(new Date(dayMs))) dayMs += MS_PER_DAY
+      let day = formatIsoDateUtc(dayMs)
+
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        day,
+        start_min: '1080',
+        end_min: '1140',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(ADMIN_OFFERINGS_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 303, 'valid create should PRG back to the grid')
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
+      let editing = new URL(location, 'https://remix.run').searchParams.get('editing')
+      assert.ok(editing && /^\d+$/.test(editing), 'redirect should open the new row for editing')
+      createdOfferingIds.push(Number(editing))
+
+      let written = await pool.query('SELECT day FROM appointoffering WHERE id = $1', [
+        Number(editing),
+      ])
+      assert.equal(
+        String(written.rows[0].day),
+        String(Date.parse(day + 'T00:00:00Z')),
+        'the offering must land on the submitted day, not a shifted one',
       )
     })
 
