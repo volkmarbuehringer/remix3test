@@ -1,0 +1,38 @@
+# Cheap push/pull-request guard: install, typecheck, lint, format.
+#
+# The full suite lives in ci.yml and is manual only (Postgres + Playwright,
+# ~30 min). This job exists so a lint/type regression cannot sit on main
+# unnoticed — e.g. the `no-shadow` break that surfaced only when the next
+# `update:remix` bump ran the checks.
+name: Preflight
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          # Must match package.json "packageManager"; v6 fails when they differ.
+          version: 12.21.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format

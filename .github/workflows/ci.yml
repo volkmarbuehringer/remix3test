@@ -4,6 +4,8 @@
 # dependency bump or a broad change. This workflow is intentionally not
 # scheduled and does not run on push.
 #
+# A cheap push/PR guard (typecheck/lint/format only) lives in preflight.yml.
+#
 # Main preview releases are pruned after ~30 days, so run `pnpm remix:pin:check`
 # around a bump: it fails when a pinned asset is gone or the lock resolves a
 # different release, and warns when a newer upstream preview exists or the pin

@@ -27,7 +27,7 @@ function expectedPnpmVersion(): string {
 }
 
 describe('CI and image pnpm pin', () => {
-  for (let workflow of ['ci.yml', 'webkit.yml']) {
+  for (let workflow of ['ci.yml', 'webkit.yml', 'preflight.yml']) {
     it(`${workflow} pins pnpm/action-setup to package.json's packageManager`, () => {
       let source = read(`.github/workflows/${workflow}`)
       let setup = source.match(/pnpm\/action-setup@v6[\s\S]*?\n\s+version:\s*(\S+)/)
