@@ -15,12 +15,13 @@ import { isFirefox } from '../../../test/utils.ts'
 // short detail. Using the browser Back button must restore the prior scroll
 // position even though the client-entry reconciliation shrinks the document.
 //
-// Firefox: the top-level client entry's click handler does not fire (a remix-ui
-// runtime bug — the button renders but `on('click')` never increments state, no
-// console error). The full interaction is therefore scoped to Chromium; Firefox
-// still runs a page-load smoke check so the page is verified not to crash.
-// Tracked as a known remix-ui Firefox incompatibility; revisit when the vendor
-// fixes delegated event handling in Firefox.
+// Firefox: the top-level client entry's button click does not update state (a
+// remix-ui runtime bug — the button renders but `on('click')` never increments
+// the counter, no console error). Re-checked 2026-11-20 at preview release
+// `v0.0.20261120-main-01e5b5d4`: the click still never reaches
+// `Hydration check: 1`, so the two click-driven tests below stay Chromium-only
+// with a Firefox smoke check. The third test exercises traversal restoration
+// without that button, so Firefox keeps a real guard for #12295.
 // ---------------------------------------------------------------------------
 
 describe('scroll restoration', () => {
@@ -38,8 +39,9 @@ describe('scroll restoration', () => {
     if (isFirefox(page)) {
       // Firefox-scoped smoke check: the top-level client entry SSR-renders and
       // the collection frame loads, but the click handler is broken by a
-      // remix-ui Firefox bug (see header). Keep this so Firefox still exercises
-      // the page without asserting the broken interaction.
+      // remix-ui Firefox bug (see header; re-checked 2026-11-20 at pin
+      // `01e5b5d4`). Keep this so Firefox still exercises the page without
+      // asserting the broken interaction.
       await page.getByText('List row 48', { exact: true }).waitFor()
       assert.ok(
         (await page.locator('#scroll-restoration-list').count()) >= 1,
@@ -99,8 +101,9 @@ describe('scroll restoration', () => {
     await hydrationCheck.waitFor()
 
     if (isFirefox(page)) {
-      // Same remix-ui Firefox click-handler limitation as the first test; keep
-      // a page-load smoke check so the project is still exercised.
+      // Same remix-ui Firefox click-handler limitation as the first test
+      // (re-checked 2026-11-20 at pin `01e5b5d4`); keep a page-load smoke check
+      // so the project is still exercised.
       await page.getByText('List row 48', { exact: true }).waitFor()
       return
     }
@@ -172,6 +175,42 @@ describe('scroll restoration', () => {
     assert.ok(
       Math.abs(detailRestoredPosition - detailScrollPosition) < 50,
       `Expected forward traversal to restore detail scroll ${detailScrollPosition}, got ${detailRestoredPosition}`,
+    )
+  })
+
+  it('restores traversal scroll without the client-entry hydration check', async (t) => {
+    let page = await t.serve(await createTestServer((request) => router.fetch(request)))
+    await page.goto(routes.scrollRestoration.index.href())
+    await page.getByText('List row 48', { exact: true }).waitFor()
+
+    // Same-document marker: a full document load on Back would drop it, which
+    // would mean the runtime's Navigation API listener never installed.
+    await page.evaluate(() => {
+      ;(window as unknown as { scrollRestorationMarker?: string }).scrollRestorationMarker = 'alive'
+    })
+
+    await page.locator('#scroll-restoration-list-end').scrollIntoViewIfNeeded()
+    let listScrollPosition = await page.evaluate(() => window.scrollY)
+    assert.ok(
+      listScrollPosition > 1000,
+      `Expected the list page to scroll far down, got ${listScrollPosition}`,
+    )
+
+    await page.getByRole('link', { name: 'Open the shorter detail page' }).click()
+    await page.getByRole('heading', { name: 'Short detail view' }).waitFor()
+    assert.equal(
+      await page.evaluate(
+        () => (window as unknown as { scrollRestorationMarker?: string }).scrollRestorationMarker,
+      ),
+      'alive',
+      'the link must navigate through the runtime listener, not a document load',
+    )
+
+    await page.goBack()
+    await page.getByText('List row 48', { exact: true }).waitFor()
+    await page.waitForFunction(
+      ({ expected, tolerance }) => Math.abs(window.scrollY - expected) < tolerance,
+      { expected: listScrollPosition, tolerance: 50 },
     )
   })
 })
