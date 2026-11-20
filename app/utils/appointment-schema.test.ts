@@ -2,7 +2,7 @@ import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 import * as s from 'remix/data-schema'
 
-import { appointmentSaveSchema } from './appointment-schema.ts'
+import { appointmentSaveSchema, appointmentsNewSaveSchema } from './appointment-schema.ts'
 import { issuesToFieldErrors } from './schema-utils.ts'
 
 function form(entries: Record<string, string>): FormData {
@@ -63,3 +63,38 @@ describe('appointmentSaveSchema title', () => {
     assert.equal(result.value.title, 'Kontrolle')
   })
 })
+
+const validNewAppointment = {
+  resource_id: '1',
+  title: 'Kontrolle',
+  date: '2026-11-02',
+  start_min: '600',
+}
+
+for (let [name, schema, valid] of [
+  ['appointmentSaveSchema', appointmentSaveSchema, validAppointment],
+  ['appointmentsNewSaveSchema', appointmentsNewSaveSchema, validNewAppointment],
+] as const) {
+  describe(name + ' date', () => {
+    it('rejects non-calendar dates instead of letting the parser roll them over', () => {
+      for (let date of ['2026-02-29', '2027-02-31', '2026-04-31']) {
+        let result = s.parseSafe(schema, form({ ...valid, date }))
+
+        assert.equal(result.success, false, date + ' should be rejected')
+        if (result.success) continue
+        assert.deepEqual(issuesToFieldErrors(result.issues), {
+          date: 'Gültiges Datum erforderlich (YYYY-MM-DD).',
+        })
+      }
+    })
+
+    it('accepts valid calendar dates including a leap day', () => {
+      for (let date of ['2026-11-02', '2028-02-29']) {
+        let result = s.parseSafe(schema, form({ ...valid, date }))
+
+        if (!result.success) throw new Error('expected ' + date + ' to parse')
+        assert.equal(result.value.date, date)
+      }
+    })
+  })
+}

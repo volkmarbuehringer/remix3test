@@ -1,6 +1,7 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import * as coerce from 'remix/data-schema/coerce'
+import { parseIsoDateUtc } from './date-utils.ts'
 import { gridQueryFields, gridStatusField } from './grid-params.ts'
 
 export const APPOINTMENT_FORM_KEYS = [
@@ -33,10 +34,12 @@ export const appointmentSaveSchema = f.object({
       .transform((v) => v.trim())
       .refine((v) => v.length > 0, 'Titel ist erforderlich.'),
   ),
+  // Round-trip parse, not a shape-only regex: non-calendar dates would roll
+  // over to another day and be saved there.
   date: f.field(
     s
       .string()
-      .refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
+      .refine((v) => parseIsoDateUtc(v) !== null, 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
   ),
   start_min: f.field(
     coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 15 === 0, 'ist ungültig.'),
@@ -58,10 +61,12 @@ export const appointmentsNewSaveSchema = f.object({
       '',
     ),
   ),
+  // Round-trip parse, not a shape-only regex: non-calendar dates would roll
+  // over to another day and be saved there.
   date: f.field(
     s
       .string()
-      .refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
+      .refine((v) => parseIsoDateUtc(v) !== null, 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
   ),
   start_min: f.field(
     coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 15 === 0, 'ist ungültig.'),
