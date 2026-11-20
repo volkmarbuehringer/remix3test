@@ -390,7 +390,9 @@ describe('Admin Offerings Controller', () => {
       ])
       let id = row.rows[0]?.id as number | undefined
       if (!id) throw new Error('expected a seed offering to edit')
-      let before = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [id])
+      let beforeRow = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [
+        id,
+      ])
 
       let body = new URLSearchParams({
         resource_id: String(resourceId),
@@ -422,8 +424,12 @@ describe('Admin Offerings Controller', () => {
           text.includes('id="oe-day-error"'),
         'the day control must be linked to its error message',
       )
-      let after = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [id])
-      assert.deepEqual(after.rows[0], before.rows[0], 'failed validation must not modify the row')
+      let afterRow = await pool.query('SELECT day, during FROM appointoffering WHERE id = $1', [id])
+      assert.deepEqual(
+        afterRow.rows[0],
+        beforeRow.rows[0],
+        'failed validation must not modify the row',
+      )
     })
 
     it('creates an offering for a valid future date and PRGs to it (positive control)', async () => {
