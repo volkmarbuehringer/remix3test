@@ -326,4 +326,15 @@ describe('lists-state', () => {
     assert.deepEqual(dueBadge('2027-01-03', false, now), { text: '03.01.2027', overdue: false })
     assert.deepEqual(dueBadge('2025-12-24', true, now), { text: '24.12.2025', overdue: false })
   })
+
+  it('treats non-calendar due dates as malformed (fall through / ignored)', () => {
+    let now = new Date(2026, 9, 14, 9, 0, 0).getTime()
+    // 2026-02-31 passes a shape-only regex and compares as a real past date,
+    // yielding "überfällig" for an impossible day. It must be left untouched.
+    assert.deepEqual(dueBadge('2026-02-31', false, now), {
+      text: '2026-02-31',
+      overdue: false,
+    })
+    assert.equal(isOverdueItem(item('x', 'Impossible', { due: '2026-02-31' }), '2026-10-14'), false)
+  })
 })

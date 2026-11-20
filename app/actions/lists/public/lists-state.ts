@@ -1,3 +1,5 @@
+import { parseIsoDateUtc } from '../../../utils/date-utils.ts'
+
 export type ItemPriority = 'low' | 'medium' | 'high'
 export type SortMode = 'manual' | 'az' | 'done' | 'due' | 'updated'
 
@@ -70,14 +72,14 @@ function localDateKey(date: Date): string {
  * "überfällig", else a short "18.10." (with year when it differs from the
  * current one). Done items never read "überfällig" — a finished task should
  * not keep alarming. `overdue` marks the state for styling. Malformed values
- * fall through untouched (the server schema is the validation boundary).
+ * fall through untouched (the date input is the validation boundary).
  */
 export function dueBadge(
   due: string,
   done = false,
   nowMs: number = Date.now(),
 ): { text: string; overdue: boolean } {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { text: due, overdue: false }
+  if (parseIsoDateUtc(due) === null) return { text: due, overdue: false }
   let now = new Date(nowMs)
   let today = localDateKey(now)
   if (due < today && !done) return { text: 'überfällig', overdue: true }
@@ -181,7 +183,7 @@ export type StatusCounts = {
 /**
  * An open item whose due date is strictly before today. Mirrors the badge:
  * completed items never read as overdue, and malformed dates are ignored (the
- * server schema is the validation boundary).
+ * date input is the validation boundary).
  */
 export function isOverdueItem(
   item: ListItem,
@@ -190,7 +192,7 @@ export function isOverdueItem(
   return (
     item.done !== true &&
     typeof item.due === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/.test(item.due) &&
+    parseIsoDateUtc(item.due) !== null &&
     item.due < todayKey
   )
 }
