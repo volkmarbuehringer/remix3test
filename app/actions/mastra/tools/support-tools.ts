@@ -14,6 +14,7 @@ import {
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 import { int8, queryRow, queryRows } from '../../../data/rows.ts'
+import { parseIsoDateUtc } from '../../../utils/date-utils.ts'
 
 // ── Raw-read wire schemas ────────────────────────────────────────────
 // node-postgres returns BIGINT (int8) columns as strings, so every epoch
@@ -408,12 +409,9 @@ export const supportTools = {
       z.object({ error: z.string().describe('Why the query failed') }),
     ]),
     execute: async ({ date }) => {
-      let timestamp: number
-      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        timestamp = new Date(date + 'T00:00:00Z').getTime()
-      } else {
-        timestamp = Number(date)
-      }
+      // Round-trip check: a shape-only regex would let non-calendar dates roll
+      // over to another day and return that day's offerings under this label.
+      let timestamp = parseIsoDateUtc(date) ?? Number(date)
       if (Number.isNaN(timestamp)) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
 
       let rows = await queryRows(
@@ -466,11 +464,12 @@ export const supportTools = {
       z.object({ error: z.string().describe('Why the query failed') }),
     ]),
     execute: async ({ startDate, endDate }) => {
-      let startTs = new Date(startDate + 'T00:00:00Z').getTime()
-      let endTs = new Date(endDate + 'T23:59:59Z').getTime()
-      if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+      let startTs = parseIsoDateUtc(startDate)
+      let endDayMs = parseIsoDateUtc(endDate)
+      if (startTs === null || endDayMs === null) {
         return { error: 'Invalid date format. Use YYYY-MM-DD.' }
       }
+      let endTs = endDayMs + 86_399_000 // preserve the old T23:59:59Z upper bound
       let rangeDays = (endTs - startTs) / 86400000
       if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
       if (rangeDays < 0) return { error: 'startDate must be before endDate' }
@@ -760,12 +759,13 @@ export const supportTools = {
         return { error: 'Both startDate and endDate are required to filter appointments' }
       }
       let apptCount: number
-      if (hasStart && hasEnd) {
-        let startTs = new Date(startDate + 'T00:00:00Z').getTime()
-        let endTs = new Date(endDate + 'T23:59:59Z').getTime()
-        if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+      if (startDate !== undefined && endDate !== undefined) {
+        let startTs = parseIsoDateUtc(startDate)
+        let endDayMs = parseIsoDateUtc(endDate)
+        if (startTs === null || endDayMs === null) {
           return { error: 'Invalid date format. Use YYYY-MM-DD.' }
         }
+        let endTs = endDayMs + 86_399_000 // preserve the old T23:59:59Z upper bound
         let apptResult = await queryRow(
           db,
           sql`SELECT count(*)::int AS count FROM appointments WHERE date >= ${startTs} AND date <= ${endTs}`,
@@ -796,8 +796,9 @@ export const supportTools = {
       date: z.string().min(1).max(30).describe('Date in ISO format (YYYY-MM-DD)'),
     }),
     execute: async ({ date }) => {
-      let parsed = new Date(date + 'T00:00:00Z')
-      if (Number.isNaN(parsed.getTime())) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+      let parsedMs = parseIsoDateUtc(date)
+      if (parsedMs === null) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+      let parsed = new Date(parsedMs)
       let hd = new Holidays('DE', 'RP')
       let holiday = hd.isHoliday(parsed)
       if (holiday !== false) {
@@ -834,11 +835,12 @@ export const supportTools = {
         if (!startDate || !endDate) {
           return { error: 'startDate and endDate are required for appointment-list reports' }
         }
-        let startTs = new Date(startDate + 'T00:00:00Z').getTime()
-        let endTs = new Date(endDate + 'T23:59:59Z').getTime()
-        if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+        let startTs = parseIsoDateUtc(startDate)
+        let endDayMs = parseIsoDateUtc(endDate)
+        if (startTs === null || endDayMs === null) {
           return { error: 'Invalid date format. Use YYYY-MM-DD.' }
         }
+        let endTs = endDayMs + 86_399_000 // preserve the old T23:59:59Z upper bound
         let rangeDays = (endTs - startTs) / 86400000
         if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
         if (rangeDays < 0) return { error: 'startDate must be before endDate' }
