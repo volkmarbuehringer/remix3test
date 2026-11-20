@@ -118,6 +118,7 @@ type Options = {
   noTests: boolean
   noDocs: boolean
   allowDirty: boolean
+  verify: boolean
   storeDir: string | undefined
 }
 
@@ -166,11 +167,16 @@ rewrite the remix and @remix-run/ui tarball specs, run the install, verify the
 lock has one unified release, repoint the vendor skill links, then run
 typecheck, lint, format and (by default) the full test suite.
 
+A preflight runs typecheck/lint/format on the unmodified tree first, so a
+pre-existing failure aborts before package.json or the lockfile is rewritten.
+
 Options:
   --dry-run           Resolve and print the target release, commits and package changelog
   --no-tests          Skip the full \`npm test\` run
   --no-docs           Skip refreshing the current-pin strings in AGENTS.md/learned skills
   --allow-dirty       Allow an uncommitted working tree
+  --verify            Re-run typecheck/lint/format/tests on the current pin and print
+                      the verification line (no network, no install; dirty tree allowed)
   --store-dir <dir>   pnpm store (default: ./.pnpm-store when it exists)
   -h, --help          Show this help
 
@@ -187,6 +193,7 @@ function parseOptions(argv: string[]): Options {
     noTests: false,
     noDocs: false,
     allowDirty: false,
+    verify: false,
     storeDir: fs.existsSync(DEFAULT_STORE) ? DEFAULT_STORE : undefined,
   }
 
@@ -196,6 +203,7 @@ function parseOptions(argv: string[]): Options {
     else if (arg === '--no-tests') options.noTests = true
     else if (arg === '--no-docs') options.noDocs = true
     else if (arg === '--allow-dirty') options.allowDirty = true
+    else if (arg === '--verify') options.verify = true
     else if (arg === '--store-dir') {
       let value = argv[++i]
       if (!value) throw new Error('--store-dir needs a path')
@@ -312,6 +320,18 @@ type ScaffoldArgs = {
   tests: string
 }
 
+type AbortContext = {
+  oldTag: string
+  oldSource: string
+  targetTag: string
+  targetSource: string
+  subjects: string[] | undefined
+}
+
+// Set immediately before the tree is mutated, so main().catch() can print a
+// resume summary and the pin-history scaffold instead of a bare error.
+let abortContext: AbortContext | undefined
+
 function printPinHistoryScaffold(args: ScaffoldArgs): void {
   let date = new Date().toLocaleDateString('sv-SE')
   let oldSource = args.oldSource.slice(0, 8)
@@ -356,6 +376,63 @@ function printPinHistoryScaffold(args: ScaffoldArgs): void {
   console.log('  - AGENTS.md: add the "This bump" paragraph and demote the previous one')
   console.log('  - docs/guide-skill-coverage.md: add the bump sentence if the guides moved')
   console.log('  - upstream-dependency-analysis.md: add the new range summary')
+}
+
+async function verifyCurrentPin(pin: Pin, options: Options): Promise<void> {
+  let tag = pin.tag ?? pin.build
+  let source = pin.source ? ` (source ${short(pin.source)})` : ''
+
+  console.log('== Verify current pin ==')
+  console.log(`Pin: ${tag}${source} [${pin.kind}]`)
+
+  run('npm', ['run', 'typecheck'])
+  run('npm', ['run', 'lint'])
+  run('npm', ['run', 'format'])
+
+  let summary = 'tests skipped (--no-tests)'
+  if (options.noTests) {
+    console.log('Tests skipped (--no-tests).')
+  } else {
+    summary = await runTestsAndSummarize()
+    console.log(`Tests: ${summary}`)
+  }
+
+  console.log(`\nVerification at ${tag}${source}: ${summary}.`)
+}
+
+function printAbortedUpdate(context: AbortContext): void {
+  console.log('\n== Update aborted ==')
+  console.log(`The working tree was already modified for ${context.targetTag}.`)
+
+  try {
+    let dirty = run('git', ['status', '--short'], true)
+    if (dirty) {
+      console.log('Modified files:')
+      for (let line of dirty.split('\n')) console.log(`  ${line}`)
+    }
+  } catch {
+    // Best-effort summary; git is not essential to it.
+  }
+
+  console.log('')
+  console.log('Fix the failure reported below, then resume (no reinstall needed unless')
+  console.log('the install itself failed):')
+  console.log('  npm run update:remix -- --verify')
+
+  try {
+    printPinHistoryScaffold({
+      oldTag: context.oldTag,
+      oldSource: context.oldSource,
+      targetTag: context.targetTag,
+      targetSource: context.targetSource,
+      subjects: context.subjects,
+      refs: readLockState().releaseRefs,
+      versions: installedVersions(),
+      tests: 'tests not run (update aborted)',
+    })
+  } catch {
+    // The lockfile may be mid-rewrite; the resume command above still applies.
+  }
 }
 
 function unique(values: string[]): string[] {
@@ -834,7 +911,7 @@ async function main(): Promise<void> {
   pnpmEnv = environmentForStore(options.storeDir)
   let specKind = currentSpecKind()
 
-  if (!options.dryRun && !options.allowDirty) {
+  if (!options.dryRun && !options.verify && !options.allowDirty) {
     let dirty = run('git', ['status', '--porcelain'], true)
     if (dirty) {
       throw new Error(
@@ -845,6 +922,11 @@ async function main(): Promise<void> {
 
   let before = readLockState()
   let oldPin = await readCurrentPin(specKind, before)
+
+  if (options.verify) {
+    await verifyCurrentPin(oldPin, options)
+    return
+  }
 
   let release = await fetchLatestMainRelease()
   let targetTag = release.tag_name
@@ -893,6 +975,9 @@ async function main(): Promise<void> {
   if (oldPin.kind === 'release' && oldPin.tag === targetTag && lockAtTarget) {
     if (!options.dryRun) repointSkillLinks(targetTag)
     console.log('\nAlready up to date; nothing to do.')
+    console.log(
+      'Run `npm run update:remix -- --verify` to re-run the checks and print the verification line.',
+    )
     return
   }
 
@@ -915,6 +1000,19 @@ async function main(): Promise<void> {
     }
     console.log('\nDry run: would rewrite the two tarball specs and run pnpm install.')
     return
+  }
+
+  console.log('\n== Preflight (unmodified tree) ==')
+  run('npm', ['run', 'typecheck'])
+  run('npm', ['run', 'lint'])
+  run('npm', ['run', 'format'])
+
+  abortContext = {
+    oldTag: oldPin.tag ?? oldPin.build,
+    oldSource: oldPin.source ?? oldPin.build,
+    targetTag,
+    targetSource,
+    subjects,
   }
 
   console.log('\n== Installing ==')
@@ -987,6 +1085,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
+  if (abortContext) printAbortedUpdate(abortContext)
   console.error(`\nupdate-remix failed: ${error instanceof Error ? error.message : String(error)}`)
   process.exit(1)
 })

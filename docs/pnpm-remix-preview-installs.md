@@ -13,14 +13,16 @@ release per `main` commit, so the lock is still content-addressed and cannot mix
 builds, but the URL host and retention mechanism changed.
 
 **Automation:** `npm run update:remix` (`scripts/update-remix.ts`) resolves the
-latest main preview release, rewrites the two tarball specs, runs `pnpm install`,
-verifies the lock has one release tag, runs a frozen-install check, repoints the
-vendor skill links, refreshes the current-pin strings in `AGENTS.md` and the
-learned skills (historical `Since preview build …` lines are left alone), then
+latest main preview release, runs a typecheck/lint/format preflight on the
+unmodified tree, rewrites the two tarball specs, runs `pnpm install`, verifies
+the lock has one release tag, runs a frozen-install check, repoints the vendor
+skill links, refreshes the current-pin strings in `AGENTS.md` and the learned
+skills (historical `Since preview build …` lines are left alone), then
 typecheck/lint/format/tests and a pin-history scaffold with the parsed test
-counts. Use `--dry-run`, `--no-tests`, `--no-docs`, or `--allow-dirty`. It still
-migrates the old `github:` and
-`t/<sha>/` specs on the first run.
+counts. Use `--dry-run`, `--no-tests`, `--no-docs`, `--allow-dirty`, or
+`--verify` (re-run the checks/tests on the current pin without network or
+install; it allows a dirty tree so it can resume a half-applied update). It
+still migrates the old `github:` and `t/<sha>/` specs on the first run.
 
 ## Current release-asset flow (2026-11-04+)
 
@@ -37,22 +39,26 @@ release's asset URLs. The update script:
    SHA suffix, and that both pinned assets have the expected names and URLs.
    If `main` has advanced past the latest published build, the script says so
    and pins the latest available release.
-3. Rewrite the `remix` and `@remix-run/ui` dependency specs to the release asset
+3. Run `typecheck`/`lint`/`format` on the unmodified tree; a pre-existing
+   failure aborts before `package.json` or the lockfile is touched.
+4. Rewrite the `remix` and `@remix-run/ui` dependency specs to the release asset
    URLs.
-4. Run `pnpm install --no-frozen-lockfile`; there is no git-hosted prepare, so
+5. Run `pnpm install --no-frozen-lockfile`; there is no git-hosted prepare, so
    the nested `pnpm install` / `ERR_PNPM_PREPARE_PACKAGE` failure mode is gone.
-5. Verify every preview ref in the lock is the same release tag and no
+6. Verify every preview ref in the lock is the same release tag and no
    `codeload.github.com` or `raw.githubusercontent.com/…/t/` refs remain.
-6. Run the frozen-install check, repoint `.agents/skills/remix` and
+7. Run the frozen-install check, repoint `.agents/skills/remix` and
    `.opencode/skills/remix`, refresh the current-pin strings (`--no-docs` opts
    out), then typecheck/lint/format/tests and print the pin-history scaffold.
 
-**The script is not atomic and cannot resume.** It installs and refreshes docs before
-the checks, so a consumer-breaking bump stops it at `typecheck` with the pin already
-applied; re-running prints `Already up to date; nothing to do.` and returns before the
-checks. Fix the source, run typecheck/lint/format/tests and the learned-anchor re-pin
-yourself, and write the pin-history entry by hand (see `remix3-tooling` →
-`upstream-dependency-analysis.md` § "Bumping across a breaking change").
+**Failure handling.** The preflight keeps pre-existing lint/type failures from
+mutating the tree. A consumer-breaking bump still stops at the post-install
+checks with the pin already applied; the script then prints the modified files,
+a resume command, and the pin-history scaffold (`tests not run (update
+aborted)`). Fix the source and run `npm run update:remix -- --verify` to re-run
+typecheck/lint/format/tests on the current pin and print the verification line;
+re-running the plain command would print `Already up to date; nothing to do.`
+and skip the checks.
 
 **Retention matters.** Since #12311 main preview releases are retained for 30
 days (the latest publication is kept indefinitely), so a lockfile that points
@@ -62,8 +68,11 @@ assets disappear; an expired release needs a newer tag and lock update.
 Run `npm run remix:pin:check` to verify the pin: it checks that every
 `@remix-run/*` ref in `pnpm-lock.yaml` uses the same release tag as
 `package.json` (mixed tags, retained-tarball refs, and leftover codeload refs
-fail), then HEADs both tarball URLs and reads the latest main preview release to
-warn when the pin is not the newest or is older than five days. The check is
+fail), verifies that `upstream-dependency-analysis.md`'s "Current install"
+versions and "Current range" endpoint match the pin (the editorial summary is
+never rewritten automatically, so it used to drift), then HEADs both tarball
+URLs and reads the latest main preview release to warn when the pin is not the
+newest or is older than five days. The check is
 dependency-free and treats network failures as warnings, so it is safe offline;
 add `-- --strict` to make the refresh warning a failure.
 
