@@ -129,7 +129,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 against the installed preview release `v0.0.20261119-main-9e4da4d3` (source `9e4da4d3`; `@remix-run/component` 1.2.0).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 against the installed preview release `v0.0.20261120-main-01e5b5d4` (source `01e5b5d4`; `@remix-run/component` 1.2.0).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
@@ -251,7 +251,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 **Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered. When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
-**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:644`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
+**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:706`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 
