@@ -5,6 +5,7 @@ import {
   applyHardeningHeaders,
   serverErrorContentSecurityPolicy,
 } from '../middleware/security-headers.ts'
+import { isMalformedRequestError, renderBadRequest } from './request-errors.ts'
 
 /** The subset of a Remix router the runtime entrypoints depend on. */
 interface RequestRouter {
@@ -75,6 +76,20 @@ export function renderServerError(): Response {
       headers,
     },
   )
+}
+
+/**
+ * `onError` for `createRequestListener`.
+ *
+ * Malformed request targets/authorities are client errors: answer 400 without
+ * logging them (the vendor would do the same without an `onError`). Everything
+ * else keeps the app's 500 page and its log line.
+ */
+export function handleServerError(error: unknown): Response {
+  if (isMalformedRequestError(error)) return renderBadRequest()
+
+  console.error(error)
+  return renderServerError()
 }
 
 /**

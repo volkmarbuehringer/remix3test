@@ -6,7 +6,7 @@ import { createRequestListener, type ClientAddress } from 'remix/node-fetch-serv
 import { assetServer } from './app/assets.ts'
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
-import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
+import { createServerHandler, handleServerError } from './app/utils/server-handler.ts'
 import { configuredPublicOrigin } from './app/utils/public-origin.ts'
 import { startSessionMaintenance, stopSessionMaintenance } from './app/middleware/session.ts'
 
@@ -34,10 +34,7 @@ const handler = createRequestListener(
   (request: Request, client: ClientAddress) => handleRequest(request, client.address),
   {
     trustProxy: isHmr,
-    onError: (error) => {
-      console.error(error)
-      return renderServerError()
-    },
+    onError: handleServerError,
   },
 )
 
