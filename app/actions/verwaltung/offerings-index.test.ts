@@ -609,6 +609,101 @@ describe('Admin Offerings Controller', () => {
       assert.ok(session.get('error') || session.get('success'), 'flash message should be set')
     })
 
+    it('rejects an out-of-range calendar week in week-generate instead of rolling into another year', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      for (let [year, week] of [
+        ['2026', '0'],
+        ['2026', '99'],
+        ['2025', '53'], // 2025 has only 52 ISO weeks — pins the real boundary
+      ] as const) {
+        let body = new URLSearchParams({
+          year,
+          week,
+          _csrf: fresh.csrfToken,
+          _offset: '',
+          _sort: '',
+          _order: '',
+          _filter: '',
+        })
+        let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/week`, {
+          method: 'POST',
+          headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        })
+        assert.equal(response.status, 303, 'invalid week should PRG back to the grid')
+
+        let rawSid = await readSessionId(fresh.cookie)
+        let session = await sessionStorage.read(rawSid)
+        let err = session.get('error') as string | undefined
+        assert.ok(
+          err?.includes('Ungültige Kalenderwoche'),
+          `year=${year} week=${week} must be rejected`,
+        )
+      }
+    })
+
+    it('rejects out-of-range and inverted config minutes without changing the stored rules', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let now = Date.now()
+      let inserted = await pool.query(
+        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
+        ['Test Config Minute Validation', now, now],
+      )
+      let rid = inserted.rows[0].id as number
+      let originalRules = { monday: [480, 540] }
+      try {
+        await pool.query(
+          `INSERT INTO offering_configs (resource_id, rules, created_at, updated_at)
+           VALUES ($1, $2::jsonb, $3, $3)`,
+          [rid, JSON.stringify(originalRules), now],
+        )
+
+        for (let [start, end] of [
+          ['600', '540'], // inverted
+          ['-60', '540'], // negative
+          ['480', '1500'], // beyond 24h
+          ['600.5', '660'], // non-integer raw input (parseInt would truncate to 600)
+          ['480', '660abc'], // trailing junk (parseInt would accept 660)
+        ] as const) {
+          let body = new URLSearchParams({
+            resource_id: String(rid),
+            monday_enabled: '1',
+            monday_start: start,
+            monday_end: end,
+            _csrf: fresh.csrfToken,
+            _offset: '',
+            _sort: '',
+            _order: '',
+            _filter: '',
+          })
+          let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/config`, {
+            method: 'POST',
+            headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+          })
+          assert.equal(response.status, 303, 'invalid minutes should PRG back to the grid')
+
+          let rawSid = await readSessionId(fresh.cookie)
+          let session = await sessionStorage.read(rawSid)
+          let err = session.get('error') as string | undefined
+          assert.ok(err?.includes('Ungültige Zeitangabe'), `${start}-${end} must be rejected`)
+
+          let stored = await pool.query(
+            'SELECT rules FROM offering_configs WHERE resource_id = $1',
+            [rid],
+          )
+          assert.deepEqual(stored.rows[0].rules, originalRules, 'stored rules must stay unchanged')
+        }
+      } finally {
+        await pool.query('DELETE FROM offering_configs WHERE resource_id = $1', [rid])
+        await pool.query('DELETE FROM resources WHERE id = $1', [rid])
+      }
+    })
+
     it('redirects (PRG) with a flash message on delete-past', async () => {
       let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
       assert.ok(fresh?.cookie, 'fresh admin session must be created')

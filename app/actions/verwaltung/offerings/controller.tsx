@@ -12,7 +12,7 @@ import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
 import { parseOffsetParam } from '../../../utils/query-params.ts'
-import { isDateInPast } from '../../../utils/date-utils.ts'
+import { isDateInPast, isoWeeksInYear } from '../../../utils/date-utils.ts'
 import Holidays from 'date-holidays'
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
@@ -460,17 +460,32 @@ export default createController(routes.verwaltung.offerings, {
 
       let DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
       let rules: Record<string, [number, number]> = {}
+      let invalidMinutes = false
       for (let key of DAY_KEYS) {
         let enabled = formData.get(`${key}_enabled`)
-        if (enabled === '1') {
-          let startStr = formData.get(`${key}_start`) as string | null
-          let endStr = formData.get(`${key}_end`) as string | null
-          let start = startStr ? parseInt(startStr, 10) : NaN
-          let end = endStr ? parseInt(endStr, 10) : NaN
-          if (!isNaN(start) && !isNaN(end)) {
-            rules[key] = [start, end]
-          }
+        if (enabled !== '1') continue
+        let startStr = formData.get(`${key}_start`)
+        let endStr = formData.get(`${key}_end`)
+        // Validate the raw string: parseInt silently truncates '600.5' to 600
+        // and accepts trailing junk such as '660abc'.
+        let start = typeof startStr === 'string' && /^\d+$/.test(startStr) ? Number(startStr) : NaN
+        let end = typeof endStr === 'string' && /^\d+$/.test(endStr) ? Number(endStr) : NaN
+        if (
+          !Number.isInteger(start) ||
+          !Number.isInteger(end) ||
+          start < 0 ||
+          end > 1440 ||
+          start >= end
+        ) {
+          invalidMinutes = true
+          break
         }
+        rules[key] = [start, end]
+      }
+
+      if (invalidMinutes) {
+        flashError(context.session, 'Ungültige Zeitangabe in der Konfiguration.')
+        return redirect(offeringsGridUrl(formData), 303)
       }
 
       await upsertConfig(context.db, resourceId, rules)
@@ -503,6 +518,15 @@ export default createController(routes.verwaltung.offerings, {
 
       let year = parseInt(result.value.year, 10)
       let week = parseInt(result.value.week, 10)
+
+      // mondayOfWeek() rolls out-of-range weeks into adjacent years, so an
+      // over-large week would silently generate a week the admin never named.
+      // The UI offers 2026–2030; [2000,2100] leaves room for planning without
+      // accepting absurd epochs.
+      if (year < 2000 || year > 2100 || week < 1 || week > isoWeeksInYear(year)) {
+        flashError(context.session, 'Ungültige Kalenderwoche.')
+        return redirect(offeringsGridUrl(formData), 303)
+      }
 
       let resourceIds = await listResourceIdsWithConfigs(context.db)
       let totalCreated = 0
