@@ -1,5 +1,5 @@
 import { formData } from 'remix/middleware/form-data'
-import type { FileUpload } from 'remix/form-data-parser'
+import { FormDataParseError, type FileUpload } from 'remix/form-data-parser'
 import { redirect } from 'remix/response/redirect'
 import type { Middleware } from 'remix/router'
 
@@ -19,6 +19,25 @@ import {
 } from '../utils/upload-validation.ts'
 
 export { uploadLimitErrorCode }
+
+/** A malformed form body is a client error; keep it out of the 500 boundary. */
+function invalidFormDataResponse(): Response {
+  let headers = new Headers({
+    'Cache-Control': 'no-store',
+    'Content-Type': 'text/html; charset=utf-8',
+  })
+  return new Response(
+    `<!doctype html>
+<html lang="de">
+  <head><meta charset="utf-8"><title>Ungültige Formulardaten</title></head>
+  <body>
+    <h1>Ungültige Formulardaten</h1>
+    <p>Die übermittelten Formulardaten konnten nicht gelesen werden. Bitte versuchen Sie es erneut.</p>
+  </body>
+</html>`,
+    { status: 400, headers },
+  )
+}
 
 /**
  * Validate a single upload without throwing. Returns a German rejection message
@@ -204,6 +223,14 @@ export function uploadFormData(): Middleware<{
           let indexUrl = isUploadNewAction ? uploadNewIndexUrl : uploadsIndexUrl
           return redirect(`${indexUrl}?uploadError=${code}`, 303)
         }
+      }
+      // `parseFormData()` wraps an invalid multipart stream in a
+      // `FormDataParseError` (the underlying `MultipartParseError` is its
+      // cause). A malformed body is untrusted-input feedback, not a server
+      // failure, so render a localized 400 rather than letting it hit onError
+      // as a 500. Upload-handler errors are not wrapped and still surface.
+      if (error instanceof FormDataParseError) {
+        return invalidFormDataResponse()
       }
       throw error
     }
