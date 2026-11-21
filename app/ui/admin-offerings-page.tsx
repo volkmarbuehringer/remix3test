@@ -34,7 +34,7 @@ import { GridStateScript } from './grid-state-script.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
-import { AdminOfferingsRowMenu } from '../actions/admin/public/admin-offerings-row-menu.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
 import { formatDuring } from '../utils/during.ts'
@@ -134,6 +134,26 @@ function buildAddWeekUrl(
   return routes.verwaltung.offerings.index.href() + '?' + params.toString()
 }
 
+function buildConfigUrl(
+  resourceId: number | string,
+  offset: number,
+  sort: string,
+  order: string,
+  filter?: string,
+  period?: string,
+  status?: string,
+): string {
+  let params = new URLSearchParams()
+  params.set('config', String(resourceId))
+  if (offset > 0) params.set('offset', String(offset))
+  params.set('sort', sort)
+  params.set('order', order)
+  if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
+  if (status) params.set('status', status)
+  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
+}
+
 function buildPeriodUrl(
   newPeriod: string | null,
   offset: number,
@@ -193,8 +213,6 @@ function formatTime(value: number): string {
 function offeringRowLabel(row: OfferingRow): string {
   return `${row.resource_name ?? row.resource_description ?? 'Angebot'} am ${formatDate(row.day)}`
 }
-
-const hiddenDeleteFormStyle = css({ display: 'none' })
 
 // errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)
 
@@ -472,7 +490,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 <col />
                 <col mix={css({ width: '124px' })} />
                 <col mix={css({ width: '112px' })} />
-                <col mix={css({ width: '112px' })} />
+                <col mix={[css({ width: '112px' }), table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -571,17 +589,25 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     </a>
                   </th>
                   <th
-                    mix={table.th}
+                    scope="col"
+                    mix={[table.th, table.floatingActionsHeader]}
                     aria-label="Aktionen"
                     title="Rechtsklick auf eine Zeile öffnet das Aktionsmenü"
-                  ></th>
+                  >
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    mix={[
+                      table.row,
+                      table.floatingRowReveal,
+                      table.floatingTrailingFade,
+                      editRow?.id === row.id ? table.editingRow : undefined,
+                    ]}
                     data-row-id={row.id}
                     data-resource-id={row.resource_id}
                   >
@@ -612,14 +638,49 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       mix={table.td}
                       title={formatTimestamp(row.updated_at)}
                       data-label="Aktualisiert"
+                      data-floating-trailing
                     >
                       <div mix={table.cellStack}>
                         <span mix={table.cellTitle}>{formatDate(row.updated_at)}</span>
                         <span mix={table.cellMeta}>{formatTime(row.updated_at)}</span>
                       </div>
                     </td>
-                    <td mix={table.actionCell} data-label="Aktionen">
-                      <div mix={table.actionGroup}>
+                    <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                      <button
+                        type="button"
+                        data-row-actions-trigger
+                        aria-expanded="false"
+                        aria-controls={`offering-row-actions-${row.id}`}
+                        aria-label={`Weitere Aktionen für ${offeringRowLabel(row)}`}
+                        title="Weitere Aktionen"
+                        mix={table.floatingActionsTrigger}
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                      <div
+                        id={`offering-row-actions-${row.id}`}
+                        mix={[table.actionGroup, table.floatingActions]}
+                        role="group"
+                        aria-label={`Aktionen für ${offeringRowLabel(row)}`}
+                        data-row-actions
+                      >
+                        <a
+                          href={buildConfigUrl(
+                            row.resource_id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
+                          data-rmx-target={getSelfFrameTarget()}
+                          mix={table.actionSeg}
+                          aria-label="Konfiguration"
+                          title="Konfiguration"
+                        >
+                          <Glyph name="cog" width={14} height={14} />
+                        </a>
                         <a
                           href={buildEditUrl(
                             row.id,
@@ -637,31 +698,34 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         >
                           <Glyph name="edit" width={14} height={14} />
                         </a>
-                        <AdminOfferingsRowMenu
-                          rowId={String(row.id)}
-                          resourceId={String(row.resource_id)}
-                          rowLabel={offeringRowLabel(row)}
-                        />
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
+                          data-delete-form={row.id}
+                          data-confirm="Wirklich löschen?"
+                          data-rmx-target={getSelfFrameTarget()}
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                              period: period ?? '',
+                              status: status ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[table.actionSeg, table.actionSegDanger]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
                       </div>
-                      <RestfulForm
-                        method="DELETE"
-                        action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
-                        data-delete-form={row.id}
-                        data-confirm="Wirklich löschen?"
-                        data-rmx-target={getSelfFrameTarget()}
-                        mix={hiddenDeleteFormStyle}
-                      >
-                        <GridStateHiddenInputs
-                          state={{
-                            offset: String(offset),
-                            sort: sortColumn,
-                            order: sortDirection,
-                            filter: filter ?? '',
-                            period: period ?? '',
-                            status: status ?? '',
-                          }}
-                        />
-                      </RestfulForm>
                     </td>
                   </tr>
                 ))}
@@ -751,6 +815,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           status={status}
         />
         <AdminOfferingsContextMenu />
+        <AdminRowActionsOverlay />
         <ConfirmDelete />
       </div>
     )

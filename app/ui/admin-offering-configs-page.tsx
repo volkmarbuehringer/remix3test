@@ -41,6 +41,7 @@ import { EditorAutofocus } from './editor-autofocus.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { WeekRulePresets } from './week-rule-presets.browser.tsx'
 import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
@@ -606,7 +607,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                 <col />
                 <col mix={css({ width: '210px' })} />
                 <col mix={css({ width: '170px' })} />
-                <col mix={colActionsWidth} />
+                <col mix={[colActionsWidth, table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -672,8 +673,12 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       </span>
                     </a>
                   </th>
-                  <th scope="col" mix={table.th}>
-                    Aktionen
+                  <th
+                    scope="col"
+                    mix={[table.th, colActionsWidth, table.floatingActionsHeader]}
+                    aria-label="Aktionen"
+                  >
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
                   </th>
                 </tr>
               </thead>
@@ -692,7 +697,12 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   return (
                     <tr
                       key={row.id}
-                      mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                      mix={[
+                        table.row,
+                        table.floatingRowReveal,
+                        table.floatingTrailingFade,
+                        editRow?.id === row.id ? table.editingRow : undefined,
+                      ]}
                       data-row-id={row.id}
                     >
                       <td mix={table.td} data-label="Ressource" title={label}>
@@ -730,15 +740,29 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       <td
                         mix={table.td}
                         data-label="Aktualisiert"
+                        data-floating-trailing
                         title={formatTimestamp(row.updated_at)}
                       >
                         <span mix={cellValueStyle}>{formatTimestamp(row.updated_at)}</span>
                       </td>
-                      <td mix={table.actionCell} data-label="Aktionen">
+                      <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`offering-config-row-actions-${row.id}`}
+                          aria-label={`Weitere Aktionen für ${label}`}
+                          title="Weitere Aktionen"
+                          mix={table.floatingActionsTrigger}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
                         <div
-                          mix={table.actionGroup}
+                          id={`offering-config-row-actions-${row.id}`}
+                          mix={[table.actionGroup, table.floatingActions]}
                           role="group"
                           aria-label={`Aktionen für ${label}`}
+                          data-row-actions
                         >
                           <a
                             href={editHref}
@@ -793,6 +817,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             filter={filter}
           />
           <AdminOfferingConfigsContextMenu />
+          <AdminRowActionsOverlay />
         </div>
 
         {(rows.length > 0 || offset > 0) && (

@@ -194,7 +194,7 @@ describe('Admin Offerings Controller', () => {
       assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })
 
-    it('renders a direct edit action and a per-row kebab menu', async () => {
+    it('renders the row actions behind a persistent overlay kebab', async () => {
       let response = await router.fetch(ADMIN_OFFERINGS_URL, {
         headers: { Cookie: adminCookie },
       })
@@ -202,20 +202,18 @@ describe('Admin Offerings Controller', () => {
       let html = await response.text()
       assert.ok(html.includes('data-delete-form'), 'delete form must be rendered in the row')
       assert.ok(
-        html.includes('aria-label="Bearbeiten"'),
-        'the primary edit action should stay directly visible',
+        html.includes('data-row-actions-trigger'),
+        'each row should render the persistent kebab trigger',
       )
       assert.ok(
-        html.includes('data-offerings-row-menu-trigger'),
-        'each row should render a visible kebab trigger',
+        html.includes('data-row-actions') && html.includes('data-floating-trailing'),
+        'the action cluster and faded trailing cell should carry overlay hooks',
       )
       assert.ok(
-        html.includes('Konfiguration') && html.includes('Löschen'),
-        'the kebab menu should contain configuration and delete actions',
-      )
-      assert.ok(
-        !html.includes('title="Konfiguration"'),
-        'configuration should no longer be a separate direct action button',
+        html.includes('aria-label="Konfiguration"') &&
+          html.includes('aria-label="Bearbeiten"') &&
+          html.includes('aria-label="Löschen"'),
+        'the overlay cluster should contain configuration, edit, and delete actions',
       )
     })
 

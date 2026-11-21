@@ -32,6 +32,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { AdminAppointmentsContextMenu } from '../actions/admin/public/admin-appointments-context-menu.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import type {
@@ -370,7 +371,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <col />
                 <col />
                 <col />
-                <col mix={colActionsWidth} />
+                <col mix={[colActionsWidth, table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -538,14 +539,25 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={[table.th, colActionsWidth]}>Aktionen</th>
+                  <th
+                    scope="col"
+                    mix={[table.th, colActionsWidth, table.floatingActionsHeader]}
+                    aria-label="Aktionen"
+                  >
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    mix={[
+                      table.row,
+                      table.floatingRowReveal,
+                      table.floatingTrailingFade,
+                      editRow?.id === row.id ? table.editingRow : undefined,
+                    ]}
                     data-row-id={row.id}
                   >
                     <td mix={table.td} data-label="Titel" title={row.title}>
@@ -587,12 +599,30 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     <td
                       mix={table.td}
                       data-label="Aktualisiert"
+                      data-floating-trailing
                       title={formatTimestamp(row.updated_at)}
                     >
                       {formatTimestamp(row.updated_at)}
                     </td>
-                    <td mix={table.actionCell} data-label="Aktionen">
-                      <div mix={table.actionGroup}>
+                    <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                      <button
+                        type="button"
+                        data-row-actions-trigger
+                        aria-expanded="false"
+                        aria-controls={`appointment-row-actions-${row.id}`}
+                        aria-label={`Weitere Aktionen für ${row.title}`}
+                        title="Weitere Aktionen"
+                        mix={table.floatingActionsTrigger}
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                      <div
+                        id={`appointment-row-actions-${row.id}`}
+                        mix={[table.actionGroup, table.floatingActions]}
+                        role="group"
+                        aria-label={`Aktionen für ${row.title}`}
+                        data-row-actions
+                      >
                         <a
                           href={buildEditUrl(
                             ADMIN_BASE,
@@ -724,6 +754,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           status={status}
         />
         <AdminAppointmentsContextMenu />
+        <AdminRowActionsOverlay />
       </div>
     )
 

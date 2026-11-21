@@ -8,8 +8,8 @@ import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { initializeAppDatabase } from '../../db.ts'
 
 // ---------------------------------------------------------------------------
-// /verwaltung/offerings row actions: the primary edit action stays visible and
-// the per-row kebab opens the secondary configuration/delete menu.
+// /verwaltung/offerings row actions: the persistent kebab reveals the
+// configuration/edit/delete cluster, mirroring the other admin grids.
 //
 // Requires a running PostgreSQL database (global test setup) and a Playwright
 // browser. Runs as CI-only (gated on type: ["e2e"]).
@@ -38,27 +38,26 @@ describe('verwaltung offerings: row action menu', () => {
     return page
   }
 
-  it('keeps edit direct and opens configuration from the kebab menu', async (t) => {
+  it('reveals configuration from the persistent kebab overlay', async (t) => {
     let page = await openOfferingsPage(t)
     let firstRow = page.locator('[data-offerings-table] tbody tr[data-row-id]').first()
 
-    await firstRow.locator('a[aria-label="Bearbeiten"]').waitFor({ timeout: 15_000 })
-    await firstRow
-      .locator('[data-offerings-row-menu-trigger][data-offerings-row-menu-ready="true"]')
-      .waitFor({ timeout: 15_000 })
-    await firstRow.locator('[data-offerings-row-menu-trigger]').click()
+    let trigger = firstRow.locator('[data-row-actions-trigger]')
+    await trigger.waitFor({ timeout: 15_000 })
+    await page
+      .locator('[data-admin-row-actions-ready="true"]')
+      .waitFor({ state: 'attached', timeout: 15_000 })
+    await trigger.click()
 
     await page.waitForFunction(
       () =>
         document
-          .querySelector(
-            '[data-offerings-table] tbody tr[data-row-id] [data-offerings-row-menu-trigger]',
-          )
+          .querySelector('[data-offerings-table] tbody tr[data-row-id] [data-row-actions-trigger]')
           ?.getAttribute('aria-expanded') === 'true',
       undefined,
       { timeout: 15_000 },
     )
-    await firstRow.getByRole('menuitem', { name: 'Konfiguration' }).click()
+    await firstRow.locator('a[aria-label="Konfiguration"]').click()
     await page.waitForFunction(
       () => new URL(location.href).searchParams.get('config') !== null,
       undefined,

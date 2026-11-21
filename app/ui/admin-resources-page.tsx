@@ -37,6 +37,7 @@ import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
 import { EditorAutofocus } from './editor-autofocus.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { AdminResourcesContextMenu } from '../actions/admin/public/admin-resources-context-menu.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
@@ -328,7 +329,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                 <col />
                 <col mix={css({ width: '160px' })} />
                 <col mix={css({ width: '160px' })} />
-                <col mix={colActionsWidth} />
+                <col mix={[colActionsWidth, table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -434,8 +435,12 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th scope="col" mix={table.th} aria-label="Aktionen">
-                    Aktionen
+                  <th
+                    scope="col"
+                    mix={[table.th, colActionsWidth, table.floatingActionsHeader]}
+                    aria-label="Aktionen"
+                  >
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
                   </th>
                 </tr>
               </thead>
@@ -453,7 +458,12 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   return (
                     <tr
                       key={row.id}
-                      mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                      mix={[
+                        table.row,
+                        table.floatingRowReveal,
+                        table.floatingTrailingFade,
+                        editRow?.id === row.id ? table.editingRow : undefined,
+                      ]}
                       data-row-id={row.id}
                     >
                       <td mix={table.td} data-label="Name" title={row.name ?? ''}>
@@ -499,15 +509,29 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                       <td
                         mix={table.td}
                         data-label="Aktualisiert"
+                        data-floating-trailing
                         title={formatTimestamp(row.updated_at as number)}
                       >
                         {formatTimestamp(row.updated_at as number)}
                       </td>
-                      <td mix={table.actionCell} data-label="Aktionen">
+                      <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`resource-row-actions-${row.id}`}
+                          aria-label={`Weitere Aktionen für ${row.name ?? 'diese Ressource'}`}
+                          title="Weitere Aktionen"
+                          mix={table.floatingActionsTrigger}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
                         <div
-                          mix={table.actionGroup}
+                          id={`resource-row-actions-${row.id}`}
+                          mix={[table.actionGroup, table.floatingActions]}
                           role="group"
                           aria-label={`Aktionen für ${row.name ?? 'diese Ressource'}`}
+                          data-row-actions
                         >
                           <a
                             href={editHref}
@@ -586,6 +610,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             filter={filter}
           />
           <AdminResourcesContextMenu />
+          <AdminRowActionsOverlay />
         </div>
 
         {/* Pagination */}

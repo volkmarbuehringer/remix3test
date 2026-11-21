@@ -2,7 +2,7 @@
 
 **Extracted:** 2026-10-28
 **Updated:** 2026-11-21
-**Context:** Admin grids in this app (`/admin/lists`, `/admin/users`, `/admin/chatlog`, `/admin/clients`). Shared implementation: `app/ui/mixins/admin-table.ts` (`floatingActions*`, `floatingRowReveal`, `floatingTrailingFade`) plus `app/ui/admin-row-actions-overlay.browser.tsx`. Reveal mechanics: `hover-reveal.md`; list-sidebar variant: `app/ui/lists-layout.tsx`.
+**Context:** Admin and Verwaltung data grids in this app (`/admin/lists`, `/admin/users`, `/admin/chatlog`, `/admin/clients`, `/verwaltung/appointments`, `/verwaltung/offerings`, `/verwaltung/resources`, `/verwaltung/offering-configs`). Shared implementation: `app/ui/mixins/admin-table.ts` (`floatingActions*`, `floatingRowReveal`, `floatingTrailingFade`) plus `app/ui/admin-row-actions-overlay.browser.tsx`. Reveal mechanics: `hover-reveal.md`; list-sidebar variant: `app/ui/lists-layout.tsx`.
 
 ## Problem
 
@@ -67,7 +67,7 @@ Adopt per grid when the table has width pressure or the product wants one consis
 
 ## Measured fit (2026-11-21)
 
-The persistent-kebab variant is active on `/admin/lists`, `/admin/users`, `/admin/chatlog`, and `/admin/clients`. The clients grid was migrated from a 120px visible action column to the 44px kebab gutter; its date column no longer runs under the trigger. Clients already fit at 1440px, so this migration was for interaction consistency rather than overflow. `/verwaltung/appointments`, `/verwaltung/resources`, and `/verwaltung/offering-configs` still fit inline and have not adopted the overlay.
+The persistent-kebab variant is active on `/admin/lists`, `/admin/users`, `/admin/chatlog`, `/admin/clients`, `/verwaltung/appointments`, `/verwaltung/offerings`, `/verwaltung/resources`, and `/verwaltung/offering-configs`. The clients grid was migrated from a 120px visible action column to the 44px kebab gutter; its date column no longer runs under the trigger. Clients already fit at 1440px, so this migration was for interaction consistency rather than overflow. The Verwaltung grids adopted the same interaction for consistency; offerings keeps configuration/edit/delete in the overlay cluster while its right-click menu remains available.
 
 ## How to verify
 
