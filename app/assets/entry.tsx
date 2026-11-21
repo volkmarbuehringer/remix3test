@@ -57,22 +57,44 @@ app = run({
   },
 })
 
-app.addEventListener('error', async (event) => {
+let fatalErrorHandled = false
+
+/**
+ * Report one root failure and replace the broken app with the app-owned fatal
+ * card. Both `run()` failures and unhandled promise rejections share this path
+ * so a rejection cannot leave a half-live runtime behind.
+ */
+async function handleFatalError(error: unknown) {
+  if (fatalErrorHandled) return
+  fatalErrorHandled = true
+
   // Report the original error before the runtime is torn down; the fatal card only
   // shows the message, so without this the stack is lost (guide 06 §"Handle failures
   // and cancellation" / ch. 12 §"Handle browser runtime errors at the app root").
-  console.error(event.error)
+  console.error(error)
   app.dispose()
   let errorCard = import('./error-card.browser.tsx')
   await fadeOutBody()
 
-  let message = 'message' in event.error ? event.error.message : 'Unknown error'
+  let message = error instanceof Error ? error.message : String(error)
   try {
     let { renderFatalError } = await errorCard
     renderFatalError(message)
   } catch {
     document.body.textContent = `Fatal error: ${message}`
   }
+}
+
+app.addEventListener('error', (event) => {
+  void handleFatalError(event.error)
+})
+
+window.addEventListener('unhandledrejection', (event) => {
+  // Treat the rejection as handled only because this root listener now reports
+  // it and renders the fatal card; otherwise browsers also emit a duplicate
+  // uncaught-rejection page error.
+  event.preventDefault()
+  void handleFatalError(event.reason)
 })
 
 function isPlainGet(options?: ResolveFrameOptions): boolean {
