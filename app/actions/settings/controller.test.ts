@@ -5,7 +5,7 @@ import { SetCookie } from 'remix/headers'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { routes } from '../../routes.ts'
-import { initializeAppDatabase } from '../../db.ts'
+import { db, initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
 import { hashToken } from '../../utils/api-token.ts'
@@ -672,6 +672,65 @@ describe('Settings controller', () => {
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show password error')
       assert.ok(html.includes('id="settings-account"'), 'account panel is rendered')
       assert.ok(!html.includes('id="settings-profile"'), 'other panels are not rendered')
+    })
+
+    it('keeps the account and renders a visible error when the delete write no-ops', async (t) => {
+      let deleteUserEmail = `${TEST_PREFIX}delete-write-failure@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [
+          deleteUserEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Delete Write Failure',
+          'customer',
+          Date.now(),
+        ],
+      )
+
+      let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let originalExec = db.exec.bind(db) as (...args: unknown[]) => Promise<unknown>
+      t.mock.method(db, 'exec', (async (...args: unknown[]) => {
+        let statement = args[0]
+        let text =
+          typeof statement === 'string'
+            ? statement
+            : statement && typeof statement === 'object' && 'text' in statement
+              ? String((statement as { text: unknown }).text)
+              : ''
+        if (text.includes('DELETE FROM users WHERE id = $1')) {
+          return { rows: [], affectedRows: 0 }
+        }
+        return originalExec(...args)
+      }) as typeof db.exec)
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'delete-account',
+          currentPassword: INITIAL_PASSWORD,
+          confirmDelete: 'on',
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 500, 'a delete that removes no row must not look successful')
+      let html = await response.text()
+      assert.ok(
+        html.includes('Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut.'),
+        'the failure must stay visible in the account panel',
+      )
+      assert.ok(
+        html.includes('id="delete-account-error"'),
+        'the error remains linked to the control',
+      )
+
+      let userResult = await pool.query('SELECT id FROM users WHERE email = $1', [deleteUserEmail])
+      assert.equal(userResult.rows.length, 1, 'the account must remain when the delete failed')
     })
 
     it('successfully deletes account and redirects to login', async () => {

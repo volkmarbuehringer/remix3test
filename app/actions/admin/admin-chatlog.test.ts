@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { initializeAppDatabase } from '../../db.ts'
 import { createAuthCookieWithCsrf } from '../../../test/utils.ts'
 import { router } from '../../test-router.ts'
+import { mastra } from '../mastra/index.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Chatlog Controller integration tests
@@ -183,6 +184,41 @@ describe('Admin Chatlog controller', () => {
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('offset=10'), 'should keep the page offset')
     assert.ok(location.includes('source=support'), 'should keep the source filter')
+  })
+
+  it('shows a flash error and skips success audit when the delete write fails', async (t) => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    t.mock.method(mastra, 'getAgent', () => {
+      throw new Error('injected delete failure')
+    })
+
+    let response = await router.fetch('https://remix.run/admin/chatlog/failing-thread/delete', {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        _offset: '10',
+        _source: 'support',
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 303, 'the failed delete still PRGs')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.includes('offset=10'), 'should keep the page offset')
+    assert.ok(location.includes('source=support'), 'should keep the source filter')
+
+    let follow = await router.fetch(new URL(location, 'https://remix.run'), {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(follow.status, 200)
+    let html = await follow.text()
+    assert.ok(
+      html.includes('Konversation konnte nicht gelöscht werden.'),
+      'the failed delete must be visible in the rendered flash',
+    )
   })
 
   // -----------------------------------------------------------------------

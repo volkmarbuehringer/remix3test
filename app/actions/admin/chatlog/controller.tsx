@@ -283,6 +283,8 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         if (process.env.NODE_ENV !== 'test') {
           console.error('[Admin Chatlog] destroy failed for ' + id + ': ' + String(error))
         }
+        flashError(context.session, 'Konversation konnte nicht gelöscht werden.')
+        return redirect(routes.admin.chatlog.index.href() + query, 303)
       }
 
       let authIdentity = getAdminIdentity(context.auth)

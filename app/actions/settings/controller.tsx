@@ -155,8 +155,10 @@ export default createController(routes.settings, {
         })
 
         try {
-          await deleteUser(context.db, user.id)
-        } catch {
+          let deleted = await deleteUser(context.db, user.id)
+          if (!deleted) throw new Error('Account deletion removed no rows')
+        } catch (error) {
+          context.logger?.('Failed to delete own account: ' + String(error))
           deleteAccountLimiter.reset(user.id)
           return context.render(
             <SettingsView
