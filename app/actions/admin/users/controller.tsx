@@ -149,6 +149,19 @@ type UsersRenderContext = {
 }
 
 /**
+ * True for a browser document/native-form navigation. Frame requests carry
+ * `X-Remix-Frame` and the frame resolver also sends `Accept: text/html`, so
+ * check the frame header first; API and bare `fetch()` callers usually send
+ * a wildcard or `application/json` Accept and keep receiving JSON guard failures.
+ */
+function isDocumentRequest(request: Request): boolean {
+  if (request.headers.get('X-Remix-Frame') === 'true') return false
+  if (request.headers.get('Sec-Fetch-Mode') === 'navigate') return true
+  let accept = request.headers.get('Accept')?.toLowerCase() ?? ''
+  return accept.includes('text/html') || accept.includes('application/xhtml+xml')
+}
+
+/**
  * Re-render the full admin page with a validation error (Pattern 1 direct re-render).
  *
  * A thin per-page adapter: the shared `renderGridFormError` loads the grid rows and
@@ -170,6 +183,7 @@ async function renderUsersError(
     filter?: string | undefined
     status?: UserStatus | undefined
     pageSize: number
+    responseStatus?: number | undefined
   },
 ): Promise<Response> {
   let pageKey = PAGE_SIZE_KEYS.adminUsers
@@ -242,6 +256,7 @@ async function renderUsersError(
     formError: opts.formError,
     fullHeight: !(editRow || opts.creating),
     grid,
+    status: opts.responseStatus,
   })
 }
 
@@ -511,7 +526,21 @@ export default createController(routes.admin.users, {
         if (currentUser && currentUser.disabled_at == null) {
           let reason = await disableGuardReason(db, currentUser, getAdminIdentity(context.auth))
           if (reason) {
-            return context.json({ ok: false, error: reason, field: 'disabled' }, { status: 403 })
+            if (!isDocumentRequest(context.request)) {
+              return context.json({ ok: false, error: reason, field: 'disabled' }, { status: 403 })
+            }
+            return renderUsersError(context, {
+              editRow: buildEditRowFromRaw(id, rawValues),
+              formValues: userFormValues(rawValues),
+              formError: reason,
+              offset: gridOffset(rawValues),
+              column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
+              direction: gridSortDirection(rawValues),
+              filter: gridFilter(rawValues),
+              status: parseUserStatus(rawValues._status),
+              pageSize: effectivePageSize,
+              responseStatus: 403,
+            })
           }
         }
       }
@@ -568,6 +597,29 @@ export default createController(routes.admin.users, {
       let db = context.db
       let formData = context.formData
 
+      let rejected = (message: string): Response | Promise<Response> => {
+        if (!isDocumentRequest(context.request)) {
+          return context.json({ ok: false, error: message }, { status: 403 })
+        }
+        let rawValues = {
+          _offset: String(formData.get('_offset') ?? ''),
+          _sort: String(formData.get('_sort') ?? ''),
+          _order: String(formData.get('_order') ?? ''),
+          _filter: String(formData.get('_filter') ?? ''),
+          _status: String(formData.get('_status') ?? ''),
+        }
+        return renderUsersError(context, {
+          formError: message,
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues, USERS_SORTABLE_FIELDS, 'name'),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          status: parseUserStatus(rawValues._status),
+          pageSize: getPageSize(context.session, USERS_PAGE_SIZE, PAGE_SIZE_KEYS.adminUsers),
+          responseStatus: 403,
+        })
+      }
+
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
@@ -580,13 +632,10 @@ export default createController(routes.admin.users, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (!authIdentity) {
-        return context.json({ ok: false, error: 'Nicht autorisiert.' }, { status: 403 })
+        return rejected('Nicht autorisiert.')
       }
       if (id === authIdentity.id) {
-        return context.json(
-          { ok: false, error: 'Das eigene Konto kann nicht gelöscht werden.' },
-          { status: 403 },
-        )
+        return rejected('Das eigene Konto kann nicht gelöscht werden.')
       }
 
       let user = existing as User
@@ -609,10 +658,7 @@ export default createController(routes.admin.users, {
         return false
       })
       if (blocked) {
-        return context.json(
-          { ok: false, error: 'Das letzte Admin-Konto kann nicht gelöscht werden.' },
-          { status: 403 },
-        )
+        return rejected('Das letzte Admin-Konto kann nicht gelöscht werden.')
       }
 
       if (process.env.NODE_ENV !== 'test') {

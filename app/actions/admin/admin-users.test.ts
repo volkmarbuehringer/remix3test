@@ -2,7 +2,7 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
-import { initializeAppDatabase } from '../../db.ts'
+import { db, initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../../test/pool.ts'
 import { createAuthCookieWithCsrfForUser, createTestUser } from '../../../test/utils.ts'
 import { readSessionId, sessionStorage } from '../../middleware/session.ts'
@@ -794,6 +794,122 @@ describe('Admin Users Controller', () => {
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
     })
+
+    it('renders a localized 403 document when an admin disables their own account', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let body = new URLSearchParams({
+        name: 'Admin User1',
+        email: 'admin@newapp.com',
+        role: 'admin',
+        disabled: 'true',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 403, 'a native form request must render the guard error')
+      assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+      let html = await response.text()
+      assert.ok(html.includes('Das eigene Konto kann nicht deaktiviert werden.'))
+      assert.ok(html.includes('data-users-table'), 'the grid is re-rendered around the error')
+      assert.ok(!html.trimStart().startsWith('{'), 'the document request must not receive JSON')
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
+      assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
+    })
+
+    it('keeps JSON for a framed self-disable guard failure', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let body = new URLSearchParams({
+        name: 'Admin User1',
+        email: 'admin@newapp.com',
+        role: 'admin',
+        disabled: 'true',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+          Accept: 'text/html,application/xhtml+xml',
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 403)
+      let json = await response.json()
+      assert.equal(json.ok, false)
+      assert.match(json.error, /eigene Konto/)
+    })
+
+    it('renders a localized 403 document for the last-admin disable guard', async (t) => {
+      let email = `test-last-admin-disable-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'target admin must be created')
+      await pool.query(`UPDATE users SET role = 'admin' WHERE id = $1`, [id])
+
+      try {
+        t.mock.method(db, 'count', async () => 1)
+
+        let body = new URLSearchParams({
+          name: 'Last Admin',
+          email,
+          role: 'admin',
+          disabled: 'true',
+          _csrf: adminCsrfToken,
+          _offset: '',
+          _sort: '',
+          _order: '',
+          _filter: '',
+        })
+        let response = await router.fetch(`${BASE}/admin/users/${id}`, {
+          method: 'PUT',
+          headers: {
+            Cookie: adminCookie,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Csrf-Token': adminCsrfToken,
+            Accept: 'text/html,application/xhtml+xml',
+          },
+          body: body.toString(),
+        })
+
+        assert.equal(response.status, 403)
+        let html = await response.text()
+        assert.ok(html.includes('Das letzte Admin-Konto kann nicht deaktiviert werden.'))
+        assert.ok(html.includes('data-users-table'), 'the grid is re-rendered around the error')
+
+        let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
+        assert.equal(result.rows[0]?.disabled_at, null, 'the target admin stays enabled')
+      } finally {
+        await pool.query('DELETE FROM users WHERE id = $1', [id])
+      }
+    })
   })
 
   describe('toggle-disabled (POST /admin/users/:id/toggle-disabled)', () => {
@@ -1175,6 +1291,82 @@ describe('Admin Users Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 403)
+    })
+
+    it('renders a localized 403 document when an admin deletes their own account', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 403, 'a native form request must render the guard error')
+      assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+      let html = await response.text()
+      assert.ok(html.includes('Das eigene Konto kann nicht gelöscht werden.'))
+      assert.ok(html.includes('data-users-table'), 'the grid is re-rendered around the error')
+
+      let result = await pool.query('SELECT id FROM users WHERE id = $1', [adminId])
+      assert.equal(result.rows.length, 1, 'the signed-in admin must remain in the database')
+    })
+
+    it('renders a localized 403 document for the last-admin delete guard', async (t) => {
+      let email = `test-last-admin-delete-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'target admin must be created')
+      await pool.query(`UPDATE users SET role = 'admin' WHERE id = $1`, [id])
+
+      try {
+        t.mock.method(db, 'transaction', (async (callback: (tx: unknown) => Promise<boolean>) =>
+          callback({
+            exec: async () => ({ rows: [], affectedRows: 0 }),
+            count: async () => 1,
+          })) as typeof db.transaction)
+
+        let body = new URLSearchParams({
+          _csrf: adminCsrfToken,
+          _offset: '',
+          _sort: '',
+          _order: '',
+          _filter: '',
+        })
+        let response = await router.fetch(`${BASE}/admin/users/${id}`, {
+          method: 'DELETE',
+          headers: {
+            Cookie: adminCookie,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Csrf-Token': adminCsrfToken,
+            Accept: 'text/html,application/xhtml+xml',
+          },
+          body: body.toString(),
+        })
+
+        assert.equal(response.status, 403)
+        let html = await response.text()
+        assert.ok(html.includes('Das letzte Admin-Konto kann nicht gelöscht werden.'))
+        assert.ok(html.includes('data-users-table'), 'the grid is re-rendered around the error')
+
+        let result = await pool.query('SELECT id FROM users WHERE id = $1', [id])
+        assert.equal(result.rows.length, 1, 'the target admin must not be deleted')
+      } finally {
+        await pool.query('DELETE FROM users WHERE id = $1', [id])
+      }
     })
   })
 })

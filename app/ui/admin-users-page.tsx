@@ -1213,6 +1213,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <h2 mix={table.title}>Benutzer</h2>
           {pdfLink}
         </div>
+        {formError ? (
+          <div mix={table.errorBanner} role="alert">
+            {formError}
+          </div>
+        ) : null}
         {gridSection}
       </div>
     )
