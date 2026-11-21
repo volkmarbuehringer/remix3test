@@ -448,7 +448,7 @@ describe('Lists controller', () => {
     }
   })
 
-  it('GET /lists renders one collapsed action menu per sidebar row', async () => {
+  it('GET /lists renders desktop overlay hooks and a touch fallback per sidebar row', async () => {
     // Self-contained: the sidebar is empty until this user owns a list.
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
@@ -470,16 +470,21 @@ describe('Lists controller', () => {
     let text = await response.text()
     let rows = text.match(/data-list-id=/g)?.length ?? 0
     let triggers = text.match(/data-list-menu-button/g)?.length ?? 0
+    let overlays = text.match(/data-list-actions-overlay/g)?.length ?? 0
 
     assert.ok(rows > 0, 'the sidebar should render at least one saved list row')
-    assert.equal(triggers, rows, 'each saved list row has exactly one action trigger')
-    assert.equal(
-      text.includes('data-list-row-action'),
-      false,
-      'the old hover-only action cluster must not come back',
-    )
-    assert.ok(text.includes('role="group"'), 'the row menu must render as a labelled group')
-    assert.ok(text.includes('aria-expanded="false"'), 'the trigger must start collapsed')
+    assert.equal(triggers, rows, 'each saved list row has one touch fallback trigger')
+    assert.equal(overlays, rows, 'each saved list row has one desktop action overlay')
+    assert.ok(text.includes('role="group"'), 'the row actions must render as a labelled group')
+    assert.ok(text.includes('aria-expanded="false"'), 'the fallback trigger must start collapsed')
+    for (let hook of [
+      'data-list-rename-btn',
+      'data-list-copy-here-btn',
+      'data-list-copy-btn',
+      'data-list-delete-btn',
+    ]) {
+      assert.ok(text.includes(hook), `the overlay/menu must expose ${hook}`)
+    }
   })
 
   it('GET /lists sidebar scopes lists to current non-admin user', async () => {

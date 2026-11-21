@@ -9,11 +9,12 @@ import { initializeAppDatabase } from '../../db.ts'
 import { __setTestChatlogFixtures } from './chatlog/controller.tsx'
 
 // ---------------------------------------------------------------------------
-// Floating row actions on the grids migrated to `table.floatingActions*`
-// (users, chatlog). The shared mixin hides the cluster and zeroes the action
-// column on `(min-width: 1200px) and (hover: hover)`; below that breakpoint the
+// Persistent kebab + hover/focus row actions on the grids migrated to
+// `table.floatingActions*` (users, chatlog, clients). The shared mixin zeroes
+// the action column on `(min-width: 1200px) and (hover: hover)`, keeps the
+// kebab visible, and reveals the cluster beside it. Below that breakpoint the
 // same markup must keep the action column and its visible header. The /lists
-// grid has its own hover/focus coverage in lists-ux.test.e2e.ts.
+// grid has its own coverage in lists-ux.test.e2e.ts.
 //
 // Requires a running PostgreSQL database (global test setup) and a Playwright
 // browser. Runs as CI-only (gated on `type: ["e2e"]`).
@@ -46,6 +47,12 @@ const CASES: GridCase[] = [
     path: routes.admin.chatlog.index.href(),
     tableAttr: 'data-chatlog-table',
     rowAttr: 'data-chatlog-row',
+  },
+  {
+    label: 'clients',
+    path: routes.admin.clients.index.href(),
+    tableAttr: 'data-clients-table',
+    rowAttr: 'data-row-id',
   },
 ]
 
@@ -89,8 +96,11 @@ describe('admin grids: floating row actions', () => {
       let header = wrap.querySelector('thead') as HTMLElement
       let headers = [...wrap.querySelectorAll('thead th')] as HTMLElement[]
       let group = wrap.querySelector('tbody [data-row-actions]') as HTMLElement
+      let trigger = wrap.querySelector('tbody [data-row-actions-trigger]') as HTMLElement
       let trailing = wrap.querySelector('tbody [data-floating-trailing]') as HTMLElement | null
       let row = group.closest('tr') as HTMLElement
+      let groupRect = group.getBoundingClientRect()
+      let triggerRect = trigger.getBoundingClientRect()
       return {
         actionWidth: headers[headers.length - 1]?.getBoundingClientRect().width ?? -1,
         visibleHeader: header.innerText,
@@ -99,6 +109,11 @@ describe('admin grids: floating row actions', () => {
         trailingOpacity: trailing ? getComputedStyle(trailing).opacity : 'missing',
         scroll: wrap.scrollWidth - wrap.clientWidth,
         rowKey: row.getAttribute('data-row-id') ?? row.getAttribute('data-chatlog-row') ?? '',
+        triggerDisplay: getComputedStyle(trigger).display,
+        triggerExpanded: trigger.getAttribute('aria-expanded'),
+        triggerWidth: triggerRect.width,
+        triggerHeight: triggerRect.height,
+        gapToTrigger: triggerRect.left - groupRect.right,
       }
     }, tableAttr)
   }
@@ -120,8 +135,8 @@ describe('admin grids: floating row actions', () => {
         `${grid.label}: desktop rows start without visible actions`,
       )
       assert.ok(
-        resting.actionWidth <= 1,
-        `${grid.label}: action column must be zero-width, got ${resting.actionWidth}px`,
+        resting.actionWidth >= 42 && resting.actionWidth <= 46,
+        `${grid.label}: action column must reserve a 44px kebab gutter, got ${resting.actionWidth}px`,
       )
       assert.ok(
         !resting.visibleHeader.toLowerCase().includes('aktionen'),
@@ -129,7 +144,25 @@ describe('admin grids: floating row actions', () => {
       )
       assert.ok(
         resting.scroll <= 1,
-        `${grid.label}: zero-width column must not cause overflow, got ${resting.scroll}px`,
+        `${grid.label}: the kebab gutter must not cause overflow, got ${resting.scroll}px`,
+      )
+      assert.notEqual(
+        resting.triggerDisplay,
+        'none',
+        `${grid.label}: the kebab trigger must stay visible`,
+      )
+      assert.equal(
+        resting.triggerExpanded,
+        'false',
+        `${grid.label}: the kebab trigger must start collapsed`,
+      )
+      assert.ok(
+        resting.triggerWidth > 0 && resting.triggerHeight > 0,
+        `${grid.label}: the kebab trigger needs a clickable box`,
+      )
+      assert.ok(
+        resting.gapToTrigger >= 0 && resting.gapToTrigger <= 12,
+        `${grid.label}: the action overlay must sit just left of the kebab, got ${resting.gapToTrigger}px gap`,
       )
 
       let row = page.locator(
@@ -175,6 +208,25 @@ describe('admin grids: floating row actions', () => {
         },
         grid.tableAttr,
         { timeout: 15_000 },
+      )
+
+      // The persistent kebab pins the same cluster open and moves focus into
+      // it. Escape returns both the visual state and focus to the trigger.
+      await page
+        .locator('[data-admin-row-actions-ready="true"]')
+        .waitFor({ state: 'attached', timeout: 15_000 })
+      let trigger = row.locator('[data-row-actions-trigger]')
+      await trigger.click()
+      assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
+      assert.ok(
+        await page.evaluate(() => document.activeElement?.closest('[data-row-actions]') !== null),
+        `${grid.label}: opening the kebab must focus the first row action`,
+      )
+      await page.keyboard.press('Escape')
+      assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
+      assert.ok(
+        await trigger.evaluate((el) => document.activeElement === el),
+        `${grid.label}: Escape must return focus to the kebab trigger`,
       )
     })
 
@@ -239,8 +291,8 @@ describe('admin grids: floating row actions', () => {
       'users: the status cell becomes the faded trailing cell while editing',
     )
     assert.ok(
-      focused.actionWidth <= 1,
-      `users: the focused grid keeps the zero-width action column, got ${focused.actionWidth}px`,
+      focused.actionWidth >= 42 && focused.actionWidth <= 46,
+      `users: the focused grid keeps the 44px kebab gutter, got ${focused.actionWidth}px`,
     )
     assert.equal(focused.groupOpacity, '0', 'users: the focused grid hides the cluster until hover')
 

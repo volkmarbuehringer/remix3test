@@ -194,7 +194,7 @@ describe('Admin Offerings Controller', () => {
       assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })
 
-    it('renders the row actions as a visible buttongroup', async () => {
+    it('renders a direct edit action and a per-row kebab menu', async () => {
       let response = await router.fetch(ADMIN_OFFERINGS_URL, {
         headers: { Cookie: adminCookie },
       })
@@ -202,10 +202,20 @@ describe('Admin Offerings Controller', () => {
       let html = await response.text()
       assert.ok(html.includes('data-delete-form'), 'delete form must be rendered in the row')
       assert.ok(
-        html.includes('aria-label="Konfiguration"') &&
-          html.includes('aria-label="Bearbeiten"') &&
-          html.includes('aria-label="Löschen"'),
-        'all three row actions should be visible with accessible labels',
+        html.includes('aria-label="Bearbeiten"'),
+        'the primary edit action should stay directly visible',
+      )
+      assert.ok(
+        html.includes('data-offerings-row-menu-trigger'),
+        'each row should render a visible kebab trigger',
+      )
+      assert.ok(
+        html.includes('Konfiguration') && html.includes('Löschen'),
+        'the kebab menu should contain configuration and delete actions',
+      )
+      assert.ok(
+        !html.includes('title="Konfiguration"'),
+        'configuration should no longer be a separate direct action button',
       )
     })
 

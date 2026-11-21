@@ -168,6 +168,19 @@ describe('ClientGridPage', () => {
     )
   })
 
+  it('renders a persistent kebab for each row action cluster', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
+    let tree = renderFn()
+
+    let triggers = findElementsWithProp(tree, 'data-row-actions-trigger')
+    let clusters = findElementsWithProp(tree, 'data-row-actions')
+    assert.equal(triggers.length, sampleRows.length, 'one trigger per row')
+    assert.equal(clusters.length, sampleRows.length, 'one action cluster per row')
+    assert.equal(triggers[0]?.props['aria-expanded'], 'false', 'triggers start collapsed')
+  })
+
   it('labels every cell for the mobile card layout', () => {
     let renderFn = ClientGridPage(
       makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),

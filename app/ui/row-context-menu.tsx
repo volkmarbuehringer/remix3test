@@ -126,6 +126,9 @@ export function createRowContextMenu(options: RowContextMenuOptions) {
   }
 }
 
+/** Only the frame lookup fields row navigation needs, so typed client entries can call it. */
+type NavigationHandle = Pick<Handle, 'frame' | 'frames'>
+
 /** Where a row menu's Edit (or config) action navigates. */
 export interface GridNavigation {
   /** id of the page's `<script type="application/json">` grid-state blob. */
@@ -143,7 +146,7 @@ export interface GridNavigation {
  * blob is missing or malformed.
  */
 export function navigateGridParam(
-  handle: Handle,
+  handle: NavigationHandle,
   navigation: GridNavigation,
   paramName: string,
   paramValue: string,

@@ -22,6 +22,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminChatlogDetail } from './admin-chatlog-detail.browser.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { FrameFallback } from './frame-fallback.browser.tsx'
 
 const ADMIN_BASE = routes.admin.chatlog.index.href()
@@ -207,6 +208,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
       >
         <ConfirmDelete />
         <AdminChatlogDetail />
+        <AdminRowActionsOverlay />
         <h2 mix={table.title}>Chat-Konversationen</h2>
         <p mix={descriptionStyle}>Gespeicherte Support-Konversationen einsehen und verwalten.</p>
 
@@ -340,7 +342,19 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                           mix={[table.actionCell, table.floatingActionCell]}
                           data-label="Aktionen"
                         >
+                          <button
+                            type="button"
+                            data-row-actions-trigger
+                            aria-expanded="false"
+                            aria-controls={`row-actions-${conv.id}`}
+                            aria-label={`Weitere Aktionen für Konversation ${conv.id}`}
+                            title="Weitere Aktionen"
+                            mix={table.floatingActionsTrigger}
+                          >
+                            <span aria-hidden="true">⋮</span>
+                          </button>
                           <div
+                            id={`row-actions-${conv.id}`}
                             mix={[table.actionGroup, table.floatingActions]}
                             role="group"
                             aria-label="Zeilenaktionen"

@@ -1,8 +1,11 @@
 import type { Handle } from 'remix/component'
 
+/** Only the frame lookup fields safe navigation needs, so any typed component handle works. */
+type NavigationHandle = Pick<Handle, 'frame' | 'frames'>
+
 const CONTAINER_IDS = ['support-agent-frame-container'] as const
 
-function getActiveFrame(_handle: Handle): string | null {
+function getActiveFrame(_handle: NavigationHandle): string | null {
   for (let id of CONTAINER_IDS) {
     let frame = activeFrameNameOrNull(id)
     if (frame) {
@@ -26,7 +29,7 @@ export function activeFrameName(containerId: string, fallbackName: string): stri
   return activeFrameNameOrNull(containerId) ?? fallbackName
 }
 
-export function safeNavigate(href: string, handle: Handle): void {
+export function safeNavigate(href: string, handle: NavigationHandle): void {
   let frameName = getActiveFrame(handle)
   // Prefer the named panel a stream container addresses; otherwise navigate the
   // frame this component is actually mounted in. The top frame is excluded: a

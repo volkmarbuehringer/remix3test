@@ -11,13 +11,14 @@ type OpenMenu = {
 }
 
 /**
- * Sidebar row action menu controller.
+ * Sidebar kebab-menu controller.
  *
- * The sidebar markup is server-rendered and spliced in by the lists frame, so
+ * The kebab stays visible at every width. Desktop rows reveal their action
+ * group through CSS on hover/focus (see lists-layout.tsx); on touch and narrow
+ * browsers this entry opens/closes the same group as an inline menu. The
+ * sidebar markup is server-rendered and spliced in by the lists frame, so
  * open/close state lives in the DOM (data-list-menu-open + aria-expanded)
- * instead of component state. One trigger per row replaces the old hover-only
- * action cluster: the cluster overlaid the count badge, clipped the row name,
- * and left every action button in the tab order even while invisible.
+ * instead of component state.
  */
 export const ListsRowActions = clientEntry(
   import.meta.url + '#ListsRowActions',

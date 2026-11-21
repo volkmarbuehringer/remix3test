@@ -75,10 +75,12 @@ describe('Admin Chatlog source classification and filter', () => {
     assert.ok(html.includes('Letzte Nachricht'), 'last-activity column')
   })
 
-  it('renders the row actions as a shared, hover-revealed control group', async () => {
+  it('renders a persistent trigger with the shared, hover-revealed control group', async () => {
     let html = await (await get()).text()
 
     assert.ok(html.includes('data-chatlog-actions="true"'), 'row actions should share one control')
+    assert.ok(html.includes('data-row-actions-trigger'), 'each row needs a persistent trigger')
+    assert.ok(html.includes('aria-expanded="false"'), 'the trigger must start collapsed')
     assert.ok(html.includes('data-row-actions'), 'the cluster needs the reveal hook')
     assert.ok(html.includes('aria-label="Detail anzeigen"'), 'detail action should be labelled')
     assert.ok(html.includes('aria-label="Löschen"'), 'delete action should be labelled')

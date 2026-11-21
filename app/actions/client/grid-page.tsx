@@ -28,6 +28,7 @@ import { dataGridFill, dataGridWrap } from '../../ui/mixins/data-grid.ts'
 import { PAGE_SIZE_KEYS, type PageSizeKey } from '../../utils/get-page-size.ts'
 import { formatUtcDateDE } from '../../utils/date-utils.ts'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
+import { AdminRowActionsOverlay } from '../../ui/admin-row-actions-overlay.browser.tsx'
 
 type Row = Client
 
@@ -259,7 +260,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                 <col mix={css({ width: '90px' })} />
                 <col mix={css({ width: '100px' })} />
                 <col mix={css({ width: '110px' })} />
-                <col mix={css({ width: '120px' })} />
+                <col mix={[css({ width: '120px' }), table.floatingActionsCol]} />
               </colgroup>
               <thead>
                 <tr>
@@ -403,7 +404,9 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Aktionen</th>
+                  <th mix={[table.th, table.floatingActionsHeader]} aria-label="Aktionen">
+                    <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -412,7 +415,12 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     key={row.id}
                     data-row-id={row.id}
                     data-status={row.status}
-                    mix={[table.row, editingId === row.id ? table.editingRow : undefined]}
+                    mix={[
+                      table.row,
+                      table.floatingRowReveal,
+                      table.floatingTrailingFade,
+                      editingId === row.id ? table.editingRow : undefined,
+                    ]}
                   >
                     <td mix={table.td} title={String(row.id)} data-label="ID">
                       {row.id}
@@ -442,11 +450,29 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       mix={table.td}
                       title={formatUtcDateDE(row.registered as number)}
                       data-label="Registriert"
+                      data-floating-trailing
                     >
                       {formatUtcDateDE(row.registered as number)}
                     </td>
-                    <td mix={table.actionCell} data-label="Aktionen">
-                      <div mix={table.actionGroup}>
+                    <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                      <button
+                        type="button"
+                        data-row-actions-trigger
+                        aria-expanded="false"
+                        aria-controls={`row-actions-${row.id}`}
+                        aria-label={`Weitere Aktionen für ${row.name}`}
+                        title="Weitere Aktionen"
+                        mix={table.floatingActionsTrigger}
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                      <div
+                        id={`row-actions-${row.id}`}
+                        mix={[table.actionGroup, table.floatingActions]}
+                        role="group"
+                        aria-label={`Aktionen für ${row.name}`}
+                        data-row-actions
+                      >
                         <a
                           href={buildEditUrl(
                             ADMIN_BASE,
@@ -617,6 +643,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           status={statusFilter}
         />
         <ClientsContextMenu />
+        <AdminRowActionsOverlay />
       </div>
     )
   }

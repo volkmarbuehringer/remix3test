@@ -12,6 +12,7 @@ import { ADMIN_LISTS_TRANSITION_REGION } from '../utils/frame-transition.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { EditorAutofocus } from './editor-autofocus.browser.tsx'
 import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
@@ -684,6 +685,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     let gridSection = (
       <div mix={[table.minWidth0, hasFormPanel ? undefined : dataGridFill]}>
         <ConfirmDelete />
+        <AdminRowActionsOverlay />
 
         <form
           method="GET"
@@ -1260,7 +1262,19 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         </td>
                       ) : null}
                       <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`row-actions-${row.id}`}
+                          aria-label={'Weitere Aktionen für „' + displayTitle + '“'}
+                          title="Weitere Aktionen"
+                          mix={table.floatingActionsTrigger}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
                         <div
+                          id={`row-actions-${row.id}`}
                           mix={[table.actionGroup, table.floatingActions]}
                           data-row-actions
                           role="group"

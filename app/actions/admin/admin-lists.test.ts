@@ -350,13 +350,15 @@ describe('Admin Lists Controller', () => {
       )
     })
 
-    it('renders accessible segmented row actions instead of floating buttons', async () => {
+    it('renders accessible segmented row actions with a persistent trigger', async () => {
       await insertList('Actions Row', 'test-admin-actions', [{ id: 'a', label: 'Widget' }])
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
       let text = await response.text()
       assert.ok(text.includes('In Listen öffnen'), 'row should offer an open-in-lists action')
       assert.ok(text.includes('bearbeiten"'), 'edit action should be labelled per row')
       assert.ok(text.includes('löschen"'), 'delete action should be labelled per row')
+      assert.ok(text.includes('data-row-actions-trigger'), 'each row needs a persistent trigger')
+      assert.ok(text.includes('aria-expanded="false"'), 'the trigger must start collapsed')
     })
 
     it('keeps the actions column out of the visible header and reveals it from the row', async () => {

@@ -196,7 +196,7 @@ describe('Admin Users Controller', () => {
       )
     })
 
-    it('renders the row actions as a visible buttongroup', async () => {
+    it('renders a persistent kebab with the row action group', async () => {
       let response = await router.fetch(USERS_URL, {
         headers: { Cookie: adminCookie },
       })
@@ -207,9 +207,11 @@ describe('Admin Users Controller', () => {
         'edit/toggle/delete forms must all be rendered in the row',
       )
       assert.ok(
-        !text.includes('data-row-menu-trigger'),
-        'no hidden "..." overflow trigger should be used',
+        text.includes('data-row-actions-trigger'),
+        'each row should expose a persistent action trigger',
       )
+      assert.ok(text.includes('aria-expanded="false"'), 'the action trigger must start collapsed')
+      assert.ok(text.includes('data-row-actions'), 'the action overlay cluster must render')
       assert.ok(
         text.includes(' löschen"'),
         'delete button should be visible with a row-specific accessible label',

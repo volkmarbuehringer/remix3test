@@ -4,10 +4,10 @@ import { render } from 'remix/component/test'
 
 import { ListsRowActions } from './lists-row-actions.tsx'
 
-// The sidebar row menu is transient DOM state plus document-level dismissal
-// listeners. The markup mirrors lists-layout.tsx (server-rendered); the style
-// block mirrors the production contract that a closed menu is display: none,
-// so its action buttons are inert and out of the sequential tab order.
+// The touch/narrow sidebar row menu is transient DOM state plus document-level
+// dismissal listeners. The markup mirrors lists-layout.tsx (server-rendered);
+// the style block mirrors the production fallback contract that a closed menu is
+// display: none, so its action buttons are inert and out of the tab order.
 const ROWS_HTML = `
   <style>
     [data-list-menu] { display: none; }

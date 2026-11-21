@@ -57,6 +57,9 @@ export type PaginationState = {
 
 const frameTarget = frames.listsContent
 
+/** Desktop rows reveal a compact action overlay; touch/narrow rows keep the kebab menu. */
+const sidebarOverlayMedia = '@media (hover: hover) and (min-width: 901px)'
+
 /**
  * The shared shell grid top-aligns its columns (align-items: start), which
  * leaves the sidebar and the editor card at different heights. Stretching both
@@ -630,12 +633,10 @@ function ListsLayout(
                   {listId !== null && (
                     <>
                       {/*
-                        One visible action trigger per row. The old hover
-                        cluster overlaid the count badge and clipped the name;
-                        the menu is an inline second flex line, so it cannot be
-                        clipped by the scrolling <nav> either. The trigger is
-                        deliberately always visible (not hover-only): hover is
-                        unavailable to touch and keyboard users.
+                        The kebab stays visible for touch/keyboard and as the menu
+                        trigger. On desktop, hovering or focusing the row reveals a
+                        compact action overlay just to its left; the same action
+                        group becomes the inline touch menu below 901px.
                       */}
                       <button
                         type="button"
@@ -652,6 +653,7 @@ function ListsLayout(
                       <div
                         id={`list-row-menu-${listId}`}
                         data-list-menu
+                        data-list-actions-overlay={listId}
                         role="group"
                         aria-label={`Aktionen für "${displayName}"`}
                         draggable="false"
@@ -661,20 +663,27 @@ function ListsLayout(
                           type="button"
                           draggable="false"
                           data-list-rename-btn
-                          mix={listMenuItemStyle}
+                          mix={[listMenuItemStyle, listOverlayActionStyle]}
                           aria-label={`Liste "${displayName}" umbenennen`}
+                          title="Liste umbenennen"
                         >
-                          Umbenennen
+                          <span aria-hidden="true" mix={listActionGlyphStyle}>
+                            <Glyph name="edit" width={14} height={14} />
+                          </span>
+                          <span mix={listActionLabelStyle}>Umbenennen</span>
                         </button>
                         <button
                           type="button"
                           draggable="false"
                           data-list-copy-here-btn
-                          mix={listMenuItemStyle}
+                          mix={[listMenuItemStyle, listOverlayActionStyle]}
                           aria-label={`Elemente der geöffneten Liste in "${displayName}" kopieren`}
                           title="Elemente der geöffneten Liste hierher kopieren"
                         >
-                          Elemente hierher kopieren
+                          <span aria-hidden="true" mix={listActionGlyphStyle}>
+                            <Glyph name="arrowRight" width={14} height={14} />
+                          </span>
+                          <span mix={listActionLabelStyle}>Elemente hierher kopieren</span>
                         </button>
                         <form
                           method="POST"
@@ -687,10 +696,14 @@ function ListsLayout(
                             type="submit"
                             draggable="false"
                             data-list-copy-btn
-                            mix={listMenuItemStyle}
+                            mix={[listMenuItemStyle, listOverlayActionStyle]}
                             aria-label={`Liste "${displayName}" duplizieren`}
+                            title="Liste duplizieren"
                           >
-                            Duplizieren
+                            <span aria-hidden="true" mix={listActionGlyphStyle}>
+                              <Glyph name="copy" width={14} height={14} />
+                            </span>
+                            <span mix={listActionLabelStyle}>Duplizieren</span>
                           </button>
                         </form>
                         <a
@@ -698,10 +711,14 @@ function ListsLayout(
                           data-rmx-document
                           data-list-pdf={listId}
                           draggable="false"
-                          mix={listMenuItemStyle}
+                          mix={[listMenuItemStyle, listOverlayActionStyle]}
                           aria-label={`Liste "${displayName}" als PDF exportieren`}
+                          title="Als PDF exportieren"
                         >
-                          PDF exportieren
+                          <span aria-hidden="true" mix={listActionGlyphStyle}>
+                            <Glyph name="download" width={14} height={14} />
+                          </span>
+                          <span mix={listActionLabelStyle}>PDF exportieren</span>
                         </a>
                         <form
                           method="POST"
@@ -715,10 +732,14 @@ function ListsLayout(
                             type="submit"
                             draggable="false"
                             data-list-delete-btn
-                            mix={[listMenuItemStyle, listMenuDeleteStyle]}
+                            mix={[listMenuItemStyle, listOverlayActionStyle, listMenuDeleteStyle]}
                             aria-label={`Liste "${displayName}" löschen`}
+                            title="Liste löschen"
                           >
-                            Löschen
+                            <span aria-hidden="true" mix={listActionGlyphStyle}>
+                              <Glyph name="trash" width={14} height={14} />
+                            </span>
+                            <span mix={listActionLabelStyle}>Löschen</span>
                           </button>
                         </form>
                       </div>
@@ -861,7 +882,8 @@ const emptyHintStyle = css({
 
 const entryRowStyle = css({
   display: 'flex',
-  // The inline action menu wraps onto its own line inside the row.
+  // The inline touch menu wraps onto its own line inside the row. On desktop
+  // the same action container is absolutely positioned over the row instead.
   flexWrap: 'wrap',
   alignItems: 'center',
   rowGap: '2px',
@@ -870,11 +892,28 @@ const entryRowStyle = css({
     outline: `2px solid ${theme.colors.focus.ring}`,
     outlineOffset: '-2px',
   },
+  // Reveal the desktop overlay on hover or when a descendant receives keyboard
+  // focus. The same selectors are inert while the touch menu is display: none.
+  '&:hover [data-list-menu]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+  '&:has(:focus-visible) [data-list-menu]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+  [sidebarOverlayMedia]: {
+    // The overlay covers this edge of the row; hide the count instead of
+    // letting it peek out from behind the buttons.
+    '&:hover [data-list-count]': { opacity: '0' },
+    '&:has(:focus-visible) [data-list-count]': { opacity: '0' },
+  },
 })
 
 /**
- * One 44px action trigger per row, sized for touch. It sits beside the link
- * (not over it), so the row name and count badge stay visible while closed.
+ * One visible 44px kebab per row. It stays beside the link at every width; on
+ * desktop the hover overlay appears immediately to its left, and on touch the
+ * trigger opens the inline menu.
  */
 const listMenuButtonStyle = css({
   display: 'inline-flex',
@@ -916,9 +955,8 @@ const listMenuStyle = css({
   display: 'none',
   gridTemplateColumns: '1fr',
   gap: '2px',
-  // A bordered, inset panel makes the open actions read as a menu belonging
-  // to the row above instead of four more sidebar entries pushing the list
-  // down. The inline placement still keeps it inside the scroller (no clip).
+  // Touch/narrow fallback: the menu is an inline second flex line so it cannot
+  // be clipped by the scrolling <nav>.
   margin: `0 ${theme.space.xs} ${theme.space.xs}`,
   padding: '2px',
   border: `1px solid ${theme.colors.border.default}`,
@@ -928,12 +966,41 @@ const listMenuStyle = css({
   '&[data-list-menu-open]': {
     display: 'grid',
   },
+  [sidebarOverlayMedia]: {
+    // Desktop: the action group is a joined overlay immediately left of the
+    // kebab, which remains visible and clickable. display is forced because the
+    // base rule hides the inline touch menu while closed;
+    // opacity/pointer-events handle the hover reveal instead.
+    flexBasis: 'auto',
+    display: 'inline-flex !important',
+    gridTemplateColumns: 'none',
+    alignItems: 'stretch',
+    gap: 0,
+    position: 'absolute',
+    top: '50%',
+    // Match the kebab's 44px footprint so the trigger stays outside the overlay.
+    right: '44px',
+    transform: 'translateY(-50%)',
+    margin: 0,
+    padding: 0,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.surface.lvl2,
+    boxShadow: theme.shadow.sm,
+    overflow: 'hidden',
+    opacity: 0,
+    pointerEvents: 'none',
+    zIndex: 2,
+  },
 })
 
 const listMenuFormStyle = css({
   margin: 0,
   padding: 0,
   display: 'flex',
+  [sidebarOverlayMedia]: {
+    // Let the form's button become a direct flex child of the overlay group.
+    display: 'contents',
+  },
 })
 
 const listMenuItemStyle = css({
@@ -961,11 +1028,59 @@ const listMenuItemStyle = css({
   },
 })
 
+/** Desktop-only compact segment; touch/narrow keeps the full-width menu item. */
+const listOverlayActionStyle = css({
+  [sidebarOverlayMedia]: {
+    display: 'inline-flex !important',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px !important',
+    minHeight: '28px !important',
+    height: '28px',
+    padding: '0 !important',
+    border: 'none',
+    borderRight: `1px solid ${theme.colors.border.default}`,
+    borderRadius: '0 !important',
+    background: theme.surface.lvl2,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    ':hover': {
+      background: theme.surface.lvl3,
+      color: theme.colors.text.primary,
+    },
+    '&:focus-visible': {
+      position: 'relative',
+      outline: `2px solid ${theme.colors.focus.ring}`,
+      outlineOffset: '-2px',
+      zIndex: 1,
+    },
+  },
+})
+
+const listActionGlyphStyle = css({
+  display: 'none',
+  [sidebarOverlayMedia]: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+})
+
+/** Hide the text label only where the icon-only overlay is active. */
+const listActionLabelStyle = css({
+  [sidebarOverlayMedia]: {
+    display: 'none',
+  },
+})
+
 const listMenuDeleteStyle = css({
   color: theme.colors.action.danger.border,
   ':hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
+  },
+  [sidebarOverlayMedia]: {
+    borderRight: 'none',
   },
 })
 

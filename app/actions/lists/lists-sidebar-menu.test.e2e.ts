@@ -9,23 +9,37 @@ import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 
 // ---------------------------------------------------------------------------
-// Sidebar row action menu (real server-rendered markup + geometry).
+// Sidebar row actions (real server-rendered markup + geometry).
 //
-// The browser suite covers dismissal/focus against a fixture. This e2e proves
-// the production sidebar actually renders one visible trigger per row, keeps
-// the name and count badge visible, hides the closed menu (so its actions are
-// not tabbable), and stays overflow-free at phone and desktop widths.
+// The kebab trigger stays visible on every row. Desktop rows reveal a
+// hover/focus action overlay immediately beside it; touch and narrow browsers
+// open the same actions as an inline menu. The browser suite covers
+// dismissal/focus against the menu fixture; this e2e proves the production
+// sidebar stays overflow-free and executes the real actions.
 // ---------------------------------------------------------------------------
+
+type ActionMetric = {
+  draggable: string | null
+  height: number
+  label: string
+  width: number
+}
 
 type RowMetrics = {
   id: string | null
   height: number
+  rowWidth: number
   trigger: { width: number; height: number } | null
+  triggerDisplay: string
   nameText: string
   nameWidth: number
   countVisible: boolean
-  menuVisible: boolean
-  menuButtons: Array<{ text: string; draggable: string | null }>
+  menuDisplay: string
+  menuOpacity: string
+  menuPointerEvents: string
+  menuRightGap: number
+  menuWidth: number
+  actions: ActionMetric[]
 }
 
 type PageMetrics = {
@@ -45,13 +59,18 @@ async function readMetrics(page: { evaluate: Function }): Promise<PageMetrics> {
         let name = row.querySelector<HTMLElement>('[data-list-name]')
         let count = row.querySelector<HTMLElement>('[data-list-count]')
         let menu = row.querySelector<HTMLElement>('[data-list-menu]')
+        let rowRect = row.getBoundingClientRect()
         let triggerRect = trigger?.getBoundingClientRect()
         let nameRect = name?.getBoundingClientRect()
         let countRect = count?.getBoundingClientRect()
+        let menuRect = menu?.getBoundingClientRect()
+        let menuStyle = menu ? getComputedStyle(menu) : null
         return {
           id: row.dataset.listId ?? null,
-          height: row.getBoundingClientRect().height,
+          height: rowRect.height,
+          rowWidth: rowRect.width,
           trigger: triggerRect ? { width: triggerRect.width, height: triggerRect.height } : null,
+          triggerDisplay: trigger ? getComputedStyle(trigger).display : 'missing',
           nameText: name?.textContent?.trim() ?? '',
           nameWidth: nameRect?.width ?? 0,
           countVisible:
@@ -59,12 +78,25 @@ async function readMetrics(page: { evaluate: Function }): Promise<PageMetrics> {
             countRect.width > 0 &&
             count !== null &&
             getComputedStyle(count).opacity !== '0',
-          menuVisible: menu !== null && menu.offsetParent !== null,
-          menuButtons: menu
-            ? Array.from(menu.querySelectorAll<HTMLElement>('button')).map((button) => ({
-                text: button.textContent?.trim() ?? '',
-                draggable: button.getAttribute('draggable'),
-              }))
+          menuDisplay: menuStyle?.display ?? 'missing',
+          menuOpacity: menuStyle?.opacity ?? 'missing',
+          menuPointerEvents: menuStyle?.pointerEvents ?? 'missing',
+          menuRightGap: menuRect ? rowRect.right - menuRect.right : Number.POSITIVE_INFINITY,
+          menuWidth: menuRect?.width ?? 0,
+          actions: menu
+            ? Array.from(
+                menu.querySelectorAll<HTMLElement>(
+                  '[data-list-rename-btn], [data-list-copy-here-btn], [data-list-copy-btn], [data-list-pdf], [data-list-delete-btn]',
+                ),
+              ).map((action) => {
+                let rect = action.getBoundingClientRect()
+                return {
+                  draggable: action.getAttribute('draggable'),
+                  height: rect.height,
+                  label: action.getAttribute('aria-label') ?? action.textContent?.trim() ?? '',
+                  width: rect.width,
+                }
+              })
             : [],
         }
       }),
@@ -102,9 +134,9 @@ function isMenuOpen(id: number) {
   )
 }
 
-// The trigger is server-rendered, but its click handler attaches with the
-// deferred ListsRowActions entry. Wait for the entry's readiness marker, then
-// click once and wait for the open attribute it sets.
+// The touch fallback trigger is server-rendered, but its click handler attaches
+// with the deferred ListsRowActions entry. Wait for the entry's readiness marker,
+// then click once and wait for the open attribute it sets.
 async function openListMenu(page: { locator: Function; waitForFunction: Function }, id: number) {
   await page
     .locator('[data-lists-row-actions-ready="true"]')
@@ -115,32 +147,94 @@ async function openListMenu(page: { locator: Function; waitForFunction: Function
   return trigger
 }
 
-function assertSidebarGeometry(metrics: PageMetrics) {
+/** Hover a desktop row and wait for the CSS-only overlay reveal to settle. */
+async function revealOverlay(page: { locator: Function; waitForFunction: Function }, id: number) {
+  await page.locator(`[data-list-id="${id}"]`).hover()
+  await page.waitForFunction(
+    (rowId: number) => {
+      let row = document.querySelector(`[data-list-id="${rowId}"]`)
+      let menu = row?.querySelector<HTMLElement>('[data-list-menu]')
+      let count = row?.querySelector<HTMLElement>('[data-list-count]')
+      if (!menu || !count) return false
+      let menuStyle = getComputedStyle(menu)
+      return (
+        menuStyle.opacity === '1' &&
+        menuStyle.pointerEvents === 'auto' &&
+        getComputedStyle(count).opacity === '0'
+      )
+    },
+    id,
+    { timeout: 5_000 },
+  )
+}
+
+function assertNoHorizontalOverflow(metrics: PageMetrics) {
   assert.ok(
     metrics.scrollWidth <= metrics.innerWidth + 1,
     `sidebar must not overflow horizontally (${metrics.scrollWidth} > ${metrics.innerWidth})`,
   )
   assert.ok(metrics.rows.length > 0, 'sidebar must render saved list rows')
+}
+
+function assertDesktopOverlayGeometry(metrics: PageMetrics) {
+  assertNoHorizontalOverflow(metrics)
 
   for (let row of metrics.rows) {
-    assert.ok(row.trigger, `row ${row.id} must render one action trigger`)
+    assert.notEqual(row.triggerDisplay, 'none', `row ${row.id} must keep the kebab visible`)
     assert.ok(
-      row.trigger!.width >= 44 && row.trigger!.height >= 44,
-      `row ${row.id} trigger must be at least 44x44 (got ${row.trigger!.width}x${row.trigger!.height})`,
+      row.trigger && row.trigger.width >= 44 && row.trigger.height >= 44,
+      `row ${row.id} kebab must stay 44x44 (got ${row.trigger?.width}x${row.trigger?.height})`,
     )
-    // Only long names can prove the trigger is not squeezing the label; a
-    // legitimately short name ("A") is narrow even without a trigger.
+    assert.notEqual(row.menuDisplay, 'none', `row ${row.id} must keep the overlay in layout`)
+    assert.equal(row.menuOpacity, '0', `row ${row.id} overlay must start hidden`)
+    assert.equal(
+      row.menuPointerEvents,
+      'none',
+      `row ${row.id} hidden overlay must not receive pointer events`,
+    )
+    assert.ok(row.menuWidth > 0, `row ${row.id} overlay needs a visible action-group width`)
+    assert.ok(
+      row.menuRightGap >= 43 && row.menuRightGap <= 46,
+      `row ${row.id} overlay must sit just left of the 44px kebab, got ${row.menuRightGap}px gap`,
+    )
+    assert.ok(
+      row.menuWidth + row.menuRightGap <= row.rowWidth + 1,
+      `row ${row.id} overlay must not spill out of the row box`,
+    )
+    assert.equal(row.countVisible, true, `row ${row.id} count badge must stay visible at rest`)
+    assert.equal(row.actions.length, 5, `row ${row.id} overlay must offer five actions`)
+    assert.equal(
+      row.actions.every((action) => action.draggable === 'false'),
+      true,
+      `row ${row.id} overlay actions must not start a row drag`,
+    )
     if (row.nameText.length >= 20) {
       assert.ok(
         row.nameWidth >= 60,
-        `row ${row.id} long name must stay readable (got ${row.nameWidth}px)`,
+        `row ${row.id} long name must stay readable at rest (got ${row.nameWidth}px)`,
       )
     }
+    assert.ok(
+      row.height >= 40 && row.height <= 72,
+      `row ${row.id} height must stay dense (got ${row.height}px)`,
+    )
+  }
+}
+
+function assertPhoneMenuGeometry(metrics: PageMetrics) {
+  assertNoHorizontalOverflow(metrics)
+
+  for (let row of metrics.rows) {
+    assert.notEqual(row.triggerDisplay, 'none', `row ${row.id} must show the touch kebab`)
+    assert.ok(
+      row.trigger && row.trigger.width >= 44 && row.trigger.height >= 44,
+      `row ${row.id} trigger must be at least 44x44 (got ${row.trigger?.width}x${row.trigger?.height})`,
+    )
+    assert.equal(row.menuDisplay, 'none', `row ${row.id} touch menu must start closed`)
     assert.equal(row.countVisible, true, `row ${row.id} count badge must stay visible`)
-    assert.equal(row.menuVisible, false, `row ${row.id} menu must start closed`)
-    assert.equal(row.menuButtons.length, 4, `row ${row.id} menu must offer four actions`)
+    assert.equal(row.actions.length, 5, `row ${row.id} menu must offer five actions`)
     assert.equal(
-      row.menuButtons.every((button) => button.draggable === 'false'),
+      row.actions.every((action) => action.draggable === 'false'),
       true,
       `row ${row.id} menu actions must not start a row drag`,
     )
@@ -203,7 +297,7 @@ describe('lists sidebar row action menu', () => {
     copiedIds = []
   }
 
-  it('renders one visible trigger per row and runs the menu actions at desktop width', async (t) => {
+  it('reveals actions on hover beside the row kebab and runs them at desktop width', async (t) => {
     await seedLists()
     try {
       let server = await createTestServer((request) => router.fetch(request))
@@ -215,21 +309,20 @@ describe('lists sidebar row action menu', () => {
       await page.goto(`/lists?load=${openId}`)
       await waitForSidebar(page)
 
-      assertSidebarGeometry(await readMetrics(page))
+      assertDesktopOverlayGeometry(await readMetrics(page))
 
-      // Menu open/close, focus return, outside dismissal and rename focus are
-      // covered by public/lists-row-actions.test.browser.tsx. This e2e keeps
-      // the production wiring: the real menu actions reach their mutation
-      // endpoints through the frame, and the sidebar controls submit the GET
-      // form with the open list preserved.
+      // Touch-menu dismissal/focus is covered by
+      // public/lists-row-actions.test.browser.tsx. This e2e keeps the production
+      // wiring: the real overlay actions reach their mutation endpoints through
+      // the frame, and the sidebar controls submit the GET form with the open
+      // list preserved. Wait for the lists client before actions that rely on
+      // delegated listeners (copy-here), then reveal the CSS-only overlay.
+      await page.locator('[data-lists-ready="true"]').waitFor({ timeout: 15_000 })
 
       // Non-drag alternative to the list-to-list drag: copy the open list's
       // items into the clicked sidebar list through the shared confirm dialog.
-      await openListMenu(page, otherId)
-      await page
-        .locator(`[data-list-id="${otherId}"] [data-list-menu] button`)
-        .filter({ hasText: 'Elemente hierher kopieren' })
-        .click()
+      await revealOverlay(page, otherId)
+      await page.locator(`[data-list-id="${otherId}"] [data-list-copy-here-btn]`).click()
       await page.locator('[data-confirm-dialog]').waitFor({ timeout: 5_000 })
       let copyDialogText = await page.locator('[data-confirm-dialog]').innerText()
       assert.ok(
@@ -257,14 +350,9 @@ describe('lists sidebar row action menu', () => {
         'both open-list items must be copied into the target',
       )
 
-      // Delete must open the shared styled confirm dialog. The menu closes in
-      // capture phase before ConfirmDelete's handler, so this proves hiding the
-      // menu does not swallow the form's submit interception.
-      await openListMenu(page, openId)
-      await page
-        .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
-        .filter({ hasText: 'Löschen' })
-        .click()
+      // Delete must open the shared styled confirm dialog.
+      await revealOverlay(page, openId)
+      await page.locator(`[data-list-id="${openId}"] [data-list-delete-btn]`).click()
       await page.locator('[data-confirm-dialog]').waitFor({ timeout: 5_000 })
       assert.ok(
         (await page.locator('[data-confirm-dialog]').innerText()).includes('Löschen bestätigen'),
@@ -273,15 +361,15 @@ describe('lists sidebar row action menu', () => {
       await page.locator('[data-confirm-cancel]').click()
       await page.locator('[data-confirm-dialog]').waitFor({ state: 'detached', timeout: 5_000 })
 
-      // Duplicate submits the menu's form; the frame navigates to the copy and
-      // the sidebar shows its row. Match the row by title instead of asserting
-      // the row count grows: the sidebar is capped at 15 rows, so with enough
-      // lists the new row replaces the last one and the count stays the same.
-      await openListMenu(page, openId)
-      await page
-        .locator(`[data-list-id="${openId}"] [data-list-menu] button`)
-        .filter({ hasText: 'Duplizieren' })
-        .click()
+      // Duplicate submits the overlay's form; the frame navigates to the copy
+      // and the sidebar shows its row. Match the row by title instead of
+      // asserting the row count grows: the sidebar is capped at 15 rows, so
+      // with enough lists the new row replaces the last one and the count stays
+      // the same. The lists client also owns the copy-here listener, so wait for
+      // it again after the frame swap.
+      await page.locator('[data-lists-ready="true"]').waitFor({ timeout: 15_000 })
+      await revealOverlay(page, openId)
+      await page.locator(`[data-list-id="${openId}"] [data-list-copy-btn]`).click()
       await page
         .locator('[data-list-id]', { hasText: 'Sidebar menu open list (Kopie)' })
         .waitFor({ state: 'attached', timeout: 15_000 })
@@ -363,7 +451,7 @@ describe('lists sidebar row action menu', () => {
       // The phone layout hides the sidebar panel behind the "Listen" toggle.
       await openSidebar(page)
 
-      assertSidebarGeometry(await readMetrics(page))
+      assertPhoneMenuGeometry(await readMetrics(page))
 
       await openListMenu(page, openId)
       assert.equal(

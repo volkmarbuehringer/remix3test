@@ -320,13 +320,19 @@ describe('admin lists: UX', () => {
       let wrap = document.querySelector('[data-lists-table]') as HTMLElement
       let headers = [...wrap.querySelectorAll('thead th')]
       let group = wrap.querySelector('tbody [data-row-actions]') as HTMLElement
+      let trigger = wrap.querySelector('tbody [data-row-actions-trigger]') as HTMLElement
       let row = group.closest('tr') as HTMLElement
+      let triggerRect = trigger.getBoundingClientRect()
       return {
         titleWidth: headers[1]?.getBoundingClientRect().width ?? 0,
         previewWidth: headers[4]?.getBoundingClientRect().width ?? 0,
         actionWidth: headers[6]?.getBoundingClientRect().width ?? 0,
         scroll: wrap.scrollWidth - wrap.clientWidth,
         overlayGap: row.getBoundingClientRect().right - group.getBoundingClientRect().right,
+        triggerDisplay: getComputedStyle(trigger).display,
+        triggerWidth: triggerRect.width,
+        triggerHeight: triggerRect.height,
+        triggerExpanded: trigger.getAttribute('aria-expanded'),
       }
     })
     assert.ok(
@@ -334,20 +340,27 @@ describe('admin lists: UX', () => {
       `the title column should absorb the reclaimed action space, got ${layout.titleWidth}px vs ${layout.previewWidth}px preview`,
     )
     assert.ok(
-      layout.actionWidth <= 1,
-      `the action column must consume no width, got ${layout.actionWidth}px`,
+      layout.actionWidth >= 42 && layout.actionWidth <= 46,
+      `the action column must reserve a 44px kebab gutter, got ${layout.actionWidth}px`,
     )
     assert.ok(
       layout.scroll <= 1,
       `reclaiming the width must not cause horizontal scrolling, got ${layout.scroll}px`,
     )
     assert.ok(
-      layout.overlayGap >= 0 && layout.overlayGap <= 12,
-      `the actions should sit just inside the row's right edge, got ${layout.overlayGap}px gap`,
+      layout.overlayGap >= 40 && layout.overlayGap <= 44,
+      `the actions should sit just left of the 30px kebab, got ${layout.overlayGap}px gap`,
     )
+    assert.notEqual(layout.triggerDisplay, 'none', 'the kebab trigger must stay visible')
+    assert.ok(
+      layout.triggerWidth > 0 && layout.triggerHeight > 0,
+      'the kebab trigger needs a clickable box',
+    )
+    assert.equal(layout.triggerExpanded, 'false', 'the kebab trigger must start collapsed')
 
     let row = page.locator('[data-row-id="' + id + '"]')
     let actions = row.locator('[data-row-actions]')
+    let trigger = row.locator('[data-row-actions-trigger]')
     let opacity = () => actions.evaluate((el) => getComputedStyle(el).opacity)
     assert.equal(await opacity(), '0', 'desktop rows start without visible actions')
 
@@ -372,6 +385,23 @@ describe('admin lists: UX', () => {
       { timeout: 15_000 },
     )
     assert.equal(await opacity(), '0', 'leaving the row should hide its actions again')
+
+    // The persistent kebab pins the overlay open and moves focus into it.
+    await page
+      .locator('[data-admin-row-actions-ready="true"]')
+      .waitFor({ state: 'attached', timeout: 15_000 })
+    await trigger.click()
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
+    assert.ok(
+      await page.evaluate(() => document.activeElement?.closest('[data-row-actions]') !== null),
+      'opening the kebab must focus the first row action',
+    )
+    await page.keyboard.press('Escape')
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
+    assert.ok(
+      await trigger.evaluate((el) => document.activeElement === el),
+      'Escape must return focus to the kebab trigger',
+    )
 
     // Keyboard focus must reveal the cluster too. Start from the search field
     // and tab into the single filtered row's action links.

@@ -34,6 +34,7 @@ import { GridStateScript } from './grid-state-script.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
+import { AdminOfferingsRowMenu } from '../actions/admin/public/admin-offerings-row-menu.tsx'
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
 import { formatDuring } from '../utils/during.ts'
@@ -133,26 +134,6 @@ function buildAddWeekUrl(
   return routes.verwaltung.offerings.index.href() + '?' + params.toString()
 }
 
-function buildConfigUrl(
-  resourceId: number | string,
-  offset: number,
-  sort: string,
-  order: string,
-  filter?: string,
-  period?: string,
-  status?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('config', String(resourceId))
-  if (offset > 0) params.set('offset', String(offset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  if (period) params.set('period', period)
-  if (status) params.set('status', status)
-  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
-}
-
 function buildPeriodUrl(
   newPeriod: string | null,
   offset: number,
@@ -208,6 +189,12 @@ function formatTime(value: number): string {
     minute: '2-digit',
   })
 }
+
+function offeringRowLabel(row: OfferingRow): string {
+  return `${row.resource_name ?? row.resource_description ?? 'Angebot'} am ${formatDate(row.day)}`
+}
+
+const hiddenDeleteFormStyle = css({ display: 'none' })
 
 // errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)
 
@@ -634,23 +621,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     <td mix={table.actionCell} data-label="Aktionen">
                       <div mix={table.actionGroup}>
                         <a
-                          href={buildConfigUrl(
-                            row.resource_id,
-                            offset,
-                            sortColumn,
-                            sortDirection,
-                            filter,
-                            period,
-                            status,
-                          )}
-                          data-rmx-target={getSelfFrameTarget()}
-                          mix={table.actionSeg}
-                          aria-label="Konfiguration"
-                          title="Konfiguration"
-                        >
-                          <Glyph name="cog" width={14} height={14} />
-                        </a>
-                        <a
                           href={buildEditUrl(
                             row.id,
                             offset,
@@ -667,34 +637,31 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         >
                           <Glyph name="edit" width={14} height={14} />
                         </a>
-                        <RestfulForm
-                          method="DELETE"
-                          action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
-                          data-delete-form={row.id}
-                          data-confirm="Wirklich löschen?"
-                          data-rmx-target={getSelfFrameTarget()}
-                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
-                        >
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortColumn,
-                              order: sortDirection,
-                              filter: filter ?? '',
-                              period: period ?? '',
-                              status: status ?? '',
-                            }}
-                          />
-                          <button
-                            type="submit"
-                            mix={[table.actionSeg, table.actionSegDanger]}
-                            aria-label="Löschen"
-                            title="Löschen"
-                          >
-                            <Glyph name="trash" width={14} height={14} />
-                          </button>
-                        </RestfulForm>
+                        <AdminOfferingsRowMenu
+                          rowId={String(row.id)}
+                          resourceId={String(row.resource_id)}
+                          rowLabel={offeringRowLabel(row)}
+                        />
                       </div>
+                      <RestfulForm
+                        method="DELETE"
+                        action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
+                        data-delete-form={row.id}
+                        data-confirm="Wirklich löschen?"
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={hiddenDeleteFormStyle}
+                      >
+                        <GridStateHiddenInputs
+                          state={{
+                            offset: String(offset),
+                            sort: sortColumn,
+                            order: sortDirection,
+                            filter: filter ?? '',
+                            period: period ?? '',
+                            status: status ?? '',
+                          }}
+                        />
+                      </RestfulForm>
                     </td>
                   </tr>
                 ))}

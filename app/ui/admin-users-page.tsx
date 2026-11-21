@@ -27,6 +27,7 @@ import {
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 import { AdminUsersContextMenu } from '../actions/admin/public/admin-users-context-menu.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
 import { dataGridFill } from './mixins/data-grid.ts'
@@ -960,7 +961,19 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         </td>
                       ) : null}
                       <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`row-actions-${row.id}`}
+                          aria-label={`Weitere Aktionen für ${row.name}`}
+                          title="Weitere Aktionen"
+                          mix={table.floatingActionsTrigger}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
                         <div
+                          id={`row-actions-${row.id}`}
                           mix={[table.actionGroup, table.floatingActions]}
                           role="group"
                           aria-label="Zeilenaktionen"
@@ -1163,6 +1176,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           status={activeStatus}
         />
         <AdminUsersContextMenu />
+        <AdminRowActionsOverlay />
       </div>
     )
 

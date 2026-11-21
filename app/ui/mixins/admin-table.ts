@@ -316,16 +316,22 @@ export const table = {
       color: theme.colors.action.danger.foreground,
     },
   }),
+  /** Last segment in a non-danger action group (e.g. a row menu trigger). */
+  actionSegLast: css({
+    borderRight: 'none',
+  }),
 
   /**
    * Floating row actions — opt-in, not the default row treatment.
    *
-   * Above `floatingActionsMedia` the cluster is absolutely positioned over the
-   * row's right edge and revealed on hover or keyboard focus, so it consumes no
-   * table width. That trades a visible affordance for column space, so only
-   * adopt it when the grid really overflows the admin content column, the row
-   * has a handful of icon actions, and everything the overlay hides on hover is
-   * either repeated in the edit panel or a timestamp.
+   * Above `floatingActionsMedia` the action column shrinks to a 44px kebab
+   * gutter and the hover cluster overlays the previous cell to its left.
+   * Hovering/focusing the row reveals the icon cluster immediately beside the
+   * kebab; clicking the kebab pins the same cluster open via
+   * `AdminRowActionsOverlay`. Adopt it only when the grid really overflows the
+   * admin content column, the row has a handful of icon actions, and everything
+   * the overlay hides is either repeated in the edit panel or a disposable
+   * timestamp.
    *
    * Contract:
    * - the `<col>` composes `floatingActionsCol` (keep the page base width)
@@ -335,25 +341,32 @@ export const table = {
    *   omits the text span
    * - every row root composes `floatingRowReveal`
    * - the actions `<td>` composes `[table.actionCell, floatingActionCell]`
-   * - the cluster (composed with `actionGroup`) carries `data-row-actions`
+   * - the cell renders a `data-row-actions-trigger` kebab with
+   *   `aria-expanded="false"` and `aria-controls` pointing at the cluster id
+   * - the cluster (composed with `actionGroup` and `floatingActions`) carries
+   *   that id and `data-row-actions`
+   * - the page mounts one `AdminRowActionsOverlay` client entry
    * - the trailing data `<td>` carries `data-floating-trailing` and the row
    *   composes `floatingTrailingFade`, so a half-covered cell fades out instead
    *   of peeking out beside the buttons
    *
    * Below the breakpoint the same markup renders in flow, so narrow/touch
-   * viewports keep the visible column. The `!important` overrides exist because
-   * these rules are composed with `table.th` / `table.actionCell` / the page col
-   * width and land in sibling `@layer rmx.*` sub-layers where declaration order,
-   * not specificity, decides the winner (same caveat as `mobileCards`).
+   * viewports keep the visible column and hide the kebab. The `!important`
+   * overrides exist because these rules are composed with `table.th` /
+   * `table.actionCell` / the page col width and land in sibling `@layer rmx.*`
+   * sub-layers where declaration order, not specificity, decides the winner
+   * (same caveat as `mobileCards`).
    */
   floatingActionsCol: css({
     [floatingActionsMedia]: {
-      width: '0px !important',
+      // Reserve a real kebab gutter instead of floating the trigger over the
+      // trailing data cell. The hover actions still overlay the previous cell.
+      width: '44px !important',
     },
   }),
   floatingActionsHeader: css({
     [floatingActionsMedia]: {
-      width: '0px !important',
+      width: '44px !important',
       padding: '0 !important',
       border: 'none !important',
       background: 'transparent !important',
@@ -366,7 +379,7 @@ export const table = {
   }),
   floatingActionCell: css({
     [floatingActionsMedia]: {
-      width: '0px !important',
+      width: '44px !important',
       padding: '0 !important',
       position: 'relative',
     },
@@ -375,10 +388,48 @@ export const table = {
     [floatingActionsMedia]: {
       position: 'absolute',
       top: '50%',
-      right: theme.space.sm,
+      // Sit immediately left of the persistent 30px kebab trigger
+      // (8px inset + 30px trigger + 4px gap).
+      right: 'calc(30px + 12px)',
       transform: 'translateY(-50%)',
       opacity: 0,
       pointerEvents: 'none',
+      zIndex: 1,
+    },
+  }),
+  /** Persistent kebab trigger for the hover/focus overlay above the action-column breakpoint. */
+  floatingActionsTrigger: css({
+    display: 'none',
+    [floatingActionsMedia]: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'absolute',
+      top: '50%',
+      right: theme.space.sm,
+      transform: 'translateY(-50%)',
+      width: '30px',
+      height: '28px',
+      padding: 0,
+      border: `1px solid ${theme.colors.border.default}`,
+      borderRadius: theme.radius.md,
+      background: surface.lvl2,
+      color: theme.colors.text.secondary,
+      boxShadow: theme.shadow.sm,
+      cursor: 'pointer',
+      fontFamily: theme.fontFamily.sans,
+      fontSize: theme.fontSize.md,
+      lineHeight: 1,
+      zIndex: 2,
+      '&:hover': { background: surface.lvl3, color: theme.colors.text.primary },
+      '&[aria-expanded="true"]': {
+        background: surface.lvl3,
+        color: theme.colors.text.primary,
+      },
+      '&:focus-visible': {
+        outline: `2px solid ${theme.colors.focus.ring}`,
+        outlineOffset: '-2px',
+      },
     },
   }),
   floatingRowReveal: css({
@@ -394,6 +445,10 @@ export const table = {
       opacity: '1 !important',
       pointerEvents: 'auto !important',
     },
+    '&[data-row-actions-open] [data-row-actions]': {
+      opacity: '1 !important',
+      pointerEvents: 'auto !important',
+    },
     '&:has(:focus-visible)': {
       outline: '2px solid ' + theme.colors.focus.ring,
       outlineOffset: '-2px',
@@ -403,6 +458,7 @@ export const table = {
     [floatingActionsMedia]: {
       '&:hover [data-floating-trailing]': { opacity: 0 },
       '&:has(:focus-visible) [data-floating-trailing]': { opacity: 0 },
+      '&[data-row-actions-open] [data-floating-trailing]': { opacity: 0 },
     },
   }),
 
