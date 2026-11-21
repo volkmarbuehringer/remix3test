@@ -362,3 +362,48 @@ describe('Document shell — client-owned theme attribute', () => {
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// App-owned not-found response
+// ---------------------------------------------------------------------------
+
+describe('Unmatched routes', () => {
+  it('renders a styled 404 document instead of the router default', async () => {
+    let response = await router.fetch(`${BASE}/this-route-does-not-exist`)
+
+    assert.equal(response.status, 404)
+    assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+    let html = await response.text()
+    assert.ok(html.includes('<html'), 'the browser response must be a document')
+    assert.ok(html.includes('Seite nicht gefunden'), 'the document carries localized copy')
+    assert.ok(html.includes('data-not-found="true"'), 'the styled app-owned panel rendered')
+    assert.ok(html.includes('href="/"'), 'the page offers a route back home')
+    assert.ok(!html.includes('Not Found: /this-route-does-not-exist'))
+  })
+
+  it('renders a fragment-safe 404 for a frame request', async () => {
+    let response = await router.fetch(`${BASE}/this-frame-route-does-not-exist`, {
+      headers: {
+        'X-Remix-Frame': 'true',
+        Accept: 'text/html',
+      },
+    })
+
+    assert.equal(response.status, 404)
+    assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+    let html = await response.text()
+    assert.ok(html.includes('data-not-found="true"'), 'the frame gets the app-owned panel')
+    assert.ok(!html.includes('<!doctype html>'), 'a frame must not receive a full document')
+    assert.ok(!html.includes('<html'), 'a frame fragment excludes the document shell')
+  })
+
+  it('keeps a JSON 404 for JSON clients', async () => {
+    let response = await router.fetch(`${BASE}/this-api-route-does-not-exist`, {
+      headers: { Accept: 'application/json' },
+    })
+
+    assert.equal(response.status, 404)
+    assert.match(response.headers.get('Content-Type') ?? '', /application\/json/)
+    assert.deepEqual(await response.json(), { error: 'Not Found' })
+  })
+})

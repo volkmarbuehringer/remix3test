@@ -33,6 +33,7 @@ import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { legal, routes, system } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
+import { renderNotFoundResponse } from './ui/not-found-page.tsx'
 
 declare module 'remix' {
   interface RouterTypes {
@@ -49,7 +50,19 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   let cookie = options?.sessionCookie ?? sessionCookie
   let storage = options?.sessionStorage ?? sessionStorage
 
-  let router = createRouter({ middleware: createNewappMiddleware(cookie, storage) })
+  let router = createRouter({
+    middleware: createNewappMiddleware(cookie, storage),
+    defaultHandler(context) {
+      let accept = context.request.headers.get('Accept')?.toLowerCase() ?? ''
+      if (accept.includes('application/json')) {
+        return context.json({ error: 'Not Found' }, { status: 404 })
+      }
+      return renderNotFoundResponse(
+        context.render,
+        context.request.headers.get('X-Remix-Frame') === 'true',
+      )
+    },
+  })
 
   // Main app routes
   router.map(routes, controller)
