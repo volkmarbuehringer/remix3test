@@ -482,7 +482,11 @@ describe('Security headers middleware', () => {
     assert.equal(response.headers.get('X-Frame-Options'), 'DENY')
     assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
     assert.ok(response.headers.get('Permissions-Policy'), '404 should keep Permissions-Policy')
-    assert.equal(response.headers.get('Cache-Control'), 'no-store', '404 must not be cached')
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      'private, no-store',
+      'the nonce-bearing HTML 404 must not be cached',
+    )
   })
 
   it('sets every hardening header on a non-auth route too', async () => {
