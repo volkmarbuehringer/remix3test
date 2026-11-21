@@ -94,7 +94,9 @@ Key focus areas when reviewing diffs:
 
 Current install: `remix` 3.3.0 / `@remix-run/ui` 0.14.0 / `@remix-run/component` 1.3.0 / `component-hmr` 1.0.2 at preview release `v0.0.20261120-main-275f353c` (source `275f353c`). The two `package.json` specs are the release asset URLs; the lock has 278 release tarball refs at that tag.
 
-Current range (`01e5b5d4` → `275f353c`, 4 commits): no component/frame/navigation change. `@remix-run/test` gives each browser test file a fresh history budget and retries a WebKit history-quota failure once after an 11-second backoff, and `RunTestsOptions` gains an optional `onHistoryQuotaExceeded` hook (#12350). `@remix-run/lazy-file` reads `LazyBlob`/`LazyFile` content via `getReader()` when `ReadableStream[Symbol.asyncIterator]` is missing (#12370). `@remix-run/ui`'s toast skips the `--toast-countdown` animation when `CSS.registerProperty` is unavailable (#12370). `@remix-run/data-schema`'s `object()`/`record()` define accepted keys as own properties, preserving `__proto__` and transformed record keys (#12373). #12371 is CI/test-only (shared Playwright configs, `scripts/test-browser.ts`, demo/docs test edits). Versions are unchanged (`remix` 3.3.0, `ui` 0.14.0, `component` 1.3.0, `component-hmr` 1.0.2; four pending patch changesets) and all 15 guides are byte-identical. The previous range (`9e4da4d3` → `01e5b5d4`, 5 commits): only two shipped source files — `@remix-run/component/src/runtime/navigation.ts` (+72/−2, #12295 best-effort traversal scroll restoration for WebKit **and** Firefox: per-history-entry snapshots, an input-timestamp guard, restore only when `history.scrollRestoration === 'auto'`) and `@remix-run/node-fetch-server/src/lib/request-listener.ts` (+22/−6, #12368 rejects a literal backslash in the request path before WHATWG URL parsing normalizes it, via `RequestTargetError` → default 400; query and percent-encoded backslashes stay accepted). #12356/#12358/#12369 are test-only (`scripts/utils/preview.test.ts`, `docs/site/app/router.test.ts`, `packages/assets/.../asset-server.test.ts`), all 15 guides are byte-identical, and versions are unchanged (`remix` 3.3.0, `ui` 0.14.0, `component` 1.3.0, `component-hmr` 1.0.2; two pending patch changesets). Before that, `74f06706` → `9e4da4d3` (4 commits) was #12349's PR-preview path filter, #12348's empty-string hydration ordering fix (`reconcile.ts` +9), #12352's guide-04/cookie docs, and #12355's docs-site markdown; `74f06706` was the 3.3.0 release plus the breaking data-table array/`column.json()` changes (`b4185ba2` → `74f06706`, 14 commits). The `9cbc5144` → `b4185ba2` range (3 commits) had no package source change, #12294 was the only change in `ab790c88` → `9cbc5144`, and #12314's browser-runtime fold was `9b0ff351` → `ab790c88`; earlier ranges are in `docs/remix-pin-history.md`.
+Current pin: `01e5b5d4` → `275f353c` (4 commits).
+
+Current range summary: no component/frame/navigation change. `@remix-run/test` gives each browser test file a fresh history budget and retries a WebKit history-quota failure once after an 11-second backoff, and `RunTestsOptions` gains an optional `onHistoryQuotaExceeded` hook (#12350). `@remix-run/lazy-file` reads `LazyBlob`/`LazyFile` content via `getReader()` when `ReadableStream[Symbol.asyncIterator]` is missing (#12370). `@remix-run/ui`'s toast skips the `--toast-countdown` animation when `CSS.registerProperty` is unavailable (#12370). `@remix-run/data-schema`'s `object()`/`record()` define accepted keys as own properties, preserving `__proto__` and transformed record keys (#12373). #12371 is CI/test-only (shared Playwright configs, `scripts/test-browser.ts`, demo/docs test edits). Versions are unchanged (`remix` 3.3.0, `ui` 0.14.0, `component` 1.3.0, `component-hmr` 1.0.2; four pending patch changesets) and all 15 guides are byte-identical. The previous range (`9e4da4d3` → `01e5b5d4`, 5 commits): only two shipped source files — `@remix-run/component/src/runtime/navigation.ts` (+72/−2, #12295 best-effort traversal scroll restoration for WebKit **and** Firefox: per-history-entry snapshots, an input-timestamp guard, restore only when `history.scrollRestoration === 'auto'`) and `@remix-run/node-fetch-server/src/lib/request-listener.ts` (+22/−6, #12368 rejects a literal backslash in the request path before WHATWG URL parsing normalizes it, via `RequestTargetError` → default 400; query and percent-encoded backslashes stay accepted). #12356/#12358/#12369 are test-only (`scripts/utils/preview.test.ts`, `docs/site/app/router.test.ts`, `packages/assets/.../asset-server.test.ts`), all 15 guides are byte-identical, and versions are unchanged (`remix` 3.3.0, `ui` 0.14.0, `component` 1.3.0, `component-hmr` 1.0.2; two pending patch changesets). Before that, `74f06706` → `9e4da4d3` (4 commits) was #12349's PR-preview path filter, #12348's empty-string hydration ordering fix (`reconcile.ts` +9), #12352's guide-04/cookie docs, and #12355's docs-site markdown; `74f06706` was the 3.3.0 release plus the breaking data-table array/`column.json()` changes (`b4185ba2` → `74f06706`, 14 commits). The `9cbc5144` → `b4185ba2` range (3 commits) had no package source change, #12294 was the only change in `ab790c88` → `9cbc5144`, and #12314's browser-runtime fold was `9b0ff351` → `ab790c88`; earlier ranges are in `docs/remix-pin-history.md`.
 
 App state: property/accessor mocks are used in three tests; the pre-#12290 HMR forward-declaration workaround is removed; `t.waitFor()` is used across browser tests; built-in `Frame loading="lazy"` covers the dashboard cards, recent-activity details, and chatlog detail pane; grid pagers use `data-rmx-prefetch="viewport"`. **Both prefetch/resolve hooks were already adopted before this pin**: `app/assets/frame-response.browser.tsx` delegates to `defaultResolveFrame(..., { fetch, commit })` and keeps only `classifyFrameResponse` plus the request policy; `app/assets/frame-prefetch.browser.ts` delegates to `defaultPrefetch(src, options, { fetch, processFrame })`, stores a clone in the one-shot cache, and feeds the vendor's parsed assets into the app hint creator. The scoped admin-lists grid ⇄ editor frame swap uses the commit hook (`app/assets/frame-transition.browser.ts`). #12277's per-caller `options.signal` is deliberately not forwarded to the shared warm fetch: the navigation claims the response before unmounting the anchor, so aborting the fetch with the caller's signal errors the cached body mid-render (fixed after a week-nav e2e regression; see `remix3-ui` → `frame-prefetch-cache.md`). The store is still refused when the caller aborts before the response arrives. Neither `options.navigationType`/`options.from` (nor their removed `transition` predecessor) is used for caching: fragments are `no-store` and the in-memory one-shot cache already covers the useful case, with no measured win to gate on (Task 4 decision). #12294 needs no app source change: the app's frame forms already listen for the replayed `input`/`change` phases (`app/actions/lists/public/lists-view.tsx` field handlers, `app/ui/filter-autosubmit.browser.tsx`), so a value edited before its control hydrates now reaches app state once instead of being reset; nothing depended on the old overwrite. **#12295 needs no app source change:** the vendor restore is window-level and only for `history.scrollRestoration === 'auto'`; the app's `app/ui/page-scroll-reset.browser.tsx` resets nested `[data-page-scroller]`/`[data-grid-scroll]` containers, and `app/actions/scroll-restoration/scroll-restoration.test.e2e.ts` + `scroll-anchoring.test.e2e.ts` (Chromium + Firefox) are the guards. **#12368 needs no app source change:** the app's `onError` in `server.ts`/`app/utils/server-handler.ts` still returns its own 500 page, which masks the upstream default 400 for invalid targets and authorities (same as before the bump); `getSafeReturnTo()` in `app/utils/redirect.ts` already rejects a return path starting with a backslash. **Navigation UI adoption:** `app/ui/pending-submit.browser.tsx` uses `on('rmx:navigation', …)` + `event.finished` (renamed from `rmx:submission` at #12306); `app/ui/filter-autosubmit.browser.tsx` checks `navigation.element` is its own form before remembering the filter and uses `reloadStart` metadata only for programmatic reloads. Per-bump records (PR ranges, runtime deltas, anchor shifts, verification) live in `docs/remix-pin-history.md`; line anchors live in the owning learned references.
 
@@ -128,33 +130,39 @@ another. Both tag shapes are parsed by `scripts/preview-release-tag.ts`.
 
 `npm run update:remix` automates the release flow: read `releases/latest`,
 rewrite both specs, install, verify one release tag, frozen check, skill links,
-current-pin string refresh (historical `Since …` lines skipped; `--no-docs` opts
-out), typecheck/lint/format/tests, then a pin-history scaffold with parsed test
-counts. `npm run remix:pin:check` verifies lock/tag
-unification, HEADs the assets, and warns when the pin is not the newest main
-release or is older than five days. Install retries use the universal
-`--config.fetch-retries=…` / `--config.fetch-retry-*-timeout=…` form because
-pnpm 12 removed the dedicated `--fetch-retries`/`--fetch-retry-*` flags.
+current-pin string refresh (historical `Since …` lines skipped; the analysis
+`Current pin` line is refreshed too; `--no-docs` opts out), analysis-doc gate,
+typecheck/lint/format/tests, then the pin-history entry + newest-first table row
+(editorial bullets remain TODO). `npm run remix:pin:check` verifies lock/tag
+unification and the analysis `Current install`/`Current pin` lines, HEADs the
+assets, and warns when the pin is not the newest main release or is older than
+five days. Install retries use the universal `--config.fetch-retries=…` /
+`--config.fetch-retry-*-timeout=…` form because pnpm 12 removed the dedicated
+`--fetch-retries`/`--fetch-retry-*` flags.
 
 ### Bumping across a breaking change (`update:remix` is not atomic)
 
-The script installs and refreshes docs **before** it runs the checks, and it has no
-resume path. A consumer-breaking bump therefore stops it at `== Checks ==` with the
-pin already applied:
+The script installs and refreshes docs **before** it runs the checks, so a
+consumer-breaking bump stops it at `== Checks ==` with the pin already applied.
+It prints the modified files, the failing step with its last 20 output lines, a
+resume command, and the pin-history scaffold; `--verify` re-runs the analysis
+gate plus typecheck/lint/format/tests without network or install.
 
 - Expect the stop at `typecheck`. `package.json`, `pnpm-lock.yaml`, the skill
-  symlinks, and the current-pin strings are already at the new tag; lint, format,
-  tests, and the pin-history scaffold are what did not run. `--no-tests` does not
-  skip `typecheck`.
+  symlinks, the current-pin strings, and the analysis `Current pin` line are
+  already at the new tag; lint, format, tests, and the pin-history write are what
+  did not run. `--no-tests` does not skip `typecheck`.
 - Do not re-run `update:remix` to finish. When the tag already matches and the lock
   is unified it prints `Already up to date; nothing to do.` and returns **before**
   the checks, so it cannot rerun them.
-- Fix the source, then run `npm run typecheck`, `npm run lint`, `npm run format`,
-  and the suites yourself, and write the pin-history entry and AGENTS paragraph by
-  hand — the scaffold never prints on this path.
+- Fix the source, then run `npm run update:remix -- --verify` (or the individual
+  checks). A successful update writes the history entry/table row; a preflight
+  failure happens before install, prints the step/tail without a scaffold, and
+  leaves the tree untouched, so the plain command can be re-run after fixing.
 - Re-audit the learned anchors by hand: the docs refresh rewrites current-pin
-  strings only, so `Revalidated: <date>`, `Current range (old → new, N commits)`
-  and every `file.ts:NNN` anchor stay stale. List candidates with
+  strings and the mechanical `Current pin` line only, so `Revalidated: <date>`,
+  `Current range summary`, and every `file.ts:NNN` anchor stay stale. List
+  candidates with
   `grep -rnE '(frame|navigation|component|diff-dom|frame-runtime|form-navigation)\.ts:[0-9]' .opencode/skills/learned`,
   resolve the installed tree with
   `readlink -f node_modules/.pnpm/node_modules/@remix-run/component`, and check

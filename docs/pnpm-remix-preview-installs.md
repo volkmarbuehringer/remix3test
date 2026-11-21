@@ -1,8 +1,9 @@
 # Remix Preview Installs (Preview Releases)
 
 **Extracted:** 2026-10-23
-**Updated:** 2026-11-17 (preview-release assets and the #12319 tag format; the pre-2026-11-04
-retained-tarball and pre-2026-11-03 `github:…&path:` recipes are in
+**Updated:** 2026-11-21 (analysis-doc fast-fail and failed-step reporting; the 2026-11-17
+preview-release assets/#12319 tag notes and the pre-2026-11-04 retained-tarball and
+pre-2026-11-03 `github:…&path:` recipes remain in
 [`history/pnpm-git-hosted-installs.md`](history/pnpm-git-hosted-installs.md) and
 `docs/remix-pin-history.md`)
 **Context:** the app pins `remix` and `@remix-run/ui` to tarball assets on a
@@ -17,12 +18,16 @@ latest main preview release, runs a typecheck/lint/format preflight on the
 unmodified tree, rewrites the two tarball specs, runs `pnpm install`, verifies
 the lock has one release tag, runs a frozen-install check, repoints the vendor
 skill links, refreshes the current-pin strings in `AGENTS.md` and the learned
-skills (historical `Since preview build …` lines are left alone), then
-typecheck/lint/format/tests and a pin-history scaffold with the parsed test
-counts. Use `--dry-run`, `--no-tests`, `--no-docs`, `--allow-dirty`, or
-`--verify` (re-run the checks/tests on the current pin without network or
-install; it allows a dirty tree so it can resume a half-applied update). It
-still migrates the old `github:` and `t/<sha>/` specs on the first run.
+skills (historical `Since preview build …` lines are left alone), refreshes the
+mechanical `Current pin` line in `upstream-dependency-analysis.md` (the
+`Current range summary:` below it stays editorial), then
+typecheck/lint/format/tests, writes the pin-history entry + newest-first table
+row (editorial bullets are TODOs), and prints the residual editorial list. A
+failed step prints its last output lines before the resume command. Use `--dry-run`, `--no-tests`,
+`--no-docs`, `--allow-dirty`, or `--verify` (re-run the analysis-doc gate plus
+checks/tests on the current pin without network or install; it allows a dirty
+tree so it can resume a half-applied update). It still migrates the old
+`github:` and `t/<sha>/` specs on the first run.
 
 ## Current release-asset flow (2026-11-04+)
 
@@ -48,17 +53,21 @@ release's asset URLs. The update script:
 6. Verify every preview ref in the lock is the same release tag and no
    `codeload.github.com` or `raw.githubusercontent.com/…/t/` refs remain.
 7. Run the frozen-install check, repoint `.agents/skills/remix` and
-   `.opencode/skills/remix`, refresh the current-pin strings (`--no-docs` opts
-   out), then typecheck/lint/format/tests and print the pin-history scaffold.
+   `.opencode/skills/remix`, refresh current-pin strings and the analysis
+   `Current pin` line (`--no-docs` opts out), then typecheck/lint/format/tests,
+   write the pin-history entry + table row, and print the editorial TODOs.
 
 **Failure handling.** The preflight keeps pre-existing lint/type failures from
 mutating the tree. A consumer-breaking bump still stops at the post-install
-checks with the pin already applied; the script then prints the modified files,
-a resume command, and the pin-history scaffold (`tests not run (update
-aborted)`). Fix the source and run `npm run update:remix -- --verify` to re-run
-typecheck/lint/format/tests on the current pin and print the verification line;
-re-running the plain command would print `Already up to date; nothing to do.`
-and skip the checks.
+checks with the pin already applied; the script then prints the failing step,
+its last 20 output lines (install steps keep inherited stdio, so they show the
+step name only), the modified files, a resume command, and the pin-history
+scaffold (`tests not run (update aborted)`); a successful run writes the entry
+instead. A stale `Current install`/`Current pin` line fails the analysis-doc
+gate immediately rather than in the server suite. Fix the source and run `npm run update:remix -- --verify` to re-run the
+gate plus typecheck/lint/format/tests on the current pin and print the
+verification line; re-running the plain command would print `Already up to
+date; nothing to do.` and skip the checks.
 
 **Retention matters.** Since #12311 main preview releases are retained for 30
 days (the latest publication is kept indefinitely), so a lockfile that points
@@ -72,8 +81,8 @@ Run `npm run remix:pin:check` to verify the pin: it checks that every
 `@remix-run/*` ref in `pnpm-lock.yaml` uses the same release tag as
 `package.json` (mixed tags, retained-tarball refs, and leftover codeload refs
 fail), verifies that `upstream-dependency-analysis.md`'s "Current install"
-versions and "Current range" endpoint match the pin (the editorial summary is
-never rewritten automatically, so it used to drift), then HEADs both tarball
+versions and "Current pin" endpoint match the pin (the pin line is refreshed
+automatically; the `Current range summary:` below it is editorial), then HEADs both tarball
 URLs and reads the latest main preview release to warn when the pin is not the
 newest or is older than five days. The check is
 dependency-free and treats network failures as warnings, so it is safe offline

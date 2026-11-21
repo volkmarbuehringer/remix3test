@@ -5,7 +5,16 @@ import * as path from 'node:path'
 import { changelogHighlights, newChangelogSections } from './changelog-sections.ts'
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
 import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
-import { refreshPinDocs } from './remix-pin-docs.ts'
+import { checkAnalysisDoc, refreshPinDocs } from './remix-pin-docs.ts'
+import { createTail, formatStepFailure, StepFailure } from './update-remix-failure.ts'
+import {
+  buildPinHistoryRow,
+  formatPinHistoryEntry,
+  hasPinHistoryEntry,
+  insertPinHistoryEntry,
+  insertPinHistoryRow,
+  PIN_HISTORY_FILE,
+} from './remix-pin-history.ts'
 
 // ---------------------------------------------------------------------------
 // Bump the remix preview pin.
@@ -20,8 +29,11 @@ import { refreshPinDocs } from './remix-pin-docs.ts'
 //
 // Steps: resolve the latest main preview release -> rewrite the two tarball
 // specs -> pnpm install -> verify one release in the lock -> frozen-install
-// check -> repoint the vendor skill links -> typecheck/lint/format (+ full
-// tests unless --no-tests).
+// check -> repoint the vendor skill links -> refresh current-pin docs ->
+// analysis-doc gate -> typecheck/lint/format (+ full tests unless
+// --no-tests) -> write the pin-history entry and table row. A failed step
+// carries its command, exit status, last output lines, and hint into the
+// resume summary.
 //
 // This script still recognizes the older `github:…#preview/main&path:` and
 // retained `t/<source-sha>/` specs so the last old-layout pins migrate in
@@ -165,18 +177,24 @@ function usage(): void {
 Resolve the latest main preview release in github.com/remix-run/previews,
 rewrite the remix and @remix-run/ui tarball specs, run the install, verify the
 lock has one unified release, repoint the vendor skill links, then run
-typecheck, lint, format and (by default) the full test suite.
+typecheck, lint, format and (by default) the full test suite. On success it
+writes the pin-history entry and newest-first table row (the editorial bullets
+remain TODO); an aborted run prints the scaffold instead.
 
 A preflight runs typecheck/lint/format on the unmodified tree first, so a
 pre-existing failure aborts before package.json or the lockfile is rewritten.
+The analysis-doc drift gate runs before --verify's checks and again after the
+pin-string refresh, so a stale upstream-dependency-analysis.md fails in seconds
+instead of in the server suite. A failed check prints its last output lines.
 
 Options:
   --dry-run           Resolve and print the target release, commits and package changelog
   --no-tests          Skip the full \`npm test\` run
-  --no-docs           Skip refreshing the current-pin strings in AGENTS.md/learned skills
+  --no-docs           Skip refreshing current-pin strings and the pin-history entry
   --allow-dirty       Allow an uncommitted working tree
-  --verify            Re-run typecheck/lint/format/tests on the current pin and print
-                      the verification line (no network, no install; dirty tree allowed)
+  --verify            Re-run the analysis-doc gate and typecheck/lint/format/tests
+                      on the current pin and print the verification line (no
+                      network, no install; dirty tree allowed)
   --store-dir <dir>   pnpm store (default: ./.pnpm-store when it exists)
   -h, --help          Show this help
 
@@ -220,17 +238,51 @@ function parseOptions(argv: string[]): Options {
 }
 
 function run(command: string, args: string[], capture = false): string {
+  let step = `${command} ${args.join(' ')}`
   let result = spawnSync(command, args, {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: capture ? 'pipe' : 'inherit',
     env: command === 'pnpm' ? pnpmEnv : process.env,
   })
-  if (result.error) throw result.error
+  if (result.error) throw new StepFailure(step, null, result.error.message)
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} exited ${result.status ?? 'without a status'}`)
+    let tail = capture
+      ? [result.stdout ?? '', result.stderr ?? ''].filter((part) => part.trim()).join('\n')
+      : ''
+    throw new StepFailure(step, result.status, tail)
   }
   return capture ? (result.stdout ?? '').trim() : ''
+}
+
+// Stream a check command while retaining its last lines for the abort summary.
+function runStep(command: string, args: string[]): Promise<void> {
+  let step = `${command} ${args.join(' ')}`
+  return new Promise((resolve, reject) => {
+    let child = spawn(command, args, {
+      cwd: ROOT,
+      env: process.env,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    })
+    let tail = createTail()
+
+    child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
+    child.stdout?.on('data', (chunk: string) => {
+      process.stdout.write(chunk)
+      tail.push(chunk)
+    })
+    child.stderr?.on('data', (chunk: string) => {
+      process.stderr.write(chunk)
+      tail.push(chunk)
+    })
+
+    child.on('error', (error) => reject(new StepFailure(step, null, error.message)))
+    child.on('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new StepFailure(step, code, tail.text()))
+    })
+  })
 }
 
 type TestSummaryBlock = Record<string, string>
@@ -240,15 +292,18 @@ function runTestsAndSummarize(): Promise<string> {
     let child = spawn('npm', ['test'], {
       cwd: ROOT,
       env: process.env,
-      stdio: ['inherit', 'pipe', 'inherit'],
+      stdio: ['inherit', 'pipe', 'pipe'],
     })
     let blocks: TestSummaryBlock[] = []
     let current: TestSummaryBlock | undefined
     let buffer = ''
+    let tail = createTail()
 
     child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
     child.stdout?.on('data', (chunk: string) => {
       process.stdout.write(chunk)
+      tail.push(chunk)
       buffer += chunk
       let lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
@@ -266,11 +321,15 @@ function runTestsAndSummarize(): Promise<string> {
         }
       }
     })
+    child.stderr?.on('data', (chunk: string) => {
+      process.stderr.write(chunk)
+      tail.push(chunk)
+    })
 
-    child.on('error', reject)
+    child.on('error', (error) => reject(new StepFailure('npm test', null, error.message)))
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error('npm test exited ' + (code ?? 'without a status')))
+        reject(new StepFailure('npm test', code, tail.text()))
         return
       }
       resolve(formatTestSummary(blocks))
@@ -331,51 +390,42 @@ type AbortContext = {
 // Set immediately before the tree is mutated, so main().catch() can print a
 // resume summary and the pin-history scaffold instead of a bare error.
 let abortContext: AbortContext | undefined
+let runMode: 'update' | 'verify' = 'update'
 
-function printPinHistoryScaffold(args: ScaffoldArgs): void {
-  let date = new Date().toLocaleDateString('sv-SE')
-  let oldSource = args.oldSource.slice(0, 8)
-  let newSource = args.targetSource.slice(0, 8)
-  let commits = args.subjects?.length
-    ? ' (' + args.subjects.length + ' commits: ' + args.subjects.join('; ') + ')'
-    : ''
-
-  console.log('\nPin-history scaffold (paste into docs/remix-pin-history.md, then fill the TODOs):')
-  console.log(
-    '**Bump recorded ' +
-      date +
-      ': preview release `' +
-      args.oldTag +
-      '`/source `' +
-      oldSource +
-      '` → `' +
-      args.targetTag +
-      '`/source `' +
-      newSource +
-      '`' +
-      commits +
-      '.**',
-  )
-  console.log('')
-  console.log(
-    '- **Lock:** all ' +
-      args.refs +
-      ' release-tarball refs resolve to `' +
-      args.targetTag +
-      '`; no refs to the old tag remain.',
-  )
-  console.log('- **Versions:** ' + args.versions + '.')
-  console.log('- **Package delta:** TODO — diff the old and new installed trees before recording.')
-  console.log(
-    '- **Breaking:** TODO — review the Major/Minor/Patch changelog entries printed above; a minor/patch can still change consumer behavior (e.g. data-table 1.1.0 sql arrays).',
-  )
-  console.log('- **Behavior:** TODO — one bullet per runtime/API change.')
-  console.log('- **App-side clearance:** TODO — call sites, or "no production source change".')
-  console.log('- **Verification (' + date + '):** ' + args.tests + '.')
+function printEditorialTodos(): void {
   console.log('\nStill editorial (not automated):')
   console.log('  - AGENTS.md: add the "This bump" paragraph and demote the previous one')
   console.log('  - docs/guide-skill-coverage.md: add the bump sentence if the guides moved')
-  console.log('  - upstream-dependency-analysis.md: add the new range summary')
+  console.log(
+    '  - upstream-dependency-analysis.md: add the new range summary (the "Current pin" line is refreshed automatically)',
+  )
+}
+
+function printPinHistoryScaffold(args: ScaffoldArgs): void {
+  let date = new Date().toLocaleDateString('sv-SE')
+  console.log(
+    '\nPin-history scaffold (written automatically on success; paste it if the run aborts):',
+  )
+  console.log(formatPinHistoryEntry({ ...args, date }))
+  printEditorialTodos()
+}
+
+function assertAnalysisDocCurrent(): void {
+  let issues = checkAnalysisDoc(ROOT)
+  if (issues.length === 0) return
+
+  throw new StepFailure(
+    'analysis doc check (upstream-dependency-analysis.md)',
+    null,
+    issues.join('\n'),
+    'Update the "Current install"/"Current pin" lines (and the range summary), then re-run.',
+  )
+}
+
+function printStepFailure(failure: unknown): void {
+  if (!(failure instanceof StepFailure)) return
+  console.log('')
+  for (let line of formatStepFailure(failure)) console.log(line)
 }
 
 async function verifyCurrentPin(pin: Pin, options: Options): Promise<void> {
@@ -385,9 +435,11 @@ async function verifyCurrentPin(pin: Pin, options: Options): Promise<void> {
   console.log('== Verify current pin ==')
   console.log(`Pin: ${tag}${source} [${pin.kind}]`)
 
-  run('npm', ['run', 'typecheck'])
-  run('npm', ['run', 'lint'])
-  run('npm', ['run', 'format'])
+  assertAnalysisDocCurrent()
+
+  await runStep('npm', ['run', 'typecheck'])
+  await runStep('npm', ['run', 'lint'])
+  await runStep('npm', ['run', 'format'])
 
   let summary = 'tests skipped (--no-tests)'
   if (options.noTests) {
@@ -400,9 +452,10 @@ async function verifyCurrentPin(pin: Pin, options: Options): Promise<void> {
   console.log(`\nVerification at ${tag}${source}: ${summary}.`)
 }
 
-function printAbortedUpdate(context: AbortContext): void {
+function printAbortedUpdate(context: AbortContext, failure: unknown): void {
   console.log('\n== Update aborted ==')
   console.log(`The working tree was already modified for ${context.targetTag}.`)
+  printStepFailure(failure)
 
   try {
     let dirty = run('git', ['status', '--short'], true)
@@ -415,7 +468,7 @@ function printAbortedUpdate(context: AbortContext): void {
   }
 
   console.log('')
-  console.log('Fix the failure reported below, then resume (no reinstall needed unless')
+  console.log('Fix the failure, then resume (no reinstall needed unless')
   console.log('the install itself failed):')
   console.log('  npm run update:remix -- --verify')
 
@@ -924,6 +977,7 @@ async function main(): Promise<void> {
   let oldPin = await readCurrentPin(specKind, before)
 
   if (options.verify) {
+    runMode = 'verify'
     await verifyCurrentPin(oldPin, options)
     return
   }
@@ -991,6 +1045,7 @@ async function main(): Promise<void> {
           oldSource: oldPin.source ?? oldPin.build,
           newTag: targetTag,
           newSource: targetSource,
+          commits: subjects?.length,
         },
         { dryRun: true },
       )
@@ -1003,9 +1058,9 @@ async function main(): Promise<void> {
   }
 
   console.log('\n== Preflight (unmodified tree) ==')
-  run('npm', ['run', 'typecheck'])
-  run('npm', ['run', 'lint'])
-  run('npm', ['run', 'format'])
+  await runStep('npm', ['run', 'typecheck'])
+  await runStep('npm', ['run', 'lint'])
+  await runStep('npm', ['run', 'format'])
 
   abortContext = {
     oldTag: oldPin.tag ?? oldPin.build,
@@ -1037,6 +1092,7 @@ async function main(): Promise<void> {
       oldSource: oldPin.source ?? oldPin.build,
       newTag: targetTag,
       newSource: targetSource,
+      commits: subjects?.length,
     })
     if (docs.updated.length > 0) {
       console.log(`\nRefreshed current-pin strings in ${docs.updated.length} file(s).`)
@@ -1051,12 +1107,14 @@ async function main(): Promise<void> {
     }
   }
 
+  assertAnalysisDocCurrent()
+
   console.log(`\nVersions: ${installedVersions()}`)
 
   console.log('\n== Checks ==')
-  run('npm', ['run', 'typecheck'])
-  run('npm', ['run', 'lint'])
-  run('npm', ['run', 'format'])
+  await runStep('npm', ['run', 'typecheck'])
+  await runStep('npm', ['run', 'lint'])
+  await runStep('npm', ['run', 'format'])
   let testSummary: string | undefined
   if (options.noTests) {
     console.log('Tests skipped (--no-tests).')
@@ -1066,7 +1124,9 @@ async function main(): Promise<void> {
   }
 
   if (!options.noDocs && oldPin.kind === 'release' && oldPin.tag) {
-    printPinHistoryScaffold({
+    let date = new Date().toLocaleDateString('sv-SE')
+    let historyArgs = {
+      date,
       oldTag: oldPin.tag,
       oldSource: oldPin.source ?? oldPin.build,
       targetTag,
@@ -1075,7 +1135,23 @@ async function main(): Promise<void> {
       refs: readLockState().releaseRefs,
       versions: installedVersions(),
       tests: testSummary ?? 'tests skipped (--no-tests)',
-    })
+    }
+    let historyPath = path.join(ROOT, PIN_HISTORY_FILE)
+    let historyDoc = fs.readFileSync(historyPath, 'utf8')
+    if (hasPinHistoryEntry(historyDoc, targetTag)) {
+      console.log(`\nPin-history entry for ${targetTag} already exists; left it unchanged.`)
+    } else {
+      let updated = insertPinHistoryRow(
+        insertPinHistoryEntry(historyDoc, formatPinHistoryEntry(historyArgs)),
+        buildPinHistoryRow(historyArgs),
+      )
+      fs.writeFileSync(historyPath, updated)
+      run('npx', ['oxfmt', PIN_HISTORY_FILE, '--write'], true)
+      console.log(
+        `\nWrote pin-history entry + table row to ${PIN_HISTORY_FILE} (fill the TODO bullets).`,
+      )
+    }
+    printEditorialTodos()
   }
 
   console.log('\n== Done ==')
@@ -1085,7 +1161,21 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  if (abortContext) printAbortedUpdate(abortContext)
-  console.error(`\nupdate-remix failed: ${error instanceof Error ? error.message : String(error)}`)
+  let reported = false
+  if (abortContext) {
+    printAbortedUpdate(abortContext, error)
+    reported = error instanceof StepFailure
+  } else if (error instanceof StepFailure) {
+    console.log(`\n== ${runMode === 'verify' ? 'Verification' : 'Update'} failed ==`)
+    printStepFailure(error)
+    console.log('\nFix the failure, then re-run:')
+    console.log(`  npm run update:remix${runMode === 'verify' ? ' -- --verify' : ''}`)
+    reported = true
+  }
+  if (!reported) {
+    console.error(
+      `\nupdate-remix failed: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
   process.exit(1)
 })

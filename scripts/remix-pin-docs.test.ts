@@ -37,6 +37,7 @@ const change = {
   oldSource: OLD_SOURCE,
   newTag: NEW_TAG,
   newSource: NEW_SOURCE,
+  commits: 4,
 }
 
 describe('refreshPinDocs', () => {
@@ -47,7 +48,8 @@ describe('refreshPinDocs', () => {
         'Revalidated: preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
         'Since preview build `aaaaaaaa` (#1) stays put.',
         'The example URL uses ' + OLD_TAG + '.',
-        'Current pin: ' + OLD_TAG + ' / source `aaaaaaaa`.',
+        'Current pin: `cccccccc` → `aaaaaaaa` (3 commits).',
+        'Current range summary: hand-authored.',
         'Since remix #12203 (pin `aaaaaaaa`) stays put.',
         'Re-validated (2026-11-12): against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
         '**Validated:** re-checked against preview release `' + OLD_TAG + '` / source `aaaaaaaa`.',
@@ -55,7 +57,6 @@ describe('refreshPinDocs', () => {
         'Since #12183 (pin `' + OLD_TAG + '`) is history.',
         'A fix landed since #12290 (preview `' + OLD_TAG + '`).',
         'Only applies on a pin older than `' + OLD_SOURCE + '`.',
-        'Current range (`aaaaaaaa` → `' + OLD_TAG + '`, 3 commits): hand-authored.',
       ].join('\n'),
       'AGENTS.md':
         'The pin is release `' +
@@ -69,7 +70,6 @@ describe('refreshPinDocs', () => {
     assert.deepEqual(result.skipped, [
       learned + ':1',
       learned + ':2',
-      learned + ':5',
       learned + ':6',
       learned + ':7',
       learned + ':8',
@@ -81,7 +81,11 @@ describe('refreshPinDocs', () => {
 
     let learnedText = fs.readFileSync(path.join(root, learned), 'utf8')
     assert.ok(learnedText.includes(NEW_TAG), 'tag refreshed')
-    assert.ok(learnedText.includes('source `bbbbbbbb`'), 'source refreshed')
+    assert.ok(learnedText.includes('→ `bbbbbbbb`'), 'source refreshed')
+    assert.ok(
+      learnedText.includes('Current pin: `aaaaaaaa` → `bbbbbbbb` (4 commits).'),
+      'mechanical pin line refreshed',
+    )
     assert.ok(
       learnedText.includes('Revalidated: preview release `' + OLD_TAG + '` / source `aaaaaaaa`.'),
       'revalidation history kept',
@@ -123,10 +127,8 @@ describe('refreshPinDocs', () => {
       'older-than history kept',
     )
     assert.ok(
-      learnedText.includes(
-        'Current range (`aaaaaaaa` → `' + OLD_TAG + '`, 3 commits): hand-authored.',
-      ),
-      'hand-authored range kept',
+      learnedText.includes('Current range summary: hand-authored.'),
+      'hand-authored summary kept',
     )
 
     let agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
@@ -138,6 +140,20 @@ describe('refreshPinDocs', () => {
       agents.includes('This bump (`aaaaaaaa` → `bbbbbbbb`) is history.'),
       'AGENTS history kept',
     )
+  })
+
+  it('rewrites the mechanical pin line idempotently', () => {
+    let learned = '.opencode/skills/learned/example.md'
+    let root = fixture({
+      [learned]: 'Current pin: `cccccccc` → `aaaaaaaa` (3 commits).\n',
+    })
+
+    assert.deepEqual(refreshPinDocs(root, change).updated, [learned])
+    assert.equal(
+      fs.readFileSync(path.join(root, learned), 'utf8'),
+      'Current pin: `aaaaaaaa` → `bbbbbbbb` (4 commits).\n',
+    )
+    assert.deepEqual(refreshPinDocs(root, change).updated, [])
   })
 
   it('is idempotent once the pin strings are at the target', () => {
@@ -207,12 +223,12 @@ const expectation: AnalysisExpectation = {
 }
 
 function analysisDoc(
-  overrides: { tag?: string; source?: string; remix?: string; rangeTo?: string } = {},
+  overrides: { tag?: string; source?: string; remix?: string; pinTo?: string } = {},
 ): string {
   let tag = overrides.tag ?? expectation.tag
   let source = overrides.source ?? expectation.source
   let remix = overrides.remix ?? expectation.versions.remix
-  let rangeTo = overrides.rangeTo ?? expectation.source
+  let pinTo = overrides.pinTo ?? expectation.source
 
   return [
     'Current install: `remix` ' +
@@ -229,7 +245,9 @@ function analysisDoc(
       source +
       '`).',
     '',
-    'Current range (`aaaaaaaa` → `' + rangeTo + '`, 5 commits): ...',
+    'Current pin: `aaaaaaaa` → `' + pinTo + '` (5 commits).',
+    '',
+    'Current range summary: ...',
   ].join('\n')
 }
 
@@ -238,9 +256,9 @@ describe('analysis doc drift', () => {
     assert.deepEqual(compareAnalysisDoc(analysisDoc(), expectation), [])
   })
 
-  it('reports a stale version, source, and range endpoint', () => {
+  it('reports a stale version, source, and pin endpoint', () => {
     let issues = compareAnalysisDoc(
-      analysisDoc({ remix: '3.2.0', source: 'aaaaaaaa', rangeTo: '9e4da4d3' }),
+      analysisDoc({ remix: '3.2.0', source: 'aaaaaaaa', pinTo: '9e4da4d3' }),
       expectation,
     )
 
@@ -254,11 +272,20 @@ describe('analysis doc drift', () => {
     )
     assert.ok(
       issues.some((issue) => issue.includes('ends at 9e4da4d3')),
-      'stale range endpoint reported',
+      'stale pin endpoint reported',
     )
   })
 
-  it('flags a summary without a current-install or current-range line', () => {
+  it('does not read the editorial range summary', () => {
+    let doc = analysisDoc().replace(
+      'Current range summary: ...',
+      'Current range (`9e4da4d3` → `01e5b5d4`, 5 commits): old prose',
+    )
+
+    assert.deepEqual(compareAnalysisDoc(doc, expectation), [])
+  })
+
+  it('flags a summary without a current-install or current-pin line', () => {
     let issues = compareAnalysisDoc('no pin summary here', expectation)
 
     assert.ok(
@@ -266,8 +293,8 @@ describe('analysis doc drift', () => {
       'missing install line reported',
     )
     assert.ok(
-      issues.some((issue) => issue.includes('no "Current range')),
-      'missing range line reported',
+      issues.some((issue) => issue.includes('no "Current pin')),
+      'missing pin line reported',
     )
   })
 

@@ -6,6 +6,8 @@ type PinChange = {
   oldSource: string
   newTag: string
   newSource: string
+  /** Commits between the old and new source, for the mechanical analysis line. */
+  commits: number | undefined
 }
 
 type PinDocsResult = {
@@ -28,9 +30,10 @@ const DOC_ANCHOR_MARKER = '**Anchor:**'
 // when a behavior landed; bumping the pin must not rewrite that history. The
 // same applies to "Revalidated: … against preview release `…`" headers: they
 // record when a skill was last checked, so a later bump is not a revalidation.
-// "Current range (`old` → `new`, N commits)" is hand-authored too: rewriting
-// only its trailing pin leaves a range whose body describes the previous bump.
+// "Current range summary:" is hand-authored prose and is left alone; the
+// separate "Current pin:" line below it is the mechanical endpoint.
 const HISTORICAL_LINE = /\b(?:Since|Re-?validated|Validated|Current range)\b|\bolder\s+than\b/i
+const PIN_LINE = /Current pin: `([0-9a-f]{8})` → `([0-9a-f]{8})` \((\d+) commits?\)/
 
 function source8(source: string): string {
   return /^[0-9a-f]{8,}$/i.test(source) ? source.slice(0, 8) : source
@@ -96,6 +99,22 @@ export function refreshPinDocs(
       let line = lines[index] ?? ''
       // A doc's audit entries are history; only its Anchor line is current.
       if (docAnchorSet.has(file) && !line.startsWith(DOC_ANCHOR_MARKER)) continue
+
+      // The analysis reference keeps its mechanical endpoint on a line of its
+      // own, so the editorial summary below it is never rewritten.
+      let pin = PIN_LINE.exec(line)
+      if (pin && /^[0-9a-f]{8}$/i.test(oldSource) && /^[0-9a-f]{8}$/i.test(newSource)) {
+        let count = change.commits ?? Number(pin[3])
+        let next =
+          `Current pin: \`${oldSource}\` → \`${newSource}\` ` +
+          `(${count} commit${count === 1 ? '' : 's'}).`
+        if (next !== line) {
+          lines[index] = next
+          changed = true
+        }
+        continue
+      }
+
       let mentionsOldPin =
         (change.oldTag.length > 0 && line.includes(change.oldTag)) ||
         (oldSource.length > 0 && line.includes(oldSource))
@@ -137,10 +156,9 @@ export function refreshPinDocs(
 // ---------------------------------------------------------------------------
 // Current-install drift check
 //
-// `refreshPinDocs` intentionally leaves the editorial "Current install" and
-// "Current range" summary in upstream-dependency-analysis.md alone, so it can
-// lag behind a bump (it has: two ranges behind, and the 3.2.0 version line
-// while 3.3.0 was installed). Compare those claims with package.json and
+// `refreshPinDocs` refreshes the analysis reference's tag/source and the
+// mechanical "Current pin" line, but not its version numbers or the editorial
+// "Current range summary". Compare those claims with package.json and
 // pnpm-lock.yaml so `remix:pin:check` and the test suite fail loudly instead.
 
 const ANALYSIS_DOC = path.join(
@@ -172,14 +190,13 @@ type AnalysisClaim = {
   tag: string | undefined
   source: string | undefined
   versions: Record<AnalysisLabel, string | undefined>
-  rangeFrom: string | undefined
-  rangeTo: string | undefined
-  rangeCommits: string | undefined
+  pinFrom: string | undefined
+  pinTo: string | undefined
+  pinCommits: string | undefined
 }
 
 const INSTALL_LINE =
   /Current install: `remix` (\S+) \/ `@remix-run\/ui` (\S+) \/ `@remix-run\/component` (\S+) \/ `component-hmr` (\S+) at preview release `([^`]+)` \(source `([0-9a-f]{8})`\)/
-const RANGE_LINE = /Current range \(`([0-9a-f]{8})` → `([0-9a-f]{8})`, (\d+) commits?\)/
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -230,10 +247,11 @@ export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
       '@remix-run/component': undefined,
       'component-hmr': undefined,
     },
-    rangeFrom: undefined,
-    rangeTo: undefined,
-    rangeCommits: undefined,
+    pinFrom: undefined,
+    pinTo: undefined,
+    pinCommits: undefined,
   }
+
   let install = INSTALL_LINE.exec(doc)
   if (install) {
     claim.versions.remix = install[1]
@@ -243,11 +261,11 @@ export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
     claim.tag = install[5]
     claim.source = install[6]
   }
-  let range = RANGE_LINE.exec(doc)
-  if (range) {
-    claim.rangeFrom = range[1]
-    claim.rangeTo = range[2]
-    claim.rangeCommits = range[3]
+  let pin = PIN_LINE.exec(doc)
+  if (pin) {
+    claim.pinFrom = pin[1]
+    claim.pinTo = pin[2]
+    claim.pinCommits = pin[3]
   }
   return claim
 }
@@ -277,11 +295,11 @@ export function compareAnalysisDoc(doc: string, expected: AnalysisExpectation): 
     }
   }
 
-  if (!claim.rangeTo) {
-    issues.push('no "Current range (`old` → `new`, N commits)" line')
-  } else if (claim.rangeTo !== expected.source) {
+  if (!claim.pinTo) {
+    issues.push('no "Current pin (`old` → `new`, N commits)" line')
+  } else if (claim.pinTo !== expected.source) {
     issues.push(
-      `"Current range" ends at ${claim.rangeTo}; expected ${expected.source} (the pinned source)`,
+      `"Current pin" ends at ${claim.pinTo}; expected ${expected.source} (the pinned source)`,
     )
   }
 
