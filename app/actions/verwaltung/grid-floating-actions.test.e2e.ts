@@ -23,6 +23,7 @@ interface GridCase {
   label: string
   path: string
   tableAttr: string
+  expectedLabels: string[]
 }
 
 const CASES: GridCase[] = [
@@ -33,6 +34,7 @@ const CASES: GridCase[] = [
       '?status=all&filter=' +
       encodeURIComponent(TOKEN_PREFIX),
     tableAttr: 'data-appointments-table',
+    expectedLabels: ['Bearbeiten', 'Löschen'],
   },
   {
     label: 'offerings',
@@ -41,11 +43,13 @@ const CASES: GridCase[] = [
       '?status=all&filter=' +
       encodeURIComponent(TOKEN_PREFIX),
     tableAttr: 'data-offerings-table',
+    expectedLabels: ['Konfiguration', 'Bearbeiten', 'Löschen'],
   },
   {
     label: 'resources',
     path: routes.verwaltung.resources.index.href() + '?filter=' + encodeURIComponent(TOKEN_PREFIX),
     tableAttr: 'data-resources-table',
+    expectedLabels: ['Bearbeiten', 'Löschen'],
   },
   {
     label: 'offering-configs',
@@ -54,6 +58,7 @@ const CASES: GridCase[] = [
       '?filter=' +
       encodeURIComponent(TOKEN_PREFIX),
     tableAttr: 'data-offering-configs-table',
+    expectedLabels: ['Bearbeiten', 'Löschen'],
   },
 ]
 
@@ -237,4 +242,50 @@ describe('verwaltung grids: floating row actions', () => {
       )
     })
   }
+  it('shows visible action labels when tooltips are unavailable on touch cards', async (t) => {
+    for (let grid of CASES) {
+      let page = await openGrid(t, grid.path)
+      await page.setViewportSize({ width: 390, height: 900 })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page
+        .locator('[' + grid.tableAttr + '] tbody tr[data-row-id]')
+        .first()
+        .waitFor({
+          timeout: 15_000,
+        })
+
+      let state = await page.evaluate(
+        ({ attr, groupSelector }) => {
+          let wrap = document.querySelector('[' + attr + ']') as HTMLElement
+          let group = wrap.querySelector('tbody ' + groupSelector) as HTMLElement
+          let trigger = wrap.querySelector('tbody [data-row-actions-trigger]') as HTMLElement
+          let labels = [...group.querySelectorAll<HTMLElement>('[data-action-label]')]
+            .filter((label) => getComputedStyle(label).display !== 'none')
+            .map((label) => label.textContent?.trim() ?? '')
+          return {
+            labels,
+            triggerDisplay: getComputedStyle(trigger).display,
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+          }
+        },
+        { attr: grid.tableAttr, groupSelector: '[data-row-actions]' },
+      )
+
+      assert.deepEqual(
+        state.labels,
+        grid.expectedLabels,
+        `${grid.label}: mobile cards must show readable action labels`,
+      )
+      assert.equal(
+        state.triggerDisplay,
+        'none',
+        `${grid.label}: the overlay kebab must stay hidden on mobile`,
+      )
+      assert.ok(
+        state.scrollWidth <= state.clientWidth + 1,
+        `${grid.label}: mobile action labels must not overflow the page`,
+      )
+    }
+  })
 })

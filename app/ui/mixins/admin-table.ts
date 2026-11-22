@@ -322,6 +322,42 @@ export const table = {
   }),
 
   /**
+   * Icon actions are compact in the desktop overlay, but touch devices cannot
+   * reveal their `title` tooltips. The mobile card layout shows a text label in
+   * each segment instead, hides the glyph, and lets the cell's action group use
+   * the full row when the data-label would otherwise crowd it.
+   */
+  actionLabel: css({
+    display: 'none',
+    '@media (max-width: 768px)': {
+      display: 'inline',
+      fontSize: theme.fontSize.xxs,
+      fontWeight: theme.fontWeight.medium,
+      lineHeight: 1,
+      whiteSpace: 'nowrap',
+    },
+  }),
+  actionGlyph: css({
+    '@media (max-width: 768px)': {
+      display: 'none',
+    },
+  }),
+  actionSegLabeled: css({
+    '@media (max-width: 768px)': {
+      // The actionSeg layer owns width/padding; mobile card overrides need the
+      // boost because sibling @layer declarations otherwise win on order.
+      width: 'auto !important',
+      padding: `0 ${theme.space.sm} !important`,
+    },
+  }),
+  mobileActionsCell: css({
+    '@media (max-width: 768px)': {
+      '&::before': { display: 'none !important' },
+      '& [data-row-actions]': { marginLeft: 'auto' },
+    },
+  }),
+
+  /**
    * Floating row actions — opt-in, not the default row treatment.
    *
    * Above `floatingActionsMedia` the action column shrinks to a 44px kebab

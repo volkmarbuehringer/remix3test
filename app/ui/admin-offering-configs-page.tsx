@@ -745,7 +745,10 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       >
                         <span mix={cellValueStyle}>{formatTimestamp(row.updated_at)}</span>
                       </td>
-                      <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                      <td
+                        mix={[table.actionCell, table.floatingActionCell, table.mobileActionsCell]}
+                        data-label="Aktionen"
+                      >
                         <button
                           type="button"
                           data-row-actions-trigger
@@ -767,11 +770,14 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={table.actionSeg}
+                            mix={[table.actionSeg, table.actionSegLabeled]}
                             aria-label={`${label} bearbeiten`}
                             title="Bearbeiten"
                           >
-                            <Glyph name="edit" width={14} height={14} />
+                            <Glyph name="edit" width={14} height={14} mix={table.actionGlyph} />
+                            <span data-action-label mix={table.actionLabel}>
+                              Bearbeiten
+                            </span>
                           </a>
                           <RestfulForm
                             method="DELETE"
@@ -791,11 +797,14 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                             />
                             <button
                               type="submit"
-                              mix={[table.actionSeg, table.actionSegDanger]}
+                              mix={[table.actionSeg, table.actionSegDanger, table.actionSegLabeled]}
                               aria-label={`${label} löschen`}
                               title="Löschen"
                             >
-                              <Glyph name="trash" width={14} height={14} />
+                              <Glyph name="trash" width={14} height={14} mix={table.actionGlyph} />
+                              <span data-action-label mix={table.actionLabel}>
+                                Löschen
+                              </span>
                             </button>
                           </RestfulForm>
                         </div>

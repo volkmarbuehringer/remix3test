@@ -645,7 +645,10 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         <span mix={table.cellMeta}>{formatTime(row.updated_at)}</span>
                       </div>
                     </td>
-                    <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+                    <td
+                      mix={[table.actionCell, table.floatingActionCell, table.mobileActionsCell]}
+                      data-label="Aktionen"
+                    >
                       <button
                         type="button"
                         data-row-actions-trigger
@@ -675,11 +678,14 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             status,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={table.actionSeg}
+                          mix={[table.actionSeg, table.actionSegLabeled]}
                           aria-label="Konfiguration"
                           title="Konfiguration"
                         >
-                          <Glyph name="cog" width={14} height={14} />
+                          <Glyph name="cog" width={14} height={14} mix={table.actionGlyph} />
+                          <span data-action-label mix={table.actionLabel}>
+                            Konfiguration
+                          </span>
                         </a>
                         <a
                           href={buildEditUrl(
@@ -692,11 +698,14 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             status,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={table.actionSeg}
+                          mix={[table.actionSeg, table.actionSegLabeled]}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
                         >
-                          <Glyph name="edit" width={14} height={14} />
+                          <Glyph name="edit" width={14} height={14} mix={table.actionGlyph} />
+                          <span data-action-label mix={table.actionLabel}>
+                            Bearbeiten
+                          </span>
                         </a>
                         <RestfulForm
                           method="DELETE"
@@ -718,11 +727,14 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                           />
                           <button
                             type="submit"
-                            mix={[table.actionSeg, table.actionSegDanger]}
+                            mix={[table.actionSeg, table.actionSegDanger, table.actionSegLabeled]}
                             aria-label="Löschen"
                             title="Löschen"
                           >
-                            <Glyph name="trash" width={14} height={14} />
+                            <Glyph name="trash" width={14} height={14} mix={table.actionGlyph} />
+                            <span data-action-label mix={table.actionLabel}>
+                              Löschen
+                            </span>
                           </button>
                         </RestfulForm>
                       </div>
