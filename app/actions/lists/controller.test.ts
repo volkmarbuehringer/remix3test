@@ -469,7 +469,9 @@ describe('Lists controller', () => {
     })
     let text = await response.text()
     let rows = text.match(/data-list-id=/g)?.length ?? 0
-    let triggers = text.match(/data-list-menu-button/g)?.length ?? 0
+    // Match the rendered button attribute, not the selector text in the
+    // inline component styles (the hover rule also mentions this attribute).
+    let triggers = text.match(/<button[^>]*\bdata-list-menu-button\b/g)?.length ?? 0
     let overlays = text.match(/data-list-actions-overlay/g)?.length ?? 0
 
     assert.ok(rows > 0, 'the sidebar should render at least one saved list row')

@@ -892,9 +892,11 @@ const entryRowStyle = css({
     outline: `2px solid ${theme.colors.focus.ring}`,
     outlineOffset: '-2px',
   },
-  // Reveal the desktop overlay on hover or when a descendant receives keyboard
-  // focus. The same selectors are inert while the touch menu is display: none.
-  '&:hover [data-list-menu]': {
+  // Reveal the desktop overlay only after the pointer reaches the kebab, then
+  // keep it open while the pointer is inside the action group. Revealing it on
+  // row hover made the overlay appear underneath the cursor and steal clicks
+  // intended for the list link. Keyboard focus still reveals it for discovery.
+  '&:has([data-list-menu-button]:hover, [data-list-menu]:hover) [data-list-menu]': {
     opacity: '1 !important',
     pointerEvents: 'auto !important',
   },
@@ -905,7 +907,9 @@ const entryRowStyle = css({
   [sidebarOverlayMedia]: {
     // The overlay covers this edge of the row; hide the count instead of
     // letting it peek out from behind the buttons.
-    '&:hover [data-list-count]': { opacity: '0' },
+    '&:has([data-list-menu-button]:hover, [data-list-menu]:hover) [data-list-count]': {
+      opacity: '0',
+    },
     '&:has(:focus-visible) [data-list-count]': { opacity: '0' },
   },
 })

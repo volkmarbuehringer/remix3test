@@ -11,11 +11,11 @@ import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 // ---------------------------------------------------------------------------
 // Sidebar row actions (real server-rendered markup + geometry).
 //
-// The kebab trigger stays visible on every row. Desktop rows reveal a
-// hover/focus action overlay immediately beside it; touch and narrow browsers
-// open the same actions as an inline menu. The browser suite covers
-// dismissal/focus against the menu fixture; this e2e proves the production
-// sidebar stays overflow-free and executes the real actions.
+// The kebab trigger stays visible on every row. Desktop rows reveal an action
+// overlay when the kebab is hovered or focused; touch and narrow browsers open
+// the same actions as an inline menu. The browser suite covers dismissal/focus
+// against the menu fixture; this e2e proves the production sidebar stays
+// overflow-free and executes the real actions.
 // ---------------------------------------------------------------------------
 
 type ActionMetric = {
@@ -147,9 +147,9 @@ async function openListMenu(page: { locator: Function; waitForFunction: Function
   return trigger
 }
 
-/** Hover a desktop row and wait for the CSS-only overlay reveal to settle. */
+/** Hover a desktop row's kebab and wait for the CSS-only overlay reveal to settle. */
 async function revealOverlay(page: { locator: Function; waitForFunction: Function }, id: number) {
-  await page.locator(`[data-list-id="${id}"]`).hover()
+  await page.locator(`[data-list-id="${id}"] [data-list-menu-button]`).hover()
   await page.waitForFunction(
     (rowId: number) => {
       let row = document.querySelector(`[data-list-id="${rowId}"]`)
