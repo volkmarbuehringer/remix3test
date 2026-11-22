@@ -42,6 +42,15 @@ const searchPadding = css({
   paddingLeft: '2rem',
 })
 
+// 16px prevents iOS Safari from zooming the page when the search field gains
+// focus; 44px gives the field a comfortable touch target.
+const searchInputTouchStyle = css({
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+    fontSize: '16px',
+  },
+})
+
 const searchMetaRow = css({
   display: 'flex',
   justifyContent: 'space-between',
@@ -98,11 +107,13 @@ const cardName = css({
   color: theme.colors.text.primary,
   fontSize: theme.fontSize.md,
   fontWeight: theme.fontWeight.medium,
+  overflowWrap: 'anywhere',
 })
 
 const cardDescription = css({
   color: theme.colors.text.secondary,
   fontSize: theme.fontSize.xs,
+  overflowWrap: 'anywhere',
 })
 
 interface ResourceCardsProps {
@@ -154,7 +165,7 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
           <input
             type="search"
             data-resource-search=""
-            mix={[input.base, input.focus, searchPadding]}
+            mix={[input.base, input.focus, searchPadding, searchInputTouchStyle]}
             placeholder="Ressource suchen..."
             aria-label="Ressourcen durchsuchen"
             autoComplete="off"

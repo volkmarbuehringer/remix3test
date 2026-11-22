@@ -9,6 +9,7 @@ import {
   formatDateDE,
   formatIsoDateUtc,
   formatRelativeTimeDE,
+  formatSlotRangeDE,
   formatUtcDateDE,
   formatUtcPeriodDayDE,
   parseIsoDateUtc,
@@ -166,6 +167,19 @@ describe('formatDateDE', () => {
 
   it('renders a weekday-prefixed German date for valid input', () => {
     assert.equal(formatDateDE(Date.UTC(2026, 0, 15)), 'Do., 15.01.2026')
+  })
+})
+
+describe('formatSlotRangeDE', () => {
+  it('renders the date plus an explicit one-hour start/end range', () => {
+    assert.equal(formatSlotRangeDE(Date.UTC(2026, 5, 10), 540), 'Mi., 10.06.2026, 09:00–10:00 Uhr')
+  })
+
+  it('honours a custom duration', () => {
+    assert.equal(
+      formatSlotRangeDE(Date.UTC(2026, 5, 10), 570, 30),
+      'Mi., 10.06.2026, 09:30–10:00 Uhr',
+    )
   })
 })
 

@@ -48,5 +48,10 @@ describe('appointments-new step 2 markup', () => {
       'the title input is linked to its error',
     )
     assert.ok(html.includes('role="alert"'), 'error regions are announced')
+    assert.ok(
+      /<fieldset[^>]*tabindex="-1"/.test(html),
+      'the invalid time group is focusable so FormErrorFocus can land on it',
+    )
+    assert.ok(html.includes('data-form-error'), 'the form-level error banner is a focus fallback')
   })
 })

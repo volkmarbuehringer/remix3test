@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 import { render, type RenderResult } from 'remix/component/test'
 
 import { AppointmentsNewStep2Live } from './appointments-new-step2.browser.tsx'
-import { formatDateDE, formatMinOption } from '../utils/date-utils.ts'
+import { formatSlotRangeDE } from '../utils/date-utils.ts'
 
 // ---------------------------------------------------------------------------
 // AppointmentsNewStep2Live — keeps the wizard's confirm line and submit button
@@ -77,7 +77,7 @@ describe('AppointmentsNewStep2Live', () => {
     mount()
     await renderEntry()
 
-    assert.equal(confirmLine().textContent, 'Bitte wählen Sie eine Uhrzeit.')
+    assert.equal(confirmLine().textContent, 'Bitte wählen Sie eine Uhrzeit (60 Minuten).')
     assert.equal(submitButton().disabled, true)
   })
 
@@ -87,10 +87,7 @@ describe('AppointmentsNewStep2Live', () => {
 
     selectSlot()
 
-    assert.equal(
-      confirmLine().textContent,
-      `${formatDateDE(DAY_MS)} – ${formatMinOption(START_MIN)} Uhr`,
-    )
+    assert.equal(confirmLine().textContent, formatSlotRangeDE(DAY_MS, START_MIN))
     assert.equal(submitButton().disabled, false)
   })
 
@@ -105,7 +102,7 @@ describe('AppointmentsNewStep2Live', () => {
 
     assert.equal(
       confirmLine().textContent,
-      'Bitte wählen Sie eine Uhrzeit.',
+      'Bitte wählen Sie eine Uhrzeit (60 Minuten).',
       'a disposed entry must not keep syncing the document',
     )
     assert.equal(submitButton().disabled, true)

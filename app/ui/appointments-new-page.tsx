@@ -86,6 +86,30 @@ const btnGroupStyle = css({
   },
 })
 
+const panelTitleStyle = css({
+  margin: 0,
+  fontSize: theme.fontSize.md,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+  outline: 'none',
+})
+
+const mobileTouchTargetStyle = css({
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+  },
+})
+
+// On phones the list would otherwise sit between the page heading and the
+// create/delete panel, pushing the active task below the fold and repeating an
+// empty-state CTA. The panel is the primary surface while it is open; the list
+// returns as soon as the user cancels.
+const hideGridWhenPanelOpenOnMobileStyle = css({
+  '@media (max-width: 768px)': {
+    display: 'none',
+  },
+})
+
 const compactTd = css({
   padding: `${theme.space.xs} ${theme.space.sm}`,
   borderBottom: `1px solid ${theme.colors.border.subtle}`,
@@ -177,7 +201,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
 
     let hasFormPanel = !!(deletingRow || creating)
     let gridSection = (
-      <div mix={table.minWidth0}>
+      <div mix={[table.minWidth0, hasFormPanel ? hideGridWhenPanelOpenOnMobileStyle : undefined]}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
 
@@ -224,6 +248,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                           mix={[
                             button({ tone: active ? 'primary' : 'secondary' }),
                             segmentedButton({ isFirst, isLast, disabled: true }),
+                            mobileTouchTargetStyle,
                           ]}
                         >
                           {label}
@@ -239,6 +264,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       mix={[
                         buttonLink({ tone: active ? 'primary' : 'secondary' }),
                         segmentedButton({ isFirst, isLast }),
+                        mobileTouchTargetStyle,
                       ]}
                     >
                       {label}
@@ -279,6 +305,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     mix={[
                       buttonLink({ tone: active ? 'primary' : 'secondary' }),
                       segmentedButton({ isFirst, isLast }),
+                      mobileTouchTargetStyle,
                     ]}
                   >
                     {label}
@@ -290,7 +317,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
             <a
               href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
               data-rmx-target={frames.appointmentsNewContent}
-              mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
+              mix={[table.linkPlain, buttonLink({ tone: 'primary' }), mobileTouchTargetStyle]}
             >
               <Glyph name="add" width={14} height={14} /> Neu
             </a>
@@ -316,7 +343,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       status,
                     )}
                     data-rmx-target={frames.appointmentsNewContent}
-                    mix={[table.linkPlain, buttonLink({ tone: 'primary' })]}
+                    mix={[table.linkPlain, buttonLink({ tone: 'primary' }), mobileTouchTargetStyle]}
                   >
                     <Glyph name="add" width={14} height={14} /> Ersten Termin anlegen
                   </a>
@@ -554,11 +581,20 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               mix={table.stickyPanel}
               data-create-panel="true"
               data-panel-step={deletingRow ? `delete:${deletingRow.id}` : `create:${step ?? 1}`}
+              role="region"
+              aria-labelledby="appointments-new-panel-title"
             >
               {deletingRow ? (
                 <div mix={table.panel}>
                   <div mix={table.panelHeader}>
-                    <span mix={table.panelTitle}>Termin löschen</span>
+                    <h3
+                      id="appointments-new-panel-title"
+                      data-panel-heading
+                      tabIndex={-1}
+                      mix={panelTitleStyle}
+                    >
+                      Termin löschen
+                    </h3>
                   </div>
                   <div mix={table.panelBody}>
                     {deletingRow.blocked ? (

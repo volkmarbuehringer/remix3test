@@ -6,8 +6,9 @@ import { prefersReducedMotion } from '../utils/motion.ts'
 // can carry a stale scroll offset into the new step, and the sticky column only
 // sticks while its content is shorter than the grid row. On mobile the panel is
 // stacked below the list, so it is off-screen entirely. Either way, reset the
-// view on each step change so the user lands on the panel header and step
-// context instead of somewhere in the middle of the form.
+// view and move focus to the panel heading on each step change. The heading
+// announcement tells keyboard and screen-reader users that the frame swapped
+// and which step they are now on.
 function findScrollParent(element: HTMLElement): HTMLElement | null {
   let node = element.parentElement
   while (node) {
@@ -18,6 +19,11 @@ function findScrollParent(element: HTMLElement): HTMLElement | null {
     node = node.parentElement
   }
   return null
+}
+
+function focusPanelHeading(panel: HTMLElement): void {
+  let heading = panel.querySelector<HTMLElement>('[data-panel-heading]')
+  heading?.focus({ preventScroll: true })
 }
 
 function revealPanel(panel: HTMLElement): void {
@@ -62,6 +68,7 @@ export const CreatePanelScrollLive = clientEntry(
         handle.queueTask(() => {
           let current = document.querySelector<HTMLElement>('[data-create-panel]')
           if (current && (current.getAttribute('data-panel-step') ?? 'panel') === key) {
+            focusPanelHeading(current)
             revealPanel(current)
           }
         })

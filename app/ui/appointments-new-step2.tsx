@@ -11,6 +11,7 @@ import {
   getCurrentWeekMonday,
   formatWeekLabel,
   formatDateDE,
+  formatSlotRangeDE,
 } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import type { DayWithSlots } from '../data/appointments.ts'
@@ -18,6 +19,7 @@ import { frames, routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { AppointmentsNewStep2Live } from './appointments-new-step2.browser.tsx'
 import { WizardSteps } from './appointments-new-steps.tsx'
+import { FormErrorFocus } from './form-error-focus.browser.tsx'
 
 const inlineErrorStyle = css({
   color: theme.colors.action.danger.background,
@@ -33,6 +35,8 @@ const formErrorBanner = css({
   borderRadius: theme.radius.md,
   color: theme.colors.action.danger.background,
   fontSize: theme.fontSize.sm,
+  // Focus target for FormErrorFocus when no individual field caused the error.
+  outline: 'none',
 })
 
 const resourceSummary = css({
@@ -74,6 +78,7 @@ const confirmLine = css({
   minHeight: '2.5rem',
   display: 'flex',
   alignItems: 'center',
+  fontVariantNumeric: 'tabular-nums',
 })
 
 const dayCard = css({
@@ -87,6 +92,11 @@ const dayCard = css({
 const daySummary = css({
   cursor: 'pointer',
   padding: 0,
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+    paddingTop: theme.space.xs,
+    paddingBottom: theme.space.xs,
+  },
 })
 
 const dayHeader = css({
@@ -137,6 +147,10 @@ const timeChip = css({
     outline: `2px solid ${theme.colors.focus.ring}`,
     outlineOffset: '2px',
   },
+  '@media (max-width: 768px)': {
+    minWidth: '56px',
+    minHeight: '44px',
+  },
 })
 
 const hiddenRadio = css({
@@ -182,6 +196,44 @@ const weekNavBtnCss = css({
   '@media (max-width: 768px)': {
     minHeight: '44px',
   },
+})
+
+// iOS Safari zooms focused text fields whose font size is below 16px. Match
+// the platform default on phones and give the controls a comfortable target.
+const touchInputStyle = css({
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+    fontSize: '16px',
+  },
+})
+
+const touchTargetStyle = css({
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+  },
+})
+
+const panelTitleStyle = css({
+  margin: 0,
+  fontSize: theme.fontSize.md,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+  outline: 'none',
+})
+
+const headerCancelStyle = css({
+  marginLeft: 'auto',
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.medium,
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+    paddingLeft: theme.space.sm,
+  },
+  '&:hover': { color: theme.colors.text.primary },
 })
 
 function formatRangeLabel(ranges: { startMin: number; endMin: number }[]): string {
@@ -236,7 +288,7 @@ export function Step2(handle: Handle<Step2Props>) {
       let dayMs = Number(dayMsRaw)
       let min = Number(minRaw)
       if (Number.isFinite(dayMs) && Number.isFinite(min)) {
-        selectedConfirm = `${formatDateDE(dayMs)} – ${formatMinOption(min)} Uhr`
+        selectedConfirm = formatSlotRangeDE(dayMs, min)
       }
     }
 
@@ -287,10 +339,33 @@ export function Step2(handle: Handle<Step2Props>) {
           <input type="hidden" name="step" value="2" />
           <input type="hidden" name="resource_id" value={resourceId} />
           <input type="hidden" name="week_start" value={String(weekStart)} />
+          <FormErrorFocus />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
-              <span mix={table.panelTitle}>Neuer Termin</span>
+              <h3
+                id="appointments-new-panel-title"
+                data-panel-heading
+                tabIndex={-1}
+                mix={panelTitleStyle}
+              >
+                Neuer Termin
+              </h3>
+              <a
+                href={buildCancelUrl(
+                  base,
+                  gridState.offset,
+                  gridState.sort,
+                  gridState.order,
+                  gridState.filter,
+                  gridState.period,
+                  gridState.status,
+                )}
+                data-rmx-target={frames.appointmentsNewContent}
+                mix={[table.linkPlain, headerCancelStyle]}
+              >
+                Abbrechen
+              </a>
             </div>
             <div mix={table.panelBody}>
               <WizardSteps current={2} backHref={buildBackUrl()} />
@@ -305,11 +380,11 @@ export function Step2(handle: Handle<Step2Props>) {
               ) : null}
 
               <div mix={confirmLine} data-wizard-confirm aria-live="polite" aria-atomic="true">
-                {selectedConfirm || 'Bitte wählen Sie eine Uhrzeit.'}
+                {selectedConfirm || 'Bitte wählen Sie eine Uhrzeit (60 Minuten).'}
               </div>
 
               {formError ? (
-                <div mix={formErrorBanner} role="alert">
+                <div mix={formErrorBanner} role="alert" tabIndex={-1} data-form-error>
                   {formError}
                 </div>
               ) : null}
@@ -385,7 +460,7 @@ export function Step2(handle: Handle<Step2Props>) {
                   <a
                     href={buildBackUrl()}
                     data-rmx-target={frames.appointmentsNewContent}
-                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' })]}
+                    mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), touchTargetStyle]}
                   >
                     Andere Ressource wählen
                   </a>
@@ -393,6 +468,7 @@ export function Step2(handle: Handle<Step2Props>) {
               ) : (
                 <fieldset
                   mix={timeGroup}
+                  tabIndex={fieldErrors?.day_start ? -1 : undefined}
                   aria-invalid={fieldErrors?.day_start ? true : undefined}
                   aria-describedby={fieldErrors?.day_start ? 'wiz-day-start-error' : undefined}
                 >
@@ -458,7 +534,12 @@ export function Step2(handle: Handle<Step2Props>) {
                   placeholder="Titel eingeben..."
                   aria-invalid={fieldErrors?.title ? true : undefined}
                   aria-describedby={fieldErrors?.title ? 'wiz-title-error' : undefined}
-                  mix={[input.base, input.focus, fieldErrors?.title ? input.error : undefined]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    touchInputStyle,
+                    fieldErrors?.title ? input.error : undefined,
+                  ]}
                   value={formValues?.title ?? ''}
                 />
                 {fieldErrors?.title ? (
@@ -473,14 +554,19 @@ export function Step2(handle: Handle<Step2Props>) {
                   type="submit"
                   disabled={daysWithSlots.length === 0}
                   data-wizard-submit
-                  mix={[button({ tone: 'primary' }), table.spacer]}
+                  mix={[button({ tone: 'primary' }), touchTargetStyle, table.spacer]}
                 >
                   Termin anlegen
                 </button>
                 <a
                   href={buildBackUrl()}
                   data-rmx-target={frames.appointmentsNewContent}
-                  mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), css({ width: '100%' })]}
+                  mix={[
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    touchTargetStyle,
+                    css({ width: '100%' }),
+                  ]}
                 >
                   Zurück
                 </a>
@@ -499,6 +585,7 @@ export function Step2(handle: Handle<Step2Props>) {
                     table.spacer,
                     table.linkPlain,
                     buttonLink({ tone: 'secondary' }),
+                    touchTargetStyle,
                     css({ width: '100%' }),
                   ]}
                 >

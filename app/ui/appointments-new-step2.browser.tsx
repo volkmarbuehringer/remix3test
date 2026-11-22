@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from 'remix/component'
-import { formatMinOption, formatDateDE } from '../utils/date-utils.ts'
+import { formatSlotRangeDE } from '../utils/date-utils.ts'
 
 function syncSelection(form: HTMLFormElement): void {
   let confirm = form.querySelector('[data-wizard-confirm]') as HTMLElement | null
@@ -12,12 +12,12 @@ function syncSelection(form: HTMLFormElement): void {
       let dayMs = Number(dayMsRaw)
       let min = Number(minRaw)
       if (Number.isFinite(dayMs) && Number.isFinite(min)) {
-        confirm.textContent = `${formatDateDE(dayMs)} – ${formatMinOption(min)} Uhr`
+        confirm.textContent = formatSlotRangeDE(dayMs, min)
       } else {
-        confirm.textContent = 'Bitte wählen Sie eine Uhrzeit.'
+        confirm.textContent = 'Bitte wählen Sie eine Uhrzeit (60 Minuten).'
       }
     } else {
-      confirm.textContent = 'Bitte wählen Sie eine Uhrzeit.'
+      confirm.textContent = 'Bitte wählen Sie eine Uhrzeit (60 Minuten).'
     }
   }
 }

@@ -18,6 +18,32 @@ const introStyle = css({
   color: theme.colors.text.secondary,
 })
 
+const panelTitleStyle = css({
+  margin: 0,
+  fontSize: theme.fontSize.md,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+  outline: 'none',
+})
+
+// The resource list can be long, so cancellation must stay reachable at the
+// top of the panel instead of only after every card.
+const headerCancelStyle = css({
+  marginLeft: 'auto',
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.medium,
+  textDecoration: 'none',
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+    paddingLeft: theme.space.sm,
+  },
+  '&:hover': { color: theme.colors.text.primary },
+})
+
 interface AppointmentsNewCreatePageProps {
   resources: ResourceOption[]
   offset?: string | undefined
@@ -82,7 +108,21 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
     return (
       <div mix={table.panel}>
         <div mix={table.panelHeader}>
-          <span mix={table.panelTitle}>Neuer Termin</span>
+          <h3
+            id="appointments-new-panel-title"
+            data-panel-heading
+            tabIndex={-1}
+            mix={panelTitleStyle}
+          >
+            Neuer Termin
+          </h3>
+          <a
+            href={buildCancelUrl(base, offset, sort, order, filter, period, status)}
+            data-rmx-target={frames.appointmentsNewContent}
+            mix={headerCancelStyle}
+          >
+            Abbrechen
+          </a>
         </div>
         <div mix={table.panelBody}>
           <WizardSteps current={1} />
@@ -94,7 +134,14 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
             <a
               href={buildCancelUrl(base, offset, sort, order, filter, period, status)}
               data-rmx-target={frames.appointmentsNewContent}
-              mix={[table.linkPlain, buttonLink({ tone: 'secondary' }), css({ width: '100%' })]}
+              mix={[
+                table.linkPlain,
+                buttonLink({ tone: 'secondary' }),
+                css({
+                  width: '100%',
+                  '@media (max-width: 768px)': { minHeight: '44px' },
+                }),
+              ]}
             >
               Abbrechen
             </a>

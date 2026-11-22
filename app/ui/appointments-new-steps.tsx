@@ -103,6 +103,9 @@ const linkStyle = css({
   textDecoration: 'none',
   color: 'inherit',
   '&:hover': { background: theme.surface.lvl2 },
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+  },
 })
 
 const changeStyle = css({

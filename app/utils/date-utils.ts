@@ -171,6 +171,15 @@ export function formatMinOption(minutes: number): string {
   return `${h}:${m}`
 }
 
+/**
+ * Format a bookable appointment slot with its date and explicit end time.
+ * The wizard always books one-hour slots, so showing the range avoids the
+ * ambiguous "date – start time" reading of the previous confirmation line.
+ */
+export function formatSlotRangeDE(dayMs: number, startMin: number, durationMin = 60): string {
+  return `${formatDateDE(dayMs)}, ${formatMinOption(startMin)}–${formatMinOption(startMin + durationMin)} Uhr`
+}
+
 export function getPeriodRange(period: string): { startMs: number; endMs: number } | null {
   let now = new Date()
 

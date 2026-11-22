@@ -73,6 +73,38 @@ describe('appointments-new frame navigation', () => {
     assert.equal(loads, 1, 'the segment must reload the frame, not the whole document')
   })
 
+  it('makes the create panel the primary surface on phones', async (t) => {
+    let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    assert.ok(auth?.cookie, 'user session must be created')
+
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page
+      .context()
+      .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
+
+    await page.goto('/appointments/new?creating=true')
+    await page.locator('[data-create-panel]').waitFor({ timeout: 15_000 })
+
+    // The list is hidden while creating so the phone user starts directly at
+    // the wizard instead of scrolling past an empty appointments grid.
+    assert.equal(
+      await page.locator('[data-appointments-table]').isVisible(),
+      false,
+      'the list should be out of the way while the create panel is open',
+    )
+
+    let searchBox = await page.locator('[data-resource-search]').boundingBox()
+    assert.ok(searchBox && searchBox.height >= 44, 'the search field should be touch-sized')
+
+    let headerCancel = await page
+      .locator('[data-create-panel] a', { hasText: 'Abbrechen' })
+      .first()
+      .boundingBox()
+    assert.ok(headerCancel && headerCancel.height >= 44, 'cancel should be touch-sized')
+  })
+
   it('opens the create panel and wizard in-frame with the body locked', async (t) => {
     let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
     assert.ok(auth?.cookie, 'user session must be created')

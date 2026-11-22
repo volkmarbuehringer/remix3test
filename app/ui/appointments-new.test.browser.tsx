@@ -195,6 +195,26 @@ describe('Appointments new create panel reveal', () => {
     assert.equal(scrollCalls.length, 0)
   })
 
+  it('moves focus to the panel heading when a new step renders', async () => {
+    restoreMatchMedia = stubMatchMedia(false)
+    let panel = document.createElement('div')
+    panel.setAttribute('data-create-panel', 'true')
+    panel.setAttribute('data-panel-step', 'create:1')
+    let heading = document.createElement('h3')
+    heading.setAttribute('data-panel-heading', '')
+    heading.tabIndex = -1
+    panel.appendChild(heading)
+    panel.getBoundingClientRect = () => domRect(24)
+    document.body.appendChild(panel)
+    scroller = panel
+
+    let result = render(<CreatePanelScrollLive />)
+    cleanup = result.cleanup
+    await result.act(() => {})
+
+    assert.equal(document.activeElement, heading)
+  })
+
   it('reveals the stacked mobile panel with a smooth scroll', async (t) => {
     restoreMatchMedia = stubMatchMedia((query) => query.includes('max-width'))
     let built = buildMobilePanel(t)
@@ -260,7 +280,7 @@ describe('Appointments new step 2 live feedback', () => {
 
     // No radio checked → submit disabled and the neutral prompt, synced on mount.
     assert.equal(submit.disabled, true)
-    assert.equal(confirm.textContent, 'Bitte wählen Sie eine Uhrzeit.')
+    assert.equal(confirm.textContent, 'Bitte wählen Sie eine Uhrzeit (60 Minuten).')
 
     let radio = result.container.querySelector<HTMLInputElement>('input[value="1000:480"]')
     if (!radio) throw new Error('radio should render')
