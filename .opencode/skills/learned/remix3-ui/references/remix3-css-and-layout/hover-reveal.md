@@ -47,6 +47,58 @@ const itemActionsStyle = css({
 - Keep `pointer-events: none` at rest so clicks reach the row; reveal sets it back to `auto`.
 - **Gate destructive actions separately** (e.g. the `data-confirm` prompt the row actions already carry), never by trapping clicks on the cluster with `pointer-events`: the reveal already uses `pointer-events` for hit-testing, so overloading it breaks the reveal and leaves the destructive action without its confirmation gate.
 
+## Pitfall: row-wide reveal can steal primary-link clicks
+
+Row-hover reveal is safe when the cluster stays inside a dedicated trailing
+action cell (admin grids). It is unsafe when the row's primary link spans the
+row and the overlay covers its center. The overlay appears after the pointer is
+already over the link; enabling `pointer-events` at that moment makes the
+overlay the click target for an ensuing click intended for the link.
+
+Playwright symptom:
+
+```text
+<button data-list-rename-btn> ... intercepts pointer events
+while clicking [data-list-id="…"] a[href*="load="]
+```
+
+For this layout, gate reveal on the explicit trigger or the overlay itself, not
+the whole row. Keep keyboard discovery with `:has(:focus-visible)`:
+
+```ts
+const rowStyle = css({
+  '&:has([data-list-menu-button]:hover, [data-list-menu]:hover) [data-list-menu]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+  '&:has(:focus-visible) [data-list-menu]': {
+    opacity: '1 !important',
+    pointerEvents: 'auto !important',
+  },
+})
+```
+
+Moving from the kebab into the action group keeps it open because
+`[data-list-menu]:hover` becomes true. Clicking the row link never reveals the
+overlay.
+
+E2E helpers must hover the trigger, not the row:
+
+```ts
+await page.locator(`[data-list-id="${id}"] [data-list-menu-button]`).hover()
+await page.locator(`[data-list-id="${id}"] [data-list-rename-btn]`).click()
+```
+
+Add both regression checks:
+
+1. Click `[data-list-id="…"] a[href*="load="]` without hovering the kebab and
+   assert navigation succeeds.
+2. Hover the kebab, then assert the overlay action remains clickable.
+
+Observed on `/lists` sidebar rows, 2026-11-22. Implementation:
+`app/ui/lists-layout.tsx`; coverage:
+`app/actions/lists/lists-sidebar-menu.test.e2e.ts`.
+
 ## App state (2026-10-26)
 
 The delegated `mouseover`/`mouseleave`/`focusin`/`focusout` block has been removed. Current wiring:
