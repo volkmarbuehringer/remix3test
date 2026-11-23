@@ -24,6 +24,9 @@ import {
   paginationCss,
   paginationButtonsCss,
   thActionsCss,
+  uploadsFloatingActionsHeader,
+  uploadsFloatingActionCell,
+  uploadsFloatingActionControl,
   thCheckboxCss,
   thIdCss,
   thTypeCss,
@@ -79,11 +82,6 @@ import {
   pageGapCss,
   pdfExportCss,
 } from './uploads-grid-css.ts'
-import {
-  rowActions as rowActionsCss,
-  iconAction as iconActionCss,
-  iconActionDanger as iconActionDangerCss,
-} from '../../../ui/mixins/row-actions.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
 import { parsePageParam } from '../../../utils/query-params.ts'
@@ -144,6 +142,7 @@ import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { buttonLink } from '../../../ui/theme/button.ts'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
+import { AdminRowActionsOverlay } from '../../../ui/admin-row-actions-overlay.browser.tsx'
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
 import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
@@ -1097,7 +1096,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </a>
                     </th>
-                    <th mix={thActionsCss}>Aktionen</th>
+                    <th
+                      scope="col"
+                      aria-label="Aktionen"
+                      mix={[thActionsCss, uploadsFloatingActionsHeader]}
+                    >
+                      <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1107,6 +1112,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       data-row-id={u.id}
                       data-upload-filename={u.filename}
                       data-uploaded={uploadedIds.includes(u.id) ? 'true' : undefined}
+                      mix={table.floatingRowReveal}
                     >
                       <td mix={tdCheckboxCss}>
                         <input
@@ -1160,18 +1166,35 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                           {formatRelativeTimeDE(u.created_at)}
                         </span>
                       </td>
-                      <td mix={tdActionsCss}>
-                        <div mix={rowActionsCss}>
+                      <td mix={[tdActionsCss, uploadsFloatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`row-actions-${u.id}`}
+                          aria-label={`Weitere Aktionen für ${u.filename}`}
+                          title="Weitere Aktionen"
+                          mix={[table.floatingActionsTrigger, uploadsFloatingActionControl]}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
+                        <div
+                          id={`row-actions-${u.id}`}
+                          mix={[table.actionGroup, table.floatingActions]}
+                          role="group"
+                          aria-label="Zeilenaktionen"
+                          data-row-actions
+                        >
                           <a
                             href={routes.admin.uploads.download.href({ id: u.id })}
                             download
                             data-download-link
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={iconActionCss}
+                            mix={[table.actionSeg, uploadsFloatingActionControl]}
                             aria-label={`${u.filename} herunterladen`}
                             title="Datei herunterladen"
                           >
-                            <Glyph name="download" width={14} height={14} />
+                            <Glyph name="download" width={13} height={13} />
                           </a>
                           <RestfulForm
                             method="POST"
@@ -1179,7 +1202,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                             data-delete-form={u.id}
                             data-confirm={`Datei "${u.filename}" wirklich löschen?`}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
+                            mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                           >
                             <UploadsGridStateHiddenInputs
                               page={page}
@@ -1190,11 +1213,15 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                             />
                             <button
                               type="submit"
-                              mix={[iconActionCss, iconActionDangerCss]}
+                              mix={[
+                                table.actionSeg,
+                                table.actionSegDanger,
+                                uploadsFloatingActionControl,
+                              ]}
                               aria-label={`${u.filename} löschen`}
                               title="Datei löschen"
                             >
-                              <Glyph name="trash" width={14} height={14} />
+                              <Glyph name="trash" width={13} height={13} />
                             </button>
                           </RestfulForm>
                         </div>
@@ -1304,6 +1331,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
           </div>
         </div>
 
+        <AdminRowActionsOverlay />
         <AdminUploadsContextMenu />
       </PageSection>
     )

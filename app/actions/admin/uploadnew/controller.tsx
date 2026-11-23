@@ -10,14 +10,11 @@ import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { bodyTextCss, PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
+import { AdminRowActionsOverlay } from '../../../ui/admin-row-actions-overlay.browser.tsx'
+import { table } from '../../../ui/mixins/admin-table.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
-import {
-  rowActions as rowActionsCss,
-  iconAction as iconActionCss,
-  iconActionDanger as iconActionDangerCss,
-} from '../../../ui/mixins/row-actions.ts'
 import { attachmentDisposition } from '../../../utils/content-disposition.ts'
 import { formatCompactDateDE } from '../../../utils/date-utils.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
@@ -273,6 +270,7 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
         description="Dateien werden gestreamt im Dateisystem gespeichert; die Datenbank indiziert nur die Metadaten."
         mix={pageCss}
       >
+        <AdminRowActionsOverlay />
         <div mix={[panelCss, panelGapCss]}>
           {uploadedCount > 0 ? (
             <p role="status" mix={successCss} data-upload-new-success>
@@ -339,29 +337,57 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
           </p>
           {files.length > 0 ? (
             <div mix={tableWrapCss}>
-              <table mix={tableCss} aria-label="Gespeicherte Dateien">
+              <table mix={tableCss} aria-label="Gespeicherte Dateien" data-uploadnew-table="true">
                 <thead>
                   <tr>
                     <th mix={thCss}>Dateiname</th>
                     <th mix={thCss}>Typ</th>
                     <th mix={thCss}>Größe</th>
                     <th mix={thCss}>Gespeichert</th>
-                    <th mix={thCss}>Aktionen</th>
+                    <th
+                      scope="col"
+                      aria-label="Aktionen"
+                      mix={[thCss, table.floatingActionsHeader]}
+                    >
+                      <span mix={table.floatingActionsHeaderText}>Aktionen</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {files.map((file) => (
-                    <tr key={file.id} data-upload-new-row={file.id}>
+                    <tr
+                      key={file.id}
+                      data-row-id={file.id}
+                      data-upload-new-row={file.id}
+                      mix={[table.floatingRowReveal, table.floatingTrailingFade]}
+                    >
                       <td mix={tdCss}>{file.filename}</td>
                       <td mix={tdCss}>{formatUploadType(file.mime_type)}</td>
                       <td mix={tdCss}>{formatBytes(file.size)}</td>
-                      <td mix={tdCss}>
+                      <td mix={tdCss} data-floating-trailing>
                         <span title={new Date(file.created_at).toLocaleString('de-DE')}>
                           {formatCompactDateDE(file.created_at)}
                         </span>
                       </td>
-                      <td mix={tdCss}>
-                        <div mix={rowActionsCss}>
+                      <td mix={[tdCss, table.floatingActionCell]} data-label="Aktionen">
+                        <button
+                          type="button"
+                          data-row-actions-trigger
+                          aria-expanded="false"
+                          aria-controls={`row-actions-${file.id}`}
+                          aria-label={`Weitere Aktionen für ${file.filename}`}
+                          title="Weitere Aktionen"
+                          mix={table.floatingActionsTrigger}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
+                        <div
+                          id={`row-actions-${file.id}`}
+                          mix={[table.actionGroup, table.floatingActions]}
+                          role="group"
+                          aria-label="Zeilenaktionen"
+                          data-row-actions
+                        >
                           <a
                             href={routes.admin.uploadnew.download.href({ id: file.id })}
                             download
@@ -369,9 +395,9 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
                             data-rmx-target={getSelfFrameTarget()}
                             aria-label={`${file.filename} herunterladen`}
                             title="Datei herunterladen"
-                            mix={iconActionCss}
+                            mix={table.actionSeg}
                           >
-                            <Glyph name="download" width={14} height={14} />
+                            <Glyph name="download" width={13} height={13} />
                           </a>
                           <RestfulForm
                             method="POST"
@@ -379,15 +405,15 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
                             data-delete-form={file.id}
                             data-confirm={`Datei "${file.filename}" wirklich löschen?`}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
+                            mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                           >
                             <button
                               type="submit"
                               aria-label={`${file.filename} löschen`}
                               title="Datei löschen"
-                              mix={[iconActionCss, iconActionDangerCss]}
+                              mix={[table.actionSeg, table.actionSegDanger]}
                             >
-                              <Glyph name="trash" width={14} height={14} />
+                              <Glyph name="trash" width={13} height={13} />
                             </button>
                           </RestfulForm>
                         </div>

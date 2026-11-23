@@ -426,10 +426,48 @@ export const pageSizeSlotCss = css({
 
 export const thActionsCss = css({
   textAlign: 'right',
-  // Two joined 24px buttons (download | delete) plus the cell padding. Wide
+  // Two joined 30px buttons (download | delete) plus the cell padding. Wide
   // enough for the "Aktionen" header too, so the label cannot overhang the
   // panel and add a horizontal scrollbar.
   width: '76px',
+})
+
+/**
+ * Uploads has two row actions, so the floating cluster needs more horizontal
+ * room than the shared 44px kebab gutter. Reserve the cluster's full width in
+ * this grid's Aktionen column; otherwise the hover overlay covers the right
+ * half of the Datum column. The cluster still sits directly against the kebab,
+ * so moving from the trigger into the actions keeps the overlay open.
+ */
+const floatingActionsMedia = '@media (min-width: 1200px) and (hover: hover)'
+
+export const uploadsFloatingActionsHeader = css({
+  [floatingActionsMedia]: {
+    width: '100px !important',
+    padding: '0 !important',
+    border: 'none !important',
+    background: 'transparent !important',
+  },
+})
+
+export const uploadsFloatingActionCell = css({
+  [floatingActionsMedia]: {
+    width: '100px !important',
+    padding: '0 !important',
+    position: 'relative',
+  },
+})
+
+/**
+ * The uploads grid packs rows to a 22px line box. Keep the floating action
+ * controls at 20px (the group border makes the outer cluster 22px) so the
+ * absolute overlay does not bleed into the rows above and below it.
+ */
+export const uploadsFloatingActionControl = css({
+  [floatingActionsMedia]: {
+    height: '20px !important',
+    minHeight: '20px !important',
+  },
 })
 
 // Column widths for the fixed-layout grid (see `tableCss`). Only `Dateiname`

@@ -5,12 +5,14 @@ import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { WebhookRequestRow } from '../data/webhook-requests.ts'
 import { table } from './mixins/admin-table.ts'
+import { Glyph } from './theme/glyph/glyph.tsx'
 import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
 
@@ -141,6 +143,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
     let gridSection = (
       <div mix={hasSidebar ? table.minWidth0 : dataGridFill}>
         <ConfirmDelete />
+        <AdminRowActionsOverlay />
         <form method="GET" action={BASE} data-rmx-target={frameTarget} mix={table.filterBar}>
           <input
             type="text"
@@ -167,7 +170,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
         </form>
 
         <div mix={[table.wrap, table.mobileCards, dataGridWrap]} data-grid-scroll="true">
-          <table mix={table.table}>
+          <table mix={table.table} data-webhook-requests-table="true">
             <thead>
               <tr>
                 {(
@@ -180,35 +183,44 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                     ['', 'Payload', 'auto'],
                     ['', 'Aktion', '150px'],
                   ] as [string, string, string][]
-                ).map(([field, label, w]) => (
-                  <th
-                    key={field || label}
-                    mix={[
-                      field ? table.thSortable : table.th,
-                      ...(w !== 'auto' ? [css({ width: w })] : []),
-                    ]}
-                  >
-                    {field ? (
-                      <a
-                        href={buildUrl({
-                          sort: field,
-                          order: field === curSort ? (curOrder === 'asc' ? 'desc' : 'asc') : 'desc',
-                          offset: '0',
-                          filter: curFilter || undefined,
-                        })}
-                        data-rmx-target={frameTarget}
-                        mix={table.sortLink}
-                      >
-                        {label}
-                        <span mix={field === curSort ? table.sortArrowActive : table.sortArrow}>
-                          {sortArrow(field, curSort, curOrder)}
-                        </span>
-                      </a>
-                    ) : (
-                      label
-                    )}
-                  </th>
-                ))}
+                ).map(([field, label, w], index, columns) => {
+                  let isActionsHeader = index === columns.length - 1
+                  return (
+                    <th
+                      key={field || label}
+                      scope="col"
+                      aria-label={isActionsHeader ? 'Aktionen' : undefined}
+                      mix={[
+                        field ? table.thSortable : table.th,
+                        ...(w !== 'auto' ? [css({ width: w })] : []),
+                        ...(isActionsHeader ? [table.floatingActionsHeader] : []),
+                      ]}
+                    >
+                      {field ? (
+                        <a
+                          href={buildUrl({
+                            sort: field,
+                            order:
+                              field === curSort ? (curOrder === 'asc' ? 'desc' : 'asc') : 'desc',
+                            offset: '0',
+                            filter: curFilter || undefined,
+                          })}
+                          data-rmx-target={frameTarget}
+                          mix={table.sortLink}
+                        >
+                          {label}
+                          <span mix={field === curSort ? table.sortArrowActive : table.sortArrow}>
+                            {sortArrow(field, curSort, curOrder)}
+                          </span>
+                        </a>
+                      ) : isActionsHeader ? (
+                        <span mix={table.floatingActionsHeaderText}>{label}</span>
+                      ) : (
+                        label
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -249,8 +261,12 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                 p.rows.map((row) => (
                   <tr
                     key={row.id}
+                    data-row-id={row.id}
+                    data-webhook-request-row={row.id}
                     mix={[
                       table.row,
+                      table.floatingRowReveal,
+                      table.floatingTrailingFade,
                       editRow?.id === row.id || viewRow?.id === row.id
                         ? table.editingRow
                         : undefined,
@@ -293,7 +309,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                         <span mix={mutedDash}>—</span>
                       )}
                     </td>
-                    <td mix={table.td} data-label="Payload">
+                    <td mix={table.td} data-label="Payload" data-floating-trailing>
                       <a
                         href={buildUrl({
                           offset: String(curOffset),
@@ -309,24 +325,50 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
                         <code mix={codeStyle}>{truncatePayload(row.payload)}</code>
                       </a>
                     </td>
-                    <td mix={table.td} data-label="Aktion">
-                      <div mix={table.btnGroup}>
+                    <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktion">
+                      <button
+                        type="button"
+                        data-row-actions-trigger
+                        aria-expanded="false"
+                        aria-controls={`row-actions-${row.id}`}
+                        aria-label={`Weitere Aktionen für Webhook-Request ${row.id}`}
+                        title="Weitere Aktionen"
+                        mix={table.floatingActionsTrigger}
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                      <div
+                        id={`row-actions-${row.id}`}
+                        mix={[table.actionGroup, table.floatingActions]}
+                        role="group"
+                        aria-label="Zeilenaktionen"
+                        data-row-actions
+                      >
                         <a
                           href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
                           data-rmx-target={frameTarget}
-                          mix={table.editBtn}
+                          aria-label={`Webhook-Request ${row.id} bearbeiten`}
+                          title="Bearbeiten"
+                          mix={[table.actionSeg, table.actionSegLabeled]}
                         >
-                          Bearbeiten
+                          <Glyph name="edit" width={13} height={13} mix={table.actionGlyph} />
+                          <span mix={table.actionLabel}>Bearbeiten</span>
                         </a>
                         <RestfulForm
                           method="POST"
                           action={resendUrl(row.id, curOffset, curSort, curOrder, curFilter)}
                           data-confirm="Resend wirklich ausführen?"
                           data-rmx-target={frameTarget}
-                          mix={inlineForm}
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
-                          <button type="submit" mix={actionBtn}>
-                            Resenden
+                          <button
+                            type="submit"
+                            aria-label="Webhook-Request erneut senden"
+                            title="Resenden"
+                            mix={[table.actionSeg, table.actionSegDanger, table.actionSegLabeled]}
+                          >
+                            <Glyph name="send" width={13} height={13} mix={table.actionGlyph} />
+                            <span mix={table.actionLabel}>Resenden</span>
                           </button>
                         </RestfulForm>
                       </div>
@@ -627,25 +669,4 @@ const preJson = css({
   wordBreak: 'break-word',
   maxHeight: '320px',
   overflowY: 'auto',
-})
-
-const inlineForm = css({
-  display: 'inline-flex',
-})
-
-const actionBtn = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: theme.space.xs,
-  minWidth: '28px',
-  minHeight: '28px',
-  background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
-  border: 'none',
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  fontSize: theme.fontSize.xs,
-  cursor: 'pointer',
-  fontWeight: theme.fontWeight.semibold,
-  '&:hover': { opacity: 0.9 },
 })

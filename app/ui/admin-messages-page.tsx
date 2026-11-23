@@ -21,6 +21,7 @@ import { MessageExpand } from './message-expand.browser.tsx'
 import { MessageCompose } from './message-compose.browser.tsx'
 import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
+import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
@@ -121,37 +122,6 @@ const srOnlyStyle = css({
   clipPath: 'inset(50%)',
   whiteSpace: 'nowrap',
   border: 0,
-})
-
-const rowActionsStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-})
-
-const iconActionStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-const iconActionDangerStyle = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
 })
 
 /**
@@ -340,7 +310,7 @@ const colSenderWidth = css({ width: '170px' })
 const colDateWidth = css({ width: '150px' })
 const dateCellStyle = css({ whiteSpace: 'nowrap' })
 const composeFormStyle = css({ marginBottom: theme.space.sm })
-const deleteFormStyle = css({ margin: 0, padding: 0 })
+const deleteFormStyle = css({ margin: 0, padding: 0, display: 'inline-flex' })
 
 /**
  * Phones: let the page grow with its rows instead of clipping them into the
@@ -466,7 +436,10 @@ function MessageRowItem(handle: Handle<MessageRowItemProps>) {
     let senderLabel = msg.sender_name ?? DELETED_SENDER_LABEL
     let preview = msg.content.length > 60 ? `${msg.content.slice(0, 60)}\u2026` : msg.content
     return (
-      <tr mix={table.row}>
+      <tr
+        mix={[table.row, table.floatingRowReveal, table.floatingTrailingFade]}
+        data-row-id={msg.id}
+      >
         <td mix={table.td} data-label="Absender" title={senderLabel}>
           <div mix={senderCellStyle}>
             <span
@@ -507,14 +480,32 @@ function MessageRowItem(handle: Handle<MessageRowItemProps>) {
           mix={[table.td, dateCellStyle]}
           data-label="Erstellt"
           title={formatTimestamp(msg.created_at)}
+          data-floating-trailing
         >
           <span mix={dateStackStyle}>
             <span mix={dateMainStyle}>{formatCompactDateDE(msg.created_at)}</span>
             <span mix={dateTimeStyle}>{formatClockTime(msg.created_at)}</span>
           </span>
         </td>
-        <td mix={table.actionCell} data-label="Aktionen">
-          <div mix={rowActionsStyle}>
+        <td mix={[table.actionCell, table.floatingActionCell]} data-label="Aktionen">
+          <button
+            type="button"
+            data-row-actions-trigger
+            aria-expanded="false"
+            aria-controls={`row-actions-${msg.id}`}
+            aria-label={`Weitere Aktionen für Nachricht von ${senderLabel}`}
+            title="Weitere Aktionen"
+            mix={table.floatingActionsTrigger}
+          >
+            <span aria-hidden="true">⋮</span>
+          </button>
+          <div
+            id={`row-actions-${msg.id}`}
+            mix={[table.actionGroup, table.floatingActions]}
+            role="group"
+            aria-label="Zeilenaktionen"
+            data-row-actions
+          >
             <RestfulForm
               method="POST"
               action={routes.admin.messages.destroy.href({ id: msg.id })}
@@ -533,11 +524,11 @@ function MessageRowItem(handle: Handle<MessageRowItemProps>) {
               />
               <button
                 type="submit"
-                mix={[iconActionStyle, iconActionDangerStyle]}
+                mix={[table.actionSeg, table.actionSegDanger]}
                 aria-label={`Nachricht von ${senderLabel} löschen: „${preview}“`}
                 title="Löschen"
               >
-                <Glyph name="trash" width={14} height={14} />
+                <Glyph name="trash" width={13} height={13} />
               </button>
             </RestfulForm>
           </div>
@@ -804,7 +795,7 @@ function MessagesGrid(handle: Handle<MessagesGridProps>) {
               <col mix={colSenderWidth} />
               <col />
               <col mix={colDateWidth} />
-              <col mix={colActionsWidth} />
+              <col mix={[colActionsWidth, table.floatingActionsCol]} />
             </colgroup>
             <thead>
               <tr>
@@ -868,8 +859,8 @@ function MessagesGrid(handle: Handle<MessagesGridProps>) {
                     </span>
                   </a>
                 </th>
-                <th scope="col" mix={table.th}>
-                  Aktionen
+                <th scope="col" aria-label="Aktionen" mix={[table.th, table.floatingActionsHeader]}>
+                  <span mix={table.floatingActionsHeaderText}>Aktionen</span>
                 </th>
               </tr>
             </thead>
@@ -1007,6 +998,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
     return (
       <div mix={[table.page, dataGridFill]}>
         <ConfirmDelete />
+        <AdminRowActionsOverlay />
         <MessageExpand />
         <div mix={headerRowStyle}>
           <h2 mix={table.title}>Nachrichten</h2>
