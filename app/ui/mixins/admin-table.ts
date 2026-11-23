@@ -362,12 +362,12 @@ export const table = {
    *
    * Above `floatingActionsMedia` the action column shrinks to a 44px kebab
    * gutter and the hover cluster overlays the previous cell to its left.
-   * Hovering/focusing the row reveals the icon cluster immediately beside the
-   * kebab; clicking the kebab pins the same cluster open via
-   * `AdminRowActionsOverlay`. Adopt it only when the grid really overflows the
-   * admin content column, the row has a handful of icon actions, and everything
-   * the overlay hides is either repeated in the edit panel or a disposable
-   * timestamp.
+   * Hovering the kebab reveals the icon cluster immediately beside it;
+   * keyboard focus within the row reveals it too, and clicking the kebab pins
+   * the same cluster open via `AdminRowActionsOverlay`. Adopt it only when the
+   * grid really overflows the admin content column, the row has a handful of
+   * icon actions, and everything the overlay hides is either repeated in the
+   * edit panel or a disposable timestamp.
    *
    * Contract:
    * - the `<col>` composes `floatingActionsCol` (keep the page base width)
@@ -396,7 +396,8 @@ export const table = {
   floatingActionsCol: css({
     [floatingActionsMedia]: {
       // Reserve a real kebab gutter instead of floating the trigger over the
-      // trailing data cell. The hover actions still overlay the previous cell.
+      // trailing data cell. The kebab-hover actions still overlay the previous
+      // cell.
       width: '44px !important',
     },
   }),
@@ -424,9 +425,10 @@ export const table = {
     [floatingActionsMedia]: {
       position: 'absolute',
       top: '50%',
-      // Sit immediately left of the persistent 30px kebab trigger
-      // (8px inset + 30px trigger + 4px gap).
-      right: 'calc(30px + 12px)',
+      // Touch the persistent 30px kebab trigger (8px inset + 30px trigger) so
+      // the pointer can move from the kebab into the revealed group without
+      // crossing a gap where the group would lose :hover and disappear.
+      right: 'calc(30px + 8px)',
       transform: 'translateY(-50%)',
       opacity: 0,
       pointerEvents: 'none',
@@ -473,7 +475,13 @@ export const table = {
     // a button a *mouse* click just focused, which pinned a stale cluster open
     // while the next row revealed its own. `:has(:focus-visible)` still
     // matches the row and any descendant focused by keyboard.
-    '&:hover [data-row-actions]': {
+    //
+    // Pointer reveal is gated on the kebab (or the overlay itself) rather than
+    // the whole row. A row-wide reveal makes the overlay appear underneath a
+    // cursor that is still moving toward another cell, which steals clicks
+    // from the underlying row content. Keep it open while the pointer moves
+    // from the kebab into the action group via the second selector.
+    '&:has([data-row-actions-trigger]:hover, [data-row-actions]:hover) [data-row-actions]': {
       opacity: '1 !important',
       pointerEvents: 'auto !important',
     },
@@ -492,7 +500,10 @@ export const table = {
   }),
   floatingTrailingFade: css({
     [floatingActionsMedia]: {
-      '&:hover [data-floating-trailing]': { opacity: 0 },
+      '&:has([data-row-actions-trigger]:hover, [data-row-actions]:hover) [data-floating-trailing]':
+        {
+          opacity: 0,
+        },
       '&:has(:focus-visible) [data-floating-trailing]': { opacity: 0 },
       '&[data-row-actions-open] [data-floating-trailing]': { opacity: 0 },
     },

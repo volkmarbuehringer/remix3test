@@ -17,7 +17,7 @@ import { pool } from '../../../../test/pool.ts'
 // - phone layout: rows become labelled cards, row actions stay on screen, and
 //   the page scrolls instead of a short nested row region;
 // - desktop row actions: no visible action column; the cluster is revealed by
-//   hovering the row or tabbing to one of its buttons;
+//   hovering the row kebab or tabbing to one of its buttons;
 // - editor: opening a row focuses its title field, and the header close action
 //   returns to the grid.
 //
@@ -348,8 +348,8 @@ describe('admin lists: UX', () => {
       `reclaiming the width must not cause horizontal scrolling, got ${layout.scroll}px`,
     )
     assert.ok(
-      layout.overlayGap >= 40 && layout.overlayGap <= 44,
-      `the actions should sit just left of the 30px kebab, got ${layout.overlayGap}px gap`,
+      layout.overlayGap >= 37 && layout.overlayGap <= 39,
+      `the actions should touch the 30px kebab trigger, got ${layout.overlayGap}px gap`,
     )
     assert.notEqual(layout.triggerDisplay, 'none', 'the kebab trigger must stay visible')
     assert.ok(
@@ -365,6 +365,9 @@ describe('admin lists: UX', () => {
     assert.equal(await opacity(), '0', 'desktop rows start without visible actions')
 
     await row.hover()
+    assert.equal(await opacity(), '0', 'hovering the row must not reveal its actions')
+
+    await trigger.hover()
     await page.waitForFunction(
       () => {
         let group = document.querySelector('[data-lists-table] tbody [data-row-actions]')
@@ -373,7 +376,10 @@ describe('admin lists: UX', () => {
       undefined,
       { timeout: 15_000 },
     )
-    assert.equal(await opacity(), '1', 'hovering the row should reveal its actions')
+    assert.equal(await opacity(), '1', 'hovering the kebab should reveal its actions')
+
+    await actions.locator('a').first().hover()
+    assert.equal(await opacity(), '1', 'the overlay must stay visible after entering it')
 
     await page.mouse.move(1, 1)
     await page.waitForFunction(
@@ -439,9 +445,9 @@ describe('admin lists: UX', () => {
     await page.goto(routes.admin.lists.index.href() + '?filter=' + token)
     await page.locator('[data-lists-table]').waitFor({ timeout: 15_000 })
 
-    // Desktop hides the cluster until the row is hovered.
+    // Desktop hides the cluster until the row kebab is hovered.
     let row = page.locator(`[data-row-id="${id}"]`)
-    await row.hover()
+    await row.locator('[data-row-actions-trigger]').hover()
     await row.locator('[aria-label*="bearbeiten"]').click()
     await page.waitForURL((url) => url.searchParams.get('editing') === String(id), {
       timeout: 15_000,

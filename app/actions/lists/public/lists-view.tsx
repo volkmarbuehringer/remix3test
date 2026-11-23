@@ -1619,6 +1619,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   <div
                     key={item.id}
                     data-grabbed={item.id === grabbedId ? '' : undefined}
+                    data-item-actions-open={menuOpen ? '' : undefined}
                     mix={[
                       css({
                         position: 'relative',
@@ -1638,11 +1639,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             ? `1px solid ${theme.colors.border.subtle}`
                             : 'none',
                         backgroundColor: index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
-                        // CSS hover/focus reveal replaces the old delegated
-                        // mouseover/focusin JS: `css()` emits nested
-                        // parent→child selectors on current builds. !important
-                        // wins the per-class @layer contest against the
-                        // cluster's own resting opacity/pointer-events.
+                        // Pointer reveal is gated on the row kebab (or the
+                        // action cluster itself), not on the whole row. As soon
+                        // as the cluster appears under a moving pointer it
+                        // would otherwise steal clicks from the row content.
                         //
                         // Keyboard focus must still reveal the cluster, but
                         // `:focus-within` also matches a button a *mouse*
@@ -1653,10 +1653,11 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         // visible at once. `:focus-visible` keeps pointer focus
                         // from pinning a cluster; it still matches the row and
                         // any descendant focused by keyboard.
-                        '&:hover [data-item-actions]': {
-                          opacity: '1 !important',
-                          pointerEvents: 'auto !important',
-                        },
+                        '&:has([data-item-menu-button]:hover, [data-item-actions]:hover) [data-item-actions]':
+                          {
+                            opacity: '1 !important',
+                            pointerEvents: 'auto !important',
+                          },
                         '&:focus-visible [data-item-actions]': {
                           opacity: '1 !important',
                           pointerEvents: 'auto !important',
@@ -1665,18 +1666,25 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                           opacity: '1 !important',
                           pointerEvents: 'auto !important',
                         },
+                        '&[data-item-actions-open] [data-item-actions]': {
+                          opacity: '1 !important',
+                          pointerEvents: 'auto !important',
+                        },
                         '&:focus-visible': {
                           outline: `2px solid ${theme.colors.focus.ring}`,
                           outlineOffset: '-2px',
                         },
-                        paddingRight: '10rem',
+                        // The kebab sits at the right edge and the floating
+                        // actions extend left from it; reserve enough room for
+                        // both so they never cover the item label.
+                        paddingRight: '12.5rem',
                         // On touch the hover cluster is replaced by the
                         // kebab + inline menu, so the right gutter is no longer
                         // needed and the menu can wrap below the row.
                         //
                         // The same release applies below 900px: a mouse user on
                         // a narrow window now gets the kebab too (see
-                        // itemActionsStyle), and keeping the 10rem gutter would
+                        // itemActionsStyle), and keeping the 12.5rem gutter would
                         // leave the label with 2px at 390px (measured).
                         '@media (hover: none), (max-width: 900px)': {
                           paddingRight: theme.space.md,
@@ -1930,7 +1938,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             mix={[
                               iconActionStyle,
                               iconActionFirstStyle,
-                              on('click', () => startEditing(realIndex)),
+                              on('click', () => {
+                                closeItemMenu()
+                                startEditing(realIndex)
+                              }),
                             ]}
                             title="Bearbeiten"
                             aria-label="Bearbeiten"
@@ -1941,9 +1952,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             data-item-move-button={item.id}
                             mix={[
                               iconActionStyle,
-                              on('click', (event) =>
-                                openItemMovePicker(item.id, event.currentTarget),
-                              ),
+                              on('click', (event) => {
+                                closeItemMenu()
+                                openItemMovePicker(item.id, event.currentTarget)
+                              }),
                             ]}
                             title="In Liste verschieben"
                             aria-label="In Liste verschieben"
@@ -1954,7 +1966,10 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                             mix={[
                               iconActionStyle,
                               iconActionDangerStyle,
-                              on('click', () => deleteItem(realIndex)),
+                              on('click', () => {
+                                closeItemMenu()
+                                deleteItem(realIndex)
+                              }),
                             ]}
                             title="Löschen"
                             aria-label="Löschen"
@@ -1967,6 +1982,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                 mix={[
                                   iconActionStyle,
                                   on('click', () => {
+                                    closeItemMenu()
                                     moveUp(realIndex)
                                     focusItemAction(item.id, 'Nach oben')
                                   }),
@@ -1982,6 +1998,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                                   iconActionStyle,
                                   iconActionLastStyle,
                                   on('click', () => {
+                                    closeItemMenu()
                                     moveDown(realIndex)
                                     focusItemAction(item.id, 'Nach unten')
                                   }),
@@ -2006,12 +2023,24 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                         mix={[
                           itemMenuStyle,
                           ref((el: HTMLElement) => {
-                            // Move focus into the menu once, when it opens, so a
-                            // keyboard user on a touch device lands on an action
-                            // instead of having to re-enter the row.
+                            // Move focus into the revealed actions once, when
+                            // the kebab is activated, so keyboard users land on
+                            // an action instead of having to re-enter the row.
+                            // Desktop pins the floating cluster; narrow/touch
+                            // layouts use the inline menu below the row.
                             if (el && !el.dataset.focusReady) {
                               el.dataset.focusReady = 'true'
-                              el.querySelector<HTMLButtonElement>('button')?.focus()
+                              let desktopOverlay = window.matchMedia(
+                                '(hover: hover) and (min-width: 901px)',
+                              ).matches
+                              let target = desktopOverlay
+                                ? el
+                                    .closest<HTMLElement>('[data-item-id]')
+                                    ?.querySelector<HTMLButtonElement>(
+                                      '[data-item-actions] button:not(:disabled)',
+                                    )
+                                : el.querySelector<HTMLButtonElement>('button')
+                              target?.focus()
                             }
                           }),
                         ]}

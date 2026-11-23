@@ -1,8 +1,10 @@
 import { css } from 'remix/component'
 
 import { theme } from '../../../ui/theme/theme.ts'
-
 import type { ItemPriority } from './lists-state.ts'
+
+/** Desktop layout where the kebab reveals the floating action cluster. */
+const desktopOverlayMedia = '@media (hover: hover) and (min-width: 901px)'
 
 export const multilineDisplayStyle = css({
   // The label is a child of the column `itemMainStyle` now, so it must not
@@ -1012,14 +1014,15 @@ export const clearFilterBtnStyle = css({
   },
 })
 
-// Item row action cluster is hidden until the row is hovered/focused. It is
-// absolutely positioned over the right edge of the row so the row content
-// (the label) can span the full row width — the actions never consume layout
-// space, letting rows be longer. The buttons are joined into a flat button
-// group (matching /admin/lists): square, shared border, rounded only on the
-// outer corners. Each button currently carries its own style; the vendor
-// runtime now emits descendant selectors (`& > form > button`), so this can be
-// collapsed into one container rule when the file is next touched.
+// Item row action cluster is hidden until the row's kebab or the overlay
+// itself is hovered, or keyboard focus enters the row. It is absolutely
+// positioned over the right edge of the row so the row content (the label) can
+// span the full row width — the actions never consume layout space, letting
+// rows be longer. The buttons are joined into a flat button group (matching
+// /admin/lists): square, shared border, rounded only on the outer corners. Each
+// button currently carries its own style; the vendor runtime now emits
+// descendant selectors (`& > form > button`), so this can be collapsed into one
+// container rule when the file is next touched.
 //
 // No opacity transition: when reordering shifts a row out from under the
 // cursor while the neighbouring row slides in, a cross-fade leaves both
@@ -1034,14 +1037,20 @@ export const itemActionsStyle = css({
   alignItems: 'stretch',
   opacity: 0,
   pointerEvents: 'none',
+  zIndex: 1,
   // Touch devices get the row menu (the kebab below) instead of this
   // hover-reveal cluster. Removing it from layout keeps the row dense and
   // lets the label use the full width. The same applies to a narrow
   // window: the card keeps its ~220px sidebar column until 768px, and at
-  // 820px the five overlay buttons forced a 10rem right gutter that left
+  // 820px the five overlay buttons forced a 12.5rem right gutter that left
   // the label just 192px wide.
   '@media (hover: none), (max-width: 900px)': {
     display: 'none',
+  },
+  [desktopOverlayMedia]: {
+    // Touch the 36px kebab (8px inset + 36px wide) so moving from the trigger
+    // into the action group does not cross a gap where the reveal is lost.
+    right: 'calc(36px + 8px)',
   },
 })
 
@@ -1068,16 +1077,16 @@ export const itemEditActionsStyle = css({
 })
 
 /**
- * Touch-only row menu trigger. The four hover actions are replaced by one
- * kebab so the row stays one line high; the menu itself opens inline below
- * the row (no clipping inside the scrolling element list).
+ * Visible row menu trigger. On desktop it sits at the right edge and its hover
+ * reveals the floating action cluster to its left; on touch and narrow layouts
+ * the same kebab opens the inline menu below the row.
  */
 export const itemMenuButtonStyle = css({
-  display: 'none',
+  display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  // Compact mode (see the media query below) is pointer-driven, so 36px is a
-  // comfortable mouse target while leaving 8px more for the label.
+  // Compact mode is pointer-driven, so 36px is a comfortable mouse target
+  // while leaving 8px more for the label.
   width: '36px',
   height: '36px',
   padding: 0,
@@ -1097,10 +1106,14 @@ export const itemMenuButtonStyle = css({
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,
   },
-  // Must pair with the itemActionsStyle breakpoint: wherever the hover
-  // cluster is hidden, the kebab is the only way to reach edit/move/delete.
-  '@media (hover: none), (max-width: 900px)': {
-    display: 'inline-flex',
+  [desktopOverlayMedia]: {
+    // Keep the trigger out of the row's flex flow and pin it to the same
+    // 8px right inset as the admin-grid kebabs.
+    position: 'absolute',
+    top: '50%',
+    right: theme.space.sm,
+    transform: 'translateY(-50%)',
+    zIndex: 2,
   },
   '@media (hover: none)': {
     width: '44px',
@@ -1108,13 +1121,18 @@ export const itemMenuButtonStyle = css({
   },
 })
 
-/** Full-width row under the item, only rendered while its menu is open. */
+/** Full-width row under the item, rendered only for the narrow/touch menu. */
 export const itemMenuStyle = css({
   flexBasis: '100%',
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: theme.space.xs,
   paddingTop: theme.space.xs,
+  [desktopOverlayMedia]: {
+    // Desktop uses the floating cluster revealed by the kebab; opening the
+    // state pins that cluster instead of adding a second inline menu.
+    display: 'none',
+  },
 })
 
 export const itemMenuItemStyle = css({

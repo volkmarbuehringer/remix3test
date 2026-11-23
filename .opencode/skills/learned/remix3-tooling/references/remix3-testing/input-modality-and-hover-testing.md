@@ -1,12 +1,12 @@
 # Input-Modality CSS and Reorder Focus in Playwright
 
-**Extracted:** 2026-10-26
-**Context:** `/lists` row action toolbar during ↑/↓ reorder. The duplicate-toolbar bug only appeared with a real pointer: a mouse click focused the arrow but did not match `:focus-visible`, while `:focus-within` kept the moved row's toolbar open next to the row that slid under the cursor. `render()` + programmatic `.click()` could not reproduce it.
+**Extracted:** 2026-10-26; revalidated 2026-11-23 for trigger-gated row menus.
+**Context:** `/lists` row action toolbar during ↑/↓ reorder, plus the shared admin/Verwaltung row-action grids. The duplicate-toolbar bug only appeared with a real pointer: a mouse click focused the arrow but did not match `:focus-visible`, while `:focus-within` kept the moved row's toolbar open next to the row that slid under the cursor. A later contract change gated every kebab-controlled overlay on the trigger instead of row hover, so tests must now hover the trigger.
 
 ## Problem
 
 - **Component tests cannot fake pointer modality.** `.click()` does not set `:hover`, and `.focus()` keeps the last input modality. A control gated on `:focus-visible` behaves differently under a real mouse than under programmatic focus, and a `:focus-within`-based reveal can pass a component test while pinning two toolbars open in the browser.
-- **Hover-revealed controls are not hittable at rest.** The cluster uses `opacity: 0; pointer-events: none`; Playwright's `action.hover()` fails until its row is hovered first. A bare `click()` fails the same way **before Playwright moves the mouse**: the pre-click hit test resolves whatever sits under the target — typically the trailing data cell — and retries until timeout with `<td data-label="…"> … intercepts pointer events`. Hover the owning row first; raising the cluster's `z-index` does not help, because the hit test never reaches it.
+- **Trigger-gated controls are not hittable at rest.** The cluster uses `opacity: 0; pointer-events: none`; Playwright's `action.hover()` fails until its explicit kebab trigger is hovered. A bare `click()` fails the same way **before Playwright moves the mouse**: the pre-click hit test resolves whatever sits under the target — typically the trailing data cell — and retries until timeout with `<td data-label="…"> … intercepts pointer events`. Hover the kebab first; hovering only the row must leave the cluster hidden. Raising the cluster's `z-index` does not help, because the hit test never reaches it.
 - **The hydration gap swallows early clicks.** SSR CSS hover applies before hydration, but the click handler attaches with the deferred client entry. A click in that window is a silent no-op.
 - **A reorder changes what is under a stationary pointer.** After the row moves, the cursor usually hovers a different row; focus may stay on the moved row's action. That combination is the bug, and it only exists in a real input session.
 - **A transition hides the overlap.** A symmetric opacity crossfade leaves both clusters partially visible for ~120 ms, so a test that samples after a fixed timeout can miss it (or `isVisible()` can report both as visible because the cluster is laid out at opacity 0).
@@ -17,12 +17,13 @@
 
 ```ts
 let row = page.locator('[data-item-id="item-b"]')
+let kebab = row.locator('[data-item-menu-button]')
 let down = row.locator('[data-item-actions] button[aria-label="Nach unten"]')
 
 // Retry through hydration: hover CSS is already live, the handler is not.
 let deadline = Date.now() + 15_000
 while (Date.now() < deadline) {
-  await row.hover() // reveal the cluster (pointer-events: none at rest)
+  await kebab.hover() // reveal the cluster (pointer-events: none at rest)
   await down.hover() // now the action is hittable
   await down.click()
   try {
@@ -38,9 +39,9 @@ while (Date.now() < deadline) {
 }
 ```
 
-- A hover-hidden cluster cannot reveal itself for `.click()`: the pre-click hit test runs before the mouse move. Hover the row (`.locator('xpath=ancestor::tr[1]').hover()`) or keyboard-focus an action first. After the hover, `.click({ trial: true })` is a fast hit-test probe.
-- **Case (2026-10-28):** the `/admin/users` toggle inside the agent-events panel timed out with the trailing `Erstellt` cell intercepting. A geometry probe showed the cluster at `opacity: 0; pointer-events: none` with that cell on top of `elementsFromPoint`. The same file failed at base `6aded94`, so it was a stale test, not a regression from current work; row-hover fixed Chromium and Firefox (`e5a1d09`).
-- Seed equal-height rows (single-line labels) so the pointer's y-coordinate lands on the row that replaces the clicked one; otherwise a height difference moves the hover target and the test flakes.
+- A trigger-gated cluster cannot reveal itself for `.click()`: the pre-click hit test runs before the mouse move. Hover the kebab (or keyboard-focus an action) first; hovering only the row is intentionally a no-op. After the hover, `.click({ trial: true })` is a fast hit-test probe.
+- **Case (2026-11-23):** after switching every admin/Verwaltung kebab to trigger-gated reveal, tests that still called `row.hover()` timed out with the row/trailing cell intercepting. Changing the helper to hover `[data-row-actions-trigger]` / `[data-item-menu-button]` fixed Chromium and Firefox. The row must be asserted passive separately.
+- Seed equal-height rows (single-line labels) so assertions about which row is under the stationary pointer stay stable. Trigger-gated reveal must not open a row merely because it slid under the cursor, but future pointer actions may still use that geometry.
 - For keyboard behavior, switch modality with a real key before focusing/activating:
 
 ```ts
@@ -66,13 +67,15 @@ let state = await page.evaluate(() => {
     focusVisible: document.activeElement?.matches(':focus-visible') ?? null,
   }
 })
-assert.deepEqual(state.visible, ['the-row-under-the-pointer'])
+assert.ok(state.visible.length <= 1)
+assert.ok(state.visible.every((id) => id === state.active))
 assert.equal(state.active, 'the-moved-row')
-assert.equal(state.focusVisible, false) // mouse-created focus (Chromium/Firefox)
+// Mouse-created focus is not focus-visible; trigger-gated reveal must stay shut.
+assert.equal(state.focusVisible, false) // Chromium/Firefox
 ```
 
 - Use `opacity > 0.5`, not `isVisible()`: the cluster is `display: inline-flex` at opacity 0.
-- `document.elementFromPoint(x, y)?.closest('[data-item-id]')` tells you which row the stationary cursor actually hovers after the move.
+- `document.elementFromPoint(x, y)?.closest('[data-item-id]')` tells you which row the stationary cursor actually hovers after the move. With trigger-gated reveal, hovering that row is not sufficient to open its cluster; assert the cluster stays at `opacity: 0` unless the pointer is over the kebab or overlay.
 - For a transient crossfade, install a `requestAnimationFrame` sampler before the click and collect `{ t, opacity, top }` for ~500 ms; if the desired behavior is "never two visible", remove the transition and assert the settled state rather than tolerating the fade.
 
 ### 3. Prove the test catches the old behavior

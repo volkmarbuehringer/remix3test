@@ -12,7 +12,7 @@ import { __setTestChatlogFixtures } from './chatlog/controller.tsx'
 // Persistent kebab + hover/focus row actions on the grids migrated to
 // `table.floatingActions*` (users, chatlog, clients). The shared mixin zeroes
 // the action column on `(min-width: 1200px) and (hover: hover)`, keeps the
-// kebab visible, and reveals the cluster beside it. Below that breakpoint the
+// kebab visible, and reveals the cluster only once the kebab is hovered. Below that breakpoint the
 // same markup must keep the action column and its visible header. The /lists
 // grid has its own coverage in lists-ux.test.e2e.ts.
 //
@@ -174,7 +174,29 @@ describe('admin grids: floating row actions', () => {
           cssAttributeValue(resting.rowKey) +
           '"]',
       )
+      let trigger = row.locator('[data-row-actions-trigger]')
+
+      // Unlike the old row-wide reveal, moving across the row must not pop the
+      // overlay under the cursor. Only reaching the kebab reveals it.
       await row.hover()
+      let rowHover = await readGrid(page, grid.tableAttr)
+      assert.equal(
+        rowHover.opacity,
+        '0',
+        `${grid.label}: hovering the row must not reveal its actions`,
+      )
+      assert.equal(
+        rowHover.pointerEvents,
+        'none',
+        `${grid.label}: row-hovered actions must stay click-through`,
+      )
+      assert.equal(
+        rowHover.trailingOpacity,
+        '1',
+        `${grid.label}: the trailing cell must stay visible until the kebab is hovered`,
+      )
+
+      await trigger.hover()
       await page.waitForFunction(
         (attr: string) => {
           let group = document.querySelector('[' + attr + '] tbody [data-row-actions]')
@@ -187,7 +209,7 @@ describe('admin grids: floating row actions', () => {
       assert.equal(
         hovered.opacity,
         '1',
-        `${grid.label}: hovering the row should reveal its actions`,
+        `${grid.label}: hovering the kebab should reveal its actions`,
       )
       assert.equal(
         hovered.pointerEvents,
@@ -198,6 +220,15 @@ describe('admin grids: floating row actions', () => {
         hovered.trailingOpacity,
         '0',
         `${grid.label}: the trailing cell should fade under the overlay`,
+      )
+
+      // Moving from the kebab into the adjacent overlay must keep it open.
+      await row.locator('[data-row-actions] a').first().hover()
+      let overOverlay = await readGrid(page, grid.tableAttr)
+      assert.equal(
+        overOverlay.opacity,
+        '1',
+        `${grid.label}: the overlay must stay visible after entering it from the kebab`,
       )
 
       await page.mouse.move(1, 1)
@@ -215,7 +246,6 @@ describe('admin grids: floating row actions', () => {
       await page
         .locator('[data-admin-row-actions-ready="true"]')
         .waitFor({ state: 'attached', timeout: 15_000 })
-      let trigger = row.locator('[data-row-actions-trigger]')
       await trigger.click()
       assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
       assert.ok(
@@ -299,7 +329,7 @@ describe('admin grids: floating row actions', () => {
     let row = page.locator(
       '[data-users-table] tbody [data-row-id="' + cssAttributeValue(focused.rowKey) + '"]',
     )
-    await row.hover()
+    await row.locator('[data-row-actions-trigger]').hover()
     await page.waitForFunction(
       () => {
         let group = document.querySelector('[data-users-table] tbody [data-row-actions]')

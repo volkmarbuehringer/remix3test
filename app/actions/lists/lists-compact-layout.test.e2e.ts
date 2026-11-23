@@ -12,7 +12,7 @@ import { MOBILE_VIEWPORT } from '../../../test/responsive.ts'
 // Compact /lists layout (real SSR + CSS).
 //
 // Guards the responsive regressions found while auditing the page:
-//  - a 390px-wide mouse window kept the 10rem right gutter that the touch
+//  - a 390px-wide mouse window kept the desktop right gutter that the touch
 //    layout drops, collapsing item labels to ~2px;
 //  - the fixed-width add-item button squeezed the composer field to ~130px;
 //  - the app header kept its full link row until 768px, so at 820px the list
@@ -185,8 +185,8 @@ describe('lists compact layout', () => {
       await waitForRows(page, 3)
       let wide = await readLayout(page)
       assert.equal(wide.bellVisible, true, 'desktop keeps the notification bell')
-      assert.equal(wide.kebabDisplay, 'none', 'the kebab is touch/compact-only')
-      assert.notEqual(wide.clusterDisplay, 'none', 'desktop keeps the hover action cluster')
+      assert.notEqual(wide.kebabDisplay, 'none', 'desktop keeps the kebab trigger visible')
+      assert.notEqual(wide.clusterDisplay, 'none', 'desktop keeps the kebab-hover action cluster')
       for (let width of wide.labelWidths) {
         assert.ok(width >= 300, `desktop labels must span the row (got ${width}px)`)
       }

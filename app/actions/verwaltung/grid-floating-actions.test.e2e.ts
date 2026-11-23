@@ -11,7 +11,8 @@ import { pool } from '../../../test/pool.ts'
 // ---------------------------------------------------------------------------
 // /verwaltung grids migrated to the shared persistent-kebab + hover-overlay row
 // actions. All four data grids must reserve the same 44px gutter above the
-// floating breakpoint and keep the visible action column below it.
+// floating breakpoint, reveal actions only from the kebab, and keep the visible
+// action column below it.
 //
 // Requires a running PostgreSQL database (global test setup) and a Playwright
 // browser. Runs as CI-only (gated on `type: ["e2e"]`).
@@ -181,7 +182,24 @@ describe('verwaltung grids: floating row actions', () => {
         `${grid.label}: overlay must sit just left of the kebab, got ${resting.gapToTrigger}px gap`,
       )
 
+      let trigger = row.locator('[data-row-actions-trigger]')
+
+      // Pointer reveal is gated on the kebab, not the whole row.
       await row.hover()
+      let rowHover = await readGrid(page, grid.tableAttr)
+      assert.equal(rowHover.opacity, '0', `${grid.label}: row hover must not reveal actions`)
+      assert.equal(
+        rowHover.pointerEvents,
+        'none',
+        `${grid.label}: row-hovered actions must stay click-through`,
+      )
+      assert.equal(
+        rowHover.trailingOpacity,
+        '1',
+        `${grid.label}: the trailing cell must stay visible until the kebab is hovered`,
+      )
+
+      await trigger.hover()
       await page.waitForFunction(
         (attr: string) => {
           let group = document.querySelector('[' + attr + '] tbody [data-row-actions]')
@@ -191,7 +209,7 @@ describe('verwaltung grids: floating row actions', () => {
         { timeout: 15_000 },
       )
       let hovered = await readGrid(page, grid.tableAttr)
-      assert.equal(hovered.opacity, '1', `${grid.label}: row hover must reveal actions`)
+      assert.equal(hovered.opacity, '1', `${grid.label}: kebab hover must reveal actions`)
       assert.equal(
         hovered.pointerEvents,
         'auto',
@@ -206,7 +224,6 @@ describe('verwaltung grids: floating row actions', () => {
       await page
         .locator('[data-admin-row-actions-ready="true"]')
         .waitFor({ state: 'attached', timeout: 15_000 })
-      let trigger = row.locator('[data-row-actions-trigger]')
       await trigger.click()
       assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
       assert.ok(

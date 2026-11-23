@@ -160,8 +160,10 @@ export const ListsClient = clientEntry(
     let pickerDebounce: ReturnType<typeof setTimeout> | null = null
     let pickerSearchRef: HTMLInputElement | null = null
 
-    // Touch-only per-row action menu (the kebab). Rendering it inline below
-    // the row keeps the element list scroll container from clipping it.
+    // Per-row action menu state. On touch/narrow layouts the kebab renders the
+    // menu inline below the row so the element-list scroller cannot clip it;
+    // on desktop the same state pins the floating action cluster beside the
+    // kebab and CSS hides the inline duplicate.
     let openItemMenuId: string | null = null
 
     // Keyboard-help sheet (the "?" trigger). Focus managed like the picker.
@@ -678,9 +680,9 @@ export const ListsClient = clientEntry(
     // Move focus back to the row that owned the menu after it closes, or to a
     // neighbouring row after a delete. On touch the kebab is the control the
     // menu was opened from and the row itself is a poor focus target; on a
-    // pointer device the row is better (it keeps the arrow-key flow working).
-    // The kebab is also visible at <=900px on pointer devices, so "visible"
-    // is no longer a proxy for touch — test the pointer capability instead.
+    // pointer device the row is better because it keeps the arrow-key flow
+    // working. Test the pointer capability rather than trigger visibility,
+    // since the kebab now stays visible at every width.
     let focusItemTrigger = (id: string | null) => {
       handle.queueTask(() => {
         if (id) {
@@ -1727,11 +1729,16 @@ export const ListsClient = clientEntry(
           // Let the native toggle run; just dismiss any other open menu.
           closeMoreMenus(summary ?? target ?? undefined)
 
-          // The touch row menu is rendered inline (not a <details>), so it
-          // needs its own outside-pointer dismissal. A tap on any kebab is
-          // left to the button's click handler, which toggles the right menu.
+          // The row menu is not a <details>, so it needs its own outside-
+          // pointer dismissal. This covers both the inline touch menu and the
+          // desktop pinned overlay. A tap on the kebab or inside the action
+          // cluster is left to the action handlers, which manage the toggle.
           if (openItemMenuId !== null && target instanceof Element) {
-            if (!target.closest('[data-item-menu]') && !target.closest('[data-item-menu-button]')) {
+            if (
+              !target.closest('[data-item-menu]') &&
+              !target.closest('[data-item-actions]') &&
+              !target.closest('[data-item-menu-button]')
+            ) {
               openItemMenuId = null
               void handle.update()
             }

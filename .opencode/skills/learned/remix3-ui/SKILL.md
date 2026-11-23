@@ -63,7 +63,7 @@ Delta index for styling/layout failures that look like "the CSS did nothing": ca
 
 | Task involves... | Start with |
 | --- | --- |
-| A hover/focus reveal stays pinned open after a pointer click, or two toolbars show after a reorder (`:focus-within` trap) | `references/remix3-css-and-layout/hover-reveal.md` |
+| A hover/focus reveal stays pinned open after a pointer click, two toolbars show after a reorder (`:focus-within` trap), or a row-action overlay appears on row hover instead of only from its kebab | `references/remix3-css-and-layout/hover-reveal.md` |
 | A `css()` override silently loses to vendor rules (double borders, wrong divider colour, `& > *` ignored) while sibling rules apply | `references/remix3-css-and-layout/cascade-layer-overrides.md` |
 | An inline icon/glyph sits on its own line above its label; a link/span containing an SVG wraps vertically | `references/remix3-css-and-layout/svg-reset-inline-wrap.md` |
 | A native `<select>` overflows its flex row because of long option text | `references/remix3-css-and-layout/native-select-flex-contain.md` |
@@ -77,7 +77,7 @@ Delta index for styling/layout failures that look like "the CSS did nothing": ca
 | Inspecting generated rules in the browser — `document.styleSheets` iteration shows nothing | `references/remix3-css-and-layout/hover-reveal.md`, `references/remix3-css-and-layout/cascade-layer-overrides.md` |
 | A scrollbar is missing in Firefox although `&::-webkit-scrollbar` is set | `references/remix3-css-and-layout/bounded-scroll-flexchain.md` |
 | An admin grid overflows on mobile / hides its row actions, opening the two-column edit panel clips the table columns, or the stacked-card cells keep table padding/borders/ellipsis | `references/remix3-css-and-layout/admin-grid-responsive-panels.md`, `references/remix3-css-and-layout/cascade-layer-overrides.md` |
-| An admin grid's actions column overflows, a hover-reveal cluster should reclaim its width, or a `css()` breakpoint override silently does nothing | `references/remix3-css-and-layout/floating-row-actions.md` |
+| An admin grid's actions column overflows, a kebab-revealed cluster should reclaim its width, the overlay collapses when moving from kebab to cluster, or a `css()` breakpoint override silently does nothing | `references/remix3-css-and-layout/floating-row-actions.md` |
 | A desktop-only hide keeps an element visible, a narrow mouse window keeps the touch layout, or a new breakpoint flips browser-test focus/visibility | `references/remix3-css-and-layout/responsive-show-hide.md` |
 
 ### Core Rules
@@ -85,13 +85,13 @@ Delta index for styling/layout failures that look like "the CSS did nothing": ca
 - `css()` emits one `@layer rmx.<class>` sub-layer per class: inside a layer **sub-layer order decides and specificity is irrelevant**, unlayered CSS beats every `rmx.*` layer, and which sub-layer is last depends on class registration order — so the same override can win on one element and lose on its sibling. Fix on the target element, after the mixin, with `!important` for contested properties (or a genuinely later app layer), and verify with CDP, not `document.styleSheets`. The same applies to a **parent's nested rule** (`&:hover .child`, `& tbody td`): it lives in the parent's earlier sub-layer, so only properties the child's own style leaves unset apply — the card layouts' cell overrides were silently losing until the 2026-11-19 §04 audit added `!important` (and `min-width: 0` once clipping was removed); see `references/remix3-css-and-layout/cascade-layer-overrides.md`.
 - `css({ flex: 1 })` is `flex: 1 1 0%` since #12121: use `flex: '1 1 0'` in a viewport-fill chain and `flex: '1 1 auto'` in a content-sized column, and give **every** nested level `min-height: 0`. A `display: block` + `overflow: hidden` wrapper clips its `flex: 1` child instead of letting it scroll.
 - An author `display` — including any `css()` descriptor — beats the UA `[hidden] { display: none }` rule, so a `hidden`/`toggleAttribute('hidden', …)` toggle needs `&[hidden] { display: none }` in the same descriptor.
-- Drive hover/focus reveals from the row's `&:hover` plus `:focus-visible`/`:has(:focus-visible)`, never `:focus-within` (a pointer click focuses without matching `:focus-visible`, so the cluster pins open); drop the opacity transition so a reorder swap shows one cluster; gate destructive actions separately instead of trapping clicks with `pointer-events`.
+- Drive kebab-controlled row-action overlays from the explicit trigger/overlay hover (`&:has([data-*-trigger]:hover, [data-*-actions]:hover)`) plus `:focus-visible`/`:has(:focus-visible)`, never the whole row and never `:focus-within` (a pointer click focuses without matching `:focus-visible`, so the cluster pins open; a row-wide reveal can also intercept a click intended for row content). Make the floating overlay touch the trigger so the pointer never crosses a hover dead zone; drop the opacity transition so a reorder swap shows one cluster; gate destructive actions separately instead of trapping clicks with `pointer-events`.
 - A media key in `css()` must be the full query (`'@media (min-width: 1200px) and (hover: hover)'`) — a bare condition held in a constant produces a silent no-op rule.
 
 ### When to Use
 
 - A style or layout silently does nothing, loses a layer/specificity contest, or collapses a region.
-- A `hidden` toggle or a hover/focus reveal does not appear/disappear as intended, or two toolbars show after a reorder.
+- A `hidden` toggle or a hover/focus reveal does not appear/disappear as intended, a kebab-controlled overlay opens on row hover or collapses between trigger and cluster, or two toolbars show after a reorder.
 - Flex/scroll geometry is wrong: panels collapse, lists clip instead of scrolling, or a page in the sidebar shell overflows.
 - Adding a hand-rolled icon link, a `<select>` in a flex row, a content-sized panel in a bounded shell, a data grid / two-column edit panel, or floating row actions on a wide admin grid.
 - Before trusting a computed style or a `css()` override: use these references' CDP / recursive-rule-walk recipes, and drive the assertions with `remix3-tooling § Testing` → `references/remix3-testing/cliententry-browser-tests.md`.

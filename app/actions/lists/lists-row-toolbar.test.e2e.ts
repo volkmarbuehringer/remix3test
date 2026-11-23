@@ -72,11 +72,31 @@ describe('lists row toolbar reordering', () => {
       await openList(page, listId)
 
       let row = page.locator('[data-item-id="move-b"]')
-      let down = row.locator('[data-item-actions] button[aria-label="Nach unten"]')
+      let kebab = row.locator('[data-item-menu-button]')
+      let actions = row.locator('[data-item-actions]')
+      let down = actions.locator('button[aria-label="Nach unten"]')
 
       // The hover reveal is server-rendered CSS, but the click handler attaches
       // with the deferred client entry; openList waited for its marker.
+      // Merely crossing the row must not reveal the overlay; only reaching the
+      // kebab (or the cluster beside it) does.
       await row.hover()
+      assert.equal(
+        await actions.evaluate((el) => getComputedStyle(el).opacity),
+        '0',
+        'row hover must not reveal the item action cluster',
+      )
+      await kebab.hover()
+      await page.waitForFunction(
+        () => {
+          let group = document.querySelector(
+            '[data-item-id="move-b"] [data-item-actions]',
+          ) as HTMLElement | null
+          return group ? getComputedStyle(group).opacity === '1' : false
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
       await down.hover()
       await down.click()
       await page.waitForFunction(
@@ -86,19 +106,19 @@ describe('lists row toolbar reordering', () => {
         { timeout: 15_000 },
       )
 
-      // The reorder runs inside a same-document View Transition. Hover
-      // hit-testing is suspended while the transition snapshot overlays the
-      // list, so wait for the reveal to settle on the row under the stationary
-      // pointer instead of assuming the old instant reorder.
+      // The reorder runs inside a same-document View Transition. Wait for the
+      // moved row and its restored action focus rather than assuming a fixed
+      // post-transition frame.
       await page.waitForFunction(
         () => {
           let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]
-          let visible = rows.flatMap((candidate) => {
-            let cluster = candidate.querySelector<HTMLElement>('[data-item-actions]')
-            if (!cluster) return []
-            return Number(getComputedStyle(cluster).opacity) > 0.5 ? [candidate.dataset.itemId] : []
-          })
-          return visible.length === 1 && visible[0] === 'move-c'
+          let active = document.activeElement
+          let activeRow = active?.closest<HTMLElement>('[data-item-id]')
+          return (
+            rows[2]?.dataset.itemId === 'move-b' &&
+            activeRow?.dataset.itemId === 'move-b' &&
+            active?.getAttribute('aria-label') === 'Nach unten'
+          )
         },
         undefined,
         { timeout: 5_000 },
@@ -127,13 +147,93 @@ describe('lists row toolbar reordering', () => {
       }
 
       assert.deepEqual(state.order, ['move-a', 'move-c', 'move-b', 'move-d'])
-      assert.deepEqual(
-        state.visible,
-        ['move-c'],
-        'only the row under the stationary pointer may reveal its toolbar',
+      assert.ok(
+        state.visible.length <= 1,
+        `row-hover must not leave multiple toolbars visible (got ${state.visible.join(', ')})`,
+      )
+      assert.ok(
+        state.visible.every((id) => id === 'move-b'),
+        `only the focused row may reveal its toolbar (got ${state.visible.join(', ')})`,
       )
       assert.equal(state.activeRow, 'move-b', 'focus must follow the moved row')
       assert.equal(state.activeLabel, 'Nach unten')
+
+      // Explicitly hovering the moved row's kebab reveals exactly that row's
+      // toolbar and no other.
+      await page.locator('[data-item-id="move-b"] [data-item-menu-button]').hover()
+      await page.waitForFunction(
+        () => {
+          let rows = [...document.querySelectorAll<HTMLElement>('[data-item-id]')]
+          let visible = rows.flatMap((candidate) => {
+            let cluster = candidate.querySelector<HTMLElement>('[data-item-actions]')
+            if (!cluster) return []
+            return Number(getComputedStyle(cluster).opacity) > 0.5 ? [candidate.dataset.itemId] : []
+          })
+          return visible.length === 1 && visible[0] === 'move-b'
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [listId])
+    }
+  })
+
+  it('pins the item action overlay from the kebab and keeps row hover passive', async (t) => {
+    let listId = await seedList()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+      await openList(page, listId)
+
+      let row = page.locator('[data-item-id="move-a"]')
+      let kebab = row.locator('[data-item-menu-button]')
+      let actions = row.locator('[data-item-actions]')
+      let opacity = () => actions.evaluate((el) => getComputedStyle(el).opacity)
+
+      await row.hover()
+      assert.equal(await opacity(), '0', 'row hover must not reveal the item actions')
+
+      await kebab.hover()
+      await page.waitForFunction(
+        () => {
+          let group = document.querySelector(
+            '[data-item-id="move-a"] [data-item-actions]',
+          ) as HTMLElement | null
+          return group ? getComputedStyle(group).opacity === '1' : false
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
+      assert.equal(await opacity(), '1', 'kebab hover must reveal the item actions')
+
+      await kebab.click()
+      assert.equal(await kebab.getAttribute('aria-expanded'), 'true')
+      await page.mouse.move(1, 1)
+      await page.waitForFunction(
+        () => {
+          let group = document.querySelector(
+            '[data-item-id="move-a"] [data-item-actions]',
+          ) as HTMLElement | null
+          return group ? getComputedStyle(group).opacity === '1' : false
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
+      let desktopMenuDisplay = await row
+        .locator('[data-item-menu="move-a"]')
+        .evaluate((el) => getComputedStyle(el).display)
+      assert.equal(
+        desktopMenuDisplay,
+        'none',
+        'desktop must pin the floating overlay instead of the inline touch menu',
+      )
+
+      await page.keyboard.press('Escape')
+      assert.equal(await kebab.getAttribute('aria-expanded'), 'false')
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
     }

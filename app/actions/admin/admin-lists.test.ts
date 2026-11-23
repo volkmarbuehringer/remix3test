@@ -361,7 +361,7 @@ describe('Admin Lists Controller', () => {
       assert.ok(text.includes('aria-expanded="false"'), 'the trigger must start collapsed')
     })
 
-    it('keeps the actions column out of the visible header and reveals it from the row', async () => {
+    it('keeps the actions column out of the visible header and reveals it from the kebab', async () => {
       await insertList('Hover Row', 'test-admin-hover-' + Date.now())
       let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
       let text = await response.text()
@@ -375,7 +375,7 @@ describe('Admin Lists Controller', () => {
       )
       assert.ok(
         text.includes('data-row-actions'),
-        'the row action cluster must be the hover/focus target',
+        'the row action cluster must remain the hover/focus target',
       )
       assert.ok(
         text.includes('aria-label="Zeilenaktionen"'),

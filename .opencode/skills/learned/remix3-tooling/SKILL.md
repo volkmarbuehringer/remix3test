@@ -218,8 +218,8 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 **Input modality and reorder focus (`references/remix3-testing/input-modality-and-hover-testing.md`)**
 
-- A `*.test.browser.tsx` cannot reproduce pointer modality: `.click()` never sets `:hover`, and `.focus()` keeps the last input modality, so a `:focus-within`-pinned control can pass there and fail with a real mouse. Drive the pointer path in `*.test.e2e.ts` with `row.hover()` → `action.hover()` → `click()`; switch to keyboard modality with a real key before `.focus()`/`Enter` and assert `document.activeElement.matches(':focus-visible')`.
-- Count revealed instances with `getComputedStyle(cluster).opacity > 0.5` (not `isVisible()`: the cluster is laid out at opacity 0), identify the hovered row with `document.elementFromPoint(x, y)?.closest('[data-item-id]')`, and retry the interaction through the hydration gap until the expected DOM change.
+- A `*.test.browser.tsx` cannot reproduce pointer modality: `.click()` never sets `:hover`, and `.focus()` keeps the last input modality, so a `:focus-within`-pinned control can pass there and fail with a real mouse. Drive the pointer path in `*.test.e2e.ts` with `kebab.hover()` → `action.hover()` → `click()`; row hover must stay passive for trigger-gated overlays. Switch to keyboard modality with a real key before `.focus()`/`Enter` and assert `document.activeElement.matches(':focus-visible')`.
+- Count revealed instances with `getComputedStyle(cluster).opacity > 0.5` (not `isVisible()`: the cluster is laid out at opacity 0), use `document.elementFromPoint(x, y)?.closest('[data-item-id]')` to prove which row is under the pointer while asserting its cluster stays passive, and retry the interaction through the hydration gap until the expected DOM change.
 - A keyed reorder may reinsert the focused row (focus falls to `<body>`) or move a sibling and leave the clicked row in place (focus survives). Don't infer focus from node identity; assert the active row/label, and restore the action by id after the update when it must continue.
 
 ### When to Use

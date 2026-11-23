@@ -1,14 +1,14 @@
 # The `/lists` editor: view state, undo/autosave, bulk actions, and touch controls
 
 **Extracted:** 2026-10-18; folded from four app-specific playbooks 2026-11-04.
-**Revalidated:** 2026-11-04 against the current `/lists` implementation.
+**Revalidated:** 2026-11-23 against the trigger-gated row menus and responsive kebab implementation.
 **Context:** `/lists` is this app's densest client entry. The traps below are app-specific; vendor guides do not cover them. Code: `app/actions/lists/public/lists-client.tsx` (state, undo, saves, picker, menus), `lists-view.tsx` (markup), `lists-state.ts` (pure view pipeline), `lists-styles.ts`, `lists-api.ts`, `lists-drag.ts`, `lists-row-actions.tsx` (server-sidebar menu entry), `app/ui/lists-layout.tsx` (sidebar query/form/markup), `app/ui/confirm-delete.browser.tsx`, `app/data/lists.ts`, `app/actions/lists/controller.tsx`.
 
 ## When to use
 
 - A list view has status/hide-done/search filters or a view-only sort, and the persisted manual order must not change.
 - Undo must survive a debounced PATCH, or a list switch must not carry the snapshot to another list.
-- A touch row needs a kebab/inline menu instead of a hover cluster, or focus is lost after a transient menu closes.
+- A row needs one responsive action menu: a floating desktop cluster revealed by the kebab plus an inline touch menu, or focus is lost after a transient menu closes.
 - Bulk actions span rows a filter hides, or targets live beyond the rendered sidebar page.
 - Sidebar search/sort/page-size/result-count must survive navigation, or a fixed dialog sits inside the sticky sidebar.
 
@@ -59,14 +59,16 @@
 - On close, bump `pickerRequestId` and clear the debounce timer so a late response cannot reopen the dialog. One picker serves bulk copy, bulk move, and single-row move.
 - Label bulk copy/move with the target name and announce success in the live region and the notice row.
 
-## 6. Touch rows and the inline menu
+## 6. Responsive row menus: floating desktop cluster + touch inline menu
 
-- Hide the view-mode hover cluster with `display: none` under `@media (hover: none), (max-width: 900px)` (not `opacity: 0`) so it leaves layout and the tab order, and show one kebab per row. `(hover: none)` alone is not enough: a narrow mouse window still matches `hover: hover`, so the row kept the 10rem right gutter and collapsed the label to 2px at 390px. Release the gutter in the same combined query. The kebab is 36px in compact pointer mode and 44px on touch; keep the touch-only 44px override on `(hover: none)`.
-- Row: `flex-wrap: wrap`; menu: `flexBasis: 100%`, `display: grid`, `gridTemplateColumns: 1fr 1fr`, 44px actions. Edit mode keeps its own save/cancel cluster (`position: static; width: 100%` on `(hover: none), (max-width: 900px)`) with the editor `flexBasis: 100%` so the textarea and metadata fields get the full width. Keep the drag grip on hover-capable devices only (HTML5 drag cannot start from touch).
+- Keep one kebab visible at every width. On desktop it is absolutely positioned at the row's right edge and reveals the floating action cluster; under `@media (hover: none), (max-width: 900px)` the same kebab stays in flow and opens the inline menu instead.
+- Desktop: hide the floating cluster with `display: none` under `@media (hover: none), (max-width: 900px)` so it leaves layout and the tab order. The desktop cluster is positioned at `right: calc(36px + 8px)` so it touches the 36px kebab; a visual gap makes the pointer leave the trigger before reaching the overlay, collapsing the reveal. Reserve a `12.5rem` right gutter for the kebab + five-button cluster, then release it in the same touch/narrow media query. The kebab is 36px on compact pointer layouts and 44px on touch.
+- Row: `flex-wrap: wrap`; inline menu: `flexBasis: 100%`, `display: grid`, `gridTemplateColumns: 1fr 1fr`, 44px actions. Edit mode keeps its own save/cancel cluster (`position: static; width: 100%` on `(hover: none), (max-width: 900px)`) with the editor `flexBasis: 100%` so the textarea and metadata fields get the full width. Keep the drag grip on hover-capable devices only (HTML5 drag cannot start from touch).
 - An absolutely positioned menu inside the scrolling element list clips near the top/bottom; the inline menu cannot be clipped by the list's `overflow-y: auto`.
-- Kebab: `aria-expanded={menuOpen}` and an `aria-label` naming the item; menu `role="group"` with an `aria-label`; focus the first action when it opens. Boolean ARIA serializes to `"true"`/`"false"` in SSR (see `references/remix3-jsx-attribute-conventions/jsx-attributes.md`), so no string ternary is needed.
-- Focus restoration: `focusItemTrigger(id)` inside `handle.queueTask` prefers `[data-item-menu-button]` only when `window.matchMedia('(hover: none)').matches` **and** it is rendered (`offsetParent !== null`), falls back to `[data-item-id]`, then the add field. Do not use `offsetParent` as a touch proxy: the kebab is also visible on pointer devices at <=900px (and in the 800×400 component browser test viewport), and focusing it there drops the row's arrow-key flow. Use `CSS.escape` in interpolated attribute selectors. Use the helper for Escape, move actions, and delete.
-- Outside dismissal is a delegated document `pointerdown`; Escape lives in the same document `keydown`; both attach with `handle.signal`. Skip closing when the pointer target is inside `[data-item-menu]` or `[data-item-menu-button]`.
+- Kebab: `aria-expanded={menuOpen}` and an `aria-label` naming the item; menu `role="group"` with an `aria-label`. The same state drives both surfaces: on desktop hide the inline menu with CSS and reveal the floating cluster via `[data-item-actions-open]`; on touch/narrow render and focus the inline menu. Boolean ARIA serializes to `"true"`/`"false"` in SSR (see `references/remix3-jsx-attribute-conventions/jsx-attributes.md`), so no string ternary is needed.
+- Focus target differs by layout: when the menu opens, focus the first floating action on desktop and the first inline button on touch/narrow. The desktop inline menu can remain in the DOM for state but must be `display: none`, so focusing its hidden button is a no-op.
+- Focus restoration: `focusItemTrigger(id)` inside `handle.queueTask` prefers `[data-item-menu-button]` only when `window.matchMedia('(hover: none)').matches` **and** it is rendered (`offsetParent !== null`), falls back to `[data-item-id]`, then the add field. Do not use `offsetParent` as a touch proxy: the kebab is also visible on desktop (and in the 800×400 component browser test viewport), and focusing it there drops the row's arrow-key flow. Use `CSS.escape` in interpolated attribute selectors. Use the helper for Escape, move actions, and delete.
+- Outside dismissal is a delegated document `pointerdown`; Escape lives in the same document `keydown`; both attach with `handle.signal`. Skip closing when the pointer target is inside `[data-item-menu]`, `[data-item-actions]`, or `[data-item-menu-button]`.
 - `queueTask` only drains on an update. A client entry that mutates DOM attributes imperatively (the server sidebar menu) must call `void handle.update()` after queueing, or the task waits forever; entries with no render can use a timer instead (`references/remix3-client-entries/queuetask-over-raf.md`).
 - Server-rendered sidebar rows reuse the inline menu: one always-visible 44px `[data-list-menu-button]` **after** the link (a separate tab stop; keep the link's roving tabindex) and a `[data-list-menu]` second line on a `flex-wrap` row, so the scrolling `<nav>` cannot clip it. Keep closed menus `display: none`, toggle a `data-list-menu-open` attribute in the entry, and mirror it in `aria-expanded` so closed actions leave the tab order. Entry: `app/actions/lists/public/lists-row-actions.tsx`; e2e: `app/actions/lists/lists-sidebar-menu.test.e2e.ts`.
 - Sidebar wiring: one delegated `pointerdown` (outside), `keydown` (Escape), and a **capture-phase** `click` (action close) per wiring pass; abort the previous pass on `reloadComplete`. The capture phase is required when another entry (rename) calls `stopPropagation()` in its own document-capture handler.
@@ -98,7 +100,7 @@
 - `app/actions/lists/public/lists-item-menu.test.browser.tsx` — outside pointerdown, Escape focus, move/delete focus, filtered move guard.
 - `app/actions/lists/public/lists-bulk-actions.test.browser.tsx` — bulk done/open over hidden rows, picker loading/empty/error/arrow/Escape, single-row move route.
 - `app/actions/lists/public/lists-row-actions.test.browser.tsx` + `app/actions/lists/lists-sidebar-menu.test.e2e.ts` — server sidebar menu open/close/focus/tab stop and 44px geometry.
-- `app/actions/lists/lists-view-controls.test.e2e.ts` — status strip geometry, hide-done count, help fold at 390 vs 1440; `app/actions/lists/lists-row-toolbar.test.e2e.ts` — one toolbar/focus after reorder.
+- `app/actions/lists/lists-view-controls.test.e2e.ts` — status strip geometry, hide-done count, help fold at 390 vs 1440; `app/actions/lists/lists-row-toolbar.test.e2e.ts` — kebab-only hover, pinned overlay, one toolbar/focus after reorder.
 - `app/actions/lists/lists-compact-layout.test.e2e.ts` — geometry at 390/820/1440 (label/composer/status strip/header), cluster-vs-kebab visibility, page overflow, notification bell.
 - `app/actions/lists/controller.test.ts` + `app/data/lists.test.ts` — sort/size/targets, atomic move (order, partial rejection, stale If-Match), merge.
 
@@ -108,7 +110,7 @@
 - `references/remix3-client-entries/roving-tabindex-keyboard-lists.md` — the row keyboard model these controls sit on.
 - `references/remix3-frame-cliententry/cliententry-lifecycle.md` — mixin inference constraint and the serialized-prop boundary.
 - `references/remix3-jsx-attribute-conventions/jsx-attributes.md` — boolean ARIA/`data-*` serialization.
-- `references/remix3-css-and-layout/hover-reveal.md` — the hover/focus reveal the touch menu replaces.
+- `references/remix3-css-and-layout/hover-reveal.md` — the trigger-gated hover/focus reveal shared by the desktop cluster and its touch fallback.
 - `references/remix3-testing/cliententry-browser-tests.md` — deferred-response and document-scoped entry tests.
 - `remix3-server` § Security — `/api/*` skips CSRF, so session endpoints stay on the authenticated page route.
 - `remix3-server` → `references/remix-file-uploads/report-pdf-export.md` — the `/lists` header view export reuses `buildVisibleItems` server-side so the PDF matches the visible rows.

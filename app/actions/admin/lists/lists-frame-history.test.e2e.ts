@@ -81,7 +81,7 @@ describe('admin lists: frame navigation history', () => {
 
     if (isFirefox(page)) {
       // Chromium-only Navigation API history assertions (see header).
-      await page.locator(`[data-row-id="${first.id}"]`).hover()
+      await page.locator(`[data-row-id="${first.id}"] [data-row-actions-trigger]`).hover()
       await editorLink(page, first.id).click()
       await page.waitForFunction(
         (id) => new URL(location.href).searchParams.get('editing') === id,
@@ -122,14 +122,14 @@ describe('admin lists: frame navigation history', () => {
         { timeout: 15_000 },
       )
 
-      await page.locator(`[data-row-id="${first.id}"]`).hover()
+      await page.locator(`[data-row-id="${first.id}"] [data-row-actions-trigger]`).hover()
       await editorLink(page, first.id).click({ noWaitAfter: true })
       await firstRequest
 
       // The first editor response is still held open, so the grid is still on
       // screen and the second row link is clickable. This starts the
       // navigation that must replace the first push's unrendered entry.
-      await page.locator(`[data-row-id="${second.id}"]`).hover()
+      await page.locator(`[data-row-id="${second.id}"] [data-row-actions-trigger]`).hover()
       await editorLink(page, second.id).click({ noWaitAfter: true })
 
       await page.waitForFunction(

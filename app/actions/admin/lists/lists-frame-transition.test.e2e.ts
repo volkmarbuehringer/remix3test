@@ -134,7 +134,7 @@ describe('admin lists: frame View Transition', () => {
     let initial = await probe(page)
     assert.equal(initial.started, 0)
 
-    await page.locator(`[data-row-id="${row.id}"]`).hover()
+    await page.locator(`[data-row-id="${row.id}"] [data-row-actions-trigger]`).hover()
     await editorLink(page, row.id).click()
 
     await page.waitForFunction(
