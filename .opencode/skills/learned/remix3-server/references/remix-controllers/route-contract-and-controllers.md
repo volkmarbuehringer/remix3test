@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-26
 
-**Re-validated (2026-11-18):** against the installed preview pin (`remix` `3.2.0` / `@remix-run/fetch-router`). Chapter 02 is byte-identical to the previous anchor (`ca504176`); this pass adds the PATCH leaves and the `resources()`-hardcodes-PUT finding from the partial-update conversion, and records the desired-state row-action pattern. The 2026-11-14 validation refreshed app line references, added the route-param guard convention, and converted the last hardcoded route strings to `routes.*.href()`; the 2026-11-11 validation covered #12190's HEAD GET-fallback body strip.
+**Re-validated (2026-11-18):** against the then-installed preview pin (`remix` `3.2.0` / `@remix-run/fetch-router`). Chapter 02 is byte-identical to the previous anchor (`ca504176`); this pass adds the PATCH leaves and the `resources()`-hardcodes-PUT finding from the partial-update conversion, and records the desired-state row-action pattern. The 2026-11-14 validation refreshed app line references, added the route-param guard convention, and converted the last hardcoded route strings to `routes.*.href()`; the 2026-11-11 validation covered #12190's HEAD GET-fallback body strip.
 
 **Context:** Adding or registering a route or controller in this app: picking resource-helper options, wiring a nested route map, reading the built-in action context (`context.has`, `context.router`, `context.headers`), or inspecting an opaque `RoutePattern` without reaching into its internals.
 

@@ -23,7 +23,7 @@ The vendor README documents the top-level contract (`node_modules/remix/src/comp
 @layer rmx-reset, rmx;
 ```
 
-Guide 04 (§"Styling with css and dynamic style values", source `275f353c` / #12352) now states the same rule for app authors: each `css(...)` style gets its own layer, a parent's style is usually inserted before its children's, and a nested selector in the parent (`"&:hover .title"`) cannot override a property the child's own style sets — put the state selector in the child's style. This is the guide-level confirmation of the mechanism below; the app's `lists-view.tsx` row hover predates it and uses `!important` (so does `admin-table.ts` `floatingRowReveal`).
+Guide 04 (§"Styling with css and dynamic style values", source `b42a817e` / #12352) now states the same rule for app authors: each `css(...)` style gets its own layer, a parent's style is usually inserted before its children's, and a nested selector in the parent (`"&:hover .title"`) cannot override a property the child's own style sets — put the state selector in the child's style. This is the guide-level confirmation of the mechanism below; the app's `lists-view.tsx` row hover predates it and uses `!important` (so does `admin-table.ts` `floatingRowReveal`).
 
 Inside a layer, **sub-layer order decides, and specificity is irrelevant** — and which sub-layer is declared last depends on the order classes happen to be registered while rendering, so the same override can win on one element and lose on its sibling (the *active* primary-tone segment is the usual casualty). Consequences:
 

@@ -8,7 +8,7 @@ hidden div (or `null`), scanned server DOM via `queueTask`/inline `<script>`, an
 registered document-level listeners behind module-scoped `listenersRegistered`
 guards. All three now render the interactive element itself and bind listeners
 in its `ref((el, signal) => …)` / `on(...)`, so cleanup follows the element's
-signal on frame swap. Commit `b7b878f`. Mechanism re-checked on the current pin (remix 3.2.0 / `@remix-run/component` 1.2.0): entry hydration markers still delimit the fragment root and `ref`/`on` remain browser-only.
+signal on frame swap. Commit `b7b878f`. Mechanism re-checked 2026-11-23 at the current pin (remix 3.3.0 / `@remix-run/component` 1.3.0): entry hydration markers still delimit the fragment root (`src/runtime/stream-protocol.ts` `HYDRATION_START_PREFIX = 'rmx:h:'`) and `ref`/`on` remain `{ ssr: false }` mixins.
 
 ## Mechanics that made the conversion safe
 

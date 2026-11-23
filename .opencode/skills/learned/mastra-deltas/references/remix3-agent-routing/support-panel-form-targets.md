@@ -1,8 +1,10 @@
 # Support-Agent Panel POST Forms: data-rmx-target Evaluation
 
 **Source:** session 2026-10-16 (interactivity item #3 research; implemented the
-same day). Mechanism re-checked against the current pin (remix 3.2.0, `@remix-run/component` 1.2.0)
-(`@remix-run/component` `src/runtime/frame.ts`, `src/runtime/navigation.ts`).
+same day). Mechanism re-checked 2026-11-23 at the current pin (remix 3.3.0,
+`@remix-run/component` 1.3.0; `src/runtime/frame.ts:3037` still guards `onFormData`
+with `event.eventPhase !== Event.NONE || event.defaultPrevented`, and
+`src/runtime/navigation.ts:1173` still reads `data-rmx-target`).
 
 ## Problem
 
