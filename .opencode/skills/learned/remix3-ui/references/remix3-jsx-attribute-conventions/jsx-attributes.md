@@ -47,7 +47,7 @@ When a runtime contract changes, verify at the runtime layer:
 3. **Add a focused render test** asserting the new attribute name is emitted.
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
-Current reads (source `b42a817e`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:1133`/`:1148` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1173-1178` (`dist/runtime/navigation.js:915-921`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:83`.
+Current reads (source `d1061933`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:1133`/`:1148` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1173-1178` (`dist/runtime/navigation.js:915-921`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:83`.
 
 ## Boolean `aria-*` / `data-*` values
 

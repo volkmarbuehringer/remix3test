@@ -4,18 +4,21 @@ import { createTestServer } from 'remix/node-fetch-server/test'
 
 import { router } from '../../test-router.ts'
 import { routes } from '../../routes.ts'
-import { createAuthCookieWithCsrfForUser, isFirefox } from '../../../test/utils.ts'
+import { createAuthCookieWithCsrfForUser } from '../../../test/utils.ts'
 import { initializeAppDatabase } from '../../db.ts'
 
 // ---------------------------------------------------------------------------
 // Frame form navigation when the submit button is detached before `navigate`.
 //
 // Regression guard for remix #11987 ("resolve form navigation when submitter is
-// detached before navigate fires"). Custom-element libraries submit through a
-// temporary native button and remove it before the Navigation API's `navigate`
-// event fires. Before #11987 the frame runtime resolved the form from
-// `sourceElement.form`, which is `null` for a detached button, so the submission
-// was not recognised and fell back to a full document navigation.
+// detached before navigate fires") and #12391 (Firefox formdata timing).
+// Custom-element libraries submit through a temporary native button and remove
+// it before the Navigation API's `navigate` event fires. Before #11987 the frame
+// runtime resolved the form from `sourceElement.form`, which is `null` for a
+// detached button, so the submission was not recognised and fell back to a full
+// document navigation. Firefox previously discarded the native formdata snapshot
+// because its submit event retained a nonzero eventPhase; #12391 guards on the
+// submit event's currentTarget instead, so both engines keep the frame path.
 //
 // This must be an e2e: only the real client runtime (`app/assets/entry.tsx` ->
 // `run()`) installs the document `submit` + `window.navigation` listeners. The
@@ -26,13 +29,8 @@ import { initializeAppDatabase } from '../../db.ts'
 // `admin-content` frame, so counting document `load` events cleanly tells an
 // in-frame reload (no new load) from a full-page navigation (one new load).
 //
-// Firefox: #11987 does not reach it on this build (48b54a55). The fix populates
-// the submitter index from the native `formdata` snapshot, but its guard
-// (`event.eventPhase !== Event.NONE`) rejects Firefox, which fires `formdata`
-// while the `submit` event is still at AT_TARGET (phase 2) — so the detached
-// submitter still full-navigates. The strict assertion is therefore scoped to
-// Chromium (same shape as agent-events-frame-redirect.test.e2e.ts); Firefox
-// keeps a smoke check that the submission completes.
+// The detached-submitter assertion runs on both Chromium and Firefox at the
+// d1061933 pin; #12391 replaced the Firefox-incompatible eventPhase guard.
 // ---------------------------------------------------------------------------
 
 const FORM = 'form[data-rmx-target="admin-content"]'
@@ -133,12 +131,6 @@ describe('frame form navigation with a detached submitter', () => {
       marker,
       { timeout: 15_000 },
     )
-
-    if (isFirefox(page)) {
-      // Known Firefox gap in #11987 (see header): the detached submitter falls
-      // back to a document navigation, so only assert the submission completed.
-      return
-    }
 
     assert.equal(loads, 1, 'the detached submitter must reload the frame, not the document')
   })

@@ -91,11 +91,11 @@ Key facts (post-#11668):
 - The `resolveFrame` client resolver must forward `formData`/`method`/`encType` (see the next section).
 - The server action must return a frame fragment (or redirect) so the targeted frame renders correctly.
 
-### Detached submitters: #11987 is Chromium-only on this build (Firefox fires `formdata` at AT_TARGET)
+### Detached submitters: #11987 + #12391
 
-#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, guarded by `if (event.eventPhase !== Event.NONE || event.defaultPrevented) return` — the intent is to ignore `formdata` snapshots taken by user submit handlers.
+#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:3038` at `d1061933`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
 
-Firefox (Playwright build 142, 2026-10-15) fires the native `formdata` event while the `submit` event is still at **AT_TARGET (eventPhase 2)**, so the guard discards the snapshot, `pendingSubmissions` stays empty, and a detached-submitter GET form falls through to a full document navigation. Probe evidence: a `formdata` listener sees `{ phase: 2, defaultPrevented: false, submitterIsButton: true }`, `navigate` fires with `sourceElement: button, canIntercept: true`, and the document navigates anyway; the attached-submitter control stays in-frame in both engines. App impact: a Firefox form submitted through a removed/temporary submitter does a full page load. Guard: `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` (Chromium asserts the in-frame reload; Firefox is a smoke check, scoped with `isFirefox()` like `agent-events-frame-redirect.test.e2e.ts`).
+Probe history: Firefox (Playwright build 142, 2026-10-15) previously fired native `formdata` while the submit event was still at **AT_TARGET (eventPhase 2)**, so the old `eventPhase` guard discarded the snapshot and a detached-submitter GET form fell through to a full document navigation. #12391 fixes that path; `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` now asserts the in-frame reload on both Chromium and Firefox instead of keeping a Firefox smoke-only branch.
 
 ## Client resolveFrame Signature (ResolveFrameOptions)
 
@@ -129,7 +129,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-23 at `v0.0.20261123-main-b42a817e` (source `b42a817e`; `@remix-run/component` 1.3.0, test-only delta).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-23 at `v0.0.20261123-main-d1061933` (source `d1061933`; `@remix-run/component` 1.3.0, test-only delta).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
