@@ -53,7 +53,6 @@ let confirmResult: RenderResult | null = null
 let controller: AbortController | null = null
 let calls: FetchCall[] = []
 let reloads = 0
-let confirmMessages: string[] = []
 
 function mountData(): void {
   let host = document.createElement('div')
@@ -155,7 +154,6 @@ afterEach(() => {
   confirmResult = null
   fixture?.remove()
   fixture = null
-  confirmMessages = []
   setTypeDragState(null)
 })
 
