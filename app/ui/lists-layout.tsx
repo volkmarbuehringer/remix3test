@@ -790,6 +790,7 @@ function ListsLayout(
                     activeListId,
                   )}
                   target={frameTarget}
+                  prefetch="intent"
                   mix={paginationBtnStyle}
                   aria-label="Vorherige Seite"
                   title="Vorherige Seite"
@@ -812,6 +813,7 @@ function ListsLayout(
                     activeListId,
                   )}
                   target={frameTarget}
+                  prefetch="intent"
                   mix={paginationBtnStyle}
                   aria-label="Nächste Seite"
                   title="Nächste Seite"
