@@ -263,7 +263,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261124-main-3f499063`: `startLoad` at `:775` dispatches the direct event through `notifyReloadStart` at `:824`; inherited reloads start with `startInheritedReload` at `:853`, dispatch at `:886`, and complete through `completeInheritedReload` at `:901`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261124-main-16f4e0e3`: `startLoad` at `:775` dispatches the direct event through `notifyReloadStart` at `:824`; inherited reloads start with `startInheritedReload` at `:853`, dispatch at `:886`, and complete through `completeInheritedReload` at `:901`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -366,7 +366,7 @@ prop lets the server render the real layout.
    what makes prop-carried data safe. On reconcile, `renderClientEntryBoundary`
    builds `jsx(node.type, node.props, node.key)` and calls
    `owner.root.render(element)` (`runtime/reconcile.ts:1418-1442`, render at
-   `:1440`, at source `3f499063`). The factory closure
+   `:1440`, at source `16f4e0e3`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
