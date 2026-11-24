@@ -1,74 +1,23 @@
-import { theme } from '../ui/theme/theme.ts'
+export type ToastTone = 'error' | 'success'
 
-const TOAST_DURATION = 3500
+export interface ToastRequest {
+  message: string
+  tone: ToastTone
+}
+
+/** Document event that carries a toast from imperative callers to `ToastHost`. */
+export const TOAST_EVENT = 'app:toast-request'
 
 /**
- * The fill/ink/border triple for a toast tone. These are the action/success
- * theme groups, not `theme.surface` (which only holds lvl0–lvl4): an earlier
- * `theme.surface as Record<string, string>` cast resolved every tone key to
- * undefined, so toasts rendered with no background, ink or border at all.
+ * Shows a transient toast. Fire-and-forget: the shell's `ToastHost` owns the
+ * DOM, animation and timing. Without a mounted host (SSR, isolated component
+ * tests) this is a no-op.
  */
-function toastTone(type: 'error' | 'success') {
-  return type === 'error' ? theme.colors.action.danger : theme.colors.success
-}
-
-function getContainer(): HTMLDivElement {
-  let el = document.getElementById('__toast-root')
-  if (el) return el as HTMLDivElement
-  el = document.createElement('div')
-  el.id = '__toast-root'
-  el.style.position = 'fixed'
-  el.style.top = '16px'
-  el.style.left = '50%'
-  el.style.transform = 'translateX(-50%)'
-  el.style.zIndex = '9999'
-  el.style.display = 'flex'
-  el.style.flexDirection = 'column'
-  el.style.gap = '8px'
-  el.style.pointerEvents = 'none'
-  document.body.appendChild(el)
-  return el as HTMLDivElement
-}
-
-export function showToast(message: string, type: 'error' | 'success' = 'error') {
-  let container = getContainer()
-  let toast = document.createElement('div')
-  let tone = toastTone(type)
-  toast.textContent = message
-  toast.style.backgroundColor = tone.background
-  toast.style.color = tone.foreground
-  toast.style.padding = `${theme.space.sm} ${theme.space.lg}`
-  toast.style.borderRadius = theme.radius.md
-  toast.style.fontSize = theme.fontSize.sm
-  toast.style.fontWeight = theme.fontWeight.medium
-  toast.style.boxShadow = theme.shadow.md
-  toast.style.pointerEvents = 'auto'
-  toast.style.textAlign = 'center'
-  toast.style.border = `1px solid ${tone.border}`
-  toast.style.opacity = '0'
-  toast.style.transform = 'translateY(-4px)'
-  toast.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out'
-  container.appendChild(toast)
-
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1'
-    toast.style.transform = 'translateY(0)'
-  })
-
-  setTimeout(() => {
-    toast.style.opacity = '0'
-    toast.style.transform = 'translateY(-4px)'
-    // Remove on the transition's own end instead of a hard-coded timer. The
-    // fallback covers prefers-reduced-motion (the document shell's global
-    // `transition: none !important` beats the inline style, so transitionend
-    // never fires there) and elements that somehow never transition.
-    let removed = false
-    let finish = () => {
-      if (removed) return
-      removed = true
-      toast.remove()
-    }
-    toast.addEventListener('transitionend', finish, { once: true })
-    setTimeout(finish, 300)
-  }, TOAST_DURATION)
+export function showToast(message: string, tone: ToastTone = 'error') {
+  if (typeof document === 'undefined') return
+  document.dispatchEvent(
+    new CustomEvent<ToastRequest>(TOAST_EVENT, {
+      detail: { message, tone },
+    }),
+  )
 }

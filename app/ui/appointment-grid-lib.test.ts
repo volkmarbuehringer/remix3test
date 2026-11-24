@@ -163,30 +163,16 @@ describe('copyAppt', () => {
 })
 
 function setupDomMock() {
-  let el = {
-    style: {} as Record<string, string>,
-    remove: () => {},
-    textContent: '',
-    appendChild: () => {},
-    // Toasts register a transitionend cleanup after their display timeout;
-    // the test process can outlive that timer, so the stub must accept it.
-    addEventListener: () => {},
-  }
+  // `showToast` only dispatches a document event now; the shell ToastHost owns
+  // the DOM, so the server-side caller just needs a dispatchable document.
   globalThis.document = {
-    getElementById: () => null as HTMLElement | null,
-    createElement: () => el,
-    body: { appendChild: () => {} },
+    dispatchEvent: () => true,
   } as unknown as Document
-  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => {
-    cb(0)
-    return 0
-  }
 }
 
 function cleanupGlobals() {
   delete (globalThis as unknown as { window?: unknown }).window
   delete (globalThis as unknown as { document?: unknown }).document
-  delete (globalThis as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame
 }
 
 function countReloads(): { reload: () => void; calls: () => number } {

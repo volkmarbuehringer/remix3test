@@ -242,7 +242,7 @@ Since preview release `0cab1903` (remix #12203) `t.useFakeTimers()` also fakes `
 let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
 ```
 
-App call sites: `app/actions/lists/public/lists-autosave.test.browser.tsx` (item stamps) and `app/ui/toast.test.browser.ts` both pass that `now`; the toast itself only uses `setTimeout`.
+App call sites: `app/actions/lists/public/lists-autosave.test.browser.tsx` (item stamps) and `app/ui/toast.test.browser.tsx` both pass that `now`; the toast host's display/exit phases are plain `setTimeout` calls, and its entrance flip uses `requestAnimationFrame`.
 
 ## Run coverage in one `remix test` invocation
 

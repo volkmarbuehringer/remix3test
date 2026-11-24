@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `motion-values`, `presence-and-layout`, `reduced-motion` (installed guide `node_modules/remix/guides/07-animation.md`)
 
-**Extracted:** 2026-09-26; app deltas through 2026-11-15
+**Extracted:** 2026-09-26; app deltas through 2026-11-24
 **Validated:** 2026-11-15 against preview release `v0.20261114.200722-main-3fac48ab` / source `3fac48ab` (#12220: per-property `transition` at `animate-mixins.ts:20`, synchronous `beforeRemove` start at `:477`; guide 07 byte-identical between `848e2fbe` and `3fac48ab`, last content change `ca504176` was demo-only).
 **Context:** Springs/tweens, entrance/exit/layout mixins, and `prefers-reduced-motion` in this app.
 
@@ -18,7 +18,7 @@
 - **Drag-release settle** (`app/ui/appointment-grid.browser.tsx`): on drop, `startSettleAnimation(blockId)` runs `node.animate([...], { ...spring('snappy', { velocity }) })`. Velocity comes from `draggedBlockOffset` samples (`recordDragVelocity`, ≥8ms apart), normalized per the guide (`velocity × 1000 / distance`, clamped ±20, along the larger-distance axis). The in-flight settle is held in setup scope and `cancelSettleAnimation()` runs at `startDrag`/`startResize`/`startEdit`, so a regrabbed block never keeps the old WAAPI transform while the drag writes its own. If a refresh rebuilds the node mid-animation, the block appears in place — graceful degradation.
 - **Message clamp FLIP** (`app/ui/message-expand.browser.tsx`): `animateHeightDelta()` measures the current visual height, applies the state change, then cancels the previous `Animation` before measuring the new natural height (a running animation controls `height`, so measuring first would read the old animation). Cleanup is keyed to the current `spanAnimations` entry; a canceled animation's settled `finished` must not clear the replacement's `overflow`/`height`.
 - **WAAPI ignores the CSS reduced-motion guard** — imperative animations must check `prefersReducedMotion()` themselves (see below).
-- **Stylesheet `!important` beats inline transitions.** The shell's `transition: none !important` overrides `element.style.transition`, so a component that sets its own inline transition (e.g. `app/ui/toast.ts`) gets `transitionend` *never* under reduced motion. Anything driven by `transitionend` needs a timeout fallback.
+- **Stylesheet `!important` beats inline transitions.** The shell's `transition: none !important` overrides `element.style.transition`, so a component that sets its own inline transition gets `transitionend` *never* under reduced motion. Anything driven by `transitionend` needs a timeout fallback. The earlier `app/ui/toast.ts` was that case; the current `app/ui/toast-host.browser.tsx` avoids `transitionend` entirely (CSS transition for the fade, a 300 ms timeout for removal), so reduced motion follows the same path.
 - **This app's seams:** `app/ui/mixins/card-lift.ts` (`cardLift`) is a spreadable style object with a spring-timed transition for transform/box-shadow/border-color, hover lift, and press-back; `app/assets/fade-out-body.ts` `fadeOutBody()` (called by `app/assets/entry.tsx`) skips the WAAPI fade under reduced motion and otherwise awaits `body.animate([...], { ...spring('snappy') }).finished`; `app/assets/error-card.browser.tsx` spreads `spring('smooth')` into `animateEntrance`.
 
 ## Entrance, exit, and layout animation
@@ -102,7 +102,7 @@ The runtime removes the node once teardown settles (`reconcile.ts` `remove()` �
    ```
 3. **Deferred removal races one-shot snapshots** — poll the observable DOM state (`waitDialogGone()` above).
 
-Live references: `app/ui/toast.ts` (transitionend + fallback), `app/ui/appointment-grid.browser.tsx` (`startSettleAnimation`/`cancelSettleAnimation`), `app/ui/message-expand.browser.tsx` (retarget-before-measure + cleanup guard), `app/assets/fade-out-body.ts` (WAAPI reduced-motion gate), `app/ui/appointments-new-create.browser.tsx` / `app/ui/admin-chatlog-detail.browser.tsx` (smooth-scroll gate), `app/ui/confirm-delete.browser.tsx` (per-property exit timing), `app/ui/confirm-delete.test.browser.tsx` (`waitDialogGone` + synchronous exit-start assertion).
+Live references: `app/ui/toast-host.browser.tsx` (timeout-only fade; reduced motion follows the same path), `app/ui/appointment-grid.browser.tsx` (`startSettleAnimation`/`cancelSettleAnimation`), `app/ui/message-expand.browser.tsx` (retarget-before-measure + cleanup guard), `app/assets/fade-out-body.ts` (WAAPI reduced-motion gate), `app/ui/appointments-new-create.browser.tsx` / `app/ui/admin-chatlog-detail.browser.tsx` (smooth-scroll gate), `app/ui/confirm-delete.browser.tsx` (per-property exit timing), `app/ui/confirm-delete.test.browser.tsx` (`waitDialogGone` + synchronous exit-start assertion).
 
 ## When to Use
 

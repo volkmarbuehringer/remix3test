@@ -13,6 +13,8 @@ import { getCspNonce } from '../middleware/security-headers.ts'
 import { themeBootstrapScript } from './theme-bootstrap.ts'
 import { viewportBootstrapScript } from './viewport-bootstrap.ts'
 import { FlashAnnouncer } from './flash-announcer.browser.tsx'
+import { ToastHost } from './toast-host.browser.tsx'
+import { APP_OVERLAY_ROOT_ID } from './overlay-root.tsx'
 
 interface DocumentProps {
   children?: RemixNode
@@ -185,7 +187,13 @@ export function Document(handle: Handle<DocumentProps>) {
               outside every frame so a frame swap cannot replace it with a new
               live region (which screen readers do not announce). */}
           <FlashAnnouncer />
+          <ToastHost />
           {children}
+          {/* Shell-owned portal destination (app/ui/overlay-root.tsx). It must
+              stay outside every frame and after the shell so client overlay
+              layers land last in DOM/tab order and outside the named
+              view-transition regions. */}
+          <div id={APP_OVERLAY_ROOT_ID} />
           {(() => {
             let entry = getAssetEntry()
             let src = entry?.href ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
