@@ -103,6 +103,7 @@ That keeps `#app-overlay-root` empty on load and removes the viewport with the l
 - **Fake timers:** install before `showToast`; wrap `timers.advance()` in `act` so component updates flush before DOM assertions.
 - **Theme tones:** browser-test documents do not run the shell's `Theme`; set `--rmx-*` variables on `document.documentElement` before asserting computed colours (same as `app/actions/lists/public/lists-editor-layout.test.browser.tsx`).
 - **E2E:** hidden ready markers are not “visible”; wait with `state: 'attached'`, then dispatch the bridge event and assert the viewport's parent is `#app-overlay-root`.
+- **E2E (frame survival):** `app/ui/toast-frame-survival.test.e2e.ts` seeds the appointment weeks, waits for `[data-toast-host-ready]` with `state: 'attached'`, dispatches the bridge event, then clicks the next-week frame link. It counts `page.on('load')` and sets a `window` probe, proving the toast in `#app-overlay-root` survives a same-document frame swap rather than a document reload. Keep the click/date assertion inside the 3500 ms display window; do not extend production timings for the test.
 - **Server mocks:** if a module imported by a server test can call the imperative API, a fake `document` must implement `dispatchEvent()`. A mock built for an older imperative DOM (`getElementById` / `createElement` / `body.appendChild`) throws `document.dispatchEvent is not a function`; `{ dispatchEvent: () => true }` models “no host mounted”. Same failure mode as the `requestConfirm` stub in `remix3-data` → `references/remix-forms/delete-confirmation.md`.
 
 ## Use / avoid
@@ -133,7 +134,7 @@ Do **not** use for:
 - `app/ui/toast.ts` / `app/ui/toast-host.browser.tsx` — event bridge + shell host
 - `app/ui/confirm-delete.browser.tsx` — `requestConfirm` CustomEvent precedent (native dialog, not a portal)
 - `app/ui/overlay-root.test.browser.tsx`, `app/ui/overlay-root.test.e2e.ts`
-- `app/ui/toast.test.browser.tsx`, `app/ui/toast-host.test.e2e.ts`
+- `app/ui/toast.test.browser.tsx`, `app/ui/toast-host.test.e2e.ts`, `app/ui/toast-frame-survival.test.e2e.ts`
 - `app/ui/appointment-grid-lib.test.ts` — partial document mock updated to `dispatchEvent`
 
 ## Related

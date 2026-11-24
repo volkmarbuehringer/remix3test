@@ -128,4 +128,49 @@ describe('ToastHost', () => {
     assert.ok(container, 'the toast viewport should exist')
     assert.equal(container.parentElement, document.body)
   })
+
+  it('keeps only the newest three toasts when messages arrive in a burst', async () => {
+    mountShellRoot()
+    let { act } = mountHost()
+
+    await act(() => {
+      for (let index = 1; index <= 5; index++) showToast(`Meldung ${index}`)
+    })
+
+    let messages = [...toastRoot()!.children].map((toast) => toast.textContent)
+    assert.equal(messages.length, 3, 'the stack is capped at three toasts')
+    assert.deepEqual(messages, ['Meldung 3', 'Meldung 4', 'Meldung 5'])
+  })
+
+  it('keeps a long unbroken message inside the viewport', async () => {
+    mountShellRoot()
+    let { act } = mountHost()
+    let message = 'A'.repeat(200)
+
+    await act(() => showToast(message))
+
+    let toast = toastRoot()!.firstElementChild as HTMLElement
+    assert.equal(toast.textContent, message)
+    let maxWidth = Math.min(448, window.innerWidth - 32)
+    let rect = toast.getBoundingClientRect()
+    assert.ok(
+      rect.width <= maxWidth + 1,
+      `the toast must not exceed ${maxWidth}px (rendered ${rect.width}px)`,
+    )
+    assert.ok(
+      document.documentElement.scrollWidth <= window.innerWidth,
+      'the long message must not create horizontal page overflow',
+    )
+  })
+
+  it('does not intercept pointer input', async () => {
+    mountShellRoot()
+    let { act } = mountHost()
+
+    await act(() => showToast('Klick geht durch'))
+
+    let toast = toastRoot()!.firstElementChild as HTMLElement
+    assert.equal(getComputedStyle(toast).pointerEvents, 'none')
+    assert.equal(getComputedStyle(toastRoot()!).pointerEvents, 'none')
+  })
 })

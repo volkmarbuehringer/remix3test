@@ -6,11 +6,16 @@ import { TOAST_EVENT, type ToastRequest, type ToastTone } from './toast.ts'
 
 const TOAST_DURATION = 3500
 const TOAST_FADE_DURATION = 300
+/** Keep only the newest messages; older ones are dropped without a fade. */
+const MAX_TOASTS = 3
 
 interface ToastItem extends ToastRequest {
   id: number
   visible: boolean
   leaving: boolean
+  displayTimer: ReturnType<typeof setTimeout> | null
+  exitTimer: ReturnType<typeof setTimeout> | null
+  entranceFrame: number | null
 }
 
 /**
@@ -37,7 +42,10 @@ const toastStyle = css({
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.medium,
   boxShadow: theme.shadow.md,
-  pointerEvents: 'auto',
+  maxWidth: 'min(28rem, calc(100vw - 2rem))',
+  boxSizing: 'border-box',
+  overflowWrap: 'anywhere',
+  pointerEvents: 'none',
   textAlign: 'center',
   opacity: 0,
   transform: 'translateY(-4px)',
@@ -86,22 +94,39 @@ export const ToastHost = clientEntry(
   function ToastHost(handle: Handle) {
     let toasts: ToastItem[] = []
     let nextId = 0
-    let timers = new Set<ReturnType<typeof setTimeout>>()
-    let frames = new Set<number>()
 
-    function later(fn: () => void, delay: number) {
-      let timer = setTimeout(() => {
-        timers.delete(timer)
-        fn()
-      }, delay)
-      timers.add(timer)
+    function isLive(toast: ToastItem) {
+      return toasts.includes(toast)
+    }
+
+    /** Clear only this toast's scheduled work, never another toast's. */
+    function clearScheduled(toast: ToastItem) {
+      if (toast.displayTimer !== null) {
+        clearTimeout(toast.displayTimer)
+        toast.displayTimer = null
+      }
+      if (toast.exitTimer !== null) {
+        clearTimeout(toast.exitTimer)
+        toast.exitTimer = null
+      }
+      if (toast.entranceFrame !== null) {
+        cancelAnimationFrame(toast.entranceFrame)
+        toast.entranceFrame = null
+      }
+    }
+
+    function dropToast(toast: ToastItem) {
+      clearScheduled(toast)
+      toasts = toasts.filter((item) => item.id !== toast.id)
     }
 
     function startExit(toast: ToastItem) {
-      if (toast.leaving) return
+      if (toast.leaving || !isLive(toast)) return
       toast.leaving = true
       void handle.update()
-      later(() => {
+      toast.exitTimer = setTimeout(() => {
+        toast.exitTimer = null
+        if (!isLive(toast)) return
         toasts = toasts.filter((item) => item.id !== toast.id)
         void handle.update()
       }, TOAST_FADE_DURATION)
@@ -117,29 +142,38 @@ export const ToastHost = clientEntry(
         tone: detail.tone === 'success' ? 'success' : 'error',
         visible: false,
         leaving: false,
+        displayTimer: null,
+        exitTimer: null,
+        entranceFrame: null,
       }
       toasts.push(toast)
+
+      // Bound the stack at the newest messages. Dropped toasts disappear
+      // immediately and their timers/frame cannot update the DOM later.
+      if (toasts.length > MAX_TOASTS) {
+        for (let dropped of toasts.slice(0, toasts.length - MAX_TOASTS)) dropToast(dropped)
+      }
       void handle.update()
 
       // Commit the hidden first frame before flipping to visible, so the
       // opacity/transform transition actually runs (the old imperative toast
       // used the same requestAnimationFrame step).
-      let frame = requestAnimationFrame(() => {
-        frames.delete(frame)
-        if (toast.leaving) return
+      toast.entranceFrame = requestAnimationFrame(() => {
+        toast.entranceFrame = null
+        if (toast.leaving || !isLive(toast)) return
         toast.visible = true
         void handle.update()
       })
-      frames.add(frame)
 
-      later(() => startExit(toast), TOAST_DURATION)
+      toast.displayTimer = setTimeout(() => {
+        toast.displayTimer = null
+        startExit(toast)
+      }, TOAST_DURATION)
     }
 
     handle.signal.addEventListener('abort', () => {
-      for (let timer of timers) clearTimeout(timer)
-      timers.clear()
-      for (let frame of frames) cancelAnimationFrame(frame)
-      frames.clear()
+      for (let toast of toasts) clearScheduled(toast)
+      toasts = []
     })
 
     return () => (
