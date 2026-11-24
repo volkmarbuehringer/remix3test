@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+import { expectedPnpmVersion, syncPnpmPins } from './pnpm-pin.ts'
+
 // ---------------------------------------------------------------------------
 // Interactively bump outdated dependencies.
 //
@@ -100,8 +102,17 @@ function main(): void {
 
   let helpOnly = forwarded.includes('--help') || forwarded.includes('-h')
   if (result.status === 0 && !helpOnly) {
+    // pnpm may rewrite `packageManager`; keep the workflows and Dockerfile on
+    // the same version so `pnpm/action-setup` and the image do not drift.
+    let synced = syncPnpmPins(ROOT)
+    if (synced.length > 0) {
+      console.log(
+        `\nSynced packageManager pnpm@${expectedPnpmVersion(ROOT)} into ${synced.join(', ')}.`,
+      )
+    }
+
     console.log(
-      '\nNext: review `git diff package.json pnpm-lock.yaml`, then run `npm run typecheck` and `npm test`.',
+      '\nNext: review `git diff package.json pnpm-lock.yaml` (plus the synced pin files), then run `npm run typecheck` and `npm test`.',
     )
   }
 }

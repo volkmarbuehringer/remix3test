@@ -32,6 +32,7 @@ jobs:
           node-version: 26
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm check:pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint

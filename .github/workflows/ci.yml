@@ -61,6 +61,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      - run: pnpm check:pnpm
+
       - name: Check remix preview pin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
