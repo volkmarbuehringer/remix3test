@@ -35,11 +35,12 @@ app = run({
   },
   async resolveFrame(src, options) {
     let url = new URL(src, window.location.href)
+    let plainGet = isPlainGet(options)
 
     // `data-rmx-prefetch` / `prefetch()` warmed this exact GET through the app's
     // `defaultPrefetch` overrides; claim it instead of paying for a second SSR. A warm
     // still in flight (the runtime starts it on pointerdown) is awaited, not duplicated.
-    if (isPlainGet(options)) {
+    if (plainGet) {
       let cached = await claimPrefetchedFrame(url, options?.target, options?.signal)
       if (cached) {
         // The warmed response already rendered (and so already consumed) any agent prefill.
@@ -49,11 +50,20 @@ app = run({
       }
       // An uncached navigation may change the data other warmed pages were built on.
       clearPrefetchedFrames()
+    } else {
+      // A mutation invalidates every warmed GET, including a warm that is already in
+      // flight. Clear on both sides so a prefetch racing the mutation cannot repopulate
+      // the cache with pre-mutation data.
+      clearPrefetchedFrames()
     }
 
-    let result = await resolveFrameResponse(url, options)
-    reconcileFrameRedirect(result, options?.target)
-    return result
+    try {
+      let result = await resolveFrameResponse(url, options)
+      reconcileFrameRedirect(result, options?.target)
+      return result
+    } finally {
+      if (!plainGet) clearPrefetchedFrames()
+    }
   },
 })
 

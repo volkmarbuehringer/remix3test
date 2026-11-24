@@ -127,6 +127,26 @@ describe('frame prefetch cache', () => {
     assert.equal(fetchCalls, 1)
   })
 
+  it('does not cache an in-flight warm invalidated before its response lands', async () => {
+    let deferred = stubDeferredFetch()
+    let src = source('invalidated-in-flight')
+    let url = new URL(src, window.location.href)
+
+    prefetchFrame(src, { target: 'admin-content' })
+    await settlePrefetches()
+    assert.equal(fetchCalls, 1, 'the warm request must be in flight')
+
+    clearPrefetchedFrames()
+    deferred.resolve(okResponse())
+    await settlePrefetches()
+
+    assert.equal(
+      takePrefetchedFrame(url, 'admin-content'),
+      undefined,
+      'a mutation invalidation must win over a warm that lands later',
+    )
+  })
+
   it('keys warmed frames by frame target', async () => {
     stubFetch(okResponse())
     let src = source('target')
