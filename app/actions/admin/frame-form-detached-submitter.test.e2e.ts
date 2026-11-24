@@ -11,7 +11,9 @@ import { initializeAppDatabase } from '../../db.ts'
 // Frame form navigation when the submit button is detached before `navigate`.
 //
 // Regression guard for remix #11987 ("resolve form navigation when submitter is
-// detached before navigate fires") and #12391 (Firefox formdata timing).
+// detached before navigate fires"), #12391 (Firefox formdata timing), and
+// #12388 (preserve a named submitter when pending UI disables it after the
+// native formdata snapshot).
 // Custom-element libraries submit through a temporary native button and remove
 // it before the Navigation API's `navigate` event fires. Before #11987 the frame
 // runtime resolved the form from `sourceElement.form`, which is `null` for a
@@ -29,8 +31,10 @@ import { initializeAppDatabase } from '../../db.ts'
 // `admin-content` frame, so counting document `load` events cleanly tells an
 // in-frame reload (no new load) from a full-page navigation (one new load).
 //
-// The detached-submitter assertion runs on both Chromium and Firefox at the
-// d1061933 pin; #12391 replaced the Firefox-incompatible eventPhase guard.
+// The frame-submitter regressions run on both Chromium and Firefox: #11987
+// keeps a detached submitter on the frame path, #12391 preserves Firefox's
+// native formdata timing, and #12388 keeps a named submitter's value after
+// pending UI disables it.
 // ---------------------------------------------------------------------------
 
 const FORM = 'form[data-rmx-target="admin-content"]'
@@ -133,5 +137,91 @@ describe('frame form navigation with a detached submitter', () => {
     )
 
     assert.equal(loads, 1, 'the detached submitter must reload the frame, not the document')
+  })
+
+  it('preserves a named submitter disabled after the formdata snapshot', async (t) => {
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+
+    let server = await createTestServer((request) => router.fetch(request))
+    let page = await t.serve(server)
+    await page
+      .context()
+      .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
+
+    await page.goto(routes.admin.webhookRequests.index.href())
+    await page.locator(FILTER).waitFor({ timeout: 15_000 })
+    await page.waitForFunction(hydrated, undefined, { timeout: 15_000 })
+
+    let actionUrl = routes.admin.webhookRequests.create.action.href()
+    let post = page.waitForRequest(
+      (request) => request.method() === 'POST' && new URL(request.url()).pathname === actionUrl,
+      { timeout: 15_000 },
+    )
+
+    await page.evaluate((createActionUrl) => {
+      let csrf =
+        document
+          .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+          ?.getAttribute('content') ?? ''
+      let form = document.createElement('form')
+      form.method = 'POST'
+      form.action = createActionUrl
+      form.setAttribute('data-rmx-target', 'admin-content')
+
+      let payload = document.createElement('input')
+      payload.type = 'hidden'
+      payload.name = 'payload'
+      // Invalid JSON makes the action re-render a 400 without inserting a row.
+      payload.value = '{'
+
+      let token = document.createElement('input')
+      token.type = 'hidden'
+      token.name = '_csrf'
+      token.value = csrf
+
+      let button = document.createElement('button')
+      button.type = 'submit'
+      button.name = 'intent'
+      button.value = 'save'
+      button.textContent = 'Submit'
+
+      form.append(payload, token, button)
+      form.addEventListener(
+        'formdata',
+        () => {
+          // Pending UI disables and renames the submitter after the native
+          // formdata callback has captured its original entry list.
+          button.disabled = true
+          button.name = 'pending-intent'
+        },
+        { once: true },
+      )
+
+      document.body.append(form)
+      // A native click exercises the real submit/navigation path; the runtime's
+      // submit and formdata listeners are already attached by this point.
+      button.click()
+    }, actionUrl)
+
+    let request = await post
+    assert.equal(
+      request.headers()['x-remix-frame'],
+      'true',
+      'the POST must be an enhanced frame request',
+    )
+    assert.equal(
+      request.headers()['x-remix-target'],
+      'admin-content',
+      'the form target must reach the frame resolver',
+    )
+
+    let body = new URLSearchParams(request.postData() ?? '')
+    assert.equal(
+      body.get('intent'),
+      'save',
+      'the named submitter value must survive a post-snapshot disable',
+    )
+    assert.equal(body.has('pending-intent'), false, 'the post-snapshot rename must not leak')
   })
 })
