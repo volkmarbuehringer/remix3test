@@ -8,6 +8,11 @@ This app was scaffolded with `remix new`. Use these conventions when continuing 
 npm i
 npm run start
 npm test
+npm run test:parallel
+npm run test:quick
+npm run test:e2e:parallel
+npm run test:e2e:chromium
+npm run test:e2e:firefox
 npm run test:coverage
 npm run test:webkit
 npm run typecheck

@@ -271,8 +271,24 @@ Copy `.env.example` to `.env` and configure:
 Tests use Playwright and the `remix` test runner. They run against a real server instance and a test database.
 
 ```sh
-npm test              # Run all tests
+npm test                    # Full suite: server + browser + e2e (Chromium + Firefox)
+npm run test:parallel       # Full suite with Chromium/Firefox e2e in parallel
+npm run test:quick          # typecheck + server + browser; skips e2e
+npm run test:e2e:parallel   # e2e on Chromium and Firefox in parallel
+npm run test:e2e:chromium   # e2e on Chromium only
+npm run test:e2e:firefox    # e2e on Firefox only
+npm run test:server -- app/actions/lists/lists-ux.test.ts
+npm run test:e2e:chromium -- app/actions/lists/lists-ux.test.e2e.ts
 ```
+
+`test:e2e:parallel` starts Chromium and Firefox as separate runner processes. Each
+process gets its own ephemeral test database, which keeps the two projects from
+interfering while cutting e2e wall time roughly in half. A full parallel e2e run on
+2026-11-24 passed 161/161 tests per browser in ~592s wall time (Chromium ~490s,
+Firefox ~590s) versus ~1033s for the serial two-project run. Keep concurrency at 2
+within each e2e process; raising it in one shared-database run makes timing-sensitive
+tests flaky. Use a single browser and targeted file paths while iterating, then run
+`test:parallel` or the full suite before pushing.
 
 Tests cover:
 
