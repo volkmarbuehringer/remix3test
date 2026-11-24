@@ -43,7 +43,7 @@ form instead of leaving the card to the stream:
 
 One `<form>` serves both decisions via per-button `formaction`. Remix/component
 passes it through (`EXECUTABLE_URL_ATTRIBUTES` at
-`node_modules/.pnpm/@remix-run+component@*/…/runtime/core/props.ts:256`; #12314 folded
+`node_modules/.pnpm/@remix-run+component@*/…/runtime/core/props.ts:246`; #12314 folded
 `core/attributes.ts` into `props.ts`); the CSRF
 token comes from `getCsrfToken(getContext())`, same as `app/ui/restful-form.tsx`.
 

@@ -1,10 +1,10 @@
 # Support-Agent Panel POST Forms: data-rmx-target Evaluation
 
 **Source:** session 2026-10-16 (interactivity item #3 research; implemented the
-same day). Mechanism re-checked 2026-11-23 at the current pin (remix 3.3.0,
-`@remix-run/component` 1.3.0; `src/runtime/frame.ts:3038` guards `onFormData`
+same day). Mechanism re-checked 2026-11-24 at the current pin (remix 3.3.0,
+`@remix-run/component` 1.3.0; `src/runtime/frame.ts:2578` guards `onFormData`
 with `event.currentTarget !== null || event.defaultPrevented` since #12391, and
-`src/runtime/navigation.ts:1173` still reads `data-rmx-target`).
+`src/runtime/run.ts:1084` still reads `data-rmx-target`).
 
 ## Problem
 
@@ -30,7 +30,7 @@ real attribute bug (fixed in item #3):
 Vendor form interception resolves through an **uncanceled** native submit:
 `createFormNavigationResolver`'s `onFormData` bails while the submit event is
 still dispatching or was canceled — `event.currentTarget !== null ||
-event.defaultPrevented` (`frame.ts:3038`), so
+event.defaultPrevented` (`frame.ts:2578`), so
 
 - an app listener that calls `e.preventDefault()` in the `submit` handler
   cancels the submission entirely — no `formdata`, no runtime frame fetch;

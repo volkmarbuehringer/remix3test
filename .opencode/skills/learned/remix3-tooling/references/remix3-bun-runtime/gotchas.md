@@ -2,7 +2,7 @@
 
 **Source:** consolidated from `remix3-bun-runtime` notes (entrypoint, MIME, pnpm shim, runner, SSR signal, TS scoping, validation)
 
-**Extracted:** 2026-09-19; last vendor re-check 2026-11-11; re-pinned 2026-11-23 at preview release `v0.0.20261123-main-1d817a3d` / source `1d817a3d` (test-only delta; Bun 1.4.4)
+**Extracted:** 2026-09-19; last vendor re-check 2026-11-11; re-pinned 2026-11-24 at preview release `v0.0.20261124-main-3f499063` / source `3f499063` (no Bun-specific delta; Bun 1.4.4)
 **Context:** Running this app under Bun (`server.bun.ts`, `test:bun`) and the Node/Bun divergences that don't show up in the Node suite.
 
 ## Entrypoint shares the router and handler

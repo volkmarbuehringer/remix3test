@@ -21,14 +21,14 @@ Passing the old plain string throws a framework invariant at render time. In an 
 
 The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Trackable<UnsafeHTML | undefined>`), but the programmatic `createElement` signature is `createElement(type, props?: ElementProps, ...)`, and `ElementProps = Record<string, any>`. So `createElement('style', { innerHTML: '<css>' })` still compiles and only fails at runtime.
 
-**Re-validated:** 2026-11-19 against source `9e4da4d3` (`@remix-run/component` 1.3.0; #12348 shifted only anchors after `insert()`, so every anchor below still matches — re-grepped 2026-11-19). Previously 2026-11-17 against source `9cbc5144` (#12294 changed only `mountHostNode` after `parseHostProps`, so the `reconcile.ts:369-370`/`:327`/`:337` and `server/stream.ts` anchors are unchanged; #12314 had folded `core/mix.ts` into `mixins/mixin.ts`; previously `848e2fbe`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
+**Re-validated:** 2026-11-24 against source `3f499063` (`@remix-run/component` 1.3.0; the component runtime refactor moved anchors but did not change the validation). Previously 2026-11-19 against source `9e4da4d3` (#12348 shifted only anchors after `insert()`), and 2026-11-17 against `9cbc5144` (#12294 changed only `mountHostNode` after `parseHostProps`; #12314 had folded `core/mix.ts` into `mixins/mixin.ts`). PR #11988 reworded the invariant messages; the guidance is also authored in vendor guide §"Raw HTML with unsafeHTML" (`node_modules/remix/guides/04-rendering-ui.md`).
 
 Enforcement sites in the installed source:
 
-- `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/reconcile.ts:369` — `parseHostProps` calls `normalizeUnsafeHTMLProps` (`:370`), and is itself invoked at `:327`/`:337`; #12159 folded the former `to-vnode.ts` into `reconcile.ts`
-- `.../src/runtime/unsafe-html.ts:61-94` — the invariants: `Invalid innerHTML prop: expected a value created with unsafeHTML()` (`:67`), the same wording for `srcDoc` (`:73`) and `srcdoc` (`:79`), and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:84`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
-- `.../src/server/stream.ts:713` — the SSR path applies the same normalization
-- `.../src/runtime/mixins/mixin.ts:922-946` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:922`) and logged (`sanitizeReturnedMixinProps` at `:935`)
+- `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/reconcile.ts:356` — `parseHostProps` calls `normalizeUnsafeHTMLProps` (`:357`), and is itself invoked at `:296`/`:306`/`:325`; #12159 folded the former `to-vnode.ts` into `reconcile.ts`
+- `.../src/runtime/unsafe-html.ts:38-77` — the invariants: `readHTMLProp` uses one shared message, `Invalid <name> prop: expected a value created with unsafeHTML()` (`:42`), for `innerHTML`/`srcDoc`/`srcdoc`, and `Invalid outerHTML prop: outerHTML is not supported on host elements` (`:68`). Pre-#11988 builds emitted the bare `Invalid <prop> prop` and listed `outerHTML` with the others.
+- `.../src/server/stream.ts:720` — the SSR path applies the same normalization
+- `.../src/runtime/mixins/mixin.ts:688-700` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped (`withoutMixinContentProps` at `:688`) and logged (`mixins must not return children or raw HTML props` at `:699`)
 
 ## Solution
 

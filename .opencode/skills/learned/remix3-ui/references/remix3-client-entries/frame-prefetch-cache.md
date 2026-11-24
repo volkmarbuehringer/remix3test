@@ -1,6 +1,6 @@
 # Frame prefetching with a one-shot response cache
 
-**Extracted:** 2026-10-23 · **Updated:** 2026-11-13 · **Pin:** remix 3.3.0 (preview release `v0.0.20261123-main-1d817a3d` / source `1d817a3d`)
+**Extracted:** 2026-10-23 · **Updated:** 2026-11-24 · **Pin:** remix 3.3.0 (preview release `v0.0.20261124-main-3f499063` / source `3f499063`)
 **Vendor:** `@remix-run/component/src/runtime/prefetch.ts` (`defaultPrefetch`, `createDefaultPrefetch`, `startPrefetching`, `startViewportPrefetching`, `getIntentAnchor`), `run.ts` (`prefetch` option), installed guide `node_modules/remix/guides/05-interactivity.md` §"Prefetch links before navigation".
 
 ## Why the default prefetcher is not enough here
@@ -9,6 +9,7 @@
 - The stock default prefetcher (`createDefaultPrefetch`) fetches HTML on its own and discards it; the navigation resolves again, so the app pays a second SSR per hovered link. Its request also lacks the app's prefill and stores nothing a navigation can claim.
 - **Since #12277 the strategy itself is extensible**, so the app no longer shadows it: `app/assets/frame-prefetch.browser.ts` calls `defaultPrefetch(src, options, { fetch, processFrame })` and keeps only the app policy. Remix owns request sharing/dedupe by source+target, cancellation when every caller is gone, same-origin/hash normalization, idle-deferred parsing, and the `X-Remix-Prefetch: true` GET.
 - **Since #12249 the resolver delegates to `defaultResolveFrame`**, so request construction is shared too; see `frame-navigation.md`.
+- **Since #12384** links with an explicit `referrerpolicy` or `rel="noreferrer"` use native document navigation and are excluded from anchor-based prefetching (the browser must apply their referrer policy). The app's prefetch links set neither attribute. **#12408** reduced the JavaScript loaded by standalone `defaultPrefetch()` calls; the `defaultPrefetch(src, options, { fetch, processFrame })` contract is unchanged.
 
 ## Wiring
 

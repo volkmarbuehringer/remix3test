@@ -25,7 +25,7 @@ Common renames: `strokeWidth`→`stroke-width`, `strokeLinecap`→`stroke-lineca
 
 ## Attribute renames are invisible to typecheck and render tests
 
-`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/core/vnode.ts:17`; #12159 folded `jsx.ts` into `core/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
+`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/core/vnode.ts:16`; #12159 folded `jsx.ts` into `core/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
 
 - Typos, removed attributes, and renames compile cleanly.
 - Server-render assertions pass because they check what the component **emits**, not what the runtime **reads**.
@@ -47,7 +47,7 @@ When a runtime contract changes, verify at the runtime layer:
 3. **Add a focused render test** asserting the new attribute name is emitted.
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
-Current reads (source `1d817a3d`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`), navigation reads `data-rmx-document` at `src/runtime/navigation.ts:1133`/`:1148` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1173-1178` (`dist/runtime/navigation.js:915-921`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:83`.
+Current reads (source `3f499063`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/run.ts:1037`/`:1056` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1084-1091` (`dist/runtime/run.js:830-836`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:55`.
 
 ## Boolean `aria-*` / `data-*` values
 

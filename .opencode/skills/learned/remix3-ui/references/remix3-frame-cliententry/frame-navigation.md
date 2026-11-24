@@ -93,7 +93,7 @@ Key facts (post-#11668):
 
 ### Detached submitters: #11987 + #12391
 
-#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:3038` at `d1061933`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
+#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:2578` at `3f499063`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
 
 Probe history: Firefox (Playwright build 142, 2026-10-15) previously fired native `formdata` while the submit event was still at **AT_TARGET (eventPhase 2)**, so the old `eventPhase` guard discarded the snapshot and a detached-submitter GET form fell through to a full document navigation. #12391 fixes that path; `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` now asserts the in-frame reload on both Chromium and Firefox instead of keeping a Firefox smoke-only branch.
 
@@ -129,12 +129,12 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-23 at `v0.0.20261123-main-1d817a3d` (source `1d817a3d`; `@remix-run/component` 1.3.0, test-only delta).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-24 at `v0.0.20261124-main-3f499063` (source `3f499063`; `@remix-run/component` 1.3.0, runtime refactor with no commit-hook API change).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched from `transitionLoad`'s `start` case when a direct reload begins, before the fetch (`@remix-run/component/src/runtime/frame.ts:982`); inherited reloads dispatch in the `inherit` case at `:1090` (`startInheritedReload` at `:1383`).
-- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:1026`; inherited at `:1114`, `completeInheritedReload` at `:1395`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
+- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched when a direct reload begins, before the fetch (`notifyReloadStart` called at `@remix-run/component/src/runtime/frame.ts:824`; definition at `:750`); inherited reloads start at `startInheritedReload` (`:853`) and dispatch at `:886`.
+- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:911` via `completeInheritedReload` at `:901`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
 
 Initial lazy-frame viewport loads and viewport retries do **not** dispatch a `reloadStart`/`reloadComplete` pair; only explicit and ancestor-driven reloads do (see `references/remix3-frame-cliententry/lazy-frames.md`).
 
@@ -156,7 +156,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 
 Tests: `app/assets/frame-transition.test.browser.ts` (decision matrix, every fallback, name cleanup, no-stall with a never-resolving `finished`) and `app/actions/admin/lists/lists-frame-transition.test.e2e.ts` (real runtime: one transition per grid ⇄ editor swap, no document load, cleanup after settle).
 
-Never reach into the internal `onCommit` option (`frame.ts:457`, invoked at `:637`/`:722`), which is not exported; use the exported commit override.
+Never reach into the internal `onCommit` option (`frame.ts:356`, invoked at `:527`/`:592`), which is not exported; use the exported commit override.
 
 Status: one flow is animated; everything else stays instant by design.
 
@@ -251,7 +251,7 @@ Verification: see `b23ecbed2` — `packages/ui/src/test/navigation.test.ts` asse
 
 **Since #12240** `startNavigationListener` records the key of a push entry that committed before its page rendered. When another navigation interrupts it — a second link click, form submit, or `navigate()` — the interrupting navigation replaces that entry instead of pushing a second one, so Back returns to the page the visitor actually saw. Without this, an interrupted push leaves a history entry for a URL that never rendered.
 
-**Since #12248** that bookkeeping is an explicit coordinator (`createNavigationCoordinator`, `navigation.ts:706`) with `operation`, `frameWork`, `entry`, and `push` states instead of the ad-hoc `needsFrameReload`/`unrenderedEntryKey`/`uncommittedPushFromKey` flags. The coordinator fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
+**Since #12248 / #12408** that bookkeeping lives inside the navigation listener in `run.ts` (`unrenderedEntry` at `:424`, set on an interrupted push at `:473`/`:586`, consumed by the `currententrychange` guard at `:532`); the standalone coordinator type was removed when the frame renderer was separated from the standalone navigation helpers. The guard fixes a reentrancy hole: a `currententrychange` listener that starts another navigation while Remix updates the current history entry no longer starts a stale frame reload. It also reuses an unrendered history slot across repeated interruptions and preserves a rendered page in history before its response stream finishes. App call sites are unchanged; `lists-frame-history.test.e2e.ts` covers the interrupted-push contract.
 
 The same commit routes `data-rmx-history="replace"` links and GET forms through the Navigation API precommit path where it exists: `precommitHandler` calls `NavigationPrecommitController.redirect(url, { history: 'replace' })`, replacing the in-flight entry before commit. POST forms already did this; browsers without `NavigationPrecommitController` keep the `preventDefault()` + replace-`navigate()` fallback. With precommit the navigation is redirected rather than cancelled, so a replace-mode `navigate()` promise settles instead of rejecting solely because the entry was replaced.
 
