@@ -156,6 +156,9 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
                       href={item.href}
                       route={item.route}
                       {...(item.iframeNav === false ? { document: true } : { target: frameTarget })}
+                      prefetch={
+                        item.iframeNav === false || activeItem === item.id ? undefined : 'intent'
+                      }
                       active={activeItem === item.id}
                       mix={[navLinkStyle, activeItem === item.id && navActiveStyle].filter(Boolean)}
                     >
