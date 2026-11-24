@@ -34,6 +34,9 @@ describe('appointment sidebar year/week picker', () => {
 
     await page.goto(routes.appointment.index.href())
     await page.locator('[data-appointment-sidebar]').waitFor({ timeout: 15_000 })
+    // The nested Terminarten fragment mounts the shared confirm dialog; wait
+    // for its idle marker so a delete never falls back to window.confirm.
+    await page.locator('[data-confirm-ready]').waitFor({ state: 'attached', timeout: 15_000 })
 
     let widths = await page.evaluate(() => {
       let year = document.querySelector<HTMLElement>('select[name="year"]')

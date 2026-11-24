@@ -484,4 +484,77 @@ describe('admin lists: UX', () => {
       { timeout: 15_000 },
     )
   })
+
+  it('confirms discarding editor edits through the shared dialog and replays the frame navigation', async (t) => {
+    let token = 'test-ux-list-dirty-' + Date.now()
+    let rows = await seed([token + '-a', token + '-b'])
+    let [first, second] = rows
+    assert.ok(first && second, 'both rows must be seeded')
+    let page = await openListsPage(t)
+
+    await page.goto(routes.admin.lists.index.href() + '?filter=' + token)
+    await page.locator('[data-lists-table]').waitFor({ timeout: 15_000 })
+    await page.locator('[data-confirm-ready]').waitFor({ state: 'attached', timeout: 15_000 })
+
+    let openEditor = async (id: number) => {
+      let row = page.locator(`[data-row-id="${id}"]`)
+      await row.locator('[data-row-actions-trigger]').hover()
+      await row.locator('[aria-label*="bearbeiten"]').click()
+      await page.waitForURL((url) => url.searchParams.get('editing') === String(id), {
+        timeout: 15_000,
+      })
+      await page.waitForFunction(() => document.activeElement?.matches('#al-title'), undefined, {
+        timeout: 15_000,
+      })
+    }
+
+    await openEditor(first!)
+    await page.fill('#al-title', 'Geändert, aber nicht gespeichert')
+
+    // Opening another row is a frame navigation away from the dirty panel.
+    let secondRow = page.locator(`[data-row-id="${second}"]`)
+    await secondRow.locator('[data-row-actions-trigger]').hover()
+    await secondRow.locator('[aria-label*="bearbeiten"]').click()
+
+    let dialog = page.locator('[data-confirm-dialog]')
+    await dialog.waitFor({ state: 'visible', timeout: 5_000 })
+    assert.ok(
+      (await dialog.innerText()).includes('Nicht gespeicherte Änderungen verwerfen?'),
+      'the shared dialog names the discarded edits',
+    )
+
+    await page.locator('[data-confirm-accept]').click()
+    await page.waitForURL((url) => url.searchParams.get('editing') === String(second), {
+      timeout: 15_000,
+    })
+    // The URL commits before the frame DOM swaps: wait for the second editor's
+    // form action before typing, or the fill races the outgoing panel.
+    await page.waitForFunction(
+      (id) => {
+        let form = document.querySelector('#al-title')?.closest('form')
+        return form?.getAttribute('action')?.endsWith('/admin/lists/' + id) ?? false
+      },
+      second,
+      { timeout: 15_000 },
+    )
+    await page
+      .locator(`form[action$="/admin/lists/${second}"] [data-dirty-form-guard-ready]`)
+      .waitFor({ state: 'attached', timeout: 15_000 })
+
+    // Cancel must hold the editor put. Dirty it again, attempt the first row,
+    // and dismiss the shared dialog.
+    await page.fill('#al-title', 'Noch ein Entwurf')
+    let firstRow = page.locator(`[data-row-id="${first}"]`)
+    await firstRow.locator('[data-row-actions-trigger]').hover()
+    await firstRow.locator('[aria-label*="bearbeiten"]').click()
+    let cancel = page.locator('[data-confirm-cancel]')
+    await cancel.waitFor({ state: 'visible', timeout: 5_000 })
+    await cancel.click()
+    await page.waitForTimeout(200)
+    assert.equal(
+      new URL(page.url()).searchParams.get('editing'),
+      String(second),
+      'cancel keeps the current editor open',
+    )
+  })
 })

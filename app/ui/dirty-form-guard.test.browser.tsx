@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 import { render } from 'remix/component/test'
 
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 
 // ---------------------------------------------------------------------------
 // DirtyFormGuard — don't silently lose half-typed panel edits.
@@ -24,6 +25,7 @@ const originalConfirm = window.confirm
 let fixture: HTMLElement | null = null
 let cleanups: Array<() => void> = []
 let confirmMessages: string[] = []
+let submitCount = 0
 
 const FORM_HTML = `
   <form id="panel-form" action="#" method="post">
@@ -45,14 +47,18 @@ const FORM_HTML = `
 `
 
 function mount(): void {
+  submitCount = 0
   let host = document.createElement('div')
   host.innerHTML = FORM_HTML
   document.body.appendChild(host)
   fixture = host
   // Never let a submit navigate.
-  host
-    .querySelectorAll('form')
-    .forEach((f) => f.addEventListener('submit', (e) => e.preventDefault()))
+  host.querySelectorAll('form').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      e.preventDefault()
+      submitCount++
+    }),
+  )
 }
 
 function mountGuard(): void {
@@ -88,6 +94,31 @@ function stubConfirm(answer: boolean): void {
     confirmMessages.push(message ?? '')
     return answer
   }) as typeof window.confirm
+}
+
+async function waitFor(predicate: () => boolean, timeout = 3000): Promise<boolean> {
+  let deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    if (predicate()) return true
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  return predicate()
+}
+
+/** Mount the page-level dialog host the guarded admin panels ship with. */
+async function mountConfirm() {
+  let result = render(<ConfirmDelete />)
+  cleanups.push(result.cleanup)
+  await result.act(() => undefined)
+  assert.ok(
+    await waitFor(() => document.querySelector('[data-confirm-ready]') !== null),
+    'the confirm dialog host must be ready',
+  )
+  return result
+}
+
+function discardDialog(): HTMLElement | null {
+  return document.querySelector('[data-confirm-dialog]')
 }
 
 afterEach(() => {
@@ -194,6 +225,78 @@ describe('DirtyFormGuard', () => {
 
     assert.equal(confirmMessages.length, 1)
     assert.equal(event.defaultPrevented, false, 'accepted → the navigation proceeds')
+  })
+
+  it('uses the styled dialog when one is mounted, and replays the GET submit on accept', async () => {
+    mount()
+    mountGuard()
+    let confirm = await mountConfirm()
+    stubConfirm(false)
+    typeInto('title', 'Weg damit?')
+
+    let event = cancelableClick(el('filter-submit'))
+    assert.equal(event.defaultPrevented, true, 'the original click waits for the dialog')
+    assert.deepEqual(confirmMessages, [], 'a mounted dialog replaces window.confirm')
+
+    assert.ok(await waitFor(() => discardDialog() !== null), 'the styled dialog opens')
+    assert.ok(
+      discardDialog()!.textContent?.includes('Nicht gespeicherte Änderungen verwerfen?'),
+      'it names the discarded edits',
+    )
+
+    let accept = discardDialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    await confirm.act(() => accept.click())
+
+    assert.ok(
+      await waitFor(() => submitCount === 1),
+      'accept replays the filter submit exactly once',
+    )
+    assert.deepEqual(confirmMessages, [], 'the native prompt never ran')
+  })
+
+  it('does not replay the navigation when the styled dialog is cancelled', async () => {
+    mount()
+    mountGuard()
+    let confirm = await mountConfirm()
+    stubConfirm(true)
+    typeInto('title', 'Weg damit?')
+
+    cancelableClick(el('filter-submit'))
+    assert.ok(await waitFor(() => discardDialog() !== null), 'the styled dialog opens')
+
+    let cancel = discardDialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
+    await confirm.act(() => cancel.click())
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    assert.equal(submitCount, 0, 'cancel keeps the page put')
+    assert.deepEqual(confirmMessages, [], 'cancel never falls back to window.confirm')
+  })
+
+  it('replays an accepted outside link through its real click path', async () => {
+    mount()
+    mountGuard()
+    let confirm = await mountConfirm()
+    stubConfirm(false)
+    typeInto('title', 'Weg damit?')
+
+    let link = el('outside-link') as HTMLAnchorElement
+    let clicks = 0
+    link.addEventListener('click', () => {
+      clicks++
+    })
+
+    let event = cancelableClick(link)
+    assert.equal(event.defaultPrevented, true, 'the original navigation is held')
+
+    assert.ok(await waitFor(() => discardDialog() !== null), 'the styled dialog opens')
+    let accept = discardDialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    await confirm.act(() => accept.click())
+
+    assert.ok(await waitFor(() => clicks === 1), 'accept re-clicks the anchor once')
+    assert.ok(
+      await waitFor(() => window.location.hash === '#andere-seite'),
+      'the replayed click performs the real navigation',
+    )
   })
 
   it('does not ask for links inside the guarded form (Abbrechen is explicit)', () => {

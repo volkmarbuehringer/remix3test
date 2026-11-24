@@ -916,11 +916,6 @@ export const ListsClient = clientEntry(
 
     let handlePickerKeyDown = (event: KeyboardEvent) => {
       if (!picker) return
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        closeTargetPicker(true)
-        return
-      }
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
       let buttons = Array.from(
         document.querySelectorAll<HTMLButtonElement>('[data-target-option]'),

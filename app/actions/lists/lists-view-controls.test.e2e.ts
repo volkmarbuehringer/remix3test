@@ -175,4 +175,41 @@ describe('lists status filter strip', () => {
       await pool.query('DELETE FROM lists WHERE id = $1', [listId])
     }
   })
+
+  it('opens the help sheet as a native modal and closes it with Escape', async (t) => {
+    await seedList()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto(`/lists?load=${listId}`)
+      await page.locator('[data-status-bar]').waitFor({ timeout: 15_000 })
+      // The ? handler is installed by the client entry: SSR HTML alone is inert.
+      await page.locator('[data-lists-ready]').waitFor({ timeout: 15_000 })
+
+      let trigger = page.locator('[data-help-button]')
+      await trigger.click()
+      let dialog = page.locator('[data-help-overlay]')
+      await dialog.waitFor({ state: 'visible', timeout: 5_000 })
+      assert.equal(
+        await dialog.evaluate((el) => (el as HTMLDialogElement).matches(':modal')),
+        true,
+        'the help sheet must be a modal dialog in the top layer',
+      )
+
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'detached', timeout: 5_000 })
+      assert.equal(
+        await page.evaluate(() => document.activeElement?.hasAttribute('data-help-button')),
+        true,
+        'Escape must close the platform modal and restore the ? trigger',
+      )
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [listId])
+    }
+  })
 })

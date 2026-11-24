@@ -603,19 +603,31 @@ export const bulkErrorStyle = css({
   borderBottom: `1px solid ${theme.colors.border.default}`,
 })
 
-// ── Target picker dialog ──────────────────────────────────────────────────
-// A searchable, session-backed list picker shared by bulk copy/move and the
-// single-row move action. Fixed overlay so it is never clipped by the element
-// list's scroll container; every interactive target is at least 44px tall.
+// ── Lists modal dialogs (target picker + help sheet) ───────────────────────
+// Both are native modal `<dialog>`s opened with showModal(), so the top layer
+// owns stacking, the background is inert, Escape arrives as `cancel`, and focus
+// is contained without manual trapping. The element is the full-viewport
+// overlay; the inner card is `targetPickerDialogStyle`.
 export const targetPickerOverlayStyle = css({
   position: 'fixed',
   inset: 0,
-  zIndex: 1000,
+  width: '100%',
+  height: '100%',
+  maxWidth: 'none',
+  maxHeight: 'none',
+  margin: 0,
+  padding: theme.space.lg,
+  border: 0,
+  background: 'transparent',
+  color: 'inherit',
+  boxSizing: 'border-box',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: theme.space.lg,
-  background: 'rgba(0, 0, 0, 0.45)',
+  overflow: 'hidden',
+  '&::backdrop': {
+    background: 'rgba(0, 0, 0, 0.45)',
+  },
 })
 
 export const targetPickerDialogStyle = css({

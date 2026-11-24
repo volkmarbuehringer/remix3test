@@ -1,8 +1,14 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
+import { requestConfirmDecision } from './confirm-delete.browser.tsx'
 
 const hiddenStyle = css({ display: 'none' })
+const DISCARD_MESSAGE = 'Nicht gespeicherte Änderungen verwerfen?'
 
 type Field = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+
+type PendingNavigation =
+  | { kind: 'link'; anchor: HTMLAnchorElement }
+  | { kind: 'form'; form: HTMLFormElement; submitter: HTMLButtonElement | HTMLInputElement }
 
 /** The fields the user can actually lose (skip hidden grid/session state). */
 function editableFields(form: HTMLFormElement): Field[] {
@@ -67,10 +73,18 @@ export const DirtyFormGuard = clientEntry(
         mix={[
           hiddenStyle,
           ref((el, signal) => {
-            let form = el.closest('form')
-            if (!form) return
+            let initialForm = el.closest('form')
+            if (!initialForm) return
+            let form: HTMLFormElement = initialForm
 
             let submitted = false
+            // One-shot: the replayed navigation must not trip beforeunload a
+            // second time (a full-document navigation still unloads).
+            let allowUnloadOnce = false
+            // The synthetic click that replays a confirmed navigation.
+            let replayClick: HTMLElement | null = null
+            let formAbort = new AbortController()
+            signal.addEventListener('abort', () => formAbort.abort())
 
             let isDirty = () => {
               if (submitted) return false
@@ -81,53 +95,137 @@ export const DirtyFormGuard = clientEntry(
             }
 
             let refresh = () => {
+              allowUnloadOnce = false
               if (isDirty()) form.setAttribute('data-dirty', 'true')
               else form.removeAttribute('data-dirty')
             }
 
-            // Element-owned listeners follow the ref signal (guide 05 §"DOM
-            // references, global events, and cleanup"): if the guarded form is
-            // replaced while this entry stays mounted, they stop with the node.
-            form.addEventListener('input', refresh, { signal })
-            form.addEventListener('change', refresh, { signal })
+            let markSubmitted = () => {
+              submitted = true
+              form.removeAttribute('data-dirty')
+            }
 
-            // A submit is an intentional save: drop the guard before navigation.
-            form.addEventListener(
-              'submit',
-              () => {
-                submitted = true
-                form.removeAttribute('data-dirty')
-              },
-              { signal },
-            )
+            // A frame navigation can replace the guarded form while this entry
+            // stays mounted. Re-bind so the new form gets input/submit listeners
+            // and the previous form's `submitted` state cannot deaden the guard.
+            let bindForm = (next: HTMLFormElement) => {
+              formAbort.abort()
+              formAbort = new AbortController()
+              form = next
+              submitted = false
+              allowUnloadOnce = false
+              // Element-owned listeners follow the form controller signal, so a
+              // rebind (or the entry's ref signal) removes the old listeners.
+              form.addEventListener('input', refresh, { signal: formAbort.signal })
+              form.addEventListener('change', refresh, { signal: formAbort.signal })
+              form.addEventListener('submit', markSubmitted, { signal: formAbort.signal })
+            }
 
-            let wouldDiscardEdits = (target: HTMLElement): boolean => {
-              if (!isDirty()) return false
+            bindForm(form)
+            // Hydration marker for e2e: a frame swap serves fresh server HTML.
+            el.setAttribute('data-dirty-form-guard-ready', 'true')
+
+            // A fresh edit (even before a swapped-in form is re-bound) retires
+            // the replay's unload exemption.
+            for (let type of ['input', 'change'] as const) {
+              document.addEventListener(
+                type,
+                () => {
+                  allowUnloadOnce = false
+                },
+                { capture: true, signal: handle.signal },
+              )
+            }
+
+            /** The navigation this click would trigger, or null when it must pass. */
+            let pendingNavigation = (target: HTMLElement): PendingNavigation | null => {
+              if (!isDirty()) return null
 
               // Links inside this form (the panel's "Abbrechen") are an explicit
               // discard; the submit button is a save.
-              let anchor = target.closest('a[href]')
-              if (anchor) return !form.contains(anchor)
+              let anchor = target.closest<HTMLAnchorElement>('a[href]')
+              if (anchor) return form.contains(anchor) ? null : { kind: 'link', anchor }
 
               // A submit button in another form also navigates (the filter
               // bar's GET form). POST forms (row delete) run their own confirm,
               // so skip them to avoid stacking two dialogs.
-              let button = target.closest('button[type="submit"], input[type="submit"]')
-              if (!button) return false
+              let button = target.closest<HTMLButtonElement | HTMLInputElement>(
+                'button[type="submit"], input[type="submit"]',
+              )
+              if (!button) return null
               let otherForm = button.closest('form')
-              if (!otherForm || otherForm === form) return false
-              return (otherForm.getAttribute('method') || 'get').toLowerCase() !== 'post'
+              if (!otherForm || otherForm === form) return null
+              if ((otherForm.getAttribute('method') || 'get').toLowerCase() === 'post') return null
+              return { kind: 'form', form: otherForm, submitter: button }
+            }
+
+            /** Replay the navigation the user confirmed, guard disarmed once. */
+            let replay = (nav: PendingNavigation) => {
+              allowUnloadOnce = true
+              form.removeAttribute('data-dirty')
+              if (nav.kind === 'link') {
+                // A real click keeps frame targeting and the anchor's own
+                // target/download semantics; assign only when the node vanished.
+                if (nav.anchor.isConnected) {
+                  replayClick = nav.anchor
+                  nav.anchor.click()
+                  replayClick = null
+                } else if (nav.anchor.href) {
+                  window.location.assign(nav.anchor.href)
+                }
+                return
+              }
+              if (nav.form.isConnected) nav.form.requestSubmit(nav.submitter)
             }
 
             document.addEventListener(
               'click',
               (event) => {
+                // A frame swap can leave this entry's span detached; the new
+                // panel's guard owns that form.
+                if (!el.isConnected) return
+                let current = el.closest('form')
+                if (!current) return
+                if (current !== form) bindForm(current)
+
                 let target = event.target as HTMLElement | null
-                if (!target || !wouldDiscardEdits(target)) return
-                if (!confirm('Nicht gespeicherte Änderungen verwerfen?')) {
-                  event.preventDefault()
-                  event.stopPropagation()
+                if (!target) return
+                if (replayClick) {
+                  if (target === replayClick || replayClick.contains(target)) {
+                    replayClick = null
+                    return
+                  }
                 }
+                allowUnloadOnce = false
+
+                let nav = pendingNavigation(target)
+                if (!nav) return
+
+                // Prefer the page's styled dialog. `null` means no
+                // <ConfirmDelete> host is mounted (headless/unit renders), so
+                // the synchronous prompt keeps the original click flowing.
+                let decision = requestConfirmDecision({
+                  message: DISCARD_MESSAGE,
+                  title: 'Änderungen verwerfen?',
+                  confirmLabel: 'Verwerfen',
+                  tone: 'danger',
+                })
+
+                if (!decision) {
+                  if (!confirm(DISCARD_MESSAGE)) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }
+                  return
+                }
+
+                // The dialog decides asynchronously; the original navigation
+                // must not start until it accepts.
+                event.preventDefault()
+                event.stopPropagation()
+                void decision.then((accepted) => {
+                  if (accepted) replay(nav)
+                })
               },
               { capture: true, signal: handle.signal },
             )
@@ -135,6 +233,10 @@ export const DirtyFormGuard = clientEntry(
             window.addEventListener(
               'beforeunload',
               (event) => {
+                if (allowUnloadOnce) {
+                  allowUnloadOnce = false
+                  return
+                }
                 if (!isDirty()) return
                 event.preventDefault()
                 event.returnValue = ''

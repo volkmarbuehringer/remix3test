@@ -320,6 +320,10 @@ describe('searchable target picker', () => {
     assert.ok(copyButton)
     await result.act(() => copyButton!.click())
     assert.ok(await waitFor(() => container.querySelector('[data-target-option="8"]') !== null))
+    let dialog = container.querySelector<HTMLDialogElement>('[data-target-picker-overlay]')
+    assert.ok(dialog, 'the picker is a native dialog')
+    assert.equal(dialog!.open, true, 'showModal opens it')
+    assert.equal(dialog!.matches(':modal'), true, 'the picker is in the top layer')
     assert.ok(
       await waitFor(
         () => document.activeElement?.getAttribute('data-target-picker-search') !== null,
@@ -335,18 +339,15 @@ describe('searchable target picker', () => {
       'ArrowDown focuses the first target option',
     )
 
-    await result.act(() => {
-      document
-        .querySelector('[data-target-picker-dialog]')!
-        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    })
+    // Platform close (what Escape maps to in a real browser) fires `close`.
+    await result.act(() => dialog!.close())
     assert.ok(
       await waitFor(() => container.querySelector('[data-target-picker-dialog]') === null),
-      'Escape closes the picker dialog',
+      'closing the dialog removes the picker',
     )
     assert.ok(
       await waitFor(() => document.activeElement === copyButton, 2000),
-      'Escape must refocus the trigger',
+      'closing must refocus the trigger',
     )
   })
 })

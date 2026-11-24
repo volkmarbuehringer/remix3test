@@ -95,20 +95,21 @@ describe('keyboard help sheet', () => {
 
     await result.act(() => trigger.click())
     assert.ok(await waitFor(() => container.querySelector('[data-help-dialog]') !== null))
+    let dialog = container.querySelector<HTMLDialogElement>('[data-help-overlay]')
+    assert.ok(dialog, 'the help sheet is a native dialog')
+    assert.equal(dialog!.open, true, 'showModal opens it')
+    assert.equal(dialog!.matches(':modal'), true, 'the help sheet is in the top layer')
     assert.ok(await waitFor(() => document.activeElement?.hasAttribute('data-help-close') === true))
     assert.ok(
       container.textContent?.includes('Doppelklick'),
       'the sheet documents edit-on-double-click',
     )
 
-    await result.act(() => {
-      container
-        .querySelector('[data-help-dialog]')!
-        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    })
+    // Platform close (what Escape maps to in a real browser) fires `close`.
+    await result.act(() => dialog!.close())
     assert.ok(await waitFor(() => container.querySelector('[data-help-dialog]') === null))
     assert.ok(await waitFor(() => document.activeElement === trigger))
-    assert.equal(document.activeElement, trigger, 'Escape must restore the ? trigger')
+    assert.equal(document.activeElement, trigger, 'closing must restore the ? trigger')
   })
 
   it('closes when the overlay is clicked and does not trap the page', async () => {

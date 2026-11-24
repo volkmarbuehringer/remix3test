@@ -2,8 +2,10 @@ import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { render, type RenderResult } from 'remix/component/test'
 import type { Handle, RemixNode } from 'remix/component'
+import { MenuSelectEvent } from '@remix-run/ui/menu'
 
 import { AppointTypePanel } from './appointtype-panel.browser.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { getTypeDragState, setTypeDragState } from '../utils/appointtype-drag.ts'
 
 // ---------------------------------------------------------------------------
@@ -43,12 +45,15 @@ interface FetchCall {
 }
 
 const originalFetch = window.fetch
+const originalConfirm = window.confirm
 
 let fixture: HTMLElement | null = null
 let result: RenderResult | null = null
+let confirmResult: RenderResult | null = null
 let controller: AbortController | null = null
 let calls: FetchCall[] = []
 let reloads = 0
+let confirmMessages: string[] = []
 
 function mountData(): void {
   let host = document.createElement('div')
@@ -141,12 +146,16 @@ async function waitForTaskState(
 
 afterEach(() => {
   window.fetch = originalFetch
+  window.confirm = originalConfirm
   controller?.abort()
   controller = null
   result?.cleanup()
   result = null
+  confirmResult?.cleanup()
+  confirmResult = null
   fixture?.remove()
   fixture = null
+  confirmMessages = []
   setTypeDragState(null)
 })
 
@@ -354,5 +363,61 @@ describe('AppointTypePanel', () => {
 
     assert.equal(renameInput('Typnamen bearbeiten'), null, 'rename blocked during add')
     assert.ok(renameInput('Neuer Typname'), 'the add row stays open')
+  })
+
+  it('deletes a type through the shared styled dialog when one is mounted', async () => {
+    mountData()
+    stubFetch()
+    await mountPanel()
+    confirmResult = render(<ConfirmDelete />)
+    await confirmResult.act(() => undefined)
+
+    let asked: string[] = []
+    window.confirm = ((message?: string) => {
+      asked.push(message ?? '')
+      return true
+    }) as typeof window.confirm
+
+    typeRow(1).dispatchEvent(
+      new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 10,
+        clientY: 10,
+      }),
+    )
+    let menuList = document.querySelector('[role="menu"]')
+    assert.ok(menuList, 'the context menu renders')
+    menuList!.dispatchEvent(
+      new MenuSelectEvent({
+        id: 'delete',
+        label: 'delete',
+        name: 'delete',
+        type: 'item',
+        value: null,
+      }),
+    )
+
+    await waitForTaskState(
+      () => document.querySelector('[data-confirm-dialog]') !== null,
+      'the styled confirm dialog opens',
+    )
+    assert.deepEqual(asked, [], 'the native prompt is not used')
+    assert.ok(
+      document
+        .querySelector('[data-confirm-dialog]')!
+        .textContent?.includes('"Beratung" wirklich löschen?'),
+      'the dialog names the type',
+    )
+
+    let accept = document.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
+    await confirmResult.act(() => accept.click())
+
+    await waitForTaskState(
+      () =>
+        calls.some((call) => call.method === 'DELETE' && call.url === '/admin/appointment-types/1'),
+      'the DELETE request after confirmation',
+    )
+    await waitForTaskState(() => reloads === 1, 'the frame reload after the delete')
   })
 })

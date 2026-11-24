@@ -28,6 +28,7 @@ import { appointments } from '../../data/schema.ts'
 import { listUserEmails, createAppointmentFromType } from '../../data/appointment.ts'
 import { AppointmentPage } from '../../ui/appointment-page.tsx'
 import { AppointTypePanel } from '../../ui/appointtype-panel.browser.tsx'
+import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { appointmentChannel } from '../../utils/appointments-sse.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors, trimmedText } from '../../utils/schema-utils.ts'
@@ -478,6 +479,7 @@ export const appointmentTypes = createController(routes.appointment.types, {
             {data}
           </script>
           <AppointTypePanel csrfToken={csrfToken} />
+          <ConfirmDelete />
         </>,
         fragmentResponseInit(),
       )

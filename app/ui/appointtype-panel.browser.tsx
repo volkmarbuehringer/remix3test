@@ -13,6 +13,7 @@ import {
 } from '../utils/appointtype-drag.ts'
 import type { AppointType } from '../data/schema.ts'
 import { showToast } from './toast.ts'
+import { requestConfirm } from './confirm-delete.browser.tsx'
 
 // ── Props ──
 
@@ -294,19 +295,37 @@ export const AppointTypePanel = clientEntry(
           break
         }
         case 'delete': {
-          if (!confirm(`"${type.title}" wirklich löschen?`)) return
-          fetch(`${typesBaseHref}/${type.id}`, {
-            method: 'DELETE',
-            headers: {
-              Accept: 'application/json',
-              'X-Csrf-Token': csrfToken,
-            },
-          })
-            .then((r) => {
-              if (r.ok) handle.frame?.reload().catch(() => showToast('Fehler beim Aktualisieren.'))
-              else showToast('Fehler beim Löschen.')
+          let message = `"${type.title}" wirklich löschen?`
+          let deleteType = () => {
+            fetch(`${typesBaseHref}/${type.id}`, {
+              method: 'DELETE',
+              headers: {
+                Accept: 'application/json',
+                'X-Csrf-Token': csrfToken,
+              },
             })
-            .catch(() => showToast('Fehler beim Löschen.'))
+              .then((r) => {
+                if (r.ok)
+                  handle.frame?.reload().catch(() => showToast('Fehler beim Aktualisieren.'))
+                else showToast('Fehler beim Löschen.')
+              })
+              .catch(() => showToast('Fehler beim Löschen.'))
+          }
+          // The schedule page mounts <ConfirmDelete> beside this panel, so the
+          // delete uses the shared styled modal. Headless/unit renders without
+          // that host keep the blocking native prompt.
+          if (
+            requestConfirm({
+              message,
+              title: 'Terminart löschen',
+              confirmLabel: 'Löschen',
+              onConfirm: deleteType,
+            })
+          ) {
+            break
+          }
+          if (!confirm(message)) return
+          deleteType()
           break
         }
       }

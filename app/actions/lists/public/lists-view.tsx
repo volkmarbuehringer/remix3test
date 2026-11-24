@@ -1342,10 +1342,16 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
           )}
 
           {picker && (
-            <div
+            <dialog
               data-target-picker-overlay
+              aria-labelledby="target-picker-title"
               mix={[
                 targetPickerOverlayStyle,
+                ref((el) => {
+                  if (el && !el.open) el.showModal()
+                }),
+                on('cancel', () => closeTargetPicker(true)),
+                on('close', () => closeTargetPicker(true)),
                 on('click', (event) => {
                   if (event.target === event.currentTarget) closeTargetPicker(true)
                 }),
@@ -1353,9 +1359,6 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
             >
               <div
                 data-target-picker-dialog
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="target-picker-title"
                 mix={[
                   targetPickerDialogStyle,
                   on('keydown', (event) => handlePickerKeyDown(event)),
@@ -1386,6 +1389,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                     placeholder="Liste suchen…"
                     aria-label="Ziel-Liste suchen"
                     defaultValue={pickerQuery}
+                    autoFocus
                     mix={[
                       targetPickerSearchStyle,
                       ref((el) => onPickerSearchRef(el as HTMLInputElement | null)),
@@ -1453,41 +1457,27 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   </p>
                 </div>
               </div>
-            </div>
+            </dialog>
           )}
 
           {helpOpen && (
-            <div
+            <dialog
+              id="lists-help-dialog"
               data-help-overlay
+              aria-labelledby="lists-help-title"
               mix={[
                 targetPickerOverlayStyle,
+                ref((el) => {
+                  if (el && !el.open) el.showModal()
+                }),
+                on('cancel', closeHelp),
+                on('close', closeHelp),
                 on('click', (event) => {
                   if (event.target === event.currentTarget) closeHelp()
                 }),
               ]}
             >
-              <div
-                id="lists-help-dialog"
-                data-help-dialog
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="lists-help-title"
-                mix={[
-                  targetPickerDialogStyle,
-                  on('keydown', (event) => {
-                    if (event.key === 'Escape') {
-                      event.preventDefault()
-                      closeHelp()
-                    }
-                  }),
-                  ref((el) => {
-                    if (el && !el.dataset.focusReady) {
-                      el.dataset.focusReady = 'true'
-                      el.querySelector<HTMLButtonElement>('button')?.focus()
-                    }
-                  }),
-                ]}
-              >
+              <div data-help-dialog mix={targetPickerDialogStyle}>
                 <div mix={targetPickerHeaderStyle}>
                   <h2 id="lists-help-title" mix={targetPickerTitleStyle}>
                     Tastatur & Maus
@@ -1497,6 +1487,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                     data-help-close
                     aria-label="Hilfe schließen"
                     title="Schließen"
+                    autoFocus
                     mix={[targetPickerCloseStyle, on('click', closeHelp)]}
                   >
                     ✕
@@ -1538,7 +1529,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   </p>
                 </div>
               </div>
-            </div>
+            </dialog>
           )}
 
           {items.length === 0 ? (
