@@ -30,7 +30,7 @@ import {
 // Steps: resolve the latest main preview release -> rewrite the two tarball
 // specs -> pnpm install -> verify one release in the lock -> frozen-install
 // check -> repoint the vendor skill links -> refresh current-pin docs ->
-// analysis-doc gate -> typecheck/lint/format (+ full tests unless
+// analysis-doc gate -> typecheck/lint/format (+ `test:parallel` unless
 // --no-tests) -> write the pin-history entry and table row. A failed step
 // carries its command, exit status, last output lines, and hint into the
 // resume summary.
@@ -189,7 +189,7 @@ instead of in the server suite. A failed check prints its last output lines.
 
 Options:
   --dry-run           Resolve and print the target release, commits and package changelog
-  --no-tests          Skip the full \`npm test\` run
+  --no-tests          Skip the full \`npm run test:parallel\` run
   --no-docs           Skip refreshing current-pin strings and the pin-history entry
   --allow-dirty       Allow an uncommitted working tree
   --verify            Re-run the analysis-doc gate and typecheck/lint/format/tests
@@ -285,11 +285,15 @@ function runStep(command: string, args: string[]): Promise<void> {
   })
 }
 
-type TestSummaryBlock = Record<string, string>
+type TestSummaryBlock = {
+  project: string | undefined
+  fields: Record<string, string>
+}
 
 function runTestsAndSummarize(): Promise<string> {
+  let step = 'npm run test:parallel'
   return new Promise((resolve, reject) => {
-    let child = spawn('npm', ['test'], {
+    let child = spawn('npm', ['run', 'test:parallel'], {
       cwd: ROOT,
       env: process.env,
       stdio: ['inherit', 'pipe', 'pipe'],
@@ -308,16 +312,19 @@ function runTestsAndSummarize(): Promise<string> {
       let lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (let line of lines) {
-        let match = /^ℹ\s+([a-z_]+)\s+(.+)$/.exec(line.trim())
+        // `test:e2e:parallel` prefixes each project's output with `[chromium] `
+        // or `[firefox]`, including Node's `ℹ` summary block.
+        let match = /^(?:\[([^\]]+)\]\s+)?ℹ\s+([a-z_]+)\s+(.+)$/.exec(line.trim())
         if (!match) continue
-        let key = match[1]
-        let value = match[2]
+        let project = match[1]
+        let key = match[2]
+        let value = match[3]
         if (!key || !value) continue
         if (key === 'files') {
-          current = { files: value }
+          current = { project, fields: { files: value } }
           blocks.push(current)
         } else if (current) {
-          current[key] = value
+          current.fields[key] = value
         }
       }
     })
@@ -326,10 +333,10 @@ function runTestsAndSummarize(): Promise<string> {
       tail.push(chunk)
     })
 
-    child.on('error', (error) => reject(new StepFailure('npm test', null, error.message)))
+    child.on('error', (error) => reject(new StepFailure(step, null, error.message)))
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new StepFailure('npm test', code, tail.text()))
+        reject(new StepFailure(step, code, tail.text()))
         return
       }
       resolve(formatTestSummary(blocks))
@@ -339,33 +346,54 @@ function runTestsAndSummarize(): Promise<string> {
 
 function formatTestSummary(blocks: TestSummaryBlock[]): string {
   if (blocks.length === 0) return 'tests passed (summary unavailable)'
-  let names = ['server', 'browser', 'e2e']
-  return blocks
-    .map((block, index) => {
-      let tests = Number(block.tests ?? 0).toLocaleString('en-US')
-      let counts = [Number(block.pass ?? 0).toLocaleString('en-US') + ' pass']
-      if (block.todo) counts.push(block.todo + ' todo')
-      if (block.skipped) counts.push(block.skipped + ' skipped')
-      counts.push((block.fail ?? '?') + ' fail')
-      let duration = block.duration_ms
-        ? ', ~' + Math.round(Number(block.duration_ms) / 1000) + ' s'
-        : ''
-      let name = names[index] ?? 'phase ' + (index + 1)
-      return (
-        name +
-        ' ' +
-        (block.files ?? '?') +
-        ' files / ' +
-        (block.suites ?? '?') +
-        ' suites / ' +
-        tests +
-        ' tests (' +
-        counts.join(', ') +
-        duration +
-        ')'
-      )
-    })
-    .join('; ')
+
+  let serial = blocks.filter((block) => block.project === undefined)
+  let parallel = blocks.filter((block) => block.project !== undefined)
+  let names = ['server', 'browser']
+  let parts = serial.map((block, index) =>
+    formatTestBlock(names[index] ?? 'phase ' + (index + 1), block.fields),
+  )
+  if (parallel.length > 0) parts.push(formatTestBlock('e2e', combineProjectSummaries(parallel)))
+  return parts.join('; ')
+}
+
+// The parallel e2e runner starts one Node test process per browser. Keep one
+// logical e2e summary in pin-history entries: file/suite counts are identical
+// per project, while test totals add up and wall time is the slowest project.
+function combineProjectSummaries(blocks: TestSummaryBlock[]): Record<string, string> {
+  let combined: Record<string, string> = { ...blocks[0]?.fields }
+  for (let field of ['tests', 'pass', 'todo', 'skipped', 'fail']) {
+    let total = 0
+    for (let block of blocks) total += Number(block.fields[field] ?? 0)
+    combined[field] = String(total)
+  }
+  let duration = Math.max(...blocks.map((block) => Number(block.fields.duration_ms ?? 0)))
+  if (duration > 0) combined.duration_ms = String(duration)
+  return combined
+}
+
+function formatTestBlock(name: string, block: Record<string, string>): string {
+  let tests = Number(block.tests ?? 0).toLocaleString('en-US')
+  let counts = [Number(block.pass ?? 0).toLocaleString('en-US') + ' pass']
+  if (Number(block.todo ?? 0) > 0) counts.push(block.todo + ' todo')
+  if (Number(block.skipped ?? 0) > 0) counts.push(block.skipped + ' skipped')
+  counts.push((block.fail ?? '?') + ' fail')
+  let duration = block.duration_ms
+    ? ', ~' + Math.round(Number(block.duration_ms) / 1000) + ' s'
+    : ''
+  return (
+    name +
+    ' ' +
+    (block.files ?? '?') +
+    ' files / ' +
+    (block.suites ?? '?') +
+    ' suites / ' +
+    tests +
+    ' tests (' +
+    counts.join(', ') +
+    duration +
+    ')'
+  )
 }
 
 type ScaffoldArgs = {
