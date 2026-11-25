@@ -93,7 +93,7 @@ Key facts (post-#11668):
 
 ### Detached submitters: #11987 + #12391
 
-#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:2578` at `3f499063`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
+#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:2626` at `8a8adc7b`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
 
 Probe history: Firefox (Playwright build 142, 2026-10-15) previously fired native `formdata` while the submit event was still at **AT_TARGET (eventPhase 2)**, so the old `eventPhase` guard discarded the snapshot and a detached-submitter GET form fell through to a full document navigation. #12391 fixes that path; `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` now asserts the in-frame reload on both Chromium and Firefox instead of keeping a Firefox smoke-only branch.
 
@@ -129,12 +129,12 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-24 at `v0.0.20261124-main-d593e542` (source `d593e542`; `@remix-run/component` 1.3.0, runtime refactor with no commit-hook API change).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-24 at `v0.0.20261125-main-8a8adc7b` (source `8a8adc7b`; `@remix-run/component` 1.3.0, runtime refactor with no commit-hook API change).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 
-- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched when a direct reload begins, before the fetch (`notifyReloadStart` called at `@remix-run/component/src/runtime/frame.ts:824`; definition at `:750`); inherited reloads start at `startInheritedReload` (`:853`) and dispatch at `:886`.
-- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:911` via `completeInheritedReload` at `:901`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
+- `reloadStart` — a `FrameReloadStartEvent` (request details plus a `finished` promise) dispatched when a direct reload begins, before the fetch (`notifyReloadStart` called at `@remix-run/component/src/runtime/frame.ts:837`; definition at `:763`); inherited reloads start at `startInheritedReload` (`:866`) and dispatch at `:899`.
+- `reloadComplete` — dispatched when the active reload settles, including cancellation/failure (`:924` via `completeInheritedReload` at `:914`). Since #12183 a superseded direct reload finishes aborted without a `reloadComplete`; each direct reload gets its own `reloadStart`, and the newest one receives the completion.
 
 Initial lazy-frame viewport loads and viewport retries do **not** dispatch a `reloadStart`/`reloadComplete` pair; only explicit and ancestor-driven reloads do (see `references/remix3-frame-cliententry/lazy-frames.md`).
 
@@ -156,7 +156,7 @@ Lifecycle events still cannot bracket the DOM commit, but since **#12249** there
 
 Tests: `app/assets/frame-transition.test.browser.ts` (decision matrix, every fallback, name cleanup, no-stall with a never-resolving `finished`) and `app/actions/admin/lists/lists-frame-transition.test.e2e.ts` (real runtime: one transition per grid ⇄ editor swap, no document load, cleanup after settle).
 
-Never reach into the internal `onCommit` option (`frame.ts:356`, invoked at `:527`/`:592`), which is not exported; use the exported commit override.
+Never reach into the internal `onCommit` option (`frame.ts:369`, invoked at `:540`/`:605`), which is not exported; use the exported commit override.
 
 Status: one flow is animated; everything else stays instant by design.
 

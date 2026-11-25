@@ -180,7 +180,7 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 
 ### Why the input keeps its value
 
-`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (re-checked on the current pin: keyed children are matched by key first — `hasKeyedChildren`/`patchKeyedChildren`/`matchKeyedChildren` — then a host node of the same `kind`/`type` is reused; `patchHostProps` skips unchanged props and only sets the `defaultValue` *property* when it changes). **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
+`frame.ts` installs frame HTML with `diffNodes` from `@remix-run/component` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders go through `src/runtime/vdom.ts` + `src/runtime/vnode.ts` (re-checked at source `8a8adc7b`: #12429/#12435 folded `reconcile.ts`/`core/props.ts` into `vdom.ts`; keyed children use `patchKeyedChildren` with an in-order fast path plus single-pass matching, then a host node of the same `kind`/`type` is reused; `patchHostProps` skips unchanged props and only sets the `defaultValue` *property* when it changes). **Net effect:** after a frame navigation that re-renders an uncontrolled `<input defaultValue={...}>` with a different value, the input keeps its old text. Verified empirically (`sameNode === true`, stale `value` attribute).
 
 **Simplest reliable fix — full-page navigation for clear/reset.** Instead of a client-side restore, make "clear"/"reset" a plain `<a href>` with **no `data-rmx-target`** (as `/admin/clients` already does). The browser does a full document load, so every input mounts fresh with the server's new `defaultValue`:
 
@@ -196,7 +196,7 @@ The `restoreFilterValue` client-side approach still applies when a value must *p
 
 **Related gotcha — filtering must reset pagination.** A GET filter form should **not** carry a hidden `offset` input set to the current page (`value={String(offset)}`) — that keeps the user on page N when they filter. Omit it (or hard-code `value="0"`) so filtering returns to page 1, while keeping hidden `sort`/`order` if you want the active sort preserved.
 
-**Validated:** 2026-08-31 empirically; mechanism re-checked on the current pin against `@remix-run/component` `src/runtime/diff-dom.ts`, `src/runtime/reconcile.ts`, and `src/runtime/core/props.ts`.
+**Validated:** 2026-08-31 empirically; mechanism re-checked 2026-11-25 against `@remix-run/component` `src/runtime/diff-dom.ts`, `src/runtime/vdom.ts`, and `src/runtime/vnode.ts` at source `8a8adc7b`.
 
 Use when server-rendered form inputs with `defaultValue` inside a Frame don't show the expected value after navigation, filter/search inputs are empty after a Frame reload even though the URL has the correct query parameter, or the frame content updates but `<input>` elements keep their old values.
 
@@ -285,4 +285,4 @@ await page
 
 See `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts`. The same reasoning applies to any "wait for URL, then click" sequence in a frame test.
 
-**Validated:** 2026-10-04 and re-checked 2026-11-24 against preview release `v0.0.20261124-main-3f499063` / source `3f499063`: `hydrateContainer` is at `src/runtime/frame.ts:1679`, its nested `visit(container.childNodes, parent)` hydration pass at `:1690` (frames and client entries are found in one pass since #12403), and `scheduleHydrationMarker(...)` at `:1719` (definition `:1795`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.
+**Validated:** 2026-10-04 and re-checked 2026-11-25 against preview release `v0.0.20261125-main-8a8adc7b` / source `8a8adc7b`: `hydrateContainer` is at `src/runtime/frame.ts:1745`, its nested `visit(container.childNodes, parent)` hydration pass at `:1789` (frames and client entries are found in one pass since #12403), and `scheduleHydrationMarker(...)` at `:1785` (definition `:1861`). `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

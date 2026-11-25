@@ -17,9 +17,9 @@ For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, s
 
 **Context:** A frame with many `clientEntry` components, or one component that calls `handle.update()` repeatedly from an event handler.
 
-The runtime's cascade guard is **per component**, not per frame: `trackCascadingUpdate()` counts each component's updates within one event-loop turn (`vdom.ts:328-362`; total warning at `:346`, per-component throw check at `:352`). It logs a warning when the **total** reaches 50 (`CASCADING_UPDATE_WARN_THRESHOLD`) and throws `handle.update() infinite loop detected in <name> after N cascading updates` only when **one component** exceeds `MAX_CASCADING_COMPONENT_UPDATES` (50). Many distinct entries that hydrate once each are not this bug. Avoiding per-row `clientEntry`s is still reasonable for no-JS, payload, and delegation reasons — not because 50 hydrations crash the frame.
+The runtime's cascade guard is **per component**, not per frame: `trackCascadingUpdate()` counts each component's updates within one event-loop turn (`vdom.ts:554-579`; total warning at `:566`, per-component throw check at `:571`). It logs a warning when the **total** reaches 50 and throws `handle.update() infinite loop detected in <name> after N cascading updates` only when **one component** exceeds 50 (both thresholds are the single `CASCADING_UPDATE_LIMIT` constant at `vdom.ts:516`). Many distinct entries that hydrate once each are not this bug. Avoiding per-row `clientEntry`s is still reasonable for no-JS, payload, and delegation reasons — not because 50 hydrations crash the frame.
 
-> **Phase guard:** `handle.update()` during setup warns and skips; during render it throws `Cannot call handle.update() while <name> is running its <phase> function` (`component.ts:526-544`). Call it from an event handler or `handle.queueTask()`; event handlers themselves are supported. Avoid a render per `dragover`/scroll/resize for performance, not because the runtime rejects it.
+> **Phase guard:** `handle.update()` during setup warns and skips; during render it throws `Cannot call handle.update() while <name> is running its <phase> function` (`vdom.ts:101-133`; setup warning at `:104-110`, render/before-first-commit throw at `:111-117`). Call it from an event handler or `handle.queueTask()`; event handlers themselves are supported. Avoid a render per `dragover`/scroll/resize for performance, not because the runtime rejects it.
 
 **Server-rendered forms / delegation** remain the right shape for row actions (no-JS, smaller payload, one client entry). Server-rendered forms inside a Frame need `<CsrfTokenInput />`, `<input type="hidden" name="_method" value="DELETE" />` for method override, hidden inputs for offset/sort/order/filter state, `data-rmx-target="<frame-name>"` for frame-aware submission without full page navigation, and a redirect to the grid fragment URL (e.g., `/client/grid`) not the full page URL (`/client`).
 
@@ -263,7 +263,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261124-main-d593e542`: `startLoad` at `:775` dispatches the direct event through `notifyReloadStart` at `:824`; inherited reloads start with `startInheritedReload` at `:853`, dispatch at `:886`, and complete through `completeInheritedReload` at `:901`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261125-main-8a8adc7b`: `startLoad` at `:788` dispatches the direct event through `notifyReloadStart` at `:837` (definition `:763`); inherited reloads start with `startInheritedReload` at `:866`, dispatch at `:899`, and complete through `completeInheritedReload` at `:914`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -365,8 +365,11 @@ prop lets the server render the real layout.
 3. **A preserved client entry receives new props on frame navigation** — this is
    what makes prop-carried data safe. On reconcile, `renderClientEntryBoundary`
    builds `jsx(node.type, node.props, node.key)` and calls
-   `owner.root.render(element)` (`runtime/reconcile.ts:1418-1442`, render at
-   `:1440`, at source `d593e542`). The factory closure
+   `clientEntries.render(...)` (`runtime/vdom.ts:1632-1662`, element at `:1656`),
+   which forwards to the existing boundary owner's `root.render(element)`
+   (`runtime/frame-runtime.ts:230`, inside `clientEntries.render` at `:222-238`;
+   since #12429 the client-entry boundary runtime is an optional subsystem on
+   the frame runtime, at source `8a8adc7b`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -403,15 +406,15 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-11-19 against preview release `v0.0.20261119-main-9e4da4d3` / source `9e4da4d3` (#12348 adds 9 lines after `insert()`, so `reclaimPersistedMixinNode` is now `:1358`/`:2225` while the hydration-path `bindNodeMixRuntime` `:963`/`:1161` are unchanged; earlier `5af14d52`); the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-11-25 against preview release `v0.0.20261125-main-8a8adc7b` / source `8a8adc7b` (#12429/#12435 merged `reconcile.ts` and the handle helpers into `runtime/vdom.ts`, moved vnode/host primitives to `runtime/vnode.ts`, and made the mixin runtime closure-backed; earlier `9e4da4d3`/`5af14d52`); the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
 - `ref()` is driven by the mixin `insert` event (`@remix-run/component/src/runtime/mixins/ref-mixin.ts:17`).
-- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`@remix-run/component/src/runtime/reconcile.ts:1062`; definition at `:592`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is selected by passing `reclaimed = true` to `bindNodeMixRuntime` (`runtime/reconcile.ts:745`, `:843`) for mixin-persisted nodes — not for plain hydration.
+- During hydration the reconciler adopts a matching SSR element and binds the mixin runtime with `reclaimed = false` (`committed._mix?.bind(committed, context, reclaimed, bindParent)` at `@remix-run/component/src/runtime/vdom.ts:1483`, with `reclaimed` computed at `:1356-1367`; `MixinRuntime.bind` at `runtime/mixins/mixin.ts:644-653` dispatches `insert` at `:652`), so `insert` is dispatched on the client and `ref()` fires at hydration.
+- The `reclaimed` variant, which dispatches `reclaimed` instead of `insert`, is selected when the mixin driver reclaims a persisted node (`vdom.ts:1356-1367` calls `driver.reclaim(...)`; `MixinDriver.reclaim` at `runtime/mixins/mixin.ts:369-380`) — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 

@@ -22,11 +22,11 @@ component function.
 `clientEntry(entryId, component)` is a pure tagging function — it sets
 `component.$entry = true` / `$entryId = entryId` and returns the same function
 (installed `@remix-run/component` 1.3.0,
-`src/runtime/client-entries.ts:103-127`). At render the server resolves the id:
+`src/runtime/client-entries.ts:110-119`; overload at `:103`). At render the server resolves the id:
 `resolveDefaultClientEntry` splits on the last `#` into `{ exportName, href }`,
 and the browser imports `href` and looks up `exportName`
-(`src/server/stream.ts:1336-1362`, called from `resolveClientEntries` at `:1364-1449`,
-at source `d593e542`). Function identity is never compared.
+(`src/server/stream.ts:1341-1366`, called from `resolveClientEntries` at `:1369-1400`,
+at source `8a8adc7b`). Function identity is never compared.
 
 Build the shared **component factory**, but keep `clientEntry(...)` at each call site:
 

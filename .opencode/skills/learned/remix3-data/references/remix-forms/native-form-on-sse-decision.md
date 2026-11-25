@@ -42,9 +42,10 @@ form instead of leaving the card to the stream:
 ```
 
 One `<form>` serves both decisions via per-button `formaction`. Remix/component
-passes it through (`EXECUTABLE_URL_ATTRIBUTES` at
-`node_modules/.pnpm/@remix-run+component@*/…/runtime/core/props.ts:246`; #12314 folded
-`core/attributes.ts` into `props.ts`); the CSRF
+passes it through (`EXEC_URL_ATTR` at
+`node_modules/.pnpm/@remix-run+component@*/…/runtime/vdom.ts:2124`, consumed by
+`sanitizeUrlAttribute` at `:2411-2419`; #12435 folded `core/props.ts` into `vdom.ts`,
+renaming the former `EXECUTABLE_URL_ATTRIBUTES`); the CSRF
 token comes from `getCsrfToken(getContext())`, same as `app/ui/restful-form.tsx`.
 
 ### 2. Let the token-bearing native form through skipCsrf()

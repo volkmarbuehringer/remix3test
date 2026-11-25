@@ -2,15 +2,15 @@
 
 **Source:** consolidated from `remix3-svg-attributes`, `remix3-jsx-attribute-rename-blind-spot`
 
-**Validated:** 2026-11-14 against preview release `v0.20261113.215858-main-848e2fbe` / source `848e2fbe` (`remix` 3.2.0, `component` 1.2.0, `ui` 0.13.1); the boolean `aria-*`/`data-*` and `data-rmx-*` reads below were re-pinned after #12183 shifted `navigation.ts`.
+**Validated:** 2026-11-25 against preview release `v0.0.20261125-main-8a8adc7b` / source `8a8adc7b` (`remix` 3.3.0, `component` 1.3.0, `ui` 0.14.0); the SVG normalization below was re-checked empirically against the installed `renderToString()`, and the boolean `aria-*`/`data-*` and `data-rmx-*` reads were re-pinned after #12183 shifted `navigation.ts`.
 **Context:** Attributes in `remix/component` JSX — SVG naming, boolean `aria-*`/`data-*` serialization, and runtime-renamed `data-rmx-*` props.
 
-## SVG attributes use kebab-case
+## SVG attributes: prefer kebab-case
 
-React/Preact camelCase names (`strokeWidth`, `strokeLinecap`, `stopColor`) do not render: Remix 3's JSX runtime passes attributes through verbatim, and the SVG parser only recognizes lowercase kebab-case.
+App code should write native kebab-case (`stroke-width`, `stop-color`). The runtime also normalizes React-style camelCase SVG props, so `strokeWidth` is **not** silently broken at this pin: `normalizeAttributeName()` kebab-cases props matching the compact `SVG_KEBAB_PROP` regex (`@remix-run/component` `src/runtime/vdom.ts:2432`, normalization at `:2439-2448`; #12433 replaced the former canonical allowlist with this fallback), while canonical camelCase SVG attributes (`viewBox`, `clipPathUnits`, `stdDeviation`) pass through verbatim. Prefer the native spelling anyway — it is the actual attribute, independent of the regex, and reads the same as the emitted markup.
 
 ```tsx
-// ❌ React convention — silently broken
+// Works, but not the app convention — use the native spelling below.
 <svg strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
   <stop stopColor="#6366f1" />
 </svg>
@@ -21,11 +21,15 @@ React/Preact camelCase names (`strokeWidth`, `strokeLinecap`, `stopColor`) do no
 </svg>
 ```
 
+Verified at `8a8adc7b` with `renderToString()`: `<svg stroke-width="2" viewBox="0 0 10 10" stop-color="red" xlink:title="Star"><use href="#icon"></use></svg>`.
+
+**`<use>` / xlink:** `xlinkHref` and `xlink:href` normalize to SVG2 `href` (`vdom.ts:2442`), so pass `href` directly in app code. The other camelCase xlink props (`xlinkTitle`, `xlinkShow`, `xlinkRole`, `xlinkArcrole`, `xlinkActuate`, `xlinkType`) become `xlink:*` and are set in the XLink namespace in the browser (`PREFIXED_SVG_PROP` at `:2436`, mapping at `:2443-2445`); for scripts, write `href` rather than hand-rolling the namespaced legacy attribute. The app's glyph (`app/ui/theme/glyph/glyph.tsx`) passes `href` directly, and `app/ui/password-toggle.script.ts` writes only `href`.
+
 Common renames: `strokeWidth`→`stroke-width`, `strokeLinecap`→`stroke-linecap`, `strokeLinejoin`→`stroke-linejoin`, `strokeMiterlimit`→`stroke-miterlimit`, `fillOpacity`→`fill-opacity`, `strokeOpacity`→`stroke-opacity`, `strokeDasharray`→`stroke-dasharray`, `stopColor`→`stop-color`, `stopOpacity`→`stop-opacity`, `clipRule`→`clip-rule`, `fillRule`→`fill-rule`.
 
 ## Attribute renames are invisible to typecheck and render tests
 
-`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/core/vnode.ts:16`; #12159 folded `jsx.ts` into `core/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
+`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/vnode.ts:20` at source `8a8adc7b`; #12435 moved `core/vnode.ts` up to `runtime/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
 
 - Typos, removed attributes, and renames compile cleanly.
 - Server-render assertions pass because they check what the component **emits**, not what the runtime **reads**.
@@ -47,7 +51,7 @@ When a runtime contract changes, verify at the runtime layer:
 3. **Add a focused render test** asserting the new attribute name is emitted.
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
-Current reads (source `d593e542`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2310`), navigation reads `data-rmx-document` at `src/runtime/run.ts:1037`/`:1056` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1084-1091` (`dist/runtime/run.js:830-836`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:55`.
+Current reads (source `8a8adc7b`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`, also on anchors/buttons at `:1792`), navigation reads `data-rmx-document` at `src/runtime/run.ts:1037`/`:1056` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1084-1091` (`dist/runtime/run.js:830-836`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:55`.
 
 ## Boolean `aria-*` / `data-*` values
 
