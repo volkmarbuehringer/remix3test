@@ -3,7 +3,7 @@
 **Source:** `remix3-css-override-cascade-layer`
 
 **Extracted:** 2026-09-10
-**Revalidated:** 2026-11-25 against source `8a8adc7b` (`@remix-run/component` 1.3.0). The mechanism is unchanged: `src/style/stylesheet.ts:132` inserts `@layer ${REMIX_UI_STYLE_LAYER}.${className} { … }` per style, and SSR `src/server/stream.ts:1650-1658` (`wrapStyleForLayer`, used by `renderStyleTag` at `:1660`) wraps each collected rule the same way, in `styleCache` insertion (= render) order. Guide 04 §"Styling with css and dynamic style values" now states the same rule (source `9e4da4d3`, #12352) and adds the parent→child consequence below.
+**Revalidated:** 2026-11-25 against source `24311e52` (`@remix-run/component` 1.3.0). The mechanism is unchanged: `src/style/stylesheet.ts:132` inserts `@layer ${REMIX_UI_STYLE_LAYER}.${className} { … }` per style, and SSR `src/server/stream.ts:1650-1658` (`wrapStyleForLayer`, used by `renderStyleTag` at `:1660`) wraps each collected rule the same way, in `styleCache` insertion (= render) order. Guide 04 §"Styling with css and dynamic style values" now states the same rule (source `9e4da4d3`, #12352) and adds the parent→child consequence below.
 **Context:** Joined segmented button groups (period/status switchers on `/verwaltung/appointments`, `/verwaltung/offerings`, `/appointments/new`) rendered with a doubled divider and the vendor button's border colour instead of the theme token. Every segment was wrapped in `css({ '& button': { borderRight: … } })`; the radii and padding from that same block applied, the `border-*` declarations did not.
 
 ## Mechanism
@@ -23,7 +23,7 @@ The vendor README documents the top-level contract (`node_modules/remix/src/comp
 @layer rmx-reset, rmx;
 ```
 
-Guide 04 (§"Styling with css and dynamic style values", source `8a8adc7b` / #12352) now states the same rule for app authors: each `css(...)` style gets its own layer, a parent's style is usually inserted before its children's, and a nested selector in the parent (`"&:hover .title"`) cannot override a property the child's own style sets — put the state selector in the child's style. This is the guide-level confirmation of the mechanism below; the app's `lists-view.tsx` row hover predates it and uses `!important` (so does `admin-table.ts` `floatingRowReveal`).
+Guide 04 (§"Styling with css and dynamic style values", source `24311e52` / #12352) now states the same rule for app authors: each `css(...)` style gets its own layer, a parent's style is usually inserted before its children's, and a nested selector in the parent (`"&:hover .title"`) cannot override a property the child's own style sets — put the state selector in the child's style. This is the guide-level confirmation of the mechanism below; the app's `lists-view.tsx` row hover predates it and uses `!important` (so does `admin-table.ts` `floatingRowReveal`).
 
 Inside a layer, **sub-layer order decides, and specificity is irrelevant** — and which sub-layer is declared last depends on the order classes happen to be registered while rendering, so the same override can win on one element and lose on its sibling (the *active* primary-tone segment is the usual casualty). Consequences:
 

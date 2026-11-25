@@ -266,14 +266,18 @@ export const supportTools = {
     inputSchema: z.object({
       location: z.string().min(1).max(30).describe('The city name (max 30 characters)'),
     }),
-    execute: async ({ location }) => {
+    execute: async ({ location }, context) => {
       let controller = new AbortController()
       let timeout = setTimeout(() => controller.abort(), 10000)
+      // Stop the HTTP calls when the agent run is cancelled, not only on the
+      // tool's own 10s budget. `abortSignal` is Mastra's per-tool run signal.
+      let runSignal = context?.abortSignal
+      let signal = runSignal ? AbortSignal.any([controller.signal, runSignal]) : controller.signal
 
       try {
         let geoResponse = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`,
-          { signal: controller.signal },
+          { signal },
         )
         if (!geoResponse.ok) throw new Error('Geocoding failed')
 
@@ -286,7 +290,7 @@ export const supportTools = {
 
         let weatherResponse = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`,
-          { signal: controller.signal },
+          { signal },
         )
         if (!weatherResponse.ok) throw new Error('Weather fetch failed')
 

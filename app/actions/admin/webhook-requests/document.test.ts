@@ -266,6 +266,39 @@ describe('Admin webhook requests', () => {
     }
   })
 
+  it('POST /admin/webhook-requests/:id/resend records an aborted wait on client disconnect', async (t) => {
+    let id = await insertRow('resend-abort')
+    let client = new AbortController()
+    let fetchMock = t.mock.method(globalThis, 'fetch')
+    fetchMock.mock.mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          let signal = init?.signal
+          if (!signal) {
+            reject(new Error('expected a fetch signal'))
+            return
+          }
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+          // Disconnect only once the handler is waiting on Hermes, so the
+          // request body/session reads have already completed.
+          setTimeout(() => client.abort(new Error('client disconnected')), 10)
+        }),
+    )
+
+    let body = new URLSearchParams({ _csrf: csrfToken })
+    let response = router.fetch(
+      BASE +
+        routes.admin.webhookRequests.resend.href({ id }) +
+        '?offset=0&sort=created_at&order=desc',
+      { method: 'POST', headers: formHeaders(), body: body.toString(), signal: client.signal },
+    )
+
+    await assert.rejects(() => response, /client disconnected/)
+
+    let row = await getWebhookRequest(db, id)
+    assert.equal(row?.hermes_status, 'aborted', 'a disconnect must not be recorded as error')
+  })
+
   it('GET /admin/webhook-requests/:id/resend PRGs to the grid preserving grid state', async () => {
     let id = await insertRow('resend-resolve')
     let response = await router.fetch(

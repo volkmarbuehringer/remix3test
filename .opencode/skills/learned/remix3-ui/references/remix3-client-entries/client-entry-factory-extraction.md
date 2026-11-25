@@ -26,7 +26,7 @@ component function.
 `resolveDefaultClientEntry` splits on the last `#` into `{ exportName, href }`,
 and the browser imports `href` and looks up `exportName`
 (`src/server/stream.ts:1341-1366`, called from `resolveClientEntries` at `:1369-1400`,
-at source `8a8adc7b`). Function identity is never compared.
+at source `24311e52`). Function identity is never compared.
 
 Build the shared **component factory**, but keep `clientEntry(...)` at each call site:
 

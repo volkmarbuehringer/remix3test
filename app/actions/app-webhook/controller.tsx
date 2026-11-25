@@ -55,7 +55,10 @@ export default createAction(system.appWebhook, {
     appWebhookLog(`Sende an Hermes: ${hermesUrl()} id=${id}`)
 
     try {
-      let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
+      // Stop waiting for Hermes when the caller disconnects; the timeout still
+      // bounds a caller that stays connected. The router settles cooperatively,
+      // so the status write below still runs after an abort.
+      let signal = AbortSignal.any([AbortSignal.timeout(HERMES_TIMEOUT_MS), context.request.signal])
       let hermesResponse = await fetch(hermesUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,7 +67,9 @@ export default createAction(system.appWebhook, {
       })
       hermesStatusText = String(hermesResponse.status)
     } catch {
-      hermesStatusText = 'error'
+      // Record a disconnect separately from a delivery failure; the payload row
+      // is already stored, and Hermes may still have processed the request.
+      hermesStatusText = context.request.signal.aborted ? 'aborted' : 'error'
     }
 
     await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)

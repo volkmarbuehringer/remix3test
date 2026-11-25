@@ -305,7 +305,13 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
 
       let hermesStatusText: string
       try {
-        let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
+        // Stop waiting for Hermes when the admin's request disconnects, on top
+        // of the tool's own timeout. The router settles cooperatively, so the
+        // abort only stops this fetch; the status write below still runs.
+        let signal = AbortSignal.any([
+          AbortSignal.timeout(HERMES_TIMEOUT_MS),
+          context.request.signal,
+        ])
         let hermesResponse = await fetch(hermesUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -314,7 +320,9 @@ export const webhookRequests = createController(routes.admin.webhookRequests, {
         })
         hermesStatusText = String(hermesResponse.status)
       } catch {
-        hermesStatusText = 'error'
+        // A client disconnect is not a Hermes failure; keep the two distinct so
+        // the grid does not report a delivery error for an interrupted request.
+        hermesStatusText = context.request.signal.aborted ? 'aborted' : 'error'
       }
 
       await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)

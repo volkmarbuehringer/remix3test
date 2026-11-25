@@ -93,7 +93,7 @@ Key facts (post-#11668):
 
 ### Detached submitters: #11987 + #12391
 
-#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:2626` at `8a8adc7b`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
+#11987 ("resolve form navigation when submitter is detached before navigate fires"; installable build `48b54a55`) indexes pending submissions by form **and** submitter, so `getSourceForm` can resolve a button whose `.form` is `null` once it has been detached. The submitter index is populated inside `onFormData`, which must ignore `formdata` snapshots taken by user submit handlers while accepting the native post-dispatch snapshot. Since #12391 the guard checks the submit event's `currentTarget` rather than its `eventPhase`: `if (event.currentTarget !== null || event.defaultPrevented) return` (`frame.ts:2626` at `24311e52`), because Firefox could retain a nonzero `eventPhase` after native submit dispatch ended. This preserves form, submitter, native `FormData`, and submitter overrides even when the submitter is removed before `navigate`.
 
 Probe history: Firefox (Playwright build 142, 2026-10-15) previously fired native `formdata` while the submit event was still at **AT_TARGET (eventPhase 2)**, so the old `eventPhase` guard discarded the snapshot and a detached-submitter GET form fell through to a full document navigation. #12391 fixes that path; `app/actions/admin/frame-form-detached-submitter.test.e2e.ts` now asserts the in-frame reload on both Chromium and Firefox instead of keeping a Firefox smoke-only branch.
 
@@ -129,7 +129,7 @@ Use when `npm run typecheck` reports `ResolveFrame`-related errors after bumping
 
 ## Same-Document View Transitions Around Frame Commits — `defaultResolveFrame` Commit Hook
 
-**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-24 at `v0.0.20261125-main-8a8adc7b` (source `8a8adc7b`; `@remix-run/component` 1.3.0, runtime refactor with no commit-hook API change).
+**Context:** Wrapping a frame swap (`frame.reload()`, link/form navigation) in `document.startViewTransition()` so changed rows/cards cross-fade or move. Checked 2026-11-17 (`@remix-run/component` 1.2.0); re-pinned 2026-11-24 at `v0.0.20261125-main-24311e52` (source `24311e52`; `@remix-run/component` 1.3.0, runtime refactor with no commit-hook API change).
 
 The public `FrameHandle` surface still exposes only `src`, `reload()`, `replace()`, and two lifecycle events (`remix/src/component/README.md` § Frame Handles):
 

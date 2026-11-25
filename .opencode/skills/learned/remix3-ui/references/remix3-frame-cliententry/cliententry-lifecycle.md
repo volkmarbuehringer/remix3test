@@ -263,7 +263,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261125-main-8a8adc7b`: `startLoad` at `:788` dispatches the direct event through `notifyReloadStart` at `:837` (definition `:763`); inherited reloads start with `startInheritedReload` at `:866`, dispatch at `:899`, and complete through `completeInheritedReload` at `:914`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261125-main-24311e52`: `startLoad` at `:788` dispatches the direct event through `notifyReloadStart` at `:837` (definition `:763`); inherited reloads start with `startInheritedReload` at `:866`, dispatch at `:899`, and complete through `completeInheritedReload` at `:914`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -369,7 +369,7 @@ prop lets the server render the real layout.
    which forwards to the existing boundary owner's `root.render(element)`
    (`runtime/frame-runtime.ts:230`, inside `clientEntries.render` at `:222-238`;
    since #12429 the client-entry boundary runtime is an optional subsystem on
-   the frame runtime, at source `8a8adc7b`). The factory closure
+   the frame runtime, at source `24311e52`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client
@@ -406,7 +406,7 @@ render), `app/actions/appointment/appointment-grid-week-nav.test.e2e.ts`
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-11-25 against preview release `v0.0.20261125-main-8a8adc7b` / source `8a8adc7b` (#12429/#12435 merged `reconcile.ts` and the handle helpers into `runtime/vdom.ts`, moved vnode/host primitives to `runtime/vnode.ts`, and made the mixin runtime closure-backed; earlier `9e4da4d3`/`5af14d52`); the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-11-25 against preview release `v0.0.20261125-main-24311e52` / source `24311e52` (#12429/#12435 merged `reconcile.ts` and the handle helpers into `runtime/vdom.ts`, moved vnode/host primitives to `runtime/vnode.ts`, and made the mixin runtime closure-backed; earlier `9e4da4d3`/`5af14d52`); the installed `@remix-run/component` source (`node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 

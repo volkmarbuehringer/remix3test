@@ -982,6 +982,29 @@ describe('Mastra Chat tools', () => {
     assert.equal(fetchMock.mock.callCount(), 1)
   })
 
+  it('getWeather stops when the agent run is aborted', async (t) => {
+    let fetchMock = t.mock.method(globalThis, 'fetch')
+    let toolSignal: AbortSignal | undefined
+    fetchMock.mock.mockImplementation((_input, init) => {
+      toolSignal = init?.signal ?? undefined
+      return new Promise<Response>((_resolve, reject) => {
+        toolSignal?.addEventListener('abort', () => reject(toolSignal?.reason), { once: true })
+      })
+    })
+
+    let run = new AbortController()
+    let execute = supportTools.getWeather.execute as unknown as (
+      input: { location: string },
+      context: { abortSignal?: AbortSignal },
+    ) => Promise<unknown>
+    let result = execute({ location: 'Berlin' }, { abortSignal: run.signal })
+    run.abort(new Error('run cancelled'))
+
+    await assert.rejects(() => result, /run cancelled/)
+    assert.ok(toolSignal, 'the tool should pass a signal to fetch')
+    assert.equal(toolSignal?.aborted, true, 'the run abort should reach the fetch signal')
+  })
+
   it('getWeather has correct tool metadata', () => {
     let tool = supportTools.getWeather
     assert.equal(tool.id, 'get_weather')

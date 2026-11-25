@@ -3,7 +3,7 @@
 **Source:** consolidated from `remix3-playwright-sse-networkidle-hang`, `chromium-window-location-reload-unforgeable`, `select-change-events`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `playwright-capture-swallowed-exception-stack`, `remix-test-coverage-flag-forwarding`, `home-nav-hydration-e2e-flake`
 
 **Extracted:** 2026-06-23 … 2026-11-09
-**Revalidated:** 2026-11-13 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/test` 1.1.0 adds `t.waitFor()` and property/accessor mocking; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
+**Revalidated:** 2026-11-25 against preview release `v0.0.20261125-main-24311e52` / source `24311e52` (added the unref'd `AbortSignal.timeout()` worker-exit gotcha); previously 2026-11-13 at `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/test` 1.1.0 adds `t.waitFor()` and property/accessor mocking; `mockImplementationOnce(impl, onCall?)` still indexes by absolute call number).
 **Context:** Cross-cutting failures in this app's `remix test` browser/e2e suites. For Remix-specific wiring see `state-isolation-and-e2e-serve.md` and `cliententry-browser-tests.md`.
 
 ## `networkidle` never settles on SSE pages
@@ -196,7 +196,7 @@ In the source case Chromium silently tolerated the malformed diff (only a 404 co
 ## `mockImplementationOnce` indexes are absolute, not "next pending"
 
 The #12097 `.mock` controls on `t.mock.fn`/`t.mock.method` (preview release
-`v0.0.20261125-main-8a8adc7b`) number one-shot overrides by absolute call index. Consecutive
+`v0.0.20261125-main-24311e52`) number one-shot overrides by absolute call index. Consecutive
 `mockImplementationOnce(impl)` calls made before any invocation both register at
 the current call index (`calls.length`, still `0`), so the second silently
 replaces the first and the next call falls through to the default. Pass the
@@ -243,6 +243,35 @@ let timers = t.useFakeTimers({ now: new Date('2026-11-11T12:00:00Z') })
 ```
 
 App call sites: `app/actions/lists/public/lists-autosave.test.browser.tsx` (item stamps) and `app/ui/toast.test.browser.tsx` both pass that `now`; the toast host's display/exit phases are plain `setTimeout` calls, and its entrance flip uses `requestAnimationFrame`.
+
+## `AbortSignal.timeout()` can never fire in a test worker
+
+`AbortSignal.timeout(ms)` uses an **unref'd** timer: it does not keep the Node event loop alive. When a
+server test's only pending work is that signal — a middleware/handler awaiting it, or a test awaiting
+`signal.addEventListener('abort', …)` — the worker has nothing referenced left, exits before the
+deadline, and `remix test` reports the file as failed with no tests:
+
+```
+Warning: Detected unsettled top-level await at .../worker-process.js:4
+Error running app/.../x.test.ts: Worker process exited with code 13
+ℹ files 0
+ℹ fail 1
+```
+
+This is not an assertion failure or a normal hang. Observed 2026-11-25 while unit-testing
+`app/middleware/request-timeout.ts`: a probe passed `setTimeout(20)` after 21 ms, then never fired the
+`AbortSignal.timeout(20)` that followed.
+
+- Production code that must be testable: use a referenced timer and clear it —
+  `let controller = new AbortController(); let timer = setTimeout(() => controller.abort(reason), ms);
+  try { … } finally { clearTimeout(timer) }`. `app/middleware/request-timeout.ts` uses this, and its
+  test observes the 504 at ~20 ms.
+- A test that deliberately exercises production `AbortSignal.timeout()` should call
+  `t.useFakeTimers()` (the harness replaces `AbortSignal.timeout` too, see above) and
+  `timers.advance(ms)`, or keep a referenced timer pending alongside it.
+- Isolate a suspect file with
+  `NODE_ENV=test npx remix test <file> --type server --concurrency 1 --only "<test name>"`. The
+  exit-13 / `files 0` signature points at an unsettled promise, not a failing assertion.
 
 ## Run coverage in one `remix test` invocation
 

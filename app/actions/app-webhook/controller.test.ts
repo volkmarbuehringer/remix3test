@@ -212,4 +212,44 @@ describe('App-Webhook controller', () => {
       await pool.query('DELETE FROM api_tokens WHERE token_hash = $1', [hashToken(rawToken)])
     }
   })
+
+  it('records an aborted wait when the caller disconnects', async (t) => {
+    let url = `${BASE}${system.appWebhook.href()}`
+    let client = new AbortController()
+    let fetchMock = t.mock.method(globalThis, 'fetch')
+    fetchMock.mock.mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          let signal = init?.signal
+          if (!signal) {
+            reject(new Error('expected a fetch signal'))
+            return
+          }
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+          // Disconnect only once the handler is waiting on Hermes, so body
+          // parsing and the insert above have already completed.
+          setTimeout(() => client.abort(new Error('caller disconnected')), 10)
+        }),
+    )
+
+    let response = router.fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ event: 'abort-test' }),
+      signal: client.signal,
+    })
+
+    await assert.rejects(() => response, /caller disconnected/)
+
+    let { rows } = await pool.query(
+      `SELECT id, hermes_status FROM webhook_requests
+       WHERE payload->>'event' = 'abort-test'
+       ORDER BY created_at DESC LIMIT 1`,
+    )
+    assert.equal(rows[0]?.hermes_status, 'aborted', 'a disconnect must not be recorded as error')
+    if (rows[0]?.id) cleanupIds.push(rows[0].id)
+  })
 })
