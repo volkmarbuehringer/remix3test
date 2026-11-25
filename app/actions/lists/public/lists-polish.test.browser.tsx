@@ -232,9 +232,7 @@ describe('row affordances', () => {
       '[data-item-actions] button[aria-label="Löschen"]',
     ) as HTMLButtonElement
     assert.ok(deleteBtn, 'the desktop delete action must render')
-    let glyphHref =
-      deleteBtn.querySelector('use')?.getAttribute('xlink:href') ??
-      deleteBtn.querySelector('use')?.getAttribute('href')
+    let glyphHref = deleteBtn.querySelector('use')?.getAttribute('href')
     assert.ok(glyphHref?.includes('trash'), 'delete must use the trash glyph')
 
     let save = container.querySelector('[data-manual-save]') as HTMLButtonElement

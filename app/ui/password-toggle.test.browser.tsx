@@ -34,7 +34,7 @@ function mountForm(): void {
         data-label-hide="Passwort ausblenden"
         aria-label="Passwort anzeigen"
       >
-        <svg><use xlink:href="#rmx-glyph-eye" /></svg>
+        <svg><use href="#rmx-glyph-eye" /></svg>
       </button>
       <button type="button" data-toggle-pw="" id="empty-name">kaputt</button>
       <button type="button" id="plain-btn">kein Toggle</button>
@@ -74,7 +74,7 @@ describe('PasswordToggle script', () => {
 
     assert.equal(pw().type, 'text', 'click reveals')
     assert.equal(useEl()?.getAttribute('href'), '#rmx-glyph-eyeOff')
-    assert.equal(useEl()?.getAttribute('xlink:href'), '#rmx-glyph-eyeOff')
+    assert.equal(useEl()?.getAttribute('xlink:href'), null, 'no legacy xlink attribute is written')
     assert.equal(toggleBtn().getAttribute('aria-label'), 'Passwort ausblenden')
   })
 

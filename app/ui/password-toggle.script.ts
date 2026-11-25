@@ -13,7 +13,6 @@ document.addEventListener('click', function(e) {
   var useEl = btn.querySelector('use');
   if (useEl) {
     var ref = isPassword ? '#rmx-glyph-eyeOff' : '#rmx-glyph-eye';
-    useEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', ref);
     useEl.setAttribute('href', ref);
   }
   var show = btn.getAttribute('data-label-show') || 'Passwort anzeigen';

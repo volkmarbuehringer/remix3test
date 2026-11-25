@@ -84,7 +84,7 @@ export function Glyph(handle: Handle<GlyphProps>): () => RemixElement {
         xmlns: 'http://www.w3.org/2000/svg',
       },
       createElement('use', {
-        xlinkHref: `#${glyphId}`,
+        href: `#${glyphId}`,
       }),
     )
   }
