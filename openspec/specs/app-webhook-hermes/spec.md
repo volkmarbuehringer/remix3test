@@ -63,6 +63,7 @@ After inserting the webhook payload, the system SHALL POST the UUID and payload 
 - The hermes fetch SHALL use a 3-second timeout
 - The hermes HTTP response code SHALL be stored in the `webhook_requests.hermes_status` column
 - If hermes is unreachable, the API SHALL still return success (data is persisted) with `hermes_status` set to `"error"`
+- If the caller disconnects while the hermes POST is in flight, the wait SHALL abort and `hermes_status` SHALL be set to `"aborted"`; `"error"` remains reserved for a timeout or unreachable hermes
 - On successful hermes delivery, the response SHALL include the `callbackUrl` and original `payload`
 
 #### Scenario: Hermes responds successfully
@@ -76,3 +77,10 @@ After inserting the webhook payload, the system SHALL POST the UUID and payload 
 - **WHEN** the insert succeeds but hermes does not respond within 3 seconds
 - **THEN** the response SHALL still return 200 with `{ "id": "<uuid>", "callbackUrl": "<url>", "payload": { ... } }`
 - **THEN** `webhook_requests.hermes_status` SHALL be `"error"`
+
+#### Scenario: Caller disconnects while hermes is processing
+
+- **WHEN** the request signal aborts while the hermes POST is in flight
+- **THEN** the fetch SHALL stop waiting and `webhook_requests.hermes_status` SHALL be `"aborted"`
+- **AND** the stored payload row SHALL remain intact
+- **AND** `"error"` SHALL NOT be used for a caller disconnect

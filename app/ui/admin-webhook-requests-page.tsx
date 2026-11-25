@@ -90,6 +90,7 @@ function is2xx(s: string): boolean {
 
 function statusBadgeMix(status: string | null) {
   if (!status) return statusBadgeNeutral
+  if (status === 'aborted') return statusBadgeWarning
   if (status === 'error') return statusBadgeError
   return is2xx(status) ? statusBadgeOk : statusBadgeError
 }
@@ -571,6 +572,15 @@ const statusBadgeError = css({
   borderRadius: theme.radius.full,
   backgroundColor: theme.colors.action.danger.background,
   color: theme.colors.action.danger.foreground,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const statusBadgeWarning = css({
+  fontSize: theme.fontSize.xs,
+  padding: `2px 8px`,
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
   fontWeight: theme.fontWeight.semibold,
 })
 

@@ -47,6 +47,12 @@ The system SHALL POST the webhook payload to the hermes event processor at `HERM
 - **THEN** `hermes_status` SHALL be set to `"error"`
 - **THEN** the page SHALL still render successfully with the updated status
 
+#### Scenario: Client disconnects while hermes is processing
+
+- **WHEN** the request signal aborts while the resend's hermes POST is in flight
+- **THEN** the wait SHALL abort and `hermes_status` SHALL be set to `"aborted"`
+- **AND** `"error"` SHALL remain reserved for a timeout or unreachable hermes
+
 ### Requirement: Grid state preserved after resend
 
 After executing the resend, the page SHALL re-render preserving the current offset, sort, and filter parameters.

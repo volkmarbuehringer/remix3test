@@ -297,6 +297,12 @@ describe('Admin webhook requests', () => {
 
     let row = await getWebhookRequest(db, id)
     assert.equal(row?.hermes_status, 'aborted', 'a disconnect must not be recorded as error')
+
+    let grid = await router.fetch(BASE + routes.admin.webhookRequests.index.href(), {
+      headers: authHeaders(),
+    })
+    assert.equal(grid.status, 200)
+    assert.ok((await grid.text()).includes('aborted'), 'the grid should render the aborted status')
   })
 
   it('GET /admin/webhook-requests/:id/resend PRGs to the grid preserving grid state', async () => {
