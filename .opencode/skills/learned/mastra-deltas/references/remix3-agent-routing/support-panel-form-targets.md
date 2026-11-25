@@ -30,7 +30,7 @@ real attribute bug (fixed in item #3):
 Vendor form interception resolves through an **uncanceled** native submit:
 `createFormNavigationResolver`'s `onFormData` bails while the submit event is
 still dispatching or was canceled — `event.currentTarget !== null ||
-event.defaultPrevented` (`frame.ts:2626` at source `24311e52`), so
+event.defaultPrevented` (`frame.ts:2626` at source `53dad21e`), so
 
 - an app listener that calls `e.preventDefault()` in the `submit` handler
   cancels the submission entirely — no `formdata`, no runtime frame fetch;

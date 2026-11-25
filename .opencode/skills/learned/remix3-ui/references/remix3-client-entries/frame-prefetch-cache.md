@@ -1,6 +1,6 @@
 # Frame prefetching with a one-shot response cache
 
-**Extracted:** 2026-10-23 · **Updated:** 2026-11-24 · **Pin:** remix 3.3.0 (preview release `v0.0.20261125-main-24311e52` / source `24311e52`)
+**Extracted:** 2026-10-23 · **Updated:** 2026-11-24 · **Pin:** remix 3.3.0 (preview release `v0.0.20261125-main-53dad21e` / source `53dad21e`)
 **Vendor:** `@remix-run/component/src/runtime/prefetch.ts` (`defaultPrefetch`, `createDefaultPrefetch`, `startPrefetching`, `startViewportPrefetching`, `getIntentAnchor`), `run.ts` (`prefetch` option), installed guide `node_modules/remix/guides/05-interactivity.md` §"Prefetch links before navigation".
 
 ## Why the default prefetcher is not enough here
