@@ -15,6 +15,7 @@ import type { SessionStorage } from 'remix/session'
 
 import { globalRateLimit } from './global-rate-limit.ts'
 import { requestTimeout } from './request-timeout.ts'
+import { queryAbortScope } from './query-abort.ts'
 import { skipCsrf } from './skip-csrf.ts'
 
 import { json } from './json-render.ts'
@@ -96,6 +97,9 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     // session/database/body parsing so a slow request is bounded before it can
     // hold those resources; SSE requests are skipped inside the middleware.
     requestTimeout(),
+    // Expose the combined request/deadline signal to query helpers. Runs after
+    // requestTimeout() so data reads see deadline aborts as well as disconnects.
+    queryAbortScope(),
     // Must run OUTSIDE session(): a PRG follow re-fetches the redirect
     // destination as a new request, and the session middleware only persists
     // the flash when the outer response unwinds. Outside it, the flash is

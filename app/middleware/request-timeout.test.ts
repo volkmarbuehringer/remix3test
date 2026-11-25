@@ -1,6 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import type { RequestContext } from 'remix/router'
+import { createRouter, type RequestContext } from 'remix/router'
 
 import { requestTimeout } from './request-timeout.ts'
 
@@ -59,6 +59,49 @@ describe('requestTimeout middleware', () => {
 
     await delay(0)
     assert.ok(lateBodyCancelled, 'the abandoned response body should be cancelled')
+  })
+
+  it('waits for downstream cleanup before rejecting an aborted router request', async () => {
+    let client = new AbortController()
+    let downstreamStarted = Promise.withResolvers<void>()
+    let downstreamSignal: AbortSignal | undefined
+    let events: string[] = []
+
+    let router = createRouter({
+      middleware: [requestTimeout({ timeoutMs: 60_000 })],
+    })
+    router.get('/', async (context) => {
+      downstreamSignal = context.request.signal
+      downstreamStarted.resolve()
+      await new Promise<void>((resolve) => {
+        downstreamSignal?.addEventListener(
+          'abort',
+          () => {
+            events.push('downstream aborted')
+            setTimeout(() => {
+              events.push('cleanup complete')
+              resolve()
+            }, 5)
+          },
+          { once: true },
+        )
+      })
+      return new Response('late')
+    })
+
+    let response = router.fetch('https://remix.run/', { signal: client.signal })
+    response.catch(() => events.push('router rejected'))
+
+    await downstreamStarted.promise
+    client.abort(new Error('client disconnected'))
+    await assert.rejects(response, /client disconnected/)
+
+    assert.ok(downstreamSignal?.aborted, 'the caller abort should reach the downstream signal')
+    assert.deepEqual(
+      events,
+      ['downstream aborted', 'cleanup complete', 'router rejected'],
+      'the router should reject only after downstream cleanup settles',
+    )
   })
 
   it('still rejects when downstream fails before the deadline', async () => {

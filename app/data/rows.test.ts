@@ -4,6 +4,7 @@ import { sql } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { db, initializeAppDatabase } from '../db.ts'
+import { runWithRequestSignal } from '../utils/request-signal.ts'
 import { queryRows, queryRow, int8Aggregate, RawRowError } from './rows.ts'
 
 async function createTestUser(): Promise<number> {
@@ -89,6 +90,34 @@ describe('queryRows / queryRow', () => {
     } finally {
       await cleanupUser(userId)
     }
+  })
+
+  it('stops raw reads after a request abort and rejects once the in-flight query settles', async () => {
+    let controller = new AbortController()
+    let release = Promise.withResolvers<void>()
+    let calls = 0
+    let fakeDb = {
+      async exec() {
+        calls += 1
+        await release.promise
+        return { rows: [{ id: 1, email: 'rows@example.com', name: 'Rows Test' }] }
+      },
+    } as unknown as Parameters<typeof queryRows>[0]
+
+    let pending = runWithRequestSignal(controller.signal, () =>
+      queryRows(fakeDb, 'select 1', userRowSchema),
+    )
+    assert.equal(calls, 1, 'the first read should start before the abort')
+
+    controller.abort(new Error('client disconnected'))
+    release.resolve()
+
+    await assert.rejects(pending, /client disconnected/)
+    await assert.rejects(
+      runWithRequestSignal(controller.signal, () => queryRows(fakeDb, 'select 1', userRowSchema)),
+      /client disconnected/,
+    )
+    assert.equal(calls, 1, 'no new read should start after the abort')
   })
 
   it('int8Aggregate decodes an int8 aggregate to a number', async () => {
