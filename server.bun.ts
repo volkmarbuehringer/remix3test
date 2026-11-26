@@ -1,3 +1,7 @@
+// Editors only auto-discover a file named tsconfig.json, which excludes this
+// entry and its Bun types; tsconfig.bun.json covers the CLI typecheck.
+/// <reference types="bun" />
+
 import * as fs from 'node:fs'
 
 import { assetServer } from './app/assets.ts'
