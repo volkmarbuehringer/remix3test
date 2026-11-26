@@ -59,5 +59,6 @@
     "**/tmp": true,
     "**/test-results": true,
     "**/.coverage": true
-  }
+  },
+  "js/ts.tsdk.path": "node_modules/typescript"
 }
