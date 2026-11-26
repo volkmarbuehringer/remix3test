@@ -41,6 +41,7 @@
     "gan-evaluator",
     "gan-generator",
     "gan-planner",
+    "gdscript-reviewer",
     "go-build",
     "go-build-resolver",
     "go-review",
