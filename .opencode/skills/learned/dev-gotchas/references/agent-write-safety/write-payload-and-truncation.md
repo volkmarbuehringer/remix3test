@@ -125,5 +125,5 @@ A long line can be legitimate; the literal marker is the definitive signal.
 
 ## See Also
 
-- `remix3-tooling § Testing` → `references/remix3-testing/testing-hygiene.md` — `/tmp` is private to one command execution; screenshots and scratch artifacts belong under the repo's gitignored `tmp`.
+- `remix3 § Tooling > Testing` → `references/remix3-testing/testing-hygiene.md` — `/tmp` is private to one command execution; screenshots and scratch artifacts belong under the repo's gitignored `tmp`.
 - `dev-gotchas § Format Triage` — the adjacent tool-induced corruption: a repo-wide formatter rewrote files outside the session's edit set.

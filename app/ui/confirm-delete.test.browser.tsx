@@ -61,7 +61,7 @@ async function waitDialogGone() {
   assert.fail('dialog did not close (exit animation never finished)')
 }
 
-/** Entrance animations use fill: 'none', so they leave getAnimations() once done. */
+/** The vendor dialog's CSS transitions are finite; wait for getAnimations() to drain. */
 async function waitForEntranceAnimations() {
   for (let i = 0; i < 200; i++) {
     if ((dialog()?.getAnimations({ subtree: true }).length ?? 0) === 0) return
@@ -153,16 +153,16 @@ describe('ConfirmDelete', () => {
     let accept = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-accept]')!
     assert.equal(document.activeElement, accept, 'focus starts on the confirm button')
 
-    // The native modal makes the rest of the document inert, so a background
-    // focus attempt must not move focus out of the dialog.
+    // The vendor modal traps focus/makes the rest of the document inert, so a
+    // background focus attempt must not move focus out of the dialog.
     btn.focus()
     assert.equal(document.activeElement, accept, 'the background is inert while the dialog is open')
 
     let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
     await result!.act(() => cancel.click())
     await waitDialogGone()
-    // The dialog is closed after animateExit removes the retained node; the
-    // removal observer then restores focus on a later task.
+    // The vendor dialog tears down its portal after the exit transition and
+    // restores focus on a later task.
     await waitForFocusReturn(btn)
 
     assert.equal(document.activeElement, btn, 'focus returns to the trigger')

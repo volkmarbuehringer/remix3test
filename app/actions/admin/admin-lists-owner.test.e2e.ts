@@ -13,7 +13,7 @@ import { pool } from '../../../test/pool.ts'
 // The link is a document navigation (`data-rmx-document`) on purpose: an
 // in-frame one reuses the users filter input DOM node, so the input would keep
 // the lists page's text while the grid filtered by the owner — see
-// .opencode/skills/learned/remix3-ui/references/remix3-frame-cliententry/
+// .opencode/skills/learned/remix3/references/remix3-frame-cliententry/
 // frame-layout-and-testing.md ("Frame Input Value Preservation"). The
 // assertions below pin both halves of the contract: the rows are filtered AND
 // the input echoes the applied filter. Seed rows are tagged

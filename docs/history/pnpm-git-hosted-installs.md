@@ -82,7 +82,7 @@ the generated tarball's own dependencies on the branch: they are still
 `remix-run/remix#preview/main&path:packages/…`. A lockless install can therefore
 resolve the top-level SHA you wrote while pulling a newer tip for the transitive
 `@remix-run/*` set — the "Branch-pin transitive race" note in
-`.opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md`.
+`.opencode/skills/learned/remix3/references/remix3-build-and-tooling/upstream-dependency-analysis.md`.
 The unified lockfile was the only artifact that pinned all 268 refs together;
 do not delete it.
 

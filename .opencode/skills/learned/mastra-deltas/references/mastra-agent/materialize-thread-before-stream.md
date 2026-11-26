@@ -61,8 +61,7 @@ controller opts in, because only its processor reads memory.
   `ensureChatThread` leaves `createdAt` intact. The schema is created once in
   `test/setup.ts` (`initializeMastraStorage()`) so parallel workers don't race
   on the Postgres catalog and fail the first recall with a `pg_class_…`
-  duplicate-key error instead of `/No thread found/` (see remix3-data
-  § DDL Bootstrap and Catalog Races).
+  duplicate-key error instead of `/No thread found/` (see remix3 § Data > Database & Migrations).
 - `app/actions/support-agent/controller.test.ts` guards the wiring: a mock agent
   that exposes `getMemory().createThread` records the created thread, and the
   test asserts it is the same id passed to `stream`'s `memory.thread`.

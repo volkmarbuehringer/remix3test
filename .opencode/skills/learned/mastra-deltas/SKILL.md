@@ -83,7 +83,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 - `mastra-deltas § Tools` — approval gating, suspension detection, tool design patterns
 - `mastra-deltas § Workflow` — Workflow resume/abort race and step type compatibility
 - `mastra-deltas § Agent Routing` — agent-driven frame navigation and form prefill using the `navigate` event
-- `remix3-server § Security` (`references/security-gotchas/security-middleware.md`) — CSRF bypass for SSE endpoints
+- `remix3 § Server > Request-Handling Security` (`references/security-gotchas/security-middleware.md`) — CSRF bypass for SSE endpoints
 - `dev-gotchas § Rate Limiter` — rate limiter configuration for multi-step agent flows
 
 ---
@@ -116,8 +116,8 @@ This skill is the **index** for tool-design deltas. For the base approval API (`
 
 - `mastra-deltas § Agent` — SSE streaming, askUserTool/requireApproval transport, tool result extraction
 - `mastra-deltas § Workflow` — Mastra Workflow resume/abort race and step type compatibility
-- `remix3-server § Security` (`references/security-gotchas/security-middleware.md`) — CSRF protection for approval form endpoints
-- `remix3-ui § Frames` (`references/remix3-frame-cliententry/session-flash-frames.md`) — `session.flash()` for one-time approval UI routing decisions
+- `remix3 § Server > Request-Handling Security` (`references/security-gotchas/security-middleware.md`) — CSRF protection for approval form endpoints
+- `remix3 § UI > Frames` (`references/remix3-frame-cliententry/session-flash-frames.md`) — `session.flash()` for one-time approval UI routing decisions
 
 ---
 
@@ -157,7 +157,7 @@ _(formerly `remix3-agent-routing` — references live under `references/remix3-a
 
 **Consolidated from:** `remix3-agent-driven-frame-navigation`, `remix3-agent-form-prefill`, `agent-aware-form-controller`
 
-This skill is the **index** for the agent-routing pipeline. For the SSE transport that carries `navigate`/`question`/`suspension` events, see `mastra-deltas § Agent`. For the frame/clientEntry mechanics, see `remix3-ui § Frames`.
+This skill is the **index** for the agent-routing pipeline. For the SSE transport that carries `navigate`/`question`/`suspension` events, see `mastra-deltas § Agent`. For the frame/clientEntry mechanics, see `remix3 § UI > Frames`.
 
 ### Load Only The References You Need
 
@@ -178,6 +178,6 @@ This skill is the **index** for the agent-routing pipeline. For the SSE transpor
 ### Related Skills
 
 - `mastra-deltas § Agent` — the SSE transport that carries `navigate` and `question` events
-- `remix3-data § Validation Errors` — validation errors re-render inline and preserve user edits over prefill values
-- `remix3-server § Security` (`references/security-gotchas/security-middleware.md`) — CSRF configuration for agent endpoints
+- `remix3 § Data > Validation Errors` — validation errors re-render inline and preserve user edits over prefill values
+- `remix3 § Server > Request-Handling Security` (`references/security-gotchas/security-middleware.md`) — CSRF configuration for agent endpoints
 - `dev-gotchas § Rate Limiter` — rate limiter settings for multi-step agent flows

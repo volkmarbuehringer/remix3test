@@ -134,10 +134,10 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 
 ### Related Skills
 
-- `remix3-ui § Frames` — the frame/theme host-binding context that hits the TS7 order-sensitive `MixinDescriptor` relation
-- `remix3-tooling § Build & Tooling` (`references/remix3-build-and-tooling/upstream-dependency-analysis.md`) — deciding whether a preview-pinned dependency update's new runtime validation affects your project
-- `remix3-tooling § Testing` — Remix 3 test-suite patterns that consume the mutable-setter import seam
-- `remix3-ui § Client Entries` — the Remix 3 clientEntry handler / pending-state context where this re-entrancy bug is most often written
+- `remix3 § UI > Frames` — the frame/theme host-binding context that hits the TS7 order-sensitive `MixinDescriptor` relation
+- `remix3 § Tooling > Build & Tooling` (`references/remix3-build-and-tooling/upstream-dependency-analysis.md`) — deciding whether a preview-pinned dependency update's new runtime validation affects your project
+- `remix3 § Tooling > Testing` — Remix 3 test-suite patterns that consume the mutable-setter import seam
+- `remix3 § UI > Client Entries` — the Remix 3 clientEntry handler / pending-state context where this re-entrancy bug is most often written
 
 ---
 
@@ -256,4 +256,4 @@ Two failure modes that leave a file which parses, formats, and type-checks: a `t
 ### Related
 
 - `dev-gotchas § Format Triage` — the adjacent tool-induced corruption: a repo-wide formatter rewrote files outside the session's edit set.
-- `remix3-tooling § Testing` → `references/remix3-testing/testing-hygiene.md` — `/tmp` is private to one command execution; scratch artifacts belong under the repo's gitignored `tmp/`.
+- `remix3 § Tooling > Testing` → `references/remix3-testing/testing-hygiene.md` — `/tmp` is private to one command execution; scratch artifacts belong under the repo's gitignored `tmp/`.

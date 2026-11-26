@@ -477,7 +477,7 @@ async function main(): Promise<void> {
     console.error('')
     console.error('Remix pin check failed: the analysis reference is not on the current install.')
     console.error(
-      'Update .opencode/skills/learned/remix3-tooling/references/remix3-build-and-tooling/upstream-dependency-analysis.md',
+      'Update .opencode/skills/learned/remix3/references/remix3-build-and-tooling/upstream-dependency-analysis.md',
     )
     process.exitCode = 1
     return

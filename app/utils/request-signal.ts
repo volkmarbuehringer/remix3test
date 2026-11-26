@@ -15,11 +15,3 @@ export function runWithRequestSignal<T>(signal: AbortSignal, callback: () => T):
 export function getRequestSignal(): AbortSignal | undefined {
   return storage.getStore()
 }
-
-/**
- * Throw the request abort reason if the current request has been aborted.
- * Safe to call outside a request scope (for example, background jobs/tests).
- */
-export function throwIfRequestAborted(): void {
-  getRequestSignal()?.throwIfAborted()
-}

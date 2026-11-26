@@ -126,7 +126,7 @@ Classify every assertion you touch first:
 - A success POST that renders the page must become flash + `303`; otherwise refresh
   re-submits the form (`app/actions/settings/controller.tsx` password change).
 - Run the affected files, then the full server/browser/e2e suites; update the learned
-  owner reference in the same pass (`remix3-data` forms/validation, guide coverage row).
+  owner reference in the same pass (`remix3 § Data > Validation Errors` forms/validation, guide coverage row).
 
 ## Traps
 

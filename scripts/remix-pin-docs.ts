@@ -165,7 +165,7 @@ const ANALYSIS_DOC = path.join(
   '.opencode',
   'skills',
   'learned',
-  'remix3-tooling',
+  'remix3',
   'references',
   'remix3-build-and-tooling',
   'upstream-dependency-analysis.md',

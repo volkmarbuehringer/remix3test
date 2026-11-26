@@ -53,7 +53,7 @@ const csrfMiddleware = csrf({
 // (SSE/agent streams call fetch() and cannot embed a form token). A custom
 // header a cross-site form cannot set keeps the fetch transport CSRF-free;
 // a token-bearing native form falls through to the regular csrf() check (see
-// the `remix3-server` skill's `references/security-gotchas/security-middleware.md` section).
+// the `remix3` skill's § Server > Request-Handling Security (`references/security-gotchas/security-middleware.md`).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
 const AGENT_PATHS = [
