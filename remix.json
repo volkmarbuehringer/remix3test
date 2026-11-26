@@ -33,11 +33,12 @@
     "files": ["**/*.test{,.browser,.e2e}.{ts,tsx}"],
     "browserFiles": ["**/*.test.browser.{ts,tsx}"],
     "e2eFiles": ["**/*.test.e2e.{ts,tsx}"],
-    // Intentionally empty. `--glob.exclude` also filters explicit positional
-    // globs, so excluding `tmp/**` would break the chapter-audit probes
-    // (`remix test tmp/<probe>.test.ts`). Probes are gitignored and deleted
-    // after use; the glob already skips `node_modules` in Node and Bun.
-    "exclude": [],
+    // Keep the runner default, but state it explicitly: Bun's glob can follow
+    // pnpm's package symlinks, so without this it collects dependency tests
+    // (pg-protocol, pino, the remix CLI template). Do not add `tmp/**` here:
+    // `--glob.exclude` also filters explicit positional globs, which would
+    // break the chapter-audit probes (`remix test tmp/<probe>.test.ts`).
+    "exclude": ["node_modules/**"],
     "playwright": {
       "echo": false,
       "open": false,
