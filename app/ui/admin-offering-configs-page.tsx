@@ -32,7 +32,6 @@ import type {
   OfferingConfigRow,
   OfferingConfigResourceOption,
 } from '../data/offering-configs-queries.ts'
-import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
@@ -503,7 +502,6 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
     let gridSection = (
       <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
-        <ConfirmDelete />
         {!hasFormPanel && formError ? (
           <div mix={table.errorBanner} role="alert">
             {formError}

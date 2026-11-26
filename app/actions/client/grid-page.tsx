@@ -7,7 +7,6 @@ import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
 import type { Client } from '../../data/schema.ts'
 import { FrameRefreshButton } from './public/grid-refresh-button.tsx'
-import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { routes } from '../../routes.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
@@ -153,8 +152,6 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
 
     return (
       <div mix={dataGridFill} id="client-grid-content">
-        <ConfirmDelete />
-
         {/* Toolbar + Filter bar (single GET form → frame navigation) */}
         <form
           method="GET"

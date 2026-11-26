@@ -13,6 +13,9 @@ const popoverSurfaceTransitionCss: CSSMixinDescriptor = css({
     pointerEvents: 'none',
     transition: 'opacity 180ms ease-in',
   },
+  '@media (prefers-reduced-motion: reduce)': {
+    transition: 'none',
+  },
 })
 
 const popoverSurfaceCss: CSSMixinDescriptor = css({

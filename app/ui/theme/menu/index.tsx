@@ -169,13 +169,15 @@ export function MenuList(handle: Handle<MenuListProps>): () => RemixNode {
     let { children, mix, ...divProps } = handle.props
 
     return (
-      <menu.PopoverContext>
-        <div mix={[popoverSurfaceStyle, popoverStyle, menu.popover()]}>
-          <div {...divProps} mix={[listStyle, menu.list(), mix]}>
-            {children}
+      <menu.Portal>
+        <menu.PopoverContext>
+          <div mix={[popoverSurfaceStyle, popoverStyle, menu.popover()]}>
+            <div {...divProps} mix={[listStyle, menu.list(), mix]}>
+              {children}
+            </div>
           </div>
-        </div>
-      </menu.PopoverContext>
+        </menu.PopoverContext>
+      </menu.Portal>
     )
   }
 }

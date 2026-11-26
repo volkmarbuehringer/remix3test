@@ -311,9 +311,8 @@ export const AppointTypePanel = clientEntry(
               })
               .catch(() => showToast('Fehler beim Löschen.'))
           }
-          // The schedule page mounts <ConfirmDelete> beside this panel, so the
-          // delete uses the shared styled modal. Headless/unit renders without
-          // that host keep the blocking native prompt.
+          // The shell-owned <ConfirmDelete> beside ToastHost takes over; without
+          // it (headless/unit renders) the native prompt keeps the original click flowing.
           if (
             requestConfirm({
               message,

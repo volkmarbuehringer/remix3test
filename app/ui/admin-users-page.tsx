@@ -10,7 +10,6 @@ import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { UserAccountFields, fieldHintStyle } from './admin-users-fields.tsx'
@@ -551,8 +550,6 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
     let gridSection = (
       <div mix={[table.minWidth0, hasPanel ? undefined : dataGridFill]}>
-        <ConfirmDelete />
-
         {/* Toolbar + Filter */}
         <form
           method="GET"

@@ -1,8 +1,9 @@
-import { clientEntry, css, on, ref, type Handle } from 'remix/component'
-import { animateEntrance, animateExit, spring } from '@remix-run/ui/animation'
+import { clientEntry, css, on, type Handle } from 'remix/component'
+import { spring } from '@remix-run/ui/animation'
+import * as dialog from '@remix-run/ui/dialog'
+
 import { theme } from './theme/theme.ts'
 import button from './theme/button.ts'
-import { entrance, exit } from '../utils/motion.ts'
 
 interface PendingConfirm {
   message: string
@@ -33,7 +34,7 @@ interface ConfirmRequestDetail extends ConfirmRequestOptions {
 }
 
 /**
- * Ask the page's ConfirmDelete instance to confirm an action, so non-click
+ * Ask the shell-owned ConfirmDelete instance to confirm an action, so non-click
  * triggers (context-menu deletes, bulk buttons) share the same dialog. Returns
  * true once a dialog has taken over — the callback then runs only if accepted.
  * Returns false when no dialog is mounted, letting the caller fall back to
@@ -72,49 +73,45 @@ export function requestConfirmDecision(detail: ConfirmRequestOptions): Promise<b
   return event.defaultPrevented ? decision : null
 }
 
-const overlayStyle = css({
-  position: 'fixed',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  maxWidth: 'none',
-  maxHeight: 'none',
-  margin: 0,
-  padding: theme.space.lg,
-  border: 0,
-  background: 'rgba(0, 0, 0, 0.45)',
-  color: 'inherit',
-  boxSizing: 'border-box',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+const hiddenMarker = css({ display: 'none' })
+
+const backdropStyle = css({
+  backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  opacity: 0,
+  transition: 'opacity 120ms ease-out',
+  '&[data-state="open"]': {
+    opacity: 1,
+  },
+  '@media (prefers-reduced-motion: reduce)': {
+    transition: 'none',
+  },
 })
 
-const dialogStyle = css({
-  width: '100%',
-  maxWidth: '420px',
+const surfaceStyle = css({
+  inset: 0,
+  width: 'min(420px, calc(100vw - 2rem))',
+  height: 'max-content',
+  maxHeight: 'calc(100dvh - 2rem)',
+  margin: 'auto',
+  overflow: 'auto',
+  boxSizing: 'border-box',
   background: theme.surface.lvl0,
   border: '1px solid ' + theme.colors.border.default,
   borderRadius: theme.radius.lg,
   boxShadow: theme.shadow.md,
   padding: theme.space.lg,
-})
-
-// Entrance/exit for the overlay + dialog (guides.remix.run/animation).
-// Keys on the conditional elements let the runtime track enter/exit identity.
-// The dialog fades on a short tween while the transform keeps the spring;
-// `transition` (#12220) overrides the shared timing per property.
-const dialogFade = { opacity: { duration: 120, easing: 'ease-out' } } as const
-const dialogMotion = {
   opacity: 0,
   transform: 'scale(0.97) translateY(4px)',
-  ...spring('snappy'),
-  transition: dialogFade,
-}
-const overlayEntrance = animateEntrance(entrance({ opacity: 0, ...spring('snappy') }))
-const overlayExit = animateExit(exit({ opacity: 0, ...spring('snappy') }))
-const dialogEntrance = animateEntrance(entrance(dialogMotion))
-const dialogExit = animateExit(exit(dialogMotion))
+  transition: `opacity 120ms ease-out, transform ${spring('snappy')}`,
+  '&[data-state="open"]': {
+    opacity: 1,
+    transform: 'none',
+  },
+  '@media (prefers-reduced-motion: reduce)': {
+    transition: 'none',
+    transform: 'none',
+  },
+})
 
 const titleStyle = css({
   margin: 0,
@@ -143,15 +140,16 @@ const actionsStyle = css({
  * always prevented; confirming re-submits the original form with requestSubmit,
  * which still fires a submit event so the frame runtime intercepts it normally.
  *
- * The dialog is a native modal `<dialog>` opened with showModal(), so focus is
- * contained, the page behind it is inert, and Escape arrives as `cancel`.
- *
- * Rendered once per grid, so the delegated listeners are registered once.
+ * The shell mounts one instance (next to ToastHost) so every page shares the
+ * same dialog, it survives frame swaps, and the vendor overlay stack orders it
+ * with menus, popovers and nested dialogs.
  */
 export const ConfirmDelete = clientEntry(
   import.meta.url + '#ConfirmDelete',
   function ConfirmDelete(handle: Handle) {
     let pending: PendingConfirm | null = null
+    let open = false
+    let decision: 'confirm' | 'cancel' | null = null
 
     // Schedule browser-only setup after the client commit (guide 05
     // §"DOM references, global events, and cleanup"): setup also runs during
@@ -167,8 +165,7 @@ export const ConfirmDelete = clientEntry(
           if (!form) return
           event.preventDefault()
           event.stopPropagation()
-          pending?.onCancel?.()
-          pending = {
+          start({
             message: form.getAttribute('data-confirm') || 'Wirklich löschen?',
             title: form.getAttribute('data-confirm-title') || 'Löschen bestätigen',
             confirmLabel: form.getAttribute('data-confirm-label') || 'Löschen',
@@ -176,8 +173,7 @@ export const ConfirmDelete = clientEntry(
             // requestSubmit (not submit) dispatches a submit event, so the frame
             // runtime still performs the DELETE navigation.
             onConfirm: () => form.requestSubmit(btn),
-          }
-          void handle.update()
+          })
         },
         { capture: true, signal: handle.signal },
       )
@@ -188,136 +184,109 @@ export const ConfirmDelete = clientEntry(
           let detail = (event as CustomEvent<ConfirmRequestDetail>).detail
           if (!detail) return
           event.preventDefault()
-          pending?.onCancel?.()
-          pending = {
+          start({
             message: detail.message,
             title: detail.title || 'Löschen bestätigen',
             confirmLabel: detail.confirmLabel || 'Löschen',
             tone: detail.tone || 'danger',
             onConfirm: detail.onConfirm,
             onCancel: detail.onCancel,
-          }
-          void handle.update()
+          })
         },
         { signal: handle.signal },
       )
     })
 
-    let dialogEl: HTMLDialogElement | null = null
-    let removalObserver: MutationObserver | null = null
-    let returnFocusTo: HTMLElement | null = null
-
-    /**
-     * Use a native modal `<dialog>` for real focus containment, inertness and
-     * Escape handling. `showModal()` happens on insert rather than from state,
-     * and the dialog stays open while animateExit fades the retained node.
-     * Closing immediately would hide it before the exit transition, so restore
-     * focus manually once the retained node is disconnected — `close()` on a
-     * disconnected dialog no longer restores focus.
-     */
-    function watchForRemoval(dialog: HTMLDialogElement) {
-      if (removalObserver) return
-      removalObserver = new MutationObserver(() => {
-        if (dialog.isConnected) return
-        removalObserver?.disconnect()
-        removalObserver = null
-        let target = returnFocusTo
-        returnFocusTo = null
-        if (dialogEl === dialog) dialogEl = null
-        if (target?.isConnected) target.focus()
-      })
-      removalObserver.observe(document.body, { childList: true, subtree: true })
-    }
-
-    handle.signal.addEventListener('abort', () => {
-      removalObserver?.disconnect()
-      removalObserver = null
-      returnFocusTo = null
-      dialogEl = null
-    })
-
-    function dismiss(): PendingConfirm | null {
-      let current = pending
-      pending = null
+    function start(detail: PendingConfirm) {
+      // A later confirmation supersedes one still exiting; release any caller
+      // that was waiting on the old decision, but never re-run a settled one.
+      if (pending && decision === null) pending.onCancel?.()
+      pending = detail
+      decision = null
+      open = true
       void handle.update()
-      return current
     }
 
-    function close() {
-      dismiss()?.onCancel?.()
+    function cancel() {
+      let current = pending
+      if (!current || decision !== null) return
+      decision = 'cancel'
+      open = false
+      void handle.update()
+      current.onCancel?.()
     }
 
     function accept() {
-      dismiss()?.onConfirm()
+      let current = pending
+      if (!current || decision !== null) return
+      decision = 'confirm'
+      open = false
+      void handle.update()
+      current.onConfirm()
+    }
+
+    function finishClose() {
+      pending = null
+      decision = null
+      open = false
+      void handle.update()
     }
 
     return () => {
       // The idle marker tells callers (and e2e) that the dialog is hydrated and
       // can take over a confirmation instead of the native window.confirm.
-      if (!pending) return <div data-confirm-ready="true" mix={css({ display: 'none' })} />
+      if (!pending) return <div data-confirm-ready="true" mix={hiddenMarker} />
       let current = pending
       return (
-        <dialog
-          key="confirm-dialog"
-          data-confirm-overlay="true"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="confirm-delete-title"
-          aria-describedby="confirm-delete-message"
-          mix={[
-            overlayStyle,
-            overlayEntrance,
-            overlayExit,
-            ref((el) => {
-              if (!el) return
-              dialogEl = el
-              if (!el.open) {
-                let active = document.activeElement
-                returnFocusTo =
-                  active instanceof HTMLElement && active !== document.body ? active : null
-                el.showModal()
-              }
-              watchForRemoval(el)
-            }),
-            on('cancel', (event) => {
-              event.preventDefault()
-              close()
-            }),
-            on('click', (event) => {
-              if (event.target === event.currentTarget) close()
-            }),
-          ]}
+        <dialog.Context
+          open={open}
+          onOpenChange={(next) => {
+            if (!next) cancel()
+          }}
+          onOpenChangeComplete={(next) => {
+            if (!next) finishClose()
+          }}
         >
-          <div
-            key="confirm-card"
-            data-confirm-dialog="true"
-            mix={[dialogStyle, dialogEntrance, dialogExit]}
-          >
-            <h2 id="confirm-delete-title" mix={titleStyle}>
-              {current.title}
-            </h2>
-            <p id="confirm-delete-message" mix={messageStyle}>
-              {current.message}
-            </p>
-            <div mix={actionsStyle}>
-              <button
-                type="button"
-                data-confirm-cancel="true"
-                mix={[button({ tone: 'secondary' }), on('click', close)]}
+          <dialog.Portal>
+            <div data-confirm-overlay="true" mix={[backdropStyle, dialog.backdrop()]} />
+            <dialog.SurfaceContext>
+              <div
+                role="alertdialog"
+                data-confirm-dialog="true"
+                aria-labelledby="confirm-delete-title"
+                aria-describedby="confirm-delete-message"
+                mix={[surfaceStyle, dialog.surface()]}
               >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                data-confirm-accept="true"
-                autoFocus
-                mix={[button({ tone: current.tone }), on('click', accept)]}
-              >
-                {current.confirmLabel}
-              </button>
-            </div>
-          </div>
-        </dialog>
+                <h2 id="confirm-delete-title" mix={titleStyle}>
+                  {current.title}
+                </h2>
+                <p id="confirm-delete-message" mix={messageStyle}>
+                  {current.message}
+                </p>
+                <div mix={actionsStyle}>
+                  <button
+                    type="button"
+                    data-confirm-cancel="true"
+                    mix={[button({ tone: 'secondary' }), on('click', cancel)]}
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    data-confirm-accept="true"
+                    mix={[
+                      button({ tone: current.tone }),
+                      dialog.focusOnShow(),
+                      on('click', accept),
+                    ]}
+                  >
+                    {current.confirmLabel}
+                  </button>
+                </div>
+              </div>
+            </dialog.SurfaceContext>
+          </dialog.Portal>
+        </dialog.Context>
       )
     }
   },

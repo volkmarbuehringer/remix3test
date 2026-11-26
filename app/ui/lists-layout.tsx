@@ -10,7 +10,6 @@ import { NavLink } from './nav-link.tsx'
 import { formatRelativeTimeDE } from '../utils/date-utils.ts'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { ListNameEdit } from '../actions/lists/public/list-name-edit.tsx'
 import { ListsSearch } from '../actions/lists/public/lists-search.tsx'
 import { ListsSidebarKeyboard } from '../actions/lists/public/lists-sidebar-keyboard.tsx'
@@ -847,7 +846,6 @@ function ListsLayout(
           clicks. Keeping it as a direct child of the page grid preserves the
           viewport-wide overlay.
         */}
-        <ConfirmDelete />
         <SidebarToggle />
       </div>
     )

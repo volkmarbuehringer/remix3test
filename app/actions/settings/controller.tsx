@@ -37,7 +37,6 @@ import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/pas
 import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
-import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
 import { PageSizeCustomInput, PageSizeSelect } from '../../ui/page-size-control.tsx'
 import { buttonLink } from '../../ui/theme/button.ts'
@@ -405,7 +404,6 @@ function SettingsView(handle: Handle<SettingsViewProps>) {
           >
             <SettingsTabs {...props} />
             <PasswordToggle />
-            <ConfirmDelete />
           </PageSection>
         </Layout>
       )
@@ -433,7 +431,6 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
             src={`${routes.settings.index.href()}?tab=${activeTab}`}
           />
           <PasswordToggle />
-          <ConfirmDelete />
         </PageSection>
       </Layout>
     )

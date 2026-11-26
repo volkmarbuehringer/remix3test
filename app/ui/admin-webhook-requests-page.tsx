@@ -9,7 +9,6 @@ import { Glyph } from './theme/glyph/glyph.tsx'
 import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
-import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
@@ -143,7 +142,6 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
 
     let gridSection = (
       <div mix={hasSidebar ? table.minWidth0 : dataGridFill}>
-        <ConfirmDelete />
         <AdminRowActionsOverlay />
         <form method="GET" action={BASE} data-rmx-target={frameTarget} mix={table.filterBar}>
           <input

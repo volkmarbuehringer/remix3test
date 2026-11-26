@@ -29,7 +29,6 @@ import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { FormErrorFocus } from './form-error-focus.browser.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
@@ -225,7 +224,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
 
     let gridSection = (
       <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
-        <ConfirmDelete />
         {!hasFormPanel && formError ? (
           <div mix={table.errorBanner} role="alert">
             {formError}

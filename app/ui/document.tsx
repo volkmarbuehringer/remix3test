@@ -14,6 +14,7 @@ import { themeBootstrapScript } from './theme-bootstrap.ts'
 import { viewportBootstrapScript } from './viewport-bootstrap.ts'
 import { FlashAnnouncer } from './flash-announcer.browser.tsx'
 import { ToastHost } from './toast-host.browser.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { APP_OVERLAY_ROOT_ID } from './overlay-root.tsx'
 
 interface DocumentProps {
@@ -188,6 +189,7 @@ export function Document(handle: Handle<DocumentProps>) {
               live region (which screen readers do not announce). */}
           <FlashAnnouncer />
           <ToastHost />
+          <ConfirmDelete />
           {children}
           {/* Shell-owned portal destination (app/ui/overlay-root.tsx). It must
               stay outside every frame and after the shell so client overlay

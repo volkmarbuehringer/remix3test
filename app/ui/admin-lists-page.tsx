@@ -11,7 +11,6 @@ import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { ADMIN_LISTS_TRANSITION_REGION } from '../utils/frame-transition.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { EditorAutofocus } from './editor-autofocus.browser.tsx'
@@ -684,7 +683,6 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
 
     let gridSection = (
       <div mix={[table.minWidth0, hasFormPanel ? undefined : dataGridFill]}>
-        <ConfirmDelete />
         <AdminRowActionsOverlay />
 
         <form

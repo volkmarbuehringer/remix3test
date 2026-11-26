@@ -20,7 +20,6 @@ import { frames, routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminChatlogDetail } from './admin-chatlog-detail.browser.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { FrameFallback } from './frame-fallback.browser.tsx'
@@ -206,7 +205,6 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
         data-chatlog-page="true"
         {...(selectedId ? { 'data-chatlog-selected-id': selectedId } : {})}
       >
-        <ConfirmDelete />
         <AdminChatlogDetail />
         <AdminRowActionsOverlay />
         <h2 mix={table.title}>Chat-Konversationen</h2>

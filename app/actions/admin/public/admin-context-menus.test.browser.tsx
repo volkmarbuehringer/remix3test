@@ -127,8 +127,8 @@ function positionedTrigger(container: HTMLElement): HTMLElement | null {
   )
 }
 
-function selectItem(container: HTMLElement, name: string) {
-  let menuList = container.querySelector('[role="menu"]')
+function selectItem(name: string) {
+  let menuList = document.querySelector('[role="menu"]')
   assert.ok(menuList, 'the menu list should render')
   menuList!.dispatchEvent(
     new MenuSelectEvent({ id: name, label: name, name, type: 'item', value: null }),
@@ -178,21 +178,21 @@ describe('admin row context menus', () => {
       })
 
       it('deletes the captured row after confirmation', () => {
-        let { host, container, submits } = setup(c)
+        let { host, submits } = setup(c)
 
         rightClick(rowOf(host))
-        selectItem(container, 'delete')
+        selectItem('delete')
 
         assert.equal(confirmMessage, c.deleteMessage)
         assert.equal(submits(), 1, 'the row delete form should be submitted')
       })
 
       it('does not delete when the confirmation is declined', () => {
-        let { host, container, submits } = setup(c)
+        let { host, submits } = setup(c)
         confirmResult = false
 
         rightClick(rowOf(host))
-        selectItem(container, 'delete')
+        selectItem('delete')
 
         assert.equal(confirmMessage, c.deleteMessage)
         assert.equal(submits(), 0)
@@ -200,7 +200,7 @@ describe('admin row context menus', () => {
 
       if (c.hasDownload) {
         it('clicks the row download link', () => {
-          let { host, container } = setup(c)
+          let { host } = setup(c)
           let link = host.querySelector('a[data-download-link]') as HTMLAnchorElement
           let clicks = 0
           link.addEventListener('click', (event) => {
@@ -209,7 +209,7 @@ describe('admin row context menus', () => {
           })
 
           rightClick(rowOf(host))
-          selectItem(container, 'download')
+          selectItem('download')
 
           assert.equal(clicks, 1)
         })

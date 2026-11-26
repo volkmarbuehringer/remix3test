@@ -140,7 +140,6 @@ import {
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { buttonLink } from '../../../ui/theme/button.ts'
-import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
 import { AdminRowActionsOverlay } from '../../../ui/admin-row-actions-overlay.browser.tsx'
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
@@ -1004,7 +1003,6 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
         </div>
 
         <div mix={[panelCss, tablePanelCss]}>
-          <ConfirmDelete />
           <UploadBulkDelete />
           <UploadBulkDownload />
           {uploads.length > 0 ? (

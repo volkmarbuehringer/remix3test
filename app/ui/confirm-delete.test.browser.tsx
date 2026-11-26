@@ -46,14 +46,12 @@ function mountEntry() {
 }
 
 function dialog(): HTMLElement | null {
-  return result!.container.querySelector<HTMLElement>('[data-confirm-dialog]')
+  return document.querySelector<HTMLElement>('[data-confirm-dialog]')
 }
 
 /**
- * The dialog animates out with animateExit, so it lingers in the DOM until
- * the WAAPI teardown finishes. Since #12220 the exit animations start
- * synchronously in beforeRemove, but the persisted removal still settles
- * asynchronously, so poll until the runtime actually removes the node.
+ * The dialog keeps its surface mounted through the finite CSS exit transition,
+ * then the runtime removes the portal node.
  */
 async function waitDialogGone() {
   for (let i = 0; i < 200; i++) {
@@ -66,13 +64,13 @@ async function waitDialogGone() {
 /** Entrance animations use fill: 'none', so they leave getAnimations() once done. */
 async function waitForEntranceAnimations() {
   for (let i = 0; i < 200; i++) {
-    if (result!.container.getAnimations({ subtree: true }).length === 0) return
+    if ((dialog()?.getAnimations({ subtree: true }).length ?? 0) === 0) return
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
   assert.fail('entrance animations did not finish')
 }
 
-/** The removal observer restores focus after the dialog node is gone. */
+/** The dialog restores focus after its exit transition and portal teardown. */
 async function waitForFocusReturn(trigger: HTMLElement) {
   for (let i = 0; i < 200; i++) {
     if (document.activeElement === trigger) return
@@ -139,12 +137,8 @@ describe('ConfirmDelete', () => {
     let cancel = dialog()!.querySelector<HTMLButtonElement>('[data-confirm-cancel]')!
     await result!.act(() => cancel.click())
 
-    // #12220: beforeRemove creates the exit animations synchronously; only the
-    // persisted teardown (and therefore node removal) is deferred.
-    assert.ok(
-      result!.container.getAnimations({ subtree: true }).length > 0,
-      'exit animations should exist immediately after the close click',
-    )
+    // The surface keeps data-open while its finite CSS transition runs.
+    assert.ok((dialog()?.getAnimations({ subtree: true }).length ?? 0) > 0, 'exit animations run')
     assert.ok(dialog(), 'the node is retained while the exit animation runs')
 
     await waitDialogGone()
@@ -174,20 +168,36 @@ describe('ConfirmDelete', () => {
     assert.equal(document.activeElement, btn, 'focus returns to the trigger')
   })
 
-  it('closes on the native cancel event without submitting', async () => {
+  it('closes on Escape without submitting', async () => {
     let { btn } = mountForm('data-confirm="Wirklich löschen?"')
     mountEntry()
     await result!.act(() => btn.click())
+    await waitForEntranceAnimations()
 
-    let nativeDialog = dialog()!.closest('dialog') as HTMLDialogElement
-    assert.ok(nativeDialog, 'the dialog is a native modal')
     await result!.act(() => {
-      nativeDialog.dispatchEvent(new Event('cancel', { cancelable: true }))
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      )
     })
     await waitDialogGone()
 
-    assert.equal(dialog(), null, 'the cancel event closes the dialog')
+    assert.equal(dialog(), null, 'Escape closes the dialog')
     assert.deepEqual(submitted, [], 'a cancelled confirm must not submit the form')
+  })
+
+  it('closes when the backdrop is clicked without submitting', async () => {
+    let { btn } = mountForm('data-confirm="Wirklich löschen?"')
+    mountEntry()
+    await result!.act(() => btn.click())
+    await waitForEntranceAnimations()
+
+    let backdrop = document.querySelector<HTMLElement>('[data-confirm-overlay]')
+    assert.ok(backdrop, 'the backdrop should be rendered')
+    await result!.act(() => backdrop!.click())
+    await waitDialogGone()
+
+    assert.equal(dialog(), null, 'the backdrop click closes the dialog')
+    assert.deepEqual(submitted, [], 'a backdrop cancel must not submit the form')
   })
 
   it('falls back to the default message for an empty data-confirm', async () => {

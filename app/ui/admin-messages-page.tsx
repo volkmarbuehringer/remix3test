@@ -16,7 +16,6 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { MessageExpand } from './message-expand.browser.tsx'
 import { MessageCompose } from './message-compose.browser.tsx'
 import { FilterAutoSubmit } from './filter-autosubmit.browser.tsx'
@@ -997,7 +996,6 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
 
     return (
       <div mix={[table.page, dataGridFill]}>
-        <ConfirmDelete />
         <AdminRowActionsOverlay />
         <MessageExpand />
         <div mix={headerRowStyle}>

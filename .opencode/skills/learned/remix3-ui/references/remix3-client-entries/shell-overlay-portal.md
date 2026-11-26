@@ -112,8 +112,8 @@ Use for browser-only transient layers that must escape clipping/stacking, surviv
 
 Do **not** use for:
 
-- Modal or focus-contained UI — native `<dialog>` + `showModal()` owns the top layer, inertness, Escape, focus containment, and focus restore. Portaling a dialog adds nothing.
-- Menus/popovers — the native Popover API and `@remix-run/ui/menu` already sit in the top layer.
+- Modal or focus-contained UI — native `<dialog>` + `showModal()` owns the top layer, inertness, Escape, focus containment, and focus restore. `@remix-run/ui/dialog` has its own portal and focus stack; the shell-mounted `ConfirmDelete` uses that instead of `OverlayPortal`.
+- Menus/popovers — `@remix-run/ui/menu` owns its own `menu.Portal` and focus boundaries; use `MenuList`, not `OverlayPortal`.
 - SSR-visible / no-JS content, streamed frame HTML, or form controls that must submit with a form (form ownership follows the destination DOM).
 
 `Portal` changes placement only; it adds no z-index, inertness, focus management, or event isolation.
@@ -132,7 +132,7 @@ Do **not** use for:
 - `app/ui/overlay-root.tsx` — id, root resolver, `OverlayPortal`
 - `app/ui/document.tsx` — destination + `ToastHost` mount
 - `app/ui/toast.ts` / `app/ui/toast-host.browser.tsx` — event bridge + shell host
-- `app/ui/confirm-delete.browser.tsx` — `requestConfirm` CustomEvent precedent (native dialog, not a portal)
+- `app/ui/confirm-delete.browser.tsx` — shell-mounted `ConfirmDelete` using `@remix-run/ui/dialog` + `requestConfirm` CustomEvent (not `OverlayPortal`)
 - `app/ui/overlay-root.test.browser.tsx`, `app/ui/overlay-root.test.e2e.ts`
 - `app/ui/toast.test.browser.tsx`, `app/ui/toast-host.test.e2e.ts`, `app/ui/toast-frame-survival.test.e2e.ts`
 - `app/ui/appointment-grid-lib.test.ts` — partial document mock updated to `dispatchEvent`

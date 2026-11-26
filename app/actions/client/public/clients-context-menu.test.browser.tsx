@@ -81,8 +81,12 @@ function positionedTrigger(container: HTMLElement): HTMLElement | null {
   )
 }
 
-function selectItem(container: HTMLElement, name: string) {
-  let menuList = container.querySelector('[role="menu"]')
+function menuText(): string {
+  return document.querySelector('[role="menu"]')?.textContent ?? ''
+}
+
+function selectItem(name: string) {
+  let menuList = document.querySelector('[role="menu"]')
   assert.ok(menuList, 'the menu list should render')
   menuList!.dispatchEvent(
     new MenuSelectEvent({ id: name, label: name, name, type: 'item', value: null }),
@@ -133,53 +137,53 @@ describe('ClientsContextMenu', () => {
   })
 
   it('offers Aktivieren for a non-active row and submits the toggle form', async () => {
-    let { host, container, act } = setup('Pending')
+    let { host, act } = setup('Pending')
 
     await act(() => {
       rightClick(rowOf(host))
     })
 
-    assert.ok(container.textContent?.includes('Aktivieren'))
-    assert.ok(!container.textContent?.includes('Deaktivieren'))
+    assert.ok(menuText().includes('Aktivieren'))
+    assert.ok(!menuText().includes('Deaktivieren'))
 
-    selectItem(container, 'activate')
+    selectItem('activate')
     assert.equal(toggleSubmits, 1)
   })
 
   it('offers Deaktivieren for an active row and submits the toggle form', async () => {
-    let { host, container, act } = setup('Active')
+    let { host, act } = setup('Active')
 
     await act(() => {
       rightClick(rowOf(host))
     })
 
-    assert.ok(container.textContent?.includes('Deaktivieren'))
-    assert.ok(!container.textContent?.includes('Aktivieren'))
+    assert.ok(menuText().includes('Deaktivieren'))
+    assert.ok(!menuText().includes('Aktivieren'))
 
-    selectItem(container, 'deactivate')
+    selectItem('deactivate')
     assert.equal(toggleSubmits, 1)
   })
 
   it('deletes the captured row after confirmation', async () => {
-    let { host, container, act } = setup()
+    let { host, act } = setup()
 
     await act(() => {
       rightClick(rowOf(host))
     })
-    selectItem(container, 'delete')
+    selectItem('delete')
 
     assert.equal(confirmMessage, 'Kunde "Row" wirklich löschen?')
     assert.equal(deleteSubmits, 1)
   })
 
   it('does not delete when the confirmation is declined', async () => {
-    let { host, container, act } = setup()
+    let { host, act } = setup()
     confirmResult = false
 
     await act(() => {
       rightClick(rowOf(host))
     })
-    selectItem(container, 'delete')
+    selectItem('delete')
 
     assert.equal(deleteSubmits, 0)
   })

@@ -29,7 +29,6 @@ import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { AdminAppointmentsContextMenu } from '../actions/admin/public/admin-appointments-context-menu.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
@@ -168,7 +167,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
       <div mix={[table.minWidth0, hasFormPanel ? table.twoColumnGrid : verwaltungGridFill]}>
-        <ConfirmDelete />
         {!hasFormPanel && formError ? (
           <div mix={table.errorBanner} role="alert">
             {formError}

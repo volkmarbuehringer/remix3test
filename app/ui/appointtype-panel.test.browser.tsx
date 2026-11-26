@@ -155,6 +155,14 @@ afterEach(() => {
   fixture?.remove()
   fixture = null
   setTypeDragState(null)
+  // The test harness re-renders the entry through `result.root.render`, which
+  // can orphan an already-mounted portal destination. Remove any leftover menu
+  // surfaces so later tests query the current tree, not a stale portal.
+  for (let surface of document.querySelectorAll('[data-popover]')) {
+    let parent = surface.parentElement
+    if (parent?.id.endsWith('-portal')) parent.remove()
+    else surface.remove()
+  }
 })
 
 describe('AppointTypePanel', () => {

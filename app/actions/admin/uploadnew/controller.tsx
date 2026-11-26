@@ -9,7 +9,6 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { bodyTextCss, PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
-import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminRowActionsOverlay } from '../../../ui/admin-row-actions-overlay.browser.tsx'
 import { table } from '../../../ui/mixins/admin-table.ts'
 import { theme } from '../../../ui/theme/theme.ts'
@@ -328,7 +327,6 @@ function UploadNewPage(handle: Handle<UploadNewPageProps>) {
         </div>
 
         <div mix={panelCss}>
-          <ConfirmDelete />
           <p mix={bodyTextCss}>
             {total === 0
               ? 'Noch keine Dateien im Dateisystem gespeichert.'

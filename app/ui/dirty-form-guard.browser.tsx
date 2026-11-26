@@ -201,7 +201,7 @@ export const DirtyFormGuard = clientEntry(
                 let nav = pendingNavigation(target)
                 if (!nav) return
 
-                // Prefer the page's styled dialog. `null` means no
+                // Prefer the shell's styled dialog. `null` means no
                 // <ConfirmDelete> host is mounted (headless/unit renders), so
                 // the synchronous prompt keeps the original click flowing.
                 let decision = requestConfirmDecision({

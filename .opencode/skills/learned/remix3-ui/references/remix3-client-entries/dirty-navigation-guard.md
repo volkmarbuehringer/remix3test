@@ -3,8 +3,8 @@
 **Extracted:** 2026-11-24 from `app/ui/dirty-form-guard.browser.tsx` and
 `app/actions/admin/lists/lists-ux.test.e2e.ts`.
 **Context:** A capture-phase click guard must ask before discarding unsaved edits,
-but the confirmation is an async styled `<dialog>` (`requestConfirmDecision`), not
-a synchronous `window.confirm`.
+but the confirmation is an async styled modal (`requestConfirmDecision`,
+`@remix-run/ui/dialog`), not a synchronous `window.confirm`.
 
 ## Problem
 
@@ -135,8 +135,9 @@ e2e can wait for the guard after a frame swap.
   a reused entry whose form was replaced otherwise stops guarding.
 - In the click handler, re-resolve `el.closest('form')` and rebind if it changed;
   return when the entry's span is detached.
-- A native dialog must be closed by the app's state-close, not only by its
-  `close` event: if a re-render removes the open node, the event never fires.
+- Close the confirm surface through the host's state (`open`/`onOpenChange`),
+  not only through a native dialog `close` event: the shell-owned
+  `@remix-run/ui/dialog` surface has no native close event.
 
 ## Tests
 

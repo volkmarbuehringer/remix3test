@@ -32,7 +32,6 @@ import type { OfferingConfig } from '../data/offering-configs.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateScript } from './grid-state-script.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
@@ -828,7 +827,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         />
         <AdminOfferingsContextMenu />
         <AdminRowActionsOverlay />
-        <ConfirmDelete />
       </div>
     )
 
