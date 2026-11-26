@@ -2,7 +2,7 @@
 
 ## What This Covers
 
-Adding a confirmation step to server-rendered delete forms. Read this when a delete form has no built-in confirmation, when `onclick`/`onsubmit` or the `on` mixin fails, or when a `submit` listener never fires under frame navigation. The current implementation uses an in-app `<dialog>`; the same capture-phase interception also backs the native `confirm()` fallback.
+Adding a confirmation step to server-rendered delete forms. Read this when a delete form has no built-in confirmation, when `onclick`/`onsubmit` or the `on` mixin fails, or when a `submit` listener never fires under frame navigation. The current implementation is one shell-mounted `@remix-run/ui/dialog` (`dialog.Portal` + `dialog.SurfaceContext` + `dialog.surface()`), not a native `<dialog>`; the same capture-phase interception also backs the native `confirm()` fallback.
 
 ## Problem
 
@@ -47,11 +47,13 @@ Design invariants:
 - **`requestSubmit(submitter)`, never `submit()`** — `submit()` skips the `submit` event and the frame runtime, turning the in-grid DELETE into a full page load.
 - **Always intercept** — never let the first click through while a dialog is pending.
 - **`data-confirm` on the `<form>`** — the attribute lives on the form element, not the button, so it survives button restructuring.
-- **Single instance per page** — one component at the grid/section level handles all delete forms there.
-- **Native modal** — render `role="alertdialog"`/`aria-modal="true"` on a native `<dialog>` and call `showModal()` (details below).
-- **Focus restore** — focus the danger button on open; restore the previously focused element when the dialog is removed.
+- **Single instance per document** — mount `<ConfirmDelete />` once in `app/ui/document.tsx` beside `ToastHost`. It survives frame swaps and serves every page; do not reintroduce per-page/grid mounts (15 were removed on 2026-11-26).
+- **Vendor modal** — `dialog.Context` + `dialog.Portal`, `dialog.backdrop()`, `dialog.SurfaceContext` + `dialog.surface()` with `role="alertdialog"`. Vendor focus scope gives inert background/AT hiding, focus trap and scroll lock; `dialog.focusOnShow()` on the accept button restores focus on close.
+- **Exit lifecycle** — keep the pending content mounted until `onOpenChangeComplete(false)`; the surface keeps `data-open` through its finite CSS transition. Style with `[data-state="open"|"closed"]`, not `:popover-open`.
+- **Test selectors** — the surface is portaled to `document.body`; query `document`, not `result.container`. Keep `data-confirm-ready` on the idle marker, `data-confirm-dialog` on the surface, and `data-confirm-overlay` on the backdrop.
+- **Do not lose device Back** — vendor dialog does not implement `CloseWatcher`; keep native `<dialog>`/`showModal()` for the nav drawer and the lists help/target-picker dialogs.
 
-Current implementation: `app/ui/confirm-delete.browser.tsx`, used by `app/actions/admin/public/admin-uploads-bulk-delete.tsx`. Tests: `admin-uploads-bulk-actions.test.browser.tsx`, `uploads-bulk-delete.test.e2e.ts`.
+Current implementation: `app/ui/confirm-delete.browser.tsx`, mounted once in `app/ui/document.tsx`; the bulk path lives in `app/actions/admin/public/admin-uploads-bulk-delete.tsx`. Tests: `app/ui/confirm-delete.test.browser.tsx`, `admin-uploads-bulk-actions.test.browser.tsx`, `uploads-bulk-delete.test.e2e.ts`.
 
 #### Why not `onclick` / `on` / `submit`
 
@@ -76,14 +78,8 @@ Rendering `<ConfirmDelete />` inside a loop (e.g. inside `.map()`) creates **N i
   ))
 }
 
-// ✅ CORRECT — single instance handles all forms
-{
-  items.map((item) => (
-    <div key={item.id}>
-      <form data-confirm="Löschen?">...</form>
-    </div>
-  ))
-}
+// ✅ CORRECT — one shell instance handles every page
+// app/ui/document.tsx:
 ;<ConfirmDelete />
 ```
 
@@ -107,7 +103,7 @@ export function requestConfirm(detail: ConfirmRequestDetail): boolean {
 }
 ```
 
-`ConfirmDelete` listens for the event, calls `event.preventDefault()` and stores the detail. Callers fall back to native `confirm()` when no dialog is mounted, so unit tests and dialog-less pages keep working:
+`ConfirmDelete` listens for the event, calls `event.preventDefault()` and stores the detail. Callers fall back to native `confirm()` when no dialog is mounted, so headless/unit renders keep working (production pages get the shell host):
 
 ```ts
 if (requestConfirm({ message, onConfirm: submit })) return
@@ -121,7 +117,7 @@ To test the **fallback** path headlessly, a fake `globalThis.document` must impl
 
 ## Freezing the confirmed scope for bulk actions
 
-A bulk delete confirms "N rows", but the browser builds the payload from the **live form** at submit time. The shared `ConfirmDelete` uses a native modal `<dialog>` + `showModal()`, so user focus and pointer interaction cannot reach the grid behind it (Tab is contained, the rest of the document is inert, Escape fires `cancel`). The freeze still matters for programmatic changes (scripts, extensions, a buggy AT) and for the native-confirm fallback: re-reading the selection when accepted would delete rows the confirmation never named (observed on `/admin/uploads` before the modal/freeze fix: two confirmed, a third checked behind the dialog, POST carried all three).
+A bulk delete confirms "N rows", but the browser builds the payload from the **live form** at submit time. The shared shell `ConfirmDelete` uses the vendor modal (`dialog.Context` default `modal`), so user focus and pointer interaction cannot reach the grid behind it (focus trapped, background inert/hidden from AT, Escape and outside clicks dismiss the topmost layer). The freeze still matters for programmatic changes (scripts, extensions, a buggy AT) and for the native-confirm fallback: re-reading the selection when accepted would delete rows the confirmation never named (observed on `/admin/uploads` before the modal/freeze fix: two confirmed, a third checked behind the dialog, POST carried all three).
 
 Freeze the ids when the dialog is accepted and rewrite the outgoing payload instead of trusting the checkboxes. The reliable seam is the `formdata` event on the form:
 
@@ -157,10 +153,33 @@ Verified 2026-10-26 at pin `8ae2f755`/`0b35d81` on a real submit click in Chromi
 
 `app/actions/admin/public/admin-uploads-bulk-delete.tsx` implements the styled-dialog path plus this native fallback. `uploads-bulk-delete.test.e2e.ts` ("deletes exactly the confirmed rows when the selection grows while the dialog is open") now asserts the grid is inert while the dialog is open, then mutates the checkbox programmatically and accepts, proving only the two confirmed rows are gone. `admin-uploads-bulk-actions.test.browser.tsx` mounts the real `ConfirmDelete` and covers both the dialog path and the fallback.
 
-## Native modal dialog details (`ConfirmDelete`)
+## Vendor dialog details (`ConfirmDelete`)
 
-- Render a native `<dialog>` and call `showModal()` from a `ref` on insert. This gives focus containment, page inertness and Escape/`cancel` handling without a hand-rolled trap.
-- Do **not** call `dialog.close()` when dismissing: the `animateExit` mixin retains the node for its exit animation, and `close()` removes `open`, hiding the dialog before the animation. Leave it open until removal.
-- Restore focus manually after the retained node disconnects. `close()` on a **disconnected** dialog no longer restores focus (the native "previously focused element" state is gone), so capture `document.activeElement` before `showModal()` and focus it from a `MutationObserver` when the node leaves the DOM.
-- Playwright/browser tests: `[data-confirm-dialog]` is the inner card; the native `<dialog>` is `[data-confirm-overlay]` (dispatch `cancel` there, not on the card).
-- An open modal makes the rest of the page inert, so e2e tests that need to change background state while the dialog is open must do so programmatically (`page.evaluate(...)`) rather than with `locator.click()/check()`.
+- Controlled open state: `dialog.Context open={open}` + `onOpenChange`; Escape,
+  outside click and close requests route through `onOpenChange(false)`, while
+  `onOpenChangeComplete(false)` clears the pending item after the exit
+  transition. Keep the acceptance/cancel callbacks one-shot with a `decision`
+  flag so a second dismissal cannot double-call `onCancel`.
+- Keep the surface mounted while closing: set `open = false` but retain the
+  pending content until `onOpenChangeComplete(false)`. The vendor surface keeps
+  `data-open` through finite CSS transitions; `data-state` drives `opacity` /
+  `transform`, with a `prefers-reduced-motion: reduce` opt-out.
+- Render `dialog.Portal` + `dialog.backdrop()` + `dialog.SurfaceContext` +
+  `dialog.surface()`. Use `role="alertdialog"`, and keep the app's stable
+  `#confirm-delete-title` / `#confirm-delete-message` ids on the explicit
+  `aria-labelledby` / `aria-describedby` attributes.
+- `dialog.focusOnShow()` on the accept button starts focus there; the vendor
+  modal restores focus to the previously focused element on close without the
+  old `MutationObserver`/`showModal()` bookkeeping.
+- `dialog.Portal` renders into `document.body` by default. Browser tests must
+  query `document` for `[data-confirm-dialog]` / `[data-confirm-overlay]`, not
+  `result.container`; `[data-confirm-ready]` is the idle marker and disappears
+  while a request is pending. Use Escape/backdrop interaction rather than a
+  native dialog `cancel` event.
+- The vendor modal sets background inertness and locks scroll. E2E tests that
+  need to change background state while it is open must do so programmatically
+  (`page.evaluate(...)`), exactly as with the old native modal.
+- **Keep native `<dialog>` where the platform top layer matters.** The nav
+  drawer and the lists help/target-picker dialogs still use
+  `showModal()`; the vendor dialog does not implement `CloseWatcher`, so
+  migrating them would lose device Back dismissal.
