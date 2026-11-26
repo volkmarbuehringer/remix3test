@@ -90,7 +90,7 @@ let shuttingDown = false
 async function shutdown() {
   if (shuttingDown) return
   shuttingDown = true
-  server.stop()
+  await server.stop()
   await Promise.allSettled([closeAppDatabase(), assetServer.close()])
   process.exit(0)
 }
