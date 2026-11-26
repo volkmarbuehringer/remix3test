@@ -14,9 +14,8 @@ const menuPopoverCss: CSSMixinDescriptor = css({
   '&[data-menu-submenu="true"][data-anchor-placement^="left"]': {
     marginLeft: styles.space.xs,
   },
-  '&[data-close-animation="none"]:not(:popover-open)': {
+  '&[data-close-animation="none"][data-state="closed"]': {
     transition: 'none',
-    transitionBehavior: 'normal',
   },
 })
 
@@ -170,11 +169,13 @@ export function MenuList(handle: Handle<MenuListProps>): () => RemixNode {
     let { children, mix, ...divProps } = handle.props
 
     return (
-      <div mix={[popoverSurfaceStyle, popoverStyle, menu.popover()]}>
-        <div {...divProps} mix={[listStyle, menu.list(), mix]}>
-          {children}
+      <menu.PopoverContext>
+        <div mix={[popoverSurfaceStyle, popoverStyle, menu.popover()]}>
+          <div {...divProps} mix={[listStyle, menu.list(), mix]}>
+            {children}
+          </div>
         </div>
-      </div>
+      </menu.PopoverContext>
     )
   }
 }

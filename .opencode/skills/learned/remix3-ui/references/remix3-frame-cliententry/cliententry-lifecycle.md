@@ -263,7 +263,7 @@ server's inline errors own validation (see `frame-failures-and-rendering.md`).
 
 ### `reloadStart` — synchronous pre-reload hook
 
-`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261125-main-d7d106ea`: `startLoad` at `:788` dispatches the direct event through `notifyReloadStart` at `:837` (definition `:763`); inherited reloads start with `startInheritedReload` at `:866`, dispatch at `:899`, and complete through `completeInheritedReload` at `:914`). Use it for work that must still see the outgoing frame state:
+`reloadComplete` is the *post*-render hook; `reloadStart` is its synchronous counterpart, dispatched at the **top of a direct reload before any content is fetched or rendered** (`.../src/runtime/frame.ts` at preview release `v0.0.20261126-main-ab07c1d8`: `startLoad` at `:788` dispatches the direct event through `notifyReloadStart` at `:837` (definition `:763`); inherited reloads start with `startInheritedReload` at `:866`, dispatch at `:899`, and complete through `completeInheritedReload` at `:914`). Use it for work that must still see the outgoing frame state:
 
 - **Flush pending edits before the frame swaps content.** `beforeunload` never fires for a frame navigation, so an edit still inside a debounce window would be lost; a `reloadStart` listener can still attribute it to the outgoing resource from the preserved factory state.
 - **Show real loading feedback for the swap.** Set a `loading` flag in the closure and clear it in the `reloadComplete` handler. A superseded reload finishes aborted without `reloadComplete` (#12183), so a simple boolean self-heals when the newest `reloadStart` sets it again and the active reload completes; use `event.finished` when you need per-request completion.
@@ -369,7 +369,7 @@ prop lets the server render the real layout.
    which forwards to the existing boundary owner's `root.render(element)`
    (`runtime/frame-runtime.ts:230`, inside `clientEntries.render` at `:222-238`;
    since #12429 the client-entry boundary runtime is an optional subsystem on
-   the frame runtime, at source `d7d106ea`). The factory closure
+   the frame runtime, at source `ab07c1d8`). The factory closure
    survives; the render re-runs with the new props. Do not add a
    `reloadComplete` DOM re-read for data that now travels in props.
 4. **Hydration-only values stay out of the first client render.** A server/client

@@ -21,7 +21,7 @@ App code should write native kebab-case (`stroke-width`, `stop-color`). The runt
 </svg>
 ```
 
-Verified at `d7d106ea` with `renderToString()`: `<svg stroke-width="2" viewBox="0 0 10 10" stop-color="red" xlink:title="Star"><use href="#icon"></use></svg>`.
+Verified at `ab07c1d8` with `renderToString()`: `<svg stroke-width="2" viewBox="0 0 10 10" stop-color="red" xlink:title="Star"><use href="#icon"></use></svg>`.
 
 **`<use>` / xlink:** `xlinkHref` and `xlink:href` normalize to SVG2 `href` (`vdom.ts:2442`), so pass `href` directly in app code. The other camelCase xlink props (`xlinkTitle`, `xlinkShow`, `xlinkRole`, `xlinkArcrole`, `xlinkActuate`, `xlinkType`) become `xlink:*` and are set in the XLink namespace in the browser (`PREFIXED_SVG_PROP` at `:2436`, mapping at `:2443-2445`); for scripts, write `href` rather than hand-rolling the namespaced legacy attribute. The app's glyph (`app/ui/theme/glyph/glyph.tsx`) passes `href` directly, and `app/ui/password-toggle.script.ts` writes only `href`.
 
@@ -29,7 +29,7 @@ Common renames: `strokeWidth`→`stroke-width`, `strokeLinecap`→`stroke-lineca
 
 ## Attribute renames are invisible to typecheck and render tests
 
-`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/vnode.ts:20` at source `d7d106ea`; #12435 moved `core/vnode.ts` up to `runtime/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
+`remix/component`'s JSX runtime types props as `ElementProps = Record<string, any>` (`@remix-run/component` `src/runtime/vnode.ts:20` at source `ab07c1d8`; #12435 moved `core/vnode.ts` up to `runtime/vnode.ts`), so every attribute is accepted on any intrinsic element. Consequences:
 
 - Typos, removed attributes, and renames compile cleanly.
 - Server-render assertions pass because they check what the component **emits**, not what the runtime **reads**.
@@ -51,7 +51,7 @@ When a runtime contract changes, verify at the runtime layer:
 3. **Add a focused render test** asserting the new attribute name is emitted.
 4. **Exercise the real flow in a browser** — the only layer that proves the runtime reads it.
 
-Current reads (source `d7d106ea`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`, also on anchors/buttons at `:1792`), navigation reads `data-rmx-document` at `src/runtime/run.ts:1037`/`:1056` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1084-1091` (`dist/runtime/run.js:830-836`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:55`.
+Current reads (source `ab07c1d8`): `data-rmx-target` is typed on `FormHTMLProps` (`src/runtime/dom.ts:2309`, also on anchors/buttons at `:1792`), navigation reads `data-rmx-document` at `src/runtime/run.ts:1037`/`:1056` (link/form) and `data-rmx-target`/`-src`/`-reset-scroll`/`-reset-focus`/`-history` at `:1084-1091` (`dist/runtime/run.js:830-836`), and `data-rmx-preserve-dom` is in `src/runtime/diff-dom.ts:55`.
 
 ## Boolean `aria-*` / `data-*` values
 

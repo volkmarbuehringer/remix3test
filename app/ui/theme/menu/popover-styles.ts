@@ -6,13 +6,12 @@ const popupViewportClampMaxHeight = '50dvh'
 
 const popoverSurfaceTransitionCss: CSSMixinDescriptor = css({
   opacity: 0,
-  '&:popover-open': {
+  '&[data-state="open"]': {
     opacity: 1,
   },
-  '&:not(:popover-open)': {
+  '&[data-state="closed"]': {
     pointerEvents: 'none',
-    transition: 'opacity 180ms ease-in, overlay 180ms ease-in, display 180ms ease-in',
-    transitionBehavior: 'allow-discrete',
+    transition: 'opacity 180ms ease-in',
   },
 })
 
@@ -33,9 +32,6 @@ const popoverSurfaceCss: CSSMixinDescriptor = css({
   color: styles.colors.text.primary,
   overflow: 'hidden',
   boxShadow: `${styles.shadow.xs}, ${styles.shadow.md}`,
-  '&::backdrop': {
-    background: 'transparent',
-  },
 })
 
 export const popoverSurfaceStyle = [popoverSurfaceCss, popoverSurfaceTransitionCss] as const
