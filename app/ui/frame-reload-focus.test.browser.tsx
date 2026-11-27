@@ -35,7 +35,7 @@ function installDocument(html: string) {
 }
 
 describe('frame reload focus', () => {
-  it('preserves focus, selection, and scroll when a reload reorders client entries', async () => {
+  it('preserves focus and selection when a reload reorders client entries', async () => {
     let Entry = clientEntry('/assets/focus-entry.js#FocusEntry', function FocusEntry() {
       return () => <input id="focus-entry" />
     })
