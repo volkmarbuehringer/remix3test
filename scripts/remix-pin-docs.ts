@@ -171,6 +171,14 @@ const ANALYSIS_DOC = path.join(
   'upstream-dependency-analysis.md',
 )
 
+const LOCK_RELEASE_REF_RE = /github\.com\/remix-run\/previews\/releases\/download\/[^/]+\//g
+const ANALYSIS_REF_COUNT =
+  /The two `package\.json` specs are the release asset URLs; the lock has (\d+) release tarball refs at that tag\./
+const SUMMARY_COMMITS = /Current range summary: (\d+) commits?\./
+const AGENTS_REF_COUNT = /the (\d+)-ref unified lock are the pin\./
+const AGENTS_CURRENT_BUMP =
+  /\*\*Current bump \(`([0-9a-f]{8})` → `([0-9a-f]{8})`\):\*\* (\d+) commits?\./
+
 const ANALYSIS_PACKAGES = [
   { label: 'remix', name: 'remix', asset: 'remix' },
   { label: '@remix-run/ui', name: '@remix-run/ui', asset: 'ui' },
@@ -184,15 +192,19 @@ export type AnalysisExpectation = {
   tag: string
   source: string
   versions: Record<AnalysisLabel, string>
+  /** Number of release-tarball URL occurrences in pnpm-lock.yaml. */
+  releaseRefs: number
 }
 
 type AnalysisClaim = {
   tag: string | undefined
   source: string | undefined
   versions: Record<AnalysisLabel, string | undefined>
+  releaseRefs: number | undefined
   pinFrom: string | undefined
   pinTo: string | undefined
   pinCommits: string | undefined
+  summaryCommits: number | undefined
 }
 
 const INSTALL_LINE =
@@ -225,6 +237,7 @@ export function readAnalysisExpectation(root: string): AnalysisExpectation {
   if (!source) throw new Error(`cannot read the source commit from the remix pin tag: ${tag}`)
 
   let lock = fs.readFileSync(path.join(root, 'pnpm-lock.yaml'), 'utf8')
+  let releaseRefs = [...lock.matchAll(LOCK_RELEASE_REF_RE)].length
   let versions = {} as Record<AnalysisLabel, string>
   for (let entry of ANALYSIS_PACKAGES) {
     let version = lockVersion(lock, entry.name, entry.asset)
@@ -234,7 +247,7 @@ export function readAnalysisExpectation(root: string): AnalysisExpectation {
     versions[entry.label] = version
   }
 
-  return { tag, source, versions }
+  return { tag, source, versions, releaseRefs }
 }
 
 export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
@@ -247,9 +260,11 @@ export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
       '@remix-run/component': undefined,
       'component-hmr': undefined,
     },
+    releaseRefs: undefined,
     pinFrom: undefined,
     pinTo: undefined,
     pinCommits: undefined,
+    summaryCommits: undefined,
   }
 
   let install = INSTALL_LINE.exec(doc)
@@ -261,12 +276,16 @@ export function analyzeAnalysisDoc(doc: string): AnalysisClaim {
     claim.tag = install[5]
     claim.source = install[6]
   }
+  let releaseRefs = ANALYSIS_REF_COUNT.exec(doc)
+  if (releaseRefs) claim.releaseRefs = Number(releaseRefs[1])
   let pin = PIN_LINE.exec(doc)
   if (pin) {
     claim.pinFrom = pin[1]
     claim.pinTo = pin[2]
     claim.pinCommits = pin[3]
   }
+  let summary = SUMMARY_COMMITS.exec(doc)
+  if (summary) claim.summaryCommits = Number(summary[1])
   return claim
 }
 
@@ -295,11 +314,29 @@ export function compareAnalysisDoc(doc: string, expected: AnalysisExpectation): 
     }
   }
 
+  if (claim.releaseRefs === undefined) {
+    issues.push('no "lock has N release tarball refs" sentence')
+  } else if (claim.releaseRefs !== expected.releaseRefs) {
+    issues.push(
+      `"Current install" says ${claim.releaseRefs} release tarball refs; ` +
+        `pnpm-lock.yaml has ${expected.releaseRefs}`,
+    )
+  }
+
   if (!claim.pinTo) {
     issues.push('no "Current pin (`old` → `new`, N commits)" line')
   } else if (claim.pinTo !== expected.source) {
     issues.push(
       `"Current pin" ends at ${claim.pinTo}; expected ${expected.source} (the pinned source)`,
+    )
+  }
+
+  if (claim.summaryCommits === undefined) {
+    issues.push('no "Current range summary: N commits" line')
+  } else if (claim.pinCommits !== undefined && claim.summaryCommits !== Number(claim.pinCommits)) {
+    issues.push(
+      `"Current range summary" says ${claim.summaryCommits} commits; ` +
+        `"Current pin" says ${claim.pinCommits}`,
     )
   }
 
@@ -322,4 +359,51 @@ export function checkAnalysisDoc(root: string): string[] {
   }
 
   return compareAnalysisDoc(fs.readFileSync(docPath, 'utf8'), expected)
+}
+
+/**
+ * AGENTS.md holds the human-facing copy of the current pin and bump. The pin
+ * sentence is mechanically refreshed by refreshPinDocs(); the lock-ref count
+ * and the `Current bump` endpoint are editorial, so check them as well.
+ */
+export function checkAgentsDoc(root: string, expected: AnalysisExpectation): string[] {
+  let docPath = path.join(root, AGENTS_FILE)
+  if (!fs.existsSync(docPath)) return [`AGENTS.md is missing: ${AGENTS_FILE}`]
+
+  let doc = fs.readFileSync(docPath, 'utf8')
+  let issues: string[] = []
+  let refCount = AGENTS_REF_COUNT.exec(doc)
+  if (!refCount) {
+    issues.push('no "N-ref unified lock" sentence')
+  } else if (Number(refCount[1]) !== expected.releaseRefs) {
+    issues.push(
+      `"N-ref unified lock" says ${refCount[1]}; ` +
+        `pnpm-lock.yaml has ${expected.releaseRefs} release tarball refs`,
+    )
+  }
+
+  let currentBump = AGENTS_CURRENT_BUMP.exec(doc)
+  if (!currentBump) {
+    issues.push('no "Current bump (`old` → `new`): N commits" line')
+  } else {
+    if (currentBump[2] !== expected.source) {
+      issues.push(
+        `"Current bump" ends at ${currentBump[2]}; expected ${expected.source} (the pinned source)`,
+      )
+    }
+
+    // The analysis reference's mechanical pin line is the canonical commit
+    // count; keep AGENTS.md from claiming a different range length.
+    let analysisPath = path.join(root, ANALYSIS_DOC)
+    let analysisPin = fs.existsSync(analysisPath)
+      ? PIN_LINE.exec(fs.readFileSync(analysisPath, 'utf8'))
+      : null
+    if (analysisPin && Number(currentBump[3]) !== Number(analysisPin[3])) {
+      issues.push(
+        `"Current bump" says ${currentBump[3]} commits; ` + `"Current pin" says ${analysisPin[3]}`,
+      )
+    }
+  }
+
+  return issues
 }

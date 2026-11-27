@@ -4,8 +4,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import {
+  checkAgentsDoc,
   checkAnalysisDoc,
   compareAnalysisDoc,
+  readAnalysisExpectation,
   refreshPinDocs,
   type AnalysisExpectation,
 } from './remix-pin-docs.ts'
@@ -220,15 +222,25 @@ const expectation: AnalysisExpectation = {
     '@remix-run/component': '1.3.0',
     'component-hmr': '1.0.2',
   },
+  releaseRefs: 277,
 }
 
 function analysisDoc(
-  overrides: { tag?: string; source?: string; remix?: string; pinTo?: string } = {},
+  overrides: {
+    tag?: string
+    source?: string
+    remix?: string
+    pinTo?: string
+    releaseRefs?: number
+    summaryCommits?: number
+  } = {},
 ): string {
   let tag = overrides.tag ?? expectation.tag
   let source = overrides.source ?? expectation.source
   let remix = overrides.remix ?? expectation.versions.remix
   let pinTo = overrides.pinTo ?? expectation.source
+  let releaseRefs = overrides.releaseRefs ?? expectation.releaseRefs
+  let summaryCommits = overrides.summaryCommits ?? 5
 
   return [
     'Current install: `remix` ' +
@@ -243,11 +255,13 @@ function analysisDoc(
       tag +
       '` (source `' +
       source +
-      '`).',
+      '`). The two `package.json` specs are the release asset URLs; the lock has ' +
+      releaseRefs +
+      ' release tarball refs at that tag.',
     '',
     'Current pin: `aaaaaaaa` → `' + pinTo + '` (5 commits).',
     '',
-    'Current range summary: ...',
+    'Current range summary: ' + summaryCommits + ' commits. hand-authored prose.',
   ].join('\n')
 }
 
@@ -276,13 +290,31 @@ describe('analysis doc drift', () => {
     )
   })
 
-  it('does not read the editorial range summary', () => {
+  it('checks only the range summary commit count, not its prose', () => {
     let doc = analysisDoc().replace(
-      'Current range summary: ...',
-      'Current range (`9e4da4d3` → `01e5b5d4`, 5 commits): old prose',
+      'Current range summary: 5 commits. hand-authored prose.',
+      'Current range summary: 5 commits. Different prose is still valid.',
     )
 
     assert.deepEqual(compareAnalysisDoc(doc, expectation), [])
+  })
+
+  it('reports a stale lock-ref count and summary commit count', () => {
+    let issues = compareAnalysisDoc(
+      analysisDoc({ releaseRefs: 278, summaryCommits: 6 }),
+      expectation,
+    )
+
+    assert.ok(
+      issues.some((issue) => issue.includes('says 278 release tarball refs')),
+      'stale lock-ref count reported',
+    )
+    assert.ok(
+      issues.some(
+        (issue) => issue.includes('says 6 commits') && issue.includes('"Current pin" says 5'),
+      ),
+      'stale summary count reported',
+    )
   })
 
   it('flags a summary without a current-install or current-pin line', () => {
@@ -300,5 +332,69 @@ describe('analysis doc drift', () => {
 
   it('keeps the real analysis reference on the current install', () => {
     assert.deepEqual(checkAnalysisDoc(ROOT), [])
+  })
+})
+
+function agentsDoc(
+  overrides: { releaseRefs?: number; bumpTo?: string; bumpCommits?: number } = {},
+): string {
+  return [
+    'The pin is release `' +
+      expectation.tag +
+      '` (source `' +
+      expectation.source +
+      '`), so the two asset URLs and the ' +
+      (overrides.releaseRefs ?? expectation.releaseRefs) +
+      '-ref unified lock are the pin.',
+    '- **Current bump (`aaaaaaaa` → `' +
+      (overrides.bumpTo ?? expectation.source) +
+      '`):** ' +
+      (overrides.bumpCommits ?? 1) +
+      ' commit. #1 example change.',
+  ].join('\n')
+}
+
+describe('AGENTS.md pin drift', () => {
+  it('accepts the current bump endpoint and lock-ref count', () => {
+    let root = fixture({ 'AGENTS.md': agentsDoc() })
+    assert.deepEqual(checkAgentsDoc(root, expectation), [])
+  })
+
+  it('reports a stale bump endpoint and lock-ref count', () => {
+    let root = fixture({ 'AGENTS.md': agentsDoc({ bumpTo: 'aaaaaaaa', releaseRefs: 278 }) })
+    let issues = checkAgentsDoc(root, expectation)
+
+    assert.ok(
+      issues.some(
+        (issue) => issue.includes('says 278') && issue.includes('has 277 release tarball refs'),
+      ),
+      'stale AGENTS lock-ref count reported',
+    )
+    assert.ok(
+      issues.some(
+        (issue) => issue.includes('ends at aaaaaaaa') && issue.includes('expected bbbbbbbb'),
+      ),
+      'stale AGENTS current bump reported',
+    )
+  })
+
+  it('reports a stale AGENTS current-bump commit count', () => {
+    let analysis =
+      '.opencode/skills/learned/remix3/references/remix3-build-and-tooling/upstream-dependency-analysis.md'
+    let root = fixture({
+      'AGENTS.md': agentsDoc({ bumpCommits: 2 }),
+      [analysis]: analysisDoc(),
+    })
+
+    assert.ok(
+      checkAgentsDoc(root, expectation).some(
+        (issue) => issue.includes('says 2 commits') && issue.includes('"Current pin" says 5'),
+      ),
+      'stale AGENTS bump count reported',
+    )
+  })
+
+  it('keeps the real AGENTS current bump on the current install', () => {
+    assert.deepEqual(checkAgentsDoc(ROOT, readAnalysisExpectation(ROOT)), [])
   })
 })

@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { sortReleasesByPublishedAt } from './preview-release-order.ts'
-import { checkAnalysisDoc } from './remix-pin-docs.ts'
+import { checkAgentsDoc, checkAnalysisDoc, readAnalysisExpectation } from './remix-pin-docs.ts'
 import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts'
 
 // ---------------------------------------------------------------------------
@@ -20,8 +20,10 @@ import { MAIN_RELEASE_TAG_RE, releaseAssetUrlRe } from './preview-release-tag.ts
 //   1. reads the two release asset URLs from package.json,
 //   2. verifies pnpm-lock.yaml resolves every remix ref to that same release
 //      tag (a half-applied update fails before any network call),
-//   3. HEADs both URLs (404/410 means the pin expired),
-//   4. reads the latest main preview release and warns when the pin is not the
+//   3. verifies the analysis reference and AGENTS.md agree with the lock's
+//      release-ref count and current bump endpoint,
+//   4. HEADs both URLs (404/410 means the pin expired),
+//   5. reads the latest main preview release and warns when the pin is not the
 //      newest release or is older than the refresh window (five days before
 //      the retention boundary).
 //
@@ -104,9 +106,10 @@ function usage(): void {
   console.log(`Usage: npm run remix:pin:check -- [options]
 
 Verify the remix preview release assets pinned in package.json still exist and
-are inside the refresh window. Also verifies pnpm-lock.yaml resolves
-every remix ref to the same release. Exits nonzero on lock drift or when the pin
-has expired (HTTP 404/410) so CI catches it before an install fails.
+are inside the refresh window. Also verifies pnpm-lock.yaml resolves every remix
+ref to the same release and that the pin docs agree with the lock's ref count and
+current bump endpoint. Exits nonzero on lock or doc drift or when the pin has
+expired (HTTP 404/410) so CI catches it before an install fails.
 
 Options:
   --strict   Fail on refresh-window warnings (pin is not the newest main
@@ -472,17 +475,27 @@ async function main(): Promise<void> {
   }
 
   let docIssues = checkAnalysisDoc(ROOT)
+  let expected: ReturnType<typeof readAnalysisExpectation> | undefined
+  try {
+    expected = readAnalysisExpectation(ROOT)
+  } catch {
+    // checkAnalysisDoc already reports this failure with the same derivation.
+  }
+  if (expected) docIssues.push(...checkAgentsDoc(ROOT, expected))
   if (docIssues.length > 0) {
     for (let issue of docIssues) console.error(`fail    docs: ${issue}`)
     console.error('')
-    console.error('Remix pin check failed: the analysis reference is not on the current install.')
+    console.error(
+      'Remix pin check failed: the analysis reference or AGENTS.md is not on the current install.',
+    )
     console.error(
       'Update .opencode/skills/learned/remix3/references/remix3-build-and-tooling/upstream-dependency-analysis.md',
     )
+    console.error('and AGENTS.md (current pin, current lock-ref count, and Current bump endpoint).')
     process.exitCode = 1
     return
   }
-  console.log('ok      docs: upstream-dependency-analysis.md matches the current install')
+  console.log('ok      docs: analysis reference and AGENTS.md match the current install and lock')
 
   let results = await Promise.all(pins.map((pin) => headPin(pin)))
   for (let result of results) printHeadResult(result)
