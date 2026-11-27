@@ -6,7 +6,7 @@
 **Revalidated:** 2026-11-13 against preview release `v0.20261113.33720-main-5af14d52` / source `5af14d52` (`@remix-run/node-hmr` 1.0.0, `@remix-run/assets` and `@remix-run/component-hmr` from the same release; `hmr.ts` now delegates to `createHmrReadyFetch()`; #12290 fixes nested-closure forward references).
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr`. `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the app-specific pitfalls hit while wiring and smoke-testing it; re-grep the installed `@remix-run/node-hmr` / `@remix-run/assets` before trusting a line number after a bump.
 
-## Current API anchors (release `v0.0.20261126-main-ab07c1d8`)
+## Current API anchors (release `v0.0.20261127-main-56522c2e`)
 
 - `run(entry, options)` at `@remix-run/node-hmr/dist/index.d.ts:114`; `RunOptions` at `:4` with `browserHmrChannel` at `:9`, plus `cwd`/`entryArgs`/`env`/`nodeArgs`/`watch`.
 - `createHmrReadyFetch(runner, fetch, options)` at `dist/index.d.ts:126`; `dist/index.js:17` uses `shouldRetrySafeUnavailableRequest` (`:81`) for GET/HEAD on `502/503/504` **or** a thrown error.
@@ -14,7 +14,7 @@
 - `REMIX_NODE_HMR` is injected by the runner itself (`dist/lib/runner.js:17`, `buildChildProcessEnv` at `:887`) — never set it yourself.
 - The `fingerprint cannot be used with watch mode` guard is at `@remix-run/assets/dist/lib/asset-server.js:820` (source `src/lib/asset-server.ts:1334`).
 - The browser HMR channel is an **EventSource** at `http://127.0.0.1:<HMR_PORT>/hmr` (`@remix-run/assets/dist/lib/hmr.js:90`; channel default host `127.0.0.1`, port `proxy + 1`), not a WebSocket on the proxy port.
-- `componentHmr` setup-state rewriting lives in `@remix-run/component-hmr/dist/lib/transform.js` (`createHmrImplementationBody` builds the retained setup source at `:780-810`; `rewriteReferences` at `:850`; the former `createSetupSource` helper is gone, at source `ab07c1d8`).
+- `componentHmr` setup-state rewriting lives in `@remix-run/component-hmr/dist/lib/transform.js` (`createHmrImplementationBody` builds the retained setup source at `:780-810`; `rewriteReferences` at `:860`; the former `createSetupSource` helper is gone, at source `56522c2e`).
 
 ## Problem
 
