@@ -394,6 +394,9 @@ prop lets the server render the real layout.
 **Pitfall:** an optional prop with a DOM fallback is a server crash waiting for the
 next call site that forgets it (`readData()` on the server touches `document`).
 Require the prop on the page path, or make the fallback throw a named error.
+The security-sensitive variant is silent rather than a crash: a `_csrf` meta
+fallback emits `value=""` during SSR and 403s a native submit before hydration
+(see `security-gotchas/security-middleware.md`).
 
 **First application:** `app/ui/appointment-page.tsx` (`gridData` prop),
 `app/ui/appointment-grid.browser.tsx` (props render, `data-appointment-grid` on

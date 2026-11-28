@@ -2,7 +2,7 @@
 
 **Source:** `remix-security-middleware`
 
-**Revalidated:** 2026-11-15 against preview release `v0.20261114.200722-main-3fac48ab` / source `3fac48ab` (chapter 10 re-audit). Token sources, origin-resolver semantics, and the `allowMissingOrigin` default below were re-read from the installed `@remix-run/csrf-middleware` source.
+**Revalidated:** 2026-11-15 against preview release `v0.20261114.200722-main-3fac48ab` / source `3fac48ab` (chapter 10 re-audit). Token sources, origin-resolver semantics, and the `allowMissingOrigin` default below were re-read from the installed `@remix-run/csrf-middleware` source. Updated 2026-11-28 with the SSR-rendered-token caveat (the `webhook-composer` grid edit form previously emitted an empty `_csrf` because its meta fallback ran during SSR).
 
 Covers `remix/middleware/csrf`, `remix/middleware/cors`, `remix/middleware/cop`.
 
@@ -91,7 +91,7 @@ createMiddleware(
 )
 ```
 
-**clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
+**Browser-created clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
 
 ```tsx
 <form action="/logout" method="post" id="logout-form">
@@ -115,6 +115,28 @@ createMiddleware(
   </button>
 </form>
 ```
+
+### SSR caveat: a DOM/meta fallback emits an empty token
+
+A `clientEntry` still renders on the server. If it takes an optional
+`csrfToken?: string` and falls back to
+`document.querySelector('meta[name="csrf-token"]')`, that fallback returns `''`
+during SSR (`document` is undefined), so the server emits
+`<input type="hidden" name="_csrf" value="">`. The browser patches the value only
+after hydration; a native submit before that (or with JS unavailable) gets a 403.
+Pass the token from the server and make the prop required:
+
+```tsx
+// page/controller (server-rendered):
+<WebhookComposer csrfToken={tryGetCsrfToken() ?? ''} … />
+```
+
+Do not keep a meta fallback “for safety”: it hides a missing prop and makes the
+SSR markup wrong. Regression: `app/actions/admin/webhook-requests/document.test.ts`
+asserts the grid edit composer's `_csrf` equals the session token, and
+`app/actions/admin/webhook-requests/public/webhook-composer.test.browser.tsx`
+asserts the prop value renders. The same trap applies to any security-sensitive
+SSR field (API keys, nonces), not just CSRF.
 
 ### Origin resolver semantics (app: `app/middleware/skip-csrf.ts`)
 
