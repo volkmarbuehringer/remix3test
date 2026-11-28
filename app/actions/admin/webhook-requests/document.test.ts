@@ -104,6 +104,22 @@ describe('Admin webhook requests', () => {
     assert.equal(csrf![1]!.length, 64, 'CSRF token should be the server-rendered value')
   })
 
+  it('GET /admin/webhook-requests?editing=<id> renders the edit composer CSRF token', async () => {
+    let id = await insertRow('edit-csrf')
+    let response = await router.fetch(
+      BASE + routes.admin.webhookRequests.index.href() + '?editing=' + id,
+      { headers: authHeaders() },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    let marker = html.indexOf(`action="${routes.admin.webhookRequests.update.href({ id })}"`)
+    assert.ok(marker !== -1, 'should render the edit form action')
+    let form = html.slice(html.lastIndexOf('<form', marker), html.indexOf('</form>', marker))
+    let csrf = form.match(/<input[^>]*name="_csrf"[^>]*value="([^"]*)"/)
+    assert.ok(csrf, 'should render a CSRF token')
+    assert.equal(csrf![1], csrfToken, 'should use the session token, not an empty SSR value')
+  })
+
   it('POST re-renders 400 with an inline error for an invalid payload', async () => {
     let id = await insertRow('invalid-json')
     let body = new URLSearchParams({ _csrf: csrfToken, _method: 'PUT', payload: '{ not json' })

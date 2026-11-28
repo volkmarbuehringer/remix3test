@@ -11,8 +11,8 @@ import { getTypeDragState, setTypeDragState } from '../utils/appointtype-drag.ts
 // ---------------------------------------------------------------------------
 // AppointTypePanel — the schedule page's type list (add / rename / drag arm).
 //
-// Self-contained client entry: it renders its own DOM and reads the type list
-// from the server-embedded #appointtype-data JSON on every render. The tests
+// Self-contained client entry: it renders its own DOM from server props (the
+// type list and CSRF token), refreshed by the frame after a write. The tests
 // stub window.fetch (POST/PATCH contracts) and drive the real state machine:
 // click row → focused inline rename input, Enter/blur → commit, Escape →
 // cancel; "+ Typ hinzufügen" → focused add row, empty title → silently
@@ -30,8 +30,8 @@ import { getTypeDragState, setTypeDragState } from '../utils/appointtype-drag.ts
 
 const DATA = {
   types: [
-    { id: 1, title: 'Beratung' },
-    { id: 2, title: 'Workshop' },
+    { id: 1, title: 'Beratung', user_id: 1, created_at: 0, updated_at: 0 },
+    { id: 2, title: 'Workshop', user_id: 1, created_at: 0, updated_at: 0 },
   ],
   csrfToken: 'csrf-panel',
   appointmentTypesHref: '/admin/appointment-types',
@@ -47,21 +47,11 @@ interface FetchCall {
 const originalFetch = window.fetch
 const originalConfirm = window.confirm
 
-let fixture: HTMLElement | null = null
 let result: RenderResult | null = null
 let confirmResult: RenderResult | null = null
 let controller: AbortController | null = null
 let calls: FetchCall[] = []
 let reloads = 0
-
-function mountData(): void {
-  let host = document.createElement('div')
-  host.innerHTML = `<script type="application/json" id="appointtype-data">${JSON.stringify(
-    DATA,
-  )}</script>`
-  document.body.appendChild(host)
-  fixture = host
-}
 
 function stubFetch(status = 200): void {
   calls = []
@@ -81,7 +71,11 @@ async function mountPanel(): Promise<RenderResult> {
   controller = new AbortController()
   let renderFn: (() => RemixNode) | null = null
   let handle = {
-    props: { csrfToken: DATA.csrfToken },
+    props: {
+      csrfToken: DATA.csrfToken,
+      types: DATA.types,
+      appointmentTypesHref: DATA.appointmentTypesHref,
+    },
     signal: controller.signal,
     frame: {
       reload: async () => {
@@ -93,7 +87,11 @@ async function mountPanel(): Promise<RenderResult> {
     update: () => {
       if (result && renderFn) result.root.render(<div>{renderFn()}</div>)
     },
-  } as unknown as Handle<{ csrfToken: string }>
+  } as unknown as Handle<{
+    csrfToken: string
+    types: typeof DATA.types
+    appointmentTypesHref: string
+  }>
 
   renderFn = AppointTypePanel(handle) as unknown as () => RemixNode
   result = render(<div>{renderFn()}</div>)
@@ -152,8 +150,6 @@ afterEach(() => {
   result = null
   confirmResult?.cleanup()
   confirmResult = null
-  fixture?.remove()
-  fixture = null
   setTypeDragState(null)
   // The test harness re-renders the entry through `result.root.render`, which
   // can orphan an already-mounted portal destination. Remove any leftover menu
@@ -167,7 +163,6 @@ afterEach(() => {
 
 describe('AppointTypePanel', () => {
   it('renders the server types as rows', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -177,7 +172,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('clicking a row opens an inline rename input, focused and selected', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -190,7 +184,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('Enter commits a renamed title via PATCH with the csrf header', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -211,7 +204,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('committing an unchanged title saves nothing', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -224,7 +216,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('Escape cancels the rename without a request', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -238,7 +229,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('blur commits the rename (Enter not required)', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -253,7 +243,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('the add button opens a focused add input; Enter POSTs the new type', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -275,7 +264,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('an empty add is cancelled silently', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -288,7 +276,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('Escape closes the add row', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -300,7 +287,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('a successful save reloads the frame exactly once', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -314,7 +300,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('a failing save does not reload the frame', async () => {
-    mountData()
     stubFetch(500)
     await mountPanel()
 
@@ -328,7 +313,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('pointerdown arms the shared drag store, pointerup clears it', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -340,7 +324,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('right-click pointerdown does not arm a drag', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -349,7 +332,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('drag arming is blocked while adding a type', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -360,7 +342,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('one editor at a time: a row click while adding does not open rename', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
 
@@ -372,7 +353,6 @@ describe('AppointTypePanel', () => {
   })
 
   it('deletes a type through the shared styled dialog when one is mounted', async () => {
-    mountData()
     stubFetch()
     await mountPanel()
     confirmResult = render(<ConfirmDelete />)

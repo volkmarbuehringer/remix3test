@@ -2,7 +2,6 @@ import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { max, maxLength, min, minLength } from 'remix/data-schema/checks'
 import { getCsrfToken } from 'remix/middleware/csrf'
-import { getCspNonce } from '../../middleware/security-headers.ts'
 
 import {
   listAppointmentsByWeek,
@@ -466,19 +465,12 @@ export const appointmentTypes = createController(routes.appointment.types, {
       let types = await listAppointTypes(context.db, userId)
       let csrfToken = getCsrfToken(context)
 
-      let data = JSON.stringify({
-        types,
-        csrfToken,
-        appointmentTypesHref: routes.appointment.types.index.href(),
-      })
-
       return context.render(
-        <>
-          <script id="appointtype-data" type="application/json" nonce={getCspNonce()}>
-            {data}
-          </script>
-          <AppointTypePanel csrfToken={csrfToken} />
-        </>,
+        <AppointTypePanel
+          csrfToken={csrfToken}
+          types={types}
+          appointmentTypesHref={routes.appointment.types.index.href()}
+        />,
         fragmentResponseInit(),
       )
     },

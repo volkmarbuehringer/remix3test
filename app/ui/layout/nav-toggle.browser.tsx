@@ -86,19 +86,21 @@ export const NavToggle = clientEntry(
     })
 
     return () => {
-      if (typeof document === 'undefined') return null
+      // Keep browser work out of render (guide 04 §"Server and browser work"):
+      // a re-render can replace the open dialog with a closed one, and the old
+      // modal is gone so it cannot emit `close`. Re-check after the commit and
+      // release the lock there; the marker also has to wait for the listeners.
+      handle.queueTask(() => {
+        let drawer = getDrawer()
+        let btn = document.getElementById('nav-toggle')
+        if (unlockScroll && !drawer?.open) cleanup()
+        if (!drawer || !btn) return
 
-      let drawer = getDrawer()
-      let btn = document.getElementById('nav-toggle')
-      // A re-render can replace the open dialog with a closed one; the old
-      // modal is gone and cannot emit `close`, so release the lock here.
-      if (unlockScroll && !drawer?.open) cleanup()
-      if (!drawer || !btn) return null
-
-      // Hydration marker for e2e: clicking before listeners attach is a no-op.
-      if (btn.getAttribute('data-nav-toggle-ready') !== 'true') {
-        btn.setAttribute('data-nav-toggle-ready', 'true')
-      }
+        // Hydration marker for e2e: clicking before listeners attach is a no-op.
+        if (btn.getAttribute('data-nav-toggle-ready') !== 'true') {
+          btn.setAttribute('data-nav-toggle-ready', 'true')
+        }
+      })
       return null
     }
   },

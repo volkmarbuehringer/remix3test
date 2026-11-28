@@ -25,7 +25,7 @@ export function AdminWebhookComposerPage(handle: Handle<AdminWebhookComposerPage
             {formError}
           </p>
         ) : null}
-        <WebhookComposer initialPayload={initialPayload} csrfToken={tryGetCsrfToken()} />
+        <WebhookComposer initialPayload={initialPayload} csrfToken={tryGetCsrfToken() ?? ''} />
       </div>
     )
   }

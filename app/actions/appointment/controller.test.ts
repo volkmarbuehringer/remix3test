@@ -138,6 +138,18 @@ describe('Appointment controller', () => {
         let created = await create.json()
         typeId = created.type.id as number
 
+        let page = await router.fetch(`${APPOINTMENT_URL}/types`, {
+          headers: { Cookie: auth.cookie },
+        })
+        assert.equal(page.status, 200)
+        let html = await page.text()
+        assert.ok(html.includes('data-types-panel'), 'the types panel is server-rendered')
+        assert.ok(
+          html.includes(created.type.title),
+          'the type list travels in the client entry props, not a DOM JSON blob',
+        )
+        assert.ok(!html.includes('appointtype-data'), 'the old #appointtype-data script is gone')
+
         let update = await router.fetch(`${APPOINTMENT_URL}/types/${typeId}`, {
           method: 'PATCH',
           headers: {

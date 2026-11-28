@@ -19,25 +19,9 @@ import { requestConfirm } from './confirm-delete.browser.tsx'
 
 interface AppointTypePanelProps {
   csrfToken: string
-}
-
-// ── Type for client-side data reading ──
-
-interface PanelData {
+  /** Server-rendered type list; frame reloads refresh the props. */
   types: AppointType[]
-  csrfToken: string
   appointmentTypesHref: string
-}
-
-function readData(): PanelData {
-  if (typeof document === 'undefined') return { types: [], csrfToken: '', appointmentTypesHref: '' }
-  try {
-    let el = document.getElementById('appointtype-data')
-    if (!el) return { types: [], csrfToken: '', appointmentTypesHref: '' }
-    return JSON.parse(el.textContent || '{}')
-  } catch {
-    return { types: [], csrfToken: '', appointmentTypesHref: '' }
-  }
 }
 
 // ── Component ──
@@ -54,7 +38,7 @@ export const AppointTypePanel = clientEntry(
     let typesBaseHref = ''
 
     return () => {
-      let { types, csrfToken, appointmentTypesHref } = readData()
+      let { types, csrfToken, appointmentTypesHref } = handle.props
       typesBaseHref = appointmentTypesHref
 
       let isDropActive = getPanelDropActive()

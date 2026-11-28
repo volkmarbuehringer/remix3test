@@ -11,6 +11,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
 import { PageSizeControl } from './page-size-control.tsx'
+import { tryGetCsrfToken } from './csrf-token-input.tsx'
 import { AdminRowActionsOverlay } from './admin-row-actions-overlay.browser.tsx'
 import { dataGridFill, dataGridWrap } from './mixins/data-grid.ts'
 import type { PageSizeKey } from '../utils/get-page-size.ts'
@@ -108,6 +109,7 @@ function pretty(value: unknown): string {
 export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPageProps>) {
   return () => {
     let p = handle.props
+    let csrfToken = tryGetCsrfToken() ?? ''
     let frameTarget = getSelfFrameTarget()
     let curSort = p.sortColumn
     let curOrder = p.sortDirection
@@ -435,6 +437,7 @@ export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPage
     let editPanel = editRow ? (
       <div mix={table.stickyPanel}>
         <WebhookComposer
+          csrfToken={csrfToken}
           initialPayload={p.editingPayload ?? JSON.stringify(editRow.payload)}
           editId={editRow.id}
           _offset={p.editingOffset ?? String(curOffset)}

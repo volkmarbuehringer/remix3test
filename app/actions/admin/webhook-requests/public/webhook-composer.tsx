@@ -13,10 +13,11 @@ interface WebhookComposerProps {
   editId?: string
   /**
    * Server-rendered CSRF token. The form posts natively (no fetch wrapper), so
-   * the field must be present in the SSR HTML — reading `document` during SSR
-   * used to emit an empty value and break no-JS submissions.
+   * the field must be present in the SSR HTML; a DOM read during SSR emits an
+   * empty value and breaks no-JS submissions. Required — the page always has
+   * the token.
    */
-  csrfToken?: string | undefined
+  csrfToken: string
   _offset?: string
   _sort?: string
   _order?: string
@@ -27,12 +28,6 @@ let nextId = 0
 
 function newRow(): Row {
   return { id: nextId++, key: '', value: '' }
-}
-
-/** Client-only fallback for renders without the server-rendered prop. */
-function csrfTokenFromMeta(): string {
-  if (typeof document === 'undefined') return ''
-  return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 }
 
 function payloadToRows(payload: Record<string, unknown>): Row[] {
@@ -134,7 +129,7 @@ export const WebhookComposer = clientEntry(
         <div mix={pageStyle}>
           <form method="POST" action={action} mix={formStyle}>
             <input type="hidden" name="payload" value={jsonStr} />
-            <input type="hidden" name="_csrf" value={props.csrfToken ?? csrfTokenFromMeta()} />
+            <input type="hidden" name="_csrf" value={props.csrfToken} />
             {isEdit && <input type="hidden" name="_method" value="PUT" />}
 
             {isEdit && props._offset !== undefined && (

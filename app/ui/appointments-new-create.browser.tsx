@@ -58,21 +58,19 @@ export const CreatePanelScrollLive = clientEntry(
     let lastKey: string | null = null
 
     return () => {
-      if (typeof document === 'undefined') return null
-      let panel = document.querySelector<HTMLElement>('[data-create-panel]')
-      if (!panel) return null
+      // Keep DOM reads out of render (guide 04 §"Server and browser work");
+      // rendering only discovers the work, the queued task performs it after
+      // the commit and is a no-op during SSR.
+      handle.queueTask(() => {
+        let panel = document.querySelector<HTMLElement>('[data-create-panel]')
+        if (!panel) return
 
-      let key = panel.getAttribute('data-panel-step') ?? 'panel'
-      if (key !== lastKey) {
+        let key = panel.getAttribute('data-panel-step') ?? 'panel'
+        if (key === lastKey) return
         lastKey = key
-        handle.queueTask(() => {
-          let current = document.querySelector<HTMLElement>('[data-create-panel]')
-          if (current && (current.getAttribute('data-panel-step') ?? 'panel') === key) {
-            focusPanelHeading(current)
-            revealPanel(current)
-          }
-        })
-      }
+        focusPanelHeading(panel)
+        revealPanel(panel)
+      })
       return null
     }
   },

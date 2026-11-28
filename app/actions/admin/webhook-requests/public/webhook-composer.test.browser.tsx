@@ -23,9 +23,15 @@ function formAction(result: Pick<RenderResult, 'container'>): string | null | un
   return result.container.querySelector('form')?.getAttribute('action')
 }
 
+function csrfValue(result: Pick<RenderResult, 'container'>): string | undefined {
+  return result.container.querySelector<HTMLInputElement>('input[name="_csrf"]')?.value
+}
+
 describe('WebhookComposer edit target', () => {
   it('adopts the new row when a frame reload points the entry at another edit target', async (t) => {
-    let result = render(<WebhookComposer editId="a" initialPayload='{"alpha":"1"}' />)
+    let result = render(
+      <WebhookComposer csrfToken="csrf-test" editId="a" initialPayload='{"alpha":"1"}' />,
+    )
     t.after(result.cleanup)
 
     assert.deepEqual(rowValues(result), ['alpha', '1'])
@@ -35,7 +41,15 @@ describe('WebhookComposer edit target', () => {
       'the form must submit to the row it opens with',
     )
 
-    result.root.render(<WebhookComposer editId="b" initialPayload='{"beta":"2"}' />)
+    assert.equal(
+      csrfValue(result),
+      'csrf-test',
+      'the hidden CSRF field must render the server-provided token, not a DOM read',
+    )
+
+    result.root.render(
+      <WebhookComposer csrfToken="csrf-test" editId="b" initialPayload='{"beta":"2"}' />,
+    )
     result.root.flush()
 
     assert.deepEqual(
@@ -51,7 +65,9 @@ describe('WebhookComposer edit target', () => {
   })
 
   it('keeps the in-progress draft when the same row is re-rendered', async (t) => {
-    let result = render(<WebhookComposer editId="a" initialPayload='{"alpha":"1"}' />)
+    let result = render(
+      <WebhookComposer csrfToken="csrf-test" editId="a" initialPayload='{"alpha":"1"}' />,
+    )
     t.after(result.cleanup)
 
     let input = result.container.querySelector<HTMLInputElement>('tbody input[type="text"]')
@@ -64,7 +80,9 @@ describe('WebhookComposer edit target', () => {
 
     // Same edit target: the server render may carry new navigation props, but
     // the visitor's draft stays.
-    result.root.render(<WebhookComposer editId="a" initialPayload='{"alpha":"server"}' />)
+    result.root.render(
+      <WebhookComposer csrfToken="csrf-test" editId="a" initialPayload='{"alpha":"server"}' />,
+    )
     result.root.flush()
 
     assert.deepEqual(rowValues(result), ['alpha-edited', '1'])
