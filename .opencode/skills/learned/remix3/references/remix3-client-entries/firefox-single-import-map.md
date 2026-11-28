@@ -10,7 +10,7 @@
 
 Firefox allows **one** `<script type="importmap">` per document; any additional import maps are ignored (console warning: "Multiple import maps are not allowed."). Chromium merges multiple import maps.
 
-The component runtime renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (`appendImportMapScript`: `@remix-run/component/src/runtime/frame.ts:3039` calls it, defined at `:3124`; #12314 folded `import-map-manager.ts` into `frame.ts`; re-pinned at source `0b3f4e8b`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
+The component runtime renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (`appendImportMapScript`: `@remix-run/component/src/runtime/frame.ts:3039` calls it, defined at `:3124`; #12314 folded `import-map-manager.ts` into `frame.ts`; re-pinned at source `382477df`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
 
 In Firefox the second map is ignored, so the affected client entries cannot resolve their bare-specifier imports. Symptoms:
 
