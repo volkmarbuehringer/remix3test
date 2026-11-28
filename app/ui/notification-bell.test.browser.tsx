@@ -41,6 +41,47 @@ describe('NotificationBell', () => {
     cleanup?.()
   })
 
+  it('aborts its unread-count request when the entry is disposed', async () => {
+    let original = window.fetch
+    let requestSignal: AbortSignal | undefined
+    let settle: ((response: Response) => void) | undefined
+    window.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+      requestSignal = init?.signal ?? undefined
+      return new Promise<Response>((resolve) => {
+        settle = resolve
+      })
+    }) as typeof window.fetch
+    installSseMock()
+    resetCreatedEventSources()
+
+    let result = renderBell()
+    let container = result.container
+
+    try {
+      await new Promise((r) => setTimeout(r, 10))
+      assert.ok(requestSignal, 'the count request should carry a lifetime signal')
+      assert.equal(requestSignal!.aborted, false)
+
+      result.cleanup()
+      cleanup = () => {}
+      assert.equal(requestSignal!.aborted, true, 'disposal must abort the pending count request')
+
+      settle?.(
+        new Response(JSON.stringify({ count: 5 }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      await new Promise((r) => setTimeout(r, 10))
+      assert.equal(
+        container.querySelector('[data-bell-count]'),
+        null,
+        'a late response must not paint a badge into a disposed entry',
+      )
+    } finally {
+      window.fetch = original
+    }
+  })
+
   it('shows no badge when the unread count is zero (no live events)', async () => {
     let restore = stubFetchCount(0)
     installSseMock()

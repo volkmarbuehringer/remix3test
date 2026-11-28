@@ -34,6 +34,17 @@ afterEach(() => {
 })
 
 describe('fadeOutBody', () => {
+  it('clears the body even when the fade is canceled', async (t) => {
+    t.mock.method(window, 'matchMedia', matchMedia(false))
+    let body = mountBody()
+
+    let done = fadeOutBody(body)
+    for (let animation of body.getAnimations()) animation.cancel()
+    await done
+
+    assert.equal(body.innerHTML, '', 'a canceled fade must still hand off to the fallback UI')
+  })
+
   it('skips the WAAPI fade when reduced motion is requested', async (t) => {
     t.mock.method(window, 'matchMedia', matchMedia(true))
     let body = mountBody()

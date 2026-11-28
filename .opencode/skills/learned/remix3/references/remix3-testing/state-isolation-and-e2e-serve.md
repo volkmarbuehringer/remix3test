@@ -4,7 +4,7 @@
 
 **Extracted:** 2026-09-26
 
-**Re-validated:** 2026-11-15 (guide chapter 13 re-audit; installed chapter is byte-identical between `848e2fbe` and `3fac48ab`, md5 `50f00986…`).
+**Re-validated:** 2026-11-15 (guide chapter 13 re-audit; installed chapter is byte-identical between `848e2fbe` and `3fac48ab`, md5 `50f00986…`). Node adapter boundary harness added 2026-11-28 (`app/utils/server-boundary.test.tsx`).
 
 **Context:** Writing a `remix test` server/router test that shares session or database state, or an `*.test.e2e.ts` that drives the app through Playwright.
 
@@ -45,6 +45,28 @@ Use the guide for the pattern; use these app-owned modules for the implementatio
 
 Send them the same way as the guide: `router.fetch(url, { headers: { Cookie: adminCookie } })`.
 
+**Node adapter boundary (`createRequestListener` + `onError`) needs a real HTTP server**
+
+`router.fetch()` stops at the router: it never exercises `createRequestListener`'s `onError`/abort policy, which is where the app's generic 500 page and client-disconnect handling live. Build a raw listener with the same wrapper as `server.ts`:
+
+```ts
+let handleRequest = createServerHandler(router)
+let server = http.createServer(
+  createRequestListener(
+    (request, client: ClientAddress) => handleRequest(request, client.address),
+    { onError: handleServerError },
+  ),
+)
+```
+
+Drive it with `http.request` rather than `fetch` (the abort case needs a socket you can destroy) and assert:
+
+- a throwing action → 500 HTML (`Serverfehler`), no exception detail in the body;
+- a throwing root component → `router.fetch()` rejects and `render()`'s `onError` fires, and the adapter still answers 500;
+- a client abort → the handler's `context.request.signal` aborts, cleanup settles, and `console.error`/`handleServerError` is not called.
+
+`createServerHandler` expects a string client IP, not `createRequestListener`'s `ClientAddress` object: passing it directly stamps `X-Client-Ip` as `[object Object]` (typecheck rejects it). End each test by calling `server.closeAllConnections()` before `server.close(cb)` so a destroyed socket cannot hang teardown. Live guard: `app/utils/server-boundary.test.tsx` (2026-11-28).
+
 **End-to-end (`t.serve` + `createTestServer`)**
 
 - The app form uses an arrow adapter, not the guide's direct reference: `let page = await t.serve(await createTestServer((request) => router.fetch(request)))`. Every existing `*.test.e2e.ts` (e.g. `app/actions/lists/lists-client-ops.test.e2e.ts`, `app/actions/agent-events/agent-events-frame-redirect.test.e2e.ts`) uses this shape.
@@ -57,4 +79,5 @@ Send them the same way as the guide: `router.fetch(url, { headers: { Cookie: adm
 - A router test needs an authenticated request or a multi-request session flow, and you are about to hand-roll a `Set-Cookie` parser.
 - A test mutates session or DB state and you need per-test isolation beyond the per-run ephemeral database.
 - You are adding an `*.test.e2e.ts` and need this app's `t.serve` / `createTestServer` wiring.
+- You need to test the app 500 page, render-failure rejection, or expected-abort suppression; `router.fetch()` alone never reaches the node adapter.
 - The guide's `createAppRouter` / `getResponseCookie` / SQLite examples do not match this repo and you are tempted to add them alongside the real harness.

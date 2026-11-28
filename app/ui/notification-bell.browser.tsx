@@ -32,12 +32,14 @@ export const NotificationBell = clientEntry(
       let { unreadCountUrl } = handle.props
       if (!unreadCountUrl) return
       // Ignore superseded responses: a `new` event can land while a read-event
-      // refetch is in flight, and the older count must not overwrite it.
+      // refetch is in flight, and the older count must not overwrite it. The
+      // fetch follows the entry lifetime, and a disposed entry never applies a
+      // late result (guide 12 §"Match component cleanup to the work's lifetime").
       let token = ++syncToken
-      fetch(unreadCountUrl)
+      fetch(unreadCountUrl, { signal: handle.signal })
         .then((r) => r.json())
         .then((data) => {
-          if (token !== syncToken) return
+          if (token !== syncToken || handle.signal.aborted) return
           count = typeof data?.count === 'number' ? data.count : 0
           void handle.update()
         })

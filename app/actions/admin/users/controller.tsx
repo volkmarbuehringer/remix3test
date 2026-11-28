@@ -149,16 +149,25 @@ type UsersRenderContext = {
 }
 
 /**
- * True for a browser document/native-form navigation. Frame requests carry
- * `X-Remix-Frame` and the frame resolver also sends `Accept: text/html`, so
- * check the frame header first; API and bare `fetch()` callers usually send
- * a wildcard or `application/json` Accept and keep receiving JSON guard failures.
+ * True for a rendered page interaction: a browser document/native-form
+ * navigation or a frame subrequest. Both must receive the HTML page/fragment —
+ * a JSON guard failure in a frame is a non-HTML 4xx, which the frame resolver
+ * cannot mount and replaces with the generic recovery card. API and bare
+ * `fetch()` callers usually send a wildcard or `application/json` Accept and
+ * keep receiving JSON failures.
  */
-function isDocumentRequest(request: Request): boolean {
-  if (request.headers.get('X-Remix-Frame') === 'true') return false
+function isPageRequest(request: Request): boolean {
+  if (request.headers.get('X-Remix-Frame') === 'true') return true
   if (request.headers.get('Sec-Fetch-Mode') === 'navigate') return true
   let accept = request.headers.get('Accept')?.toLowerCase() ?? ''
   return accept.includes('text/html') || accept.includes('application/xhtml+xml')
+}
+
+/** PRG back to the grid, preserving its sort/filter/status state. */
+function redirectToUsersGrid(formData: FormData): Response {
+  let params = gridStateToParams(gridStateFromFormData(formData))
+  let qs = params.toString()
+  return redirect(routes.admin.users.index.href() + (qs ? '?' + qs : ''), 303)
 }
 
 /**
@@ -463,7 +472,20 @@ export default createController(routes.admin.users, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        if (!isPageRequest(context.request)) {
+          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        }
+        flashError(context.session, 'Ungültige ID.')
+        return redirectToUsersGrid(formData)
+      }
+
+      let existingUser = (await db.findOne(users, { where: { id } })) as User | undefined
+      if (!existingUser) {
+        if (!isPageRequest(context.request)) {
+          return context.json({ ok: false, error: 'User not found' }, { status: 404 })
+        }
+        flashError(context.session, 'Benutzer nicht gefunden.')
+        return redirectToUsersGrid(formData)
       }
 
       let rawValues = readFormFieldValues(USERS_FORM_KEYS, formData)
@@ -526,7 +548,7 @@ export default createController(routes.admin.users, {
         if (currentUser && currentUser.disabled_at == null) {
           let reason = await disableGuardReason(db, currentUser, getAdminIdentity(context.auth))
           if (reason) {
-            if (!isDocumentRequest(context.request)) {
+            if (!isPageRequest(context.request)) {
               return context.json({ ok: false, error: reason, field: 'disabled' }, { status: 403 })
             }
             return renderUsersError(context, {
@@ -556,8 +578,7 @@ export default createController(routes.admin.users, {
       }
       if (fields.password) {
         changes.password_hash = await hashPassword(fields.password)
-        let currentUser = (await db.find(users, id)) as { token_version: number } | undefined
-        changes.token_version = (currentUser?.token_version ?? 0) + 1
+        changes.token_version = existingUser.token_version + 1
       }
 
       // The credential change, its API-token wipe, and the audit row are one
@@ -598,7 +619,7 @@ export default createController(routes.admin.users, {
       let formData = context.formData
 
       let rejected = (message: string): Response | Promise<Response> => {
-        if (!isDocumentRequest(context.request)) {
+        if (!isPageRequest(context.request)) {
           return context.json({ ok: false, error: message }, { status: 403 })
         }
         let rawValues = {
@@ -622,12 +643,20 @@ export default createController(routes.admin.users, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        if (!isPageRequest(context.request)) {
+          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        }
+        flashError(context.session, 'Ungültige ID.')
+        return redirectToUsersGrid(formData)
       }
 
       let existing = await db.findOne(users, { where: { id } })
       if (!existing) {
-        return context.json({ ok: false, error: 'User not found' }, { status: 404 })
+        if (!isPageRequest(context.request)) {
+          return context.json({ ok: false, error: 'User not found' }, { status: 404 })
+        }
+        flashError(context.session, 'Benutzer nicht gefunden.')
+        return redirectToUsersGrid(formData)
       }
 
       let authIdentity = getAdminIdentity(context.auth)

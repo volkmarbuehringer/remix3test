@@ -763,6 +763,76 @@ describe('Admin Users Controller', () => {
       )
     })
 
+    it('PRGs a native update of a missing row back to the grid with a flash', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        name: 'Ghost',
+        email: `ghost-${Date.now()}@example.com`,
+        role: 'customer',
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/9999999`, {
+        method: 'PUT',
+        headers: {
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 303, 'a missing row must not look like a successful update')
+      assert.ok((response.headers.get('Location') ?? '').startsWith('/admin/users'))
+      let rawSid = await readSessionId(fresh.cookie)
+      let session = await sessionStorage.read(rawSid)
+      assert.match(String(session.get('error') ?? ''), /Benutzer nicht gefunden/)
+    })
+
+    it('follows a frame update of a missing row into the grid with the flash', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        name: 'Ghost',
+        email: `ghost-frame-${Date.now()}@example.com`,
+        role: 'customer',
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/9999999`, {
+        method: 'PUT',
+        headers: {
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Accept: 'text/html',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 200, 'the in-frame PRG follow renders the grid')
+      let redirectTo = response.headers.get('X-Remix-Redirect-To') ?? ''
+      assert.ok(
+        redirectTo.includes('/admin/users'),
+        'the client must reconcile the frame src to the grid',
+      )
+      let html = await response.text()
+      assert.ok(html.includes('Benutzer nicht gefunden.'), 'the frame shows the localized flash')
+      assert.ok(!html.includes('<html'), 'a frame response must stay a fragment')
+    })
+
     it('rejects disabling your own account (403)', async () => {
       let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
       let adminId = adminRow.rows[0]?.id
@@ -835,7 +905,7 @@ describe('Admin Users Controller', () => {
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
     })
 
-    it('keeps JSON for a framed self-disable guard failure', async () => {
+    it('renders a framed self-disable guard failure as an HTML fragment', async () => {
       let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
       let adminId = adminRow.rows[0]?.id
       assert.ok(adminId, 'admin user must exist')
@@ -864,10 +934,14 @@ describe('Admin Users Controller', () => {
         body: body.toString(),
       })
 
+      // A JSON 403 is a non-HTML 4xx, which the frame resolver replaces with
+      // the generic recovery card; a frame form needs the grid fragment.
       assert.equal(response.status, 403)
-      let json = await response.json()
-      assert.equal(json.ok, false)
-      assert.match(json.error, /eigene Konto/)
+      assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+      let html = await response.text()
+      assert.ok(html.includes('Das eigene Konto kann nicht deaktiviert werden.'))
+      assert.ok(html.includes('data-users-table'), 'the grid fragment is re-rendered')
+      assert.ok(!html.includes('<html'), 'a frame response must stay a fragment')
     })
 
     it('renders a localized 403 document for the last-admin disable guard', async (t) => {
@@ -1249,6 +1323,67 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 404)
     })
 
+    it('PRGs a native delete of a missing row back to the grid with a flash', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/9999999`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 303, 'a native form must not receive a JSON 404')
+      let location = response.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/admin/users'))
+      assert.ok(location.includes('sort=name'), 'the grid state is preserved')
+      let rawSid = await readSessionId(fresh.cookie)
+      let session = await sessionStorage.read(rawSid)
+      assert.match(String(session.get('error') ?? ''), /Benutzer nicht gefunden/)
+    })
+
+    it('follows a frame delete of a missing row into the grid with the flash', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/9999999`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Accept: 'text/html',
+        },
+        body: body.toString(),
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('Benutzer nicht gefunden.'), 'the frame shows the localized flash')
+      assert.ok(!html.includes('<html'), 'a frame response must stay a fragment')
+    })
+
     it('preserves filter=disabled after delete', async () => {
       let email = `test-del-filter-${Date.now()}@example.com`
       let id = await createTestUser(email)
@@ -1326,6 +1461,41 @@ describe('Admin Users Controller', () => {
 
       let result = await pool.query('SELECT id FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows.length, 1, 'the signed-in admin must remain in the database')
+    })
+
+    it('renders a frame guard failure as an HTML fragment, not JSON', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'admin-content',
+          Accept: 'text/html',
+        },
+        body: body.toString(),
+      })
+
+      // A JSON 403 is a non-HTML 4xx: the frame resolver cannot mount it and
+      // shows the generic recovery card instead of the localized guard message.
+      assert.equal(response.status, 403)
+      assert.match(response.headers.get('Content-Type') ?? '', /text\/html/)
+      let html = await response.text()
+      assert.ok(html.includes('Das eigene Konto kann nicht gelöscht werden.'))
+      assert.ok(html.includes('data-users-table'), 'the grid fragment is re-rendered')
+      assert.ok(!html.includes('<html'), 'a frame response must stay a fragment')
     })
 
     it('renders a localized 403 document for the last-admin delete guard', async (t) => {

@@ -25,6 +25,11 @@ export async function fadeOutBody(body: HTMLElement = document.body): Promise<vo
     { ...spring('snappy') },
   )
 
-  await animation.finished
+  try {
+    await animation.finished
+  } catch {
+    // A canceled fade must not block the caller's fallback UI; clear the body
+    // so the fatal card can mount either way.
+  }
   body.innerHTML = ''
 }
